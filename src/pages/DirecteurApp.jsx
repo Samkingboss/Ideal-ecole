@@ -21,7 +21,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [showModal, setShowModal] = useState(null)
-  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'' })
+  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000 })
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
   const [newPlan, setNewPlan] = useState({ classe_id:'', periode_id:'', langue:'fr', objectives:[] })
   const [newEvenement, setNewEvenement] = useState({ titre:'', date_event:'', description:'' })
@@ -339,18 +339,27 @@ export default function DirecteurApp({ user, onLogout }) {
         <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
           <div className="modal">
             <div className="modal-handle"></div>
-            <div className="modal-title">Nouveau compte</div>
-            <div className="form-group">
-              <label className="form-label">Role</label>
+            <div className="modal-title">Nouveau membre de l'équipe</div>
+            <div className="form-group"><label className="form-label">Prénom</label><input className="form-input" value={newProf.prenom} onChange={e=>setNewProf({...newProf,prenom:e.target.value})} /></div>
+            <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newProf.nom} onChange={e=>setNewProf({...newProf,nom:e.target.value})} /></div>
+            <div className="form-group"><label className="form-label">Rôle</label>
               <select className="form-select" value={newProf.role} onChange={e=>setNewProf({...newProf,role:e.target.value})}>
-                <option value="professeur">Professeur</option>
+                <option value="professeur">Professeur / Enseignant</option>
                 <option value="surveillant">Surveillant</option>
               </select>
             </div>
-            <div className="form-row">
-              <div className="form-group"><label className="form-label">Prenom</label><input className="form-input" value={newProf.prenom} onChange={e=>setNewProf({...newProf,prenom:e.target.value})} /></div>
-              <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newProf.nom} onChange={e=>setNewProf({...newProf,nom:e.target.value})} /></div>
-            </div>
+
+            {newProf.role === 'professeur' && (
+              <div className="form-group">
+                <label className="form-label">Catégorie de paie (Mensuel)</label>
+                <select className="form-select" value={newProf.plafond_salaire || 180000} onChange={e=>setNewProf({...newProf, plafond_salaire: parseInt(e.target.value, 10)})}>
+                  <option value="180000">Professeur du primaire (180.000 FCFA)</option>
+                  <option value="150000">Maîtresse (150.000 FCFA)</option>
+                  <option value="80000">Assistante (80.000 FCFA)</option>
+                </select>
+              </div>
+            )}
+
             {newProf.role === 'professeur' && (
               <div className="form-group">
                 <label className="form-label">Langue enseignee</label>

@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
+const RECREE_CHECKS = [
+  { id:'outils', label:'Outils pédagogiques rangés' },
+  { id:'tables', label:'Tables-bancs bien rangés' },
+  { id:'ventilo', label:'Ventilateur éteint' },
+  { id:'fermee', label:'Salle fermée à clé' },
+  { id:'cle', label:'Clé déposée à l\'heure' },
+]
+
 const TABS = [
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'checkpoint', icon:'✅', label:'Check-point' },
@@ -71,7 +79,7 @@ export default function ProfApp({ user, onLogout }) {
     setCheckpoints(cp || [])
     // Load performances
     const { data: perfsData } = await supabase.from('performances')
-      .select('*').eq('prof_id', user.id).order('date_jour', { ascending: false }).limit(30)
+      .select('*, recrees(*)').eq('prof_id', user.id).order('date_jour', { ascending: false }).limit(30)
     setMyPerfs(perfsData || [])
   }
 
@@ -391,18 +399,115 @@ export default function ProfApp({ user, onLogout }) {
         {tab === 'perfs' && (
           <>
             <div className="section-head"><div className="section-title">Mes Performances</div></div>
-            {myPerfs.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">⭐</div><p>Aucune donnee de performance. Le surveillant saisit les informations quotidiennes.</p></div>
-            ) : myPerfs.slice(0,10).map(perf => {
-              const ponct = perf.heure_arrivee ? (perf.heure_arrivee <= '07:30' ? 30 : perf.heure_arrivee <= '08:00' ? 25 : 0) : 0
+            
+            {/* Tableau de bord financier mensuel */}
+            {(() => {
+              const currentMonth = new Date().getMonth();
+              const currentYear = new Date().getFullYear();
+              const monthPerfs = myPerfs.filter(p => {
+                const d = new Date(p.date_jour);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear && p.valide;
+              });
+              
+              const totalMonthPoints = monthPerfs.reduce((acc, perf) => {
+                const ponct = perf.heure_arrivee ? (perf.heure_arrivee <= '07:30' ? 30 : perf.heure_arrivee <= '08:00' ? 25 : 0) : 0;
+                let gestion = perf.sacs_accroches ? 4 : 0;
+                (perf.recrees || []).forEach(r => {
+                  const checkedCount = RECREE_CHECKS.filter(c => r[c.id]).length;
+                  gestion += checkedCount + (checkedCount === 5 ? 2 : 0);
+                });
+                const preparation = perf.preparation || 0;
+                return acc + (ponct + gestion + preparation);
+              }, 0);
+
+              const maxPointsPossible = monthPerfs.length * 75;
+              const pourcentage = maxPointsPossible > 0 ? (totalMonthPoints / maxPointsPossible) : 0;
+              
+              // Base de salaire max selon le statut. 
+              // Fallback à 180000 si le statut n'est pas encore défini dans la BDD.
+              const plafondSalaire = user.plafond_salaire || 180000; 
+              
+              const gainEstime = Math.round(plafondSalaire * pourcentage);
+              const pourcentageAffiche = Math.round(pourcentage * 100);
+              const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
               return (
-                <div key={perf.id} className="card" style={{marginBottom:8}}>
-                  <div style={{padding:'.8rem 1rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600}}>{new Date(perf.date_jour).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'})}</div>
-                      <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Arrivee: {perf.heure_arrivee||'—'} · Depart: {perf.heure_depart||'—'}</div>
+                <div className="card" style={{marginBottom: 20, background: 'linear-gradient(135deg, #1565a0, #0d2a3b)', color: '#fff', border: 'none'}}>
+                  <div style={{padding: '1.2rem', textAlign: 'center'}}>
+                    <div style={{fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(255,255,255,.7)', marginBottom: 12}}>Bilan de {moisNoms[currentMonth]} {currentYear}</div>
+                    
+                    <div style={{display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: 16}}>
+                      <div>
+                        <div style={{fontSize: 28, fontWeight: 900}}>{totalMonthPoints} <span style={{fontSize:14,color:'rgba(255,255,255,.5)'}}>/{maxPointsPossible}</span></div>
+                        <div style={{fontSize: 11, color: 'rgba(255,255,255,.7)'}}>Points validés</div>
+                      </div>
+                      <div style={{height: 40, width: 1, background: 'rgba(255,255,255,.2)'}}></div>
+                      <div>
+                        <div style={{fontSize: 28, fontWeight: 900, color: pourcentageAffiche >= 80 ? '#4caf50' : pourcentageAffiche >= 60 ? '#ffb74d' : '#ff5252'}}>{pourcentageAffiche}%</div>
+                        <div style={{fontSize: 11, color: 'rgba(255,255,255,.7)'}}>Taux de réussite</div>
+                      </div>
                     </div>
-                    <span style={{fontSize:13,fontWeight:700,color:ponct>=25?'var(--green)':'var(--red)'}}>{ponct}/30 pts</span>
+                    
+                    <div style={{background: 'rgba(0,0,0,.3)', borderRadius: 12, padding: '12px', marginTop: 10}}>
+                      <div style={{fontSize: 12, color: 'rgba(255,255,255,.7)', marginBottom: 6}}>Salaire Performé (ce mois-ci)</div>
+                      <div style={{fontSize: 28, fontWeight: 900, color: '#ffd700'}}>{gainEstime.toLocaleString('fr-FR')} FCFA</div>
+                      <div style={{fontSize: 10, color: 'rgba(255,255,255,.4)', marginTop: 6, fontStyle: 'italic'}}>(Calculé sur un plafond de {plafondSalaire.toLocaleString('fr-FR')} FCFA)</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {myPerfs.length === 0 ? (
+              <div className="empty-state"><div className="empty-icon">⭐</div><p>Aucune donnée de performance. Le surveillant saisit les informations quotidiennes.</p></div>
+            ) : myPerfs.slice(0,10).map(perf => {
+              const ponct = perf.heure_arrivee ? (perf.heure_arrivee <= '07:30' ? 30 : perf.heure_arrivee <= '08:00' ? 25 : 0) : 0;
+              let gestion = perf.sacs_accroches ? 4 : 0;
+              (perf.recrees || []).forEach(r => {
+                const checkedCount = RECREE_CHECKS.filter(c => r[c.id]).length;
+                gestion += checkedCount + (checkedCount === 5 ? 2 : 0); // Bonus +2 if all 5 are checked
+              });
+              const preparation = perf.preparation || 0;
+              const total = ponct + gestion + preparation;
+              const barColor = total >= 60 ? 'var(--green)' : total >= 40 ? 'var(--amber)' : 'var(--red)';
+              
+              let msgMotivation = "";
+              if (total >= 60) msgMotivation = "Excellent travail aujourd'hui ! Votre rigueur est un modèle pour tous. Continuez sur cette belle lancée ! 🌟";
+              else if (total >= 40) msgMotivation = "C'est une bonne journée ! Vous êtes sur la bonne voie. Quelques petits détails à peaufiner pour atteindre l'excellence demain. 💪";
+              else msgMotivation = "Courage ! Aujourd'hui a peut-être été plus difficile, mais chaque jour est une occasion de faire mieux. L'équipe est là pour vous soutenir ! ❤️";
+
+              return (
+                <div key={perf.id} className="card" style={{marginBottom:12, borderTop: `4px solid ${barColor}`}}>
+                  <div style={{padding:'.8rem 1rem'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:800}}>{new Date(perf.date_jour).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'})}</div>
+                        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Arrivée : {perf.heure_arrivee||'—'} · Départ : {perf.heure_depart||'—'}</div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:18,fontWeight:900,color:barColor}}>{total}/75</div>
+                        <div style={{fontSize:10,color:'var(--muted)'}}>TOTAL</div>
+                      </div>
+                    </div>
+                    
+                    <div style={{background:'var(--bg)', borderRadius:8, padding:'10px', marginBottom:12}}>
+                      <div style={{display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6}}>
+                        <span style={{color:'var(--muted)'}}>⏱️ Ponctualité</span>
+                        <span style={{fontWeight:700}}>{ponct}/30 pts</span>
+                      </div>
+                      <div style={{display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6}}>
+                        <span style={{color:'var(--muted)'}}>🧹 Gestion de classe</span>
+                        <span style={{fontWeight:700}}>{gestion}/25 pts</span>
+                      </div>
+                      <div style={{display:'flex', justifyContent:'space-between', fontSize:12}}>
+                        <span style={{color:'var(--muted)'}}>📚 Préparation</span>
+                        <span style={{fontWeight:700}}>{preparation}/20 pts</span>
+                      </div>
+                    </div>
+
+                    <div style={{fontSize:12, fontStyle:'italic', color:'var(--muted)', lineHeight:1.4, textAlign:'center'}}>
+                      "{msgMotivation}"
+                    </div>
                   </div>
                 </div>
               )
