@@ -19,6 +19,7 @@ export default function SurveillantApp({ user, onLogout }) {
   const [profs, setProfs] = useState([])
   const [today] = useState(new Date().toISOString().slice(0,10))
   const [performances, setPerformances] = useState({})
+  const [preparations, setPreparations] = useState({})
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { loadData() }, [])
@@ -31,6 +32,22 @@ export default function SurveillantApp({ user, onLogout }) {
     const perfMap = {}
     ;(perfs||[]).forEach(p => { perfMap[p.prof_id] = p })
     setPerformances(perfMap)
+
+    // Load today's preparations (for grading)
+    const { data: preps } = await supabase.from('preparations').select('*').eq('date_cours', today)
+    const prepMap = {}
+    ;(preps||[]).forEach(p => { prepMap[p.user_id] = p })
+    setPreparations(prepMap)
+  }
+
+  const applyIaNote = async (profId) => {
+    const prep = preparations[profId]
+    if (!prep || performances[profId]?.valide) return
+    setSaving(true)
+    const note = prep.note_ia || 0
+    await supabase.from('performances').upsert({ prof_id: profId, date_jour: today, preparation: note }, { onConflict: 'prof_id,date_jour' })
+    setPerformances(prev => ({ ...prev, [profId]: { ...(prev[profId]||{}), preparation: note } }))
+    setSaving(false)
   }
 
   const getOrCreate = async (profId) => {
@@ -176,7 +193,26 @@ export default function SurveillantApp({ user, onLogout }) {
                   </div>
                 </div>
 
+                {/* Préparation de cours (IA) */}
+                <div style={{marginBottom:15, padding:10, background:'rgba(26,175,224,.05)', borderRadius:12}}>
+                  <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>📚 Préparation IA ({perf.preparation || 0}/20 pts)</div>
+                  {preparations[prof.id] ? (
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12, fontWeight:700, color:'var(--accent)'}}>Note IA : {preparations[prof.id].note_ia}/20</div>
+                        <div style={{fontSize:10, color:'var(--muted)', fontStyle:'italic'}}>"{preparations[prof.id].commentaire_ia}"</div>
+                      </div>
+                      <button className="btn-sm" disabled={perf.valide || perf.preparation === preparations[prof.id].note_ia} onClick={() => applyIaNote(prof.id)}>
+                        {perf.preparation === preparations[prof.id].note_ia ? 'Appliquée' : 'Appliquer'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{fontSize:11, color:'var(--red)'}}>Pas de préparation reçue pour aujourd'hui</div>
+                  )}
+                </div>
+
                 {/* Gestion classe */}
+
                 <div>
                   <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Gestion de classe ({gestion}/25 pts)</div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>

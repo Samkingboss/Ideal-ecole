@@ -29,12 +29,13 @@ export default function DirecteurApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
+  const [preparations, setPreparations] = useState([])
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
     const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }, { data: param }] = await Promise.all([
+    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }, { data: param }, { data: prep }] = await Promise.all([
       supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
       supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
       supabase.from('classes').select('*').order('ordre'),
@@ -42,9 +43,12 @@ export default function DirecteurApp({ user, onLogout }) {
       supabase.from('planifications').select('*, classes(nom), periodes(nom), objectifs(*)'),
       supabase.from('evenements').select('*').order('date_event', { ascending: true }),
       supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
-      supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
+      supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle(),
+      supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false })
     ])
     if (param) setJoursOuvresGlobal(param.jours_ouvres);
+    setPreparations(prep || [])
+
     setProfs(u || [])
     setEleves(el || [])
     setClasses(cl || [])
@@ -345,10 +349,37 @@ export default function DirecteurApp({ user, onLogout }) {
         )}
 
         {tab === 'perfs' && (
-          <div className="empty-state">
-            <div className="empty-icon">⭐</div>
-            <p>Consultez les performances dans l onglet Stats de l application mobile.</p>
-          </div>
+          <>
+            <div className="section-head"><div className="section-title">Suivi des Préparations (IA)</div></div>
+            <div className="card" style={{marginBottom:20}}>
+              <div style={{padding:0}}>
+                {preparations.length === 0 ? (
+                  <div className="empty-state">📝<p>Aucune préparation envoyée pour le moment.</p></div>
+                ) : (
+                  <table style={{width:'100%', borderCollapse:'collapse'}}>
+                    <thead>
+                      <tr style={{background:'var(--bg)', borderBottom:'1px solid var(--border)'}}>
+                        <th style={{padding:'10px', fontSize:11, textAlign:'left'}}>Professeur</th>
+                        <th style={{padding:'10px', fontSize:11, textAlign:'left'}}>Classe / Date</th>
+                        <th style={{padding:'10px', fontSize:11, textAlign:'center'}}>Note IA</th>
+                        <th style={{padding:'10px', fontSize:11, textAlign:'right'}}>Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preparations.slice(0, 20).map(p => (
+                        <tr key={p.id} style={{borderBottom:'1px solid var(--border)'}}>
+                          <td style={{padding:'10px', fontSize:12, fontWeight:600}}>{p.users?.prenom} {p.users?.nom}</td>
+                          <td style={{padding:'10px', fontSize:11, color:'var(--muted)'}}>{p.classes?.nom} / {new Date(p.date_cours).toLocaleDateString()}</td>
+                          <td style={{padding:'10px', fontSize:13, fontWeight:900, textAlign:'center', color:'var(--accent)'}}>{p.note_ia}/20</td>
+                          <td style={{padding:'10px', fontSize:10, textAlign:'right', color: p.status.includes('retard') ? 'var(--red)' : 'var(--green)'}}>{p.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </div>
 

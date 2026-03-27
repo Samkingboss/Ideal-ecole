@@ -15,6 +15,7 @@ const TABS = [
   { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'messages', icon:'💬', label:'Messages' },
+  { id:'prepas', icon:'📝', label:'Préparations' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
 ]
 
@@ -39,6 +40,8 @@ export default function ProfApp({ user, onLogout }) {
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [joursOuvresForce, setJoursOuvresForce] = useState(null)
+  const [preparations, setPreparations] = useState([])
+  const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
 
   useEffect(() => { loadData() }, [])
 
@@ -85,6 +88,13 @@ export default function ProfApp({ user, onLogout }) {
     const { data: perfsData } = await supabase.from('performances')
       .select('*, recrees(*)').eq('prof_id', user.id).order('date_jour', { ascending: false }).limit(30)
     setMyPerfs(perfsData || [])
+
+    // Load preparations
+    const { data: prepData } = await supabase.from('preparations')
+      .select('*, classes(nom)')
+      .eq('user_id', user.id)
+      .order('heure_depot', { ascending: false })
+    setPreparations(prepData || [])
   }
 
   const getCurrentPlan = () => {
@@ -95,6 +105,85 @@ export default function ProfApp({ user, onLogout }) {
   const getClasseEleves = () => {
     if (!selectedClasse) return []
     return eleves.filter(e => e.classe_id === selectedClasse.id)
+  }
+
+
+  const analyzeWithGemini = async (fileUrl, textContent = "") => {
+    const GEMINI_API_KEY = "AIzaSyDFY2r9DX0OmzIAgvWBAYl-BU1RWNo96n0";
+    const prompt = `Tu es un inspecteur pédagogique rigoureux pour l'école IDEAL. 
+    Analyse cette préparation de cours. 
+    Critères : 
+    1. Présence d'objectifs pédagogiques clairs (5 pts)
+    2. Pertinence des activités proposées (5 pts)
+    3. Utilisation de matériel didactique (5 pts)
+    4. Qualité de la langue et structure (5 pts)
+    Donne une note sur 20 et un commentaire constructif court (2 phrases max).
+    Réponds EXCLUSIVEMENT au format JSON suivant : {"note": 18, "commentaire": "Texte ici"}`;
+
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt + (textContent ? "\nContenu : " + textContent : "\nDocument : " + fileUrl) }] }]
+        })
+      });
+      const data = await resp.json();
+      const resultText = data.candidates[0].content.parts[0].text;
+      const jsonMatch = resultText.match(/\{.*\}/s);
+      return JSON.parse(jsonMatch ? jsonMatch[0] : resultText);
+    } catch (e) {
+      console.error("Gemini Error:", e);
+      return { note: 10, commentaire: "Erreur d'analyse IA. Note par défaut." };
+    }
+  }
+
+  const uploadPrepa = async () => {
+    if (!newPrepa.file || !newPrepa.classe_id) return alert("Fichier et classe requis");
+    setLoading(true);
+    try {
+      const file = newPrepa.file;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `preparations/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath);
+
+      const iaResult = await analyzeWithGemini(publicUrl);
+
+      const dateCours = new Date(`${newPrepa.date_cours}T${newPrepa.heure_cours}`);
+      const limitDate = new Date(dateCours.getTime() - (10 * 60 * 60 * 1000));
+      const now = new Date();
+      
+      let noteFinale = iaResult.note;
+      let status = 'acceptable';
+      if (now > limitDate) {
+        noteFinale = Math.max(0, noteFinale - 5); 
+        status = 'rejeté (retard)';
+      }
+
+      const { error } = await supabase.from('preparations').insert({
+        user_id: user.id,
+        classe_id: newPrepa.classe_id,
+        date_cours: newPrepa.date_cours,
+        heure_cours: newPrepa.heure_cours,
+        url_doc: publicUrl,
+        note_ia: noteFinale,
+        commentaire_ia: iaResult.commentaire,
+        status: status
+      });
+
+      if (error) throw error;
+      setMsgEleve("Préparation envoyée et notée par l'IA !");
+      loadData();
+      setNewPrepa({ ...newPrepa, file: null });
+    } catch (e) {
+      alert("Erreur: " + e.message);
+    }
+    setLoading(false);
   }
 
   const openCheckpoint = () => {
@@ -397,6 +486,55 @@ export default function ProfApp({ user, onLogout }) {
             <button className="btn btn-wa btn-primary" onClick={()=>sendWhatsApp(msgEleve)} disabled={!msgEleve}>
               📲 Envoyer via WhatsApp
             </button>
+          </>
+        )}
+
+        {tab === 'prepas' && (
+          <>
+            <div className="section-head"><div className="section-title">Mes Préparations (IA)</div></div>
+            <div className="card" style={{marginBottom:16, background:'rgba(26,175,224,.05)'}}>
+              <div style={{padding:'1rem'}}>
+                <div className="form-group"><label className="form-label">Classe</label>
+                  <select className="form-select" value={newPrepa.classe_id} onChange={e=>setNewPrepa({...newPrepa, classe_id: e.target.value})}>
+                    <option value="">Sélectionner une classe</option>
+                    {classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
+                  </select>
+                </div>
+                <div style={{display:'flex', gap:10}}>
+                  <div className="form-group" style={{flex:1}}><label className="form-label">Date du cours</label><input type="date" className="form-input" value={newPrepa.date_cours} onChange={e=>setNewPrepa({...newPrepa, date_cours: e.target.value})} /></div>
+                  <div className="form-group" style={{flex:1}}><label className="form-label">Heure du cours</label><input type="time" className="form-input" value={newPrepa.heure_cours} onChange={e=>setNewPrepa({...newPrepa, heure_cours: e.target.value})} /></div>
+                </div>
+                <div className="form-group"><label className="form-label">Fichier (PDF ou Image)</label><input type="file" className="form-input" onChange={e=>setNewPrepa({...newPrepa, file: e.target.files[0]})} /></div>
+                <button className="btn btn-primary" onClick={uploadPrepa} disabled={loading}>{loading?'Analyse IA en cours...':'Envoyer pour Notation'}</button>
+                <div style={{fontSize:10, color:'var(--muted)', marginTop:8, textAlign:'center'}}>
+                  ⚠️ Doit être envoyé au moins 10h avant le début du cours.
+                </div>
+              </div>
+            </div>
+
+            {preparations.length === 0 ? (
+              <div className="empty-state">📝<p>Aucune préparation envoyée.</p></div>
+            ) : preparations.map(p => (
+              <div key={p.id} className="card" style={{marginBottom:12}}>
+                <div style={{padding:'1rem'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                    <span style={{fontSize:13,fontWeight:700}}>{p.classes?.nom}</span>
+                    <span style={{fontSize:12,color:p.status.includes('retard')?'var(--red)':'var(--green)'}}>{p.status}</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:15}}>
+                    <div style={{textAlign:'center',background:'var(--bg)',padding:'10px',borderRadius:10, minWidth:60}}>
+                      <div style={{fontSize:20,fontWeight:900,color:'var(--accent)'}}>{p.note_ia}/20</div>
+                      <div style={{fontSize:10,color:'var(--muted)'}}>NOTE IA</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Cours du {new Date(p.date_cours).toLocaleDateString()} à {p.heure_cours}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.3}}>"{p.commentaire_ia}"</div>
+                    </div>
+                  </div>
+                  <a href={p.url_doc} target="_blank" rel="noreferrer" style={{display:'block',marginTop:10,fontSize:11,color:'var(--accent)',textDecoration:'none'}}>👁️ Voir le document</a>
+                </div>
+              </div>
+            ))}
           </>
         )}
 
