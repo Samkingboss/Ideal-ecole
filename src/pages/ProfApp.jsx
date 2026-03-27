@@ -1,3 +1,4 @@
+import PreparationIA from './PreparationIA'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -17,6 +18,7 @@ const TABS = [
   { id:'messages', icon:'💬', label:'Messages' },
   { id:'prepas', icon:'📝', label:'Préparations' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
+  { id:'preparation', icon:'📋', label:'Préparations' },
 ]
 
 export default function ProfApp({ user, onLogout }) {
@@ -554,6 +556,10 @@ export default function ProfApp({ user, onLogout }) {
               </div>
             ))}
           </>
+        )}
+
+        {tab === 'preparation' && (
+          <PreparationIA user={user} />
         )}
 
         {tab === 'perfs' && (
