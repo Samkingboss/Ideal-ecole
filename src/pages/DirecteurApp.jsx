@@ -20,6 +20,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [planifications, setPlanifications] = useState([])
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
+  const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
   const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000 })
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
@@ -32,7 +33,8 @@ export default function DirecteurApp({ user, onLogout }) {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }] = await Promise.all([
+    const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }, { data: param }] = await Promise.all([
       supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
       supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
       supabase.from('classes').select('*').order('ordre'),
@@ -40,7 +42,9 @@ export default function DirecteurApp({ user, onLogout }) {
       supabase.from('planifications').select('*, classes(nom), periodes(nom), objectifs(*)'),
       supabase.from('evenements').select('*').order('date_event', { ascending: true }),
       supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
+      supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
     ])
+    if (param) setJoursOuvresGlobal(param.jours_ouvres);
     setProfs(u || [])
     setEleves(el || [])
     setClasses(cl || [])
@@ -66,6 +70,15 @@ export default function DirecteurApp({ user, onLogout }) {
     const { error } = await supabase.from('users').insert({ ...newProf, code_acces: code, actif: true })
     if (error) { setMsg('Erreur: ' + error.message) } else { setMsg('Compte cree! Code: ' + code); loadData(); setShowModal(null) }
     setLoading(false)
+  }
+
+  const saveJoursOuvres = async () => {
+    setLoading(true);
+    const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const { error } = await supabase.from('parametres_mois').upsert({ mois: currentMoisStr, jours_ouvres: joursOuvresGlobal }, { onConflict: 'mois' });
+    if (error) setMsg('Erreur: ' + error.message);
+    else setMsg('Configurations financières mises à jour !');
+    setLoading(false);
   }
 
   const saveEleve = async () => {
@@ -275,7 +288,20 @@ export default function DirecteurApp({ user, onLogout }) {
 
         {tab === 'agenda' && (
           <>
-            <div className="section-head"><div className="section-title">Agenda & Calendrier</div></div>
+            <div className="section-head"><div className="section-title">Agenda & Configuration</div></div>
+            
+            <div className="card" style={{marginBottom:16, background:'rgba(26,175,224,.05)'}}>
+              <div className="card-header" style={{color:'var(--accent)'}}>Finance : Jours ouvrés du mois en cours</div>
+              <div style={{padding:'1rem'}}>
+                <p style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Ce chiffre sert de base absolue pour le calcul du salaire des professeurs ce mois-ci. Vous pouvez le modifier pour déduire les congés ou vacances du mois.</p>
+                <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                  <input type="number" className="form-input" style={{width:80}} value={joursOuvresGlobal} onChange={e => setJoursOuvresGlobal(parseInt(e.target.value, 10))} />
+                  <span style={{fontSize:13, fontWeight:600}}>jours réels de travail</span>
+                  <button className="btn-sm" onClick={saveJoursOuvres} disabled={loading} style={{marginLeft:'auto', background:'var(--accent)', color:'#fff', border:'none'}}>{loading?'...':'Sauvegarder'}</button>
+                </div>
+              </div>
+            </div>
+
             <div className="card" style={{marginBottom:16}}>
               <div className="card-header">Calendrier Scolaire (PDF)</div>
               <div style={{padding:'1rem'}}>

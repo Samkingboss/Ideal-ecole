@@ -38,17 +38,21 @@ export default function ProfApp({ user, onLogout }) {
   const [myPerfs, setMyPerfs] = useState([])
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
+  const [joursOuvresForce, setJoursOuvresForce] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    const [{ data: cl }, { data: per }, { data: profClasses }, { data: ev }, { data: docs }] = await Promise.all([
+    const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const [{ data: cl }, { data: per }, { data: profClasses }, { data: ev }, { data: docs }, { data: paramMois }] = await Promise.all([
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('periodes').select('*').order('ordre'),
       supabase.from('prof_classes').select('*, classes(*)').eq('user_id', user.id),
       supabase.from('evenements').select('*').order('date_event', { ascending: true }),
       supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
+      supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
     ])
+    setJoursOuvresForce(paramMois?.jours_ouvres || null)
     setPeriodes(per || [])
     // Filter classes for this prof
     let myClasses = cl || []
@@ -420,38 +424,50 @@ export default function ProfApp({ user, onLogout }) {
                 return acc + (ponct + gestion + preparation);
               }, 0);
 
-              const maxPointsPossible = monthPerfs.length * 75;
-              const pourcentage = maxPointsPossible > 0 ? (totalMonthPoints / maxPointsPossible) : 0;
+              // Calcul des jours ouvrés du mois (Lundi à Vendredi)
+              const getWorkDays = (year, month) => {
+                let count = 0;
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                for (let i = 1; i <= daysInMonth; i++) {
+                  const day = new Date(year, month, i).getDay();
+                  if (day !== 0 && day !== 6) count++; 
+                }
+                return count;
+              };
+              const joursOuvres = joursOuvresForce !== null ? joursOuvresForce : getWorkDays(currentYear, currentMonth);
+
+              // 75 points max par jour ouvré dans tout le mois
+              const maxPointsMensuel = joursOuvres * 75; 
+              const pourcentage = maxPointsMensuel > 0 ? (totalMonthPoints / maxPointsMensuel) : 0;
               
-              // Base de salaire max selon le statut. 
-              // Fallback à 180000 si le statut n'est pas encore défini dans la BDD.
+              // Base de salaire max selon le statut. Fallback à 180000.
               const plafondSalaire = user.plafond_salaire || 180000; 
               
-              const gainEstime = Math.round(plafondSalaire * pourcentage);
+              const gainAccumule = Math.round(plafondSalaire * pourcentage);
               const pourcentageAffiche = Math.round(pourcentage * 100);
               const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
               return (
                 <div className="card" style={{marginBottom: 20, background: 'linear-gradient(135deg, #1565a0, #0d2a3b)', color: '#fff', border: 'none'}}>
                   <div style={{padding: '1.2rem', textAlign: 'center'}}>
-                    <div style={{fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(255,255,255,.7)', marginBottom: 12}}>Bilan de {moisNoms[currentMonth]} {currentYear}</div>
+                    <div style={{fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(255,255,255,.7)', marginBottom: 12}}>Progression de {moisNoms[currentMonth]} {currentYear}</div>
                     
                     <div style={{display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: 16}}>
                       <div>
-                        <div style={{fontSize: 28, fontWeight: 900}}>{totalMonthPoints} <span style={{fontSize:14,color:'rgba(255,255,255,.5)'}}>/{maxPointsPossible}</span></div>
-                        <div style={{fontSize: 11, color: 'rgba(255,255,255,.7)'}}>Points validés</div>
+                        <div style={{fontSize: 28, fontWeight: 900}}>{totalMonthPoints} <span style={{fontSize:14,color:'rgba(255,255,255,.5)'}}>/{maxPointsMensuel}</span></div>
+                        <div style={{fontSize: 11, color: 'rgba(255,255,255,.7)'}}>Points validés / Mois</div>
                       </div>
                       <div style={{height: 40, width: 1, background: 'rgba(255,255,255,.2)'}}></div>
                       <div>
-                        <div style={{fontSize: 28, fontWeight: 900, color: pourcentageAffiche >= 80 ? '#4caf50' : pourcentageAffiche >= 60 ? '#ffb74d' : '#ff5252'}}>{pourcentageAffiche}%</div>
-                        <div style={{fontSize: 11, color: 'rgba(255,255,255,.7)'}}>Taux de réussite</div>
+                        <div style={{fontSize: 28, fontWeight: 900, color: '#4caf50'}}>{pourcentageAffiche}%</div>
+                        <div style={{fontSize: 11, color: 'rgba(255,255,255,.7)'}}>Plafond atteint</div>
                       </div>
                     </div>
                     
                     <div style={{background: 'rgba(0,0,0,.3)', borderRadius: 12, padding: '12px', marginTop: 10}}>
-                      <div style={{fontSize: 12, color: 'rgba(255,255,255,.7)', marginBottom: 6}}>Salaire Performé (ce mois-ci)</div>
-                      <div style={{fontSize: 28, fontWeight: 900, color: '#ffd700'}}>{gainEstime.toLocaleString('fr-FR')} FCFA</div>
-                      <div style={{fontSize: 10, color: 'rgba(255,255,255,.4)', marginTop: 6, fontStyle: 'italic'}}>(Calculé sur un plafond de {plafondSalaire.toLocaleString('fr-FR')} FCFA)</div>
+                      <div style={{fontSize: 12, color: 'rgba(255,255,255,.7)', marginBottom: 6}}>Salaire accumulé à ce jour</div>
+                      <div style={{fontSize: 28, fontWeight: 900, color: '#ffd700'}}>{gainAccumule.toLocaleString('fr-FR')} FCFA</div>
+                      <div style={{fontSize: 10, color: 'rgba(255,255,255,.4)', marginTop: 6, fontStyle: 'italic'}}>(Plafond mensuel fixé à {plafondSalaire.toLocaleString('fr-FR')} FCFA)</div>
                     </div>
                   </div>
                 </div>
