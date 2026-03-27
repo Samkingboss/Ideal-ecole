@@ -108,33 +108,40 @@ export default function ProfApp({ user, onLogout }) {
   }
 
 
-  const analyzeWithGemini = async (fileUrl, textContent = "") => {
+  const analyzeWithGemini = async (base64Data, mimeType) => {
     const GEMINI_API_KEY = "AIzaSyDFY2r9DX0OmzIAgvWBAYl-BU1RWNo96n0";
     const prompt = `Tu es un inspecteur pédagogique rigoureux pour l'école IDEAL. 
-    Analyse cette préparation de cours. 
+    Analyse cette préparation de cours (image ou PDF joint). 
     Critères : 
     1. Présence d'objectifs pédagogiques clairs (5 pts)
     2. Pertinence des activités proposées (5 pts)
     3. Utilisation de matériel didactique (5 pts)
     4. Qualité de la langue et structure (5 pts)
     Donne une note sur 20 et un commentaire constructif court (2 phrases max).
-    Réponds EXCLUSIVEMENT au format JSON suivant : {"note": 18, "commentaire": "Texte ici"}`;
+    Réponds EXCLUSIVEMENT au format JSON : {"note": 18, "commentaire": "Texte ici"}`;
 
     try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const resp = await fetch(`/.netlify/functions/analyze-prepa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt + (textContent ? "\nContenu : " + textContent : "\nDocument : " + fileUrl) }] }]
-        })
+        body: JSON.stringify({ base64Data, mimeType, prompt })
       });
+      
       const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || `Erreur Serveur ${resp.status}`);
+      }
+      
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error("L'IA n'a pas pu générer de réponse.");
+      }
+
       const resultText = data.candidates[0].content.parts[0].text;
       const jsonMatch = resultText.match(/\{.*\}/s);
       return JSON.parse(jsonMatch ? jsonMatch[0] : resultText);
     } catch (e) {
-      console.error("Gemini Error:", e);
-      return { note: 10, commentaire: "Erreur d'analyse IA. Note par défaut." };
+      console.error("Gemini Proxy Error:", e);
+      return { note: 10, commentaire: `Erreur IA (Proxy) : ${e.message.substring(0, 50)}...` };
     }
   }
 
@@ -143,6 +150,16 @@ export default function ProfApp({ user, onLogout }) {
     setLoading(true);
     try {
       const file = newPrepa.file;
+      
+      // Lecture du fichier en base64 pour Gemini
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const base64Data = await base64Promise;
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
       const filePath = `preparations/${fileName}`;
@@ -152,7 +169,8 @@ export default function ProfApp({ user, onLogout }) {
 
       const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath);
 
-      const iaResult = await analyzeWithGemini(publicUrl);
+      // Appel IA avec le vrai contenu du fichier
+      const iaResult = await analyzeWithGemini(base64Data, file.type);
 
       const dateCours = new Date(`${newPrepa.date_cours}T${newPrepa.heure_cours}`);
       const limitDate = new Date(dateCours.getTime() - (10 * 60 * 60 * 1000));
