@@ -76,9 +76,11 @@ exports.handler = async (event) => {
     }
   }
 
-  const { fileBase64, fileType, matiere, classe, langue } = payload
+  const { fileBase64, fileType, base64Data, mimeType, prompt, matiere, classe, langue } = payload;
+  const finalBase64 = fileBase64 || base64Data;
+  const finalType = fileType || mimeType;
 
-  if (!fileBase64 || !fileType) {
+  if (!finalBase64 || !finalType) {
     return {
       statusCode: 400,
       headers,
@@ -104,8 +106,8 @@ exports.handler = async (event) => {
         parts: [
           {
             inline_data: {
-              mime_type: fileType,
-              data: fileBase64,
+              mime_type: finalType,
+              data: finalBase64,
             },
           },
           {
