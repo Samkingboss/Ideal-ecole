@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const TABS = [
+  { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'messages', icon:'💬', label:'Messages' },
@@ -10,7 +11,7 @@ const TABS = [
 ]
 
 export default function ProfApp({ user, onLogout }) {
-  const [tab, setTab] = useState('checkpoint')
+  const [tab, setTab] = useState('agenda')
   const [classes, setClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
   const [eleves, setEleves] = useState([])
@@ -27,14 +28,18 @@ export default function ProfApp({ user, onLogout }) {
   const [schoolNum] = useState('22390190007')
   const [loading, setLoading] = useState(false)
   const [myPerfs, setMyPerfs] = useState([])
+  const [evenements, setEvenements] = useState([])
+  const [calendrierUrl, setCalendrierUrl] = useState('')
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    const [{ data: cl }, { data: per }, { data: profClasses }] = await Promise.all([
+    const [{ data: cl }, { data: per }, { data: profClasses }, { data: ev }, { data: docs }] = await Promise.all([
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('periodes').select('*').order('ordre'),
       supabase.from('prof_classes').select('*, classes(*)').eq('user_id', user.id),
+      supabase.from('evenements').select('*').order('date_event', { ascending: true }),
+      supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
     ])
     setPeriodes(per || [])
     // Filter classes for this prof
@@ -49,6 +54,10 @@ export default function ProfApp({ user, onLogout }) {
     // Load all eleves
     const { data: el } = await supabase.from('eleves').select('*').eq('actif', true)
     setEleves(el || [])
+    
+    setEvenements(ev || [])
+    if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
+
     // Load planifications for this prof's langue
     const { data: pl } = await supabase.from('planifications')
       .select('*, classes(nom), periodes(nom), objectifs(*)')
@@ -185,15 +194,59 @@ export default function ProfApp({ user, onLogout }) {
       </div>
 
       <div className="page-content">
+        {tab === 'agenda' && (
+          <>
+            <div className="section-head"><div className="section-title">Agenda & Événements</div></div>
+            
+            {calendrierUrl && (
+              <div className="card" style={{marginBottom:16, background:'linear-gradient(135deg,#0d2a3b,#1565a0)', color:'#fff'}}>
+                <div style={{padding:'1rem', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <div>
+                    <div style={{fontWeight:700, fontSize:14}}>Calendrier Scolaire</div>
+                    <div style={{fontSize:11, color:'rgba(255,255,255,.7)', marginTop:4}}>Consultez le calendrier officiel</div>
+                  </div>
+                  <a href={calendrierUrl} target="_blank" rel="noreferrer" style={{background:'#fff', color:'var(--accent)', padding:'6px 12px', borderRadius:20, textDecoration:'none', fontSize:11, fontWeight:700}}>📄 Ouvrir</a>
+                </div>
+              </div>
+            )}
+
+            <div className="card">
+              <div className="card-header">Événements à venir</div>
+              <div style={{padding:0}}>
+                {evenements.length === 0 ? (
+                  <div className="empty-state"><div className="empty-icon">📅</div><p>Aucun événement programmé.</p></div>
+                ) : evenements.map(ev => {
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const eventDate = new Date(ev.date_event); eventDate.setHours(0,0,0,0);
+                  const daysDiff = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24))
+                  const isUrgent = daysDiff >= 0 && daysDiff <= 2
+                  return (
+                    <div key={ev.id} style={{padding:'12px 14px', borderBottom:'1px solid var(--border)', background: isUrgent ? 'rgba(255,0,0,.05)' : 'transparent', borderLeft: isUrgent ? '3px solid var(--red)' : '3px solid transparent'}}>
+                      <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                        <span style={{fontWeight:700, fontSize:13, color: isUrgent ? 'var(--red)' : 'inherit'}}>{ev.titre}</span>
+                        <span style={{fontSize:11, fontWeight:700, color: isUrgent ? 'var(--red)' : 'var(--accent)'}}>{new Date(ev.date_event).toLocaleDateString('fr-FR')}</span>
+                      </div>
+                      {ev.description && <div style={{fontSize:12, color:'var(--muted)'}}>{ev.description}</div>}
+                      {isUrgent && <div style={{fontSize:10, fontWeight:700, color:'var(--red)', marginTop:6}}>⚠️ Alerte : Prévu {daysDiff === 0 ? "aujourd'hui" : daysDiff === 1 ? 'demain' : 'dans 2 jours'} !</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Filters */}
-        <div style={{display:'flex',gap:8,marginBottom:'1rem',flexWrap:'wrap'}}>
-          <select className="form-select" style={{flex:1,minWidth:120}} value={selectedClasse?.id||''} onChange={e=>setSelectedClasse(classes.find(c=>c.id===e.target.value))}>
-            {classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
-          </select>
-          <select className="form-select" style={{flex:1,minWidth:120}} value={selectedPeriode?.id||''} onChange={e=>setSelectedPeriode(periodes.find(p=>p.id===e.target.value))}>
-            {periodes.map(p=><option key={p.id} value={p.id}>{p.nom}</option>)}
-          </select>
-        </div>
+        {tab !== 'agenda' && tab !== 'messages' && tab !== 'perfs' && (
+          <div style={{display:'flex',gap:8,marginBottom:'1rem',flexWrap:'wrap'}}>
+            <select className="form-select" style={{flex:1,minWidth:120}} value={selectedClasse?.id||''} onChange={e=>setSelectedClasse(classes.find(c=>c.id===e.target.value))}>
+              {classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
+            </select>
+            <select className="form-select" style={{flex:1,minWidth:120}} value={selectedPeriode?.id||''} onChange={e=>setSelectedPeriode(periodes.find(p=>p.id===e.target.value))}>
+              {periodes.map(p=><option key={p.id} value={p.id}>{p.nom}</option>)}
+            </select>
+          </div>
+        )}
 
         {tab === 'checkpoint' && (
           <>
@@ -210,8 +263,13 @@ export default function ProfApp({ user, onLogout }) {
             ) : (
               <>
                 <div className="card" style={{marginBottom:12}}>
-                  <div className="card-header">{plan.classes?.nom} — {plan.periodes?.nom} — {plan.objectifs?.length} objectifs</div>
+                  <div className="card-header">{plan.classes?.nom} — {plan.periodes?.nom}</div>
                   <div style={{padding:0}}>
+                    {plan.pdf_url && (
+                      <div style={{padding:'10px 14px', borderBottom:'1px solid var(--border)', background:'rgba(26,175,224,.05)'}}>
+                        <a href={plan.pdf_url} target="_blank" rel="noreferrer" style={{color:'var(--accent)', fontSize:13, fontWeight:700, textDecoration:'none'}}>📄 Télécharger la planification (PDF)</a>
+                      </div>
+                    )}
                     {plan.objectifs?.map(obj => (
                       <div key={obj.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)',display:'flex',gap:8}}>
                         <span style={{background:'rgba(26,175,224,.1)',color:'var(--accent)',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>{obj.discipline}</span>

@@ -6,6 +6,7 @@ const TABS = [
   { id:'profs', icon:'👥', label:'Equipe' },
   { id:'eleves', icon:'🎒', label:'Eleves' },
   { id:'planning', icon:'📋', label:'Planification' },
+  { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Performances' },
 ]
 
@@ -17,28 +18,36 @@ export default function DirecteurApp({ user, onLogout }) {
   const [classes, setClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
   const [planifications, setPlanifications] = useState([])
+  const [evenements, setEvenements] = useState([])
+  const [calendrierUrl, setCalendrierUrl] = useState('')
   const [showModal, setShowModal] = useState(null)
   const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'' })
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
   const [newPlan, setNewPlan] = useState({ classe_id:'', periode_id:'', langue:'fr', objectives:[] })
+  const [newEvenement, setNewEvenement] = useState({ titre:'', date_event:'', description:'' })
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }] = await Promise.all([
+    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }] = await Promise.all([
       supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
       supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('periodes').select('*').order('ordre'),
       supabase.from('planifications').select('*, classes(nom), periodes(nom), objectifs(*)'),
+      supabase.from('evenements').select('*').order('date_event', { ascending: true }),
+      supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
     ])
     setProfs(u || [])
     setEleves(el || [])
     setClasses(cl || [])
     setPeriodes(per || [])
     setPlanifications(pl || [])
+    setEvenements(ev || [])
+    if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
     setStats({ profs: (u||[]).length, eleves: (el||[]).length, checkpoints: 0 })
     if (cl && cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
     if (cl && cl.length > 0) setNewPlan(p => ({ ...p, classe_id: cl[0].id, periode_id: per?.[0]?.id || '' }))
@@ -64,6 +73,37 @@ export default function DirecteurApp({ user, onLogout }) {
     const { error } = await supabase.from('eleves').insert({ ...newEleve, actif: true })
     if (error) { setMsg('Erreur: ' + error.message) } else { loadData(); setShowModal(null) }
     setLoading(false)
+  }
+
+  const saveEvenement = async () => {
+    if (!newEvenement.titre || !newEvenement.date_event) { setMsg('Titre et date obligatoires'); return }
+    setLoading(true)
+    const { error } = await supabase.from('evenements').insert({ ...newEvenement })
+    if (error) { setMsg('Erreur: ' + error.message) } else { loadData(); setShowModal(null); setNewEvenement({titre:'',date_event:'',description:''}) }
+    setLoading(false)
+  }
+
+  const handleUploadPDF = async (e, type, planId = null) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${type}_${Math.random()}.${fileExt}`
+    const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
+    if (uploadError) { setMsg('Erreur upload: ' + uploadError.message); setUploading(false); return }
+    
+    const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName)
+    
+    if (type === 'calendrier') {
+      await supabase.from('documents').insert({ nom: file.name, url: publicUrl, type: 'calendrier' })
+      setCalendrierUrl(publicUrl)
+      setMsg('Calendrier mis à jour !')
+    } else if (type === 'planification' && planId) {
+      await supabase.from('planifications').update({ pdf_url: publicUrl }).eq('id', planId)
+      loadData()
+      setMsg('PDF de planification ajouté !')
+    }
+    setUploading(false)
   }
 
   const addObjective = () => {
@@ -210,15 +250,71 @@ export default function DirecteurApp({ user, onLogout }) {
                   <span className={`chip ${pl.langue==='fr'?'chip-blue':'chip-green'}`}>{pl.langue==='fr'?'FR':'EN'}</span>
                 </div>
                 <div style={{padding:0}}>
+                  {pl.pdf_url && (
+                    <div style={{padding:'8px 14px', borderBottom:'1px solid var(--border)', background: 'rgba(26,175,224,.05)'}}>
+                      <a href={pl.pdf_url} target="_blank" rel="noreferrer" style={{color:'var(--accent)', fontSize: 13, fontWeight: 700, textDecoration:'none'}}>📄 Voir le document de planification (PDF)</a>
+                    </div>
+                  )}
                   {(pl.objectifs||[]).map(obj => (
                     <div key={obj.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)',display:'flex',gap:10,alignItems:'flex-start'}}>
                       <span style={{background:'rgba(26,175,224,.1)',color:'var(--accent)',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>{obj.discipline}</span>
                       <span style={{fontSize:13}}>{obj.description}</span>
                     </div>
                   ))}
+                  <div style={{padding:'8px 14px', display:'flex', alignItems:'center', gap: 10}}>
+                    <label style={{fontSize: 11, color: 'var(--muted)', cursor:'pointer', border:'1px dotted var(--border)', padding:'4px 8px', borderRadius: 4}}>
+                      + Joindre un PDF
+                      <input type="file" accept=".pdf" style={{display:'none'}} onChange={e => handleUploadPDF(e, 'planification', pl.id)} />
+                    </label>
+                  </div>
                 </div>
               </div>
             ))}
+          </>
+        )}
+
+        {tab === 'agenda' && (
+          <>
+            <div className="section-head"><div className="section-title">Agenda & Calendrier</div></div>
+            <div className="card" style={{marginBottom:16}}>
+              <div className="card-header">Calendrier Scolaire (PDF)</div>
+              <div style={{padding:'1rem'}}>
+                {calendrierUrl ? (
+                  <div style={{marginBottom:10}}>
+                    <a href={calendrierUrl} target="_blank" rel="noreferrer" className="btn-sm" style={{textDecoration:'none',background:'var(--accent)',color:'#fff'}}>📄 Ouvrir le calendrier officiel (PDF)</a>
+                  </div>
+                ) : <p style={{fontSize:13,color:'var(--muted)'}}>Aucun calendrier uploadé pour le moment.</p>}
+                <div style={{marginTop:10}}>
+                  <label className="form-label" style={{display:'block', marginBottom:4}}>Remplacer ou définir le calendrier :</label>
+                  <label className="btn-sm" style={{cursor:'pointer', display:'inline-block'}}>
+                    Importer un PDF
+                    <input type="file" accept=".pdf" style={{display:'none'}} onChange={e => handleUploadPDF(e, 'calendrier')} disabled={uploading} />
+                  </label>
+                  {uploading && <span style={{fontSize:12,color:'var(--accent)',marginLeft:10}}>Upload en cours...</span>}
+                </div>
+              </div>
+            </div>
+            
+            <div className="card">
+              <div className="card-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span>Événements Majeurs</span>
+                <button className="btn-sm" onClick={() => setShowModal('evenement')}>+ Ajouter événement</button>
+              </div>
+              <div style={{padding:0}}>
+                {evenements.length === 0 ? (
+                  <div className="empty-state"><div className="empty-icon">📅</div><p>Aucun événement programmé.</p></div>
+                ) : evenements.map(ev => (
+                  <div key={ev.id} style={{padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{fontWeight:700,fontSize:13}}>{ev.titre}</span>
+                      <span style={{fontSize:11,color:'var(--accent)',fontWeight:700}}>{new Date(ev.date_event).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    {ev.description && <div style={{fontSize:12,color:'var(--muted)'}}>{ev.description}</div>}
+                    <button onClick={async () => { await supabase.from('evenements').delete().eq('id', ev.id); loadData() }} style={{background:'none',border:'none',color:'var(--red)',fontSize:11,cursor:'pointer',padding:0,marginTop:6,textDecoration:'underline'}}>Supprimer</button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </>
         )}
 
@@ -291,6 +387,20 @@ export default function DirecteurApp({ user, onLogout }) {
               </select>
             </div>
             <button className="btn btn-primary" onClick={saveEleve} disabled={loading}>{loading?'...':'Ajouter'}</button>
+            <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'evenement' && (
+        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
+          <div className="modal">
+            <div className="modal-handle"></div>
+            <div className="modal-title">Nouvel événement</div>
+            <div className="form-group"><label className="form-label">Titre de l événement</label><input className="form-input" value={newEvenement.titre} onChange={e=>setNewEvenement({...newEvenement,titre:e.target.value})} placeholder="Ex: Réunion Parents-Profs" /></div>
+            <div className="form-group"><label className="form-label">Date</label><input type="date" className="form-input" value={newEvenement.date_event} onChange={e=>setNewEvenement({...newEvenement,date_event:e.target.value})} /></div>
+            <div className="form-group"><label className="form-label">Description (optionnel)</label><textarea className="form-input" value={newEvenement.description} onChange={e=>setNewEvenement({...newEvenement,description:e.target.value})} rows={3} /></div>
+            <button className="btn btn-primary" onClick={saveEvenement} disabled={loading}>{loading?'...':'Enregistrer'}</button>
             <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
           </div>
         </div>

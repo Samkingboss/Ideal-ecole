@@ -46,6 +46,7 @@ export default function SurveillantApp({ user, onLogout }) {
   }
 
   const updateArrival = async (profId, time) => {
+    if (performances[profId]?.valide) return
     setSaving(true)
     await supabase.from('performances').upsert({ prof_id: profId, date_jour: today, heure_arrivee: time }, { onConflict: 'prof_id,date_jour' })
     setPerformances(prev => ({ ...prev, [profId]: { ...(prev[profId]||{}), heure_arrivee: time } }))
@@ -53,6 +54,7 @@ export default function SurveillantApp({ user, onLogout }) {
   }
 
   const updateDepart = async (profId, time) => {
+    if (performances[profId]?.valide) return
     setSaving(true)
     await supabase.from('performances').upsert({ prof_id: profId, date_jour: today, heure_depart: time }, { onConflict: 'prof_id,date_jour' })
     setPerformances(prev => ({ ...prev, [profId]: { ...(prev[profId]||{}), heure_depart: time } }))
@@ -60,6 +62,7 @@ export default function SurveillantApp({ user, onLogout }) {
   }
 
   const toggleSacs = async (profId) => {
+    if (performances[profId]?.valide) return
     const cur = performances[profId]?.sacs_accroches || false
     await supabase.from('performances').upsert({ prof_id: profId, date_jour: today, sacs_accroches: !cur }, { onConflict: 'prof_id,date_jour' })
     setPerformances(prev => ({ ...prev, [profId]: { ...(prev[profId]||{}), sacs_accroches: !cur } }))
@@ -67,7 +70,7 @@ export default function SurveillantApp({ user, onLogout }) {
 
   const toggleRecreeCheck = async (profId, recreeId, checkId) => {
     const perf = performances[profId]
-    if (!perf?.id) return
+    if (!perf?.id || perf.valide) return
     const existing = perf.recrees?.find(r => r.recree_id === recreeId)
     if (existing) {
       const updated = { ...existing, [checkId]: !existing[checkId] }
@@ -84,6 +87,15 @@ export default function SurveillantApp({ user, onLogout }) {
         [profId]: { ...prev[profId], recrees: [...(prev[profId].recrees||[]), data] }
       }))
     }
+  }
+
+  const validerJournee = async (profId) => {
+    const perfData = await getOrCreate(profId);
+    if (!perfData) return;
+    setSaving(true);
+    await supabase.from('performances').update({ valide: true }).eq('id', perfData.id);
+    setPerformances(prev => ({ ...prev, [profId]: { ...prev[profId], valide: true } }));
+    setSaving(false);
   }
 
   const calcPonct = (perf) => {
@@ -154,12 +166,12 @@ export default function SurveillantApp({ user, onLogout }) {
                   <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Ponctualite ({ponct}/30 pts)</div>
                   <div className="time-row">
                     <span style={{fontSize:12,color:'var(--muted)',width:55}}>Arrivee</span>
-                    <input type="time" className="time-input" value={perf.heure_arrivee||''} onChange={e=>updateArrival(prof.id, e.target.value)} />
+                    <input type="time" className="time-input" disabled={perf.valide} value={perf.heure_arrivee||''} onChange={e=>updateArrival(prof.id, e.target.value)} />
                     <span style={{fontSize:11,fontWeight:700,color:ponct===30?'var(--green)':ponct===25?'var(--amber)':'var(--muted)'}}>{ponct} pts</span>
                   </div>
                   <div className="time-row">
                     <span style={{fontSize:12,color:'var(--muted)',width:55}}>Depart</span>
-                    <input type="time" className="time-input" value={perf.heure_depart||''} onChange={e=>updateDepart(prof.id, e.target.value)} />
+                    <input type="time" className="time-input" disabled={perf.valide} value={perf.heure_depart||''} onChange={e=>updateDepart(prof.id, e.target.value)} />
                     {perf.heure_depart && <span style={{fontSize:11,color:perf.heure_depart>='16:00'?'var(--green)':'var(--red)'}}>{perf.heure_depart >= '16:00' ? 'Conforme' : 'Depart anticipe'}</span>}
                   </div>
                 </div>
@@ -168,7 +180,7 @@ export default function SurveillantApp({ user, onLogout }) {
                 <div>
                   <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Gestion de classe ({gestion}/25 pts)</div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                    <button className={`chk-btn ${perf.sacs_accroches ? 'on' : ''}`} onClick={()=>toggleSacs(prof.id)}>{perf.sacs_accroches ? '✓' : ''}</button>
+                    <button className={`chk-btn ${perf.sacs_accroches ? 'on' : ''}`} disabled={perf.valide} onClick={()=>toggleSacs(prof.id)}>{perf.sacs_accroches ? '✓' : ''}</button>
                     <span style={{fontSize:12}}>Sacs bien accroches (4 pts)</span>
                   </div>
                   {RECREES.map(recree => {
@@ -182,13 +194,24 @@ export default function SurveillantApp({ user, onLogout }) {
                         </div>
                         {RECREE_CHECKS.map(chk => (
                           <div key={chk.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)'}}>
-                            <button className={`chk-btn ${recData[chk.id] ? 'on' : ''}`} style={{width:22,height:22}} onClick={()=>toggleRecreeCheck(prof.id, recree.id, chk.id)}>{recData[chk.id]?'✓':''}</button>
+                            <button className={`chk-btn ${recData[chk.id] ? 'on' : ''}`} disabled={perf.valide} style={{width:22,height:22}} onClick={()=>toggleRecreeCheck(prof.id, recree.id, chk.id)}>{recData[chk.id]?'✓':''}</button>
                             <span style={{fontSize:11,flex:1}}>{chk.label}</span>
                           </div>
                         ))}
                       </div>
                     )
                   })}
+                </div>
+
+                {/* Validation Button */}
+                <div style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', textAlign: 'center'}}>
+                  {perf.valide ? (
+                    <div style={{color: 'var(--green)', fontSize: 13, fontWeight: 700}}>✅ Journée validée</div>
+                  ) : (
+                    <button className="btn btn-primary" onClick={() => validerJournee(prof.id)} disabled={saving} style={{width:'100%', padding:'10px'}}>
+                      {saving ? '...' : 'Valider la journée'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
