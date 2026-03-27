@@ -88,7 +88,7 @@ export default function PreparationIA({ user }) {
         setLoading(true)
         try {
             // 1. Upload dans Supabase Storage
-            const nomFichier = `${user.id}/${Date.now()}_${form.fichier.name.replace(/\s/g, '_')}`
+            const nomFichier = `${user.id}/${Date.now()}_${form.fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
             const { error: uploadErr } = await supabase.storage
                 .from('documents')
                 .upload(nomFichier, form.fichier, { upsert: false })
