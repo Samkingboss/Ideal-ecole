@@ -24,7 +24,7 @@ export default function CorrectionDirecteur() {
   const [commentaire, setCommentaire] = useState('')
   const [conseil, setConseil] = useState('')
   const [loading, setLoading] = useState(false)
-  const [filtre, setFiltre] = useState('en_attente')
+  const [filtre, setFiltre] = useState('toutes')
 
   useEffect(() => { chargerPreparations() }, [])
 
