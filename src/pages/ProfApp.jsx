@@ -888,8 +888,8 @@ export default function ProfApp({ user, onLogout }) {
                         {obj.competences.length === 0
                           ? <div style={{fontSize:10,color:'var(--muted)',fontStyle:'italic',paddingLeft:8}}>Aucune competence</div>
                           : obj.competences.map(comp => (
-                          <div key={comp.id} className=obj-row>
-                            <div className=obj-label style={{fontSize:12}}>⭐ {comp.nom}</div>
+                          <div key={comp.id} className="obj-row">
+                            <div className="obj-label" style={{fontSize:12}}>⭐ {comp.nom}</div>
                             {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
                               <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => handleCpSelect(el.id, comp.id, e.target.value)} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
                                 <option value={0}>-- Choisir --</option>
