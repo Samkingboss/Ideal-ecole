@@ -419,13 +419,30 @@ export default function ProfApp({ user, onLogout }) {
                 <div className="card-header">Evolution — {selectedClasse?.nom}</div>
                 <div style={{padding:'1rem',height:220}}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={getProgressionData()} onClick={(e)=>{ if(e&&e.activePayload&&e.activePayload[0]){ const d=e.activeLabel; setSelectedCpDate(prev=>prev===d?null:d); } }}>
+                    <LineChart data={getProgressionData()} onClick={(e)=>{ if(e&&e.activeLabel){ setSelectedCpDate(prev=>prev===e.activeLabel?null:e.activeLabel); } }}>
                       <XAxis dataKey="date" style={{fontSize:10}} />
                       <YAxis domain={[0,100]} tickFormatter={v=>v+'%'} style={{fontSize:10}} />
                       <Tooltip formatter={v=>v+'%'} />
                       <Line type="monotone" dataKey="moyenne" stroke="#1AAFE0" strokeWidth={2} dot={(props)=>{ const sel = props.payload.date===selectedCpDate; return <circle key={props.key} cx={props.cx} cy={props.cy} r={sel?7:4} fill={sel?'#F7941D':'#1AAFE0'} stroke={sel?'#fff':'none'} strokeWidth={2} />; }} name="Moy. classe" />
                     </LineChart>
                   </ResponsiveContainer>
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',padding:'0 1rem 1rem'}}>
+                  {getProgressionData().map(d => (
+                    <button key={d.date} onClick={()=>setSelectedCpDate(prev=>prev===d.date?null:d.date)}
+                      style={{padding:'4px 10px',borderRadius:20,border:'1.5px solid',fontSize:11,fontWeight:600,cursor:'pointer',
+                        borderColor: selectedCpDate===d.date ? '#F7941D' : 'var(--border)',
+                        background: selectedCpDate===d.date ? '#F7941D' : 'var(--bg)',
+                        color: selectedCpDate===d.date ? '#fff' : 'var(--muted)'}}>
+                      {d.date}
+                    </button>
+                  ))}
+                  {selectedCpDate && (
+                    <button onClick={()=>setSelectedCpDate(null)}
+                      style={{padding:'4px 10px',borderRadius:20,border:'1.5px solid var(--red)',fontSize:11,fontWeight:600,cursor:'pointer',background:'var(--bg)',color:'var(--red)'}}>
+                      Effacer
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
