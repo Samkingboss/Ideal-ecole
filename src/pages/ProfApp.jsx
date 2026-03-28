@@ -35,6 +35,8 @@ export default function ProfApp({ user, onLogout }) {
   const [msgEleve, setMsgEleve] = useState(null)
   const [msgType, setMsgType] = useState('comportement')
   const [msgBody, setMsgBody] = useState('')
+  const [msgPreview, setMsgPreview] = useState(false)
+  const [msgDetails, setMsgDetails] = useState({})
   const [schoolNum] = useState('22390190007')
   const [loading, setLoading] = useState(false)
   const [myPerfs, setMyPerfs] = useState([])
