@@ -1,25 +1,32 @@
 import { useState } from 'react'
 
 const JOURS_FERIES_2025_2026 = [
-  { date: '2025-10-20', label: 'Maouloud' },
-  { date: '2025-11-19', label: 'Fete de la Liberation' },
-  { date: '2025-12-25', label: 'Noel' },
   { date: '2026-01-01', label: 'Nouvel An' },
-  { date: '2026-03-26', label: 'Fete de la Democratie' },
+  { date: '2026-01-20', label: 'Fete de l Armee' },
+  { date: '2026-03-19', label: 'Ramadan' },
+  { date: '2026-03-20', label: 'Ramadan' },
+  { date: '2026-03-26', label: 'Journee des Martyrs' },
+  { date: '2026-04-06', label: 'Lundi de Paques' },
   { date: '2026-05-01', label: 'Fete du Travail' },
-  { date: '2026-06-06', label: 'Tabaski' },
+  { date: '2026-05-26', label: 'Tabaski' },
+  { date: '2026-05-27', label: 'Tabaski' },
+  { date: '2026-06-29', label: 'Fin d annee' },
 ]
 
 const VACANCES = [
-  { debut: '2025-12-20', fin: '2026-01-05', label: 'Vacances de Noel' },
-  { debut: '2026-03-07', fin: '2026-03-22', label: 'Vacances T2' },
-  { debut: '2026-06-29', fin: '2026-09-30', label: 'Grandes Vacances' },
+  { debut: '2025-11-15', fin: '2025-11-22', label: 'Conge Periode 1' },
+  { debut: '2025-12-23', fin: '2026-01-04', label: 'Vacances Noel' },
+  { debut: '2026-02-21', fin: '2026-03-01', label: 'Conge Periode 3' },
+  { debut: '2026-04-18', fin: '2026-04-26', label: 'Conge Periode 4' },
+  { debut: '2026-06-30', fin: '2026-09-30', label: 'Grandes Vacances' },
 ]
 
 const TRIMESTRES = [
-  { num: 1, debut: '2025-10-01', fin: '2025-12-19', color: '#1AAFE0', label: 'Trimestre 1' },
-  { num: 2, debut: '2026-01-06', fin: '2026-03-31', color: '#8DC63F', label: 'Trimestre 2' },
-  { num: 3, debut: '2026-04-01', fin: '2026-06-26', color: '#F7941D', label: 'Trimestre 3' },
+  { num: 1, debut: '2025-10-01', fin: '2025-11-14', color: '#1AAFE0', label: 'Periode 1' },
+  { num: 2, debut: '2025-11-24', fin: '2025-12-19', color: '#8DC63F', label: 'Periode 2' },
+  { num: 3, debut: '2026-01-05', fin: '2026-02-20', color: '#F7941D', label: 'Periode 3' },
+  { num: 4, debut: '2026-03-02', fin: '2026-04-17', color: '#EC008C', label: 'Periode 4' },
+  { num: 5, debut: '2026-04-27', fin: '2026-06-29', color: '#00B5B8', label: 'Periode 5' },
 ]
 
 const MOIS = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre']
