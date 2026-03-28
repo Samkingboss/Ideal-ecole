@@ -630,8 +630,35 @@ export default function ProfApp({ user, onLogout }) {
                           const grav = msgDetails.gravite==='grave'?'un incident grave':msgDetails.gravite==='moyen'?'un incident':'un incident';
                           corps = 'Nous souhaitons vous informer que votre enfant ' + prenom + ' a ete implique(e) dans ' + grav + ' aujourd hui.' + (msgDetails.desc?' Il s agit de : ' + msgDetails.desc+'.' : '') + (msgDetails.gravite==='grave'?' Nous vous demandons de nous contacter dans les plus brefs delais.':' Nous restons disponibles pour en discuter.');
                         } else if(msgType==='resultats'){
-                          const app = msgDetails.appreciation==='excellent'?'d excellents resultats':msgDetails.appreciation==='bien'?'de bons resultats':msgDetails.appreciation==='moyen'?'des resultats qui peuvent etre ameliores':'des resultats insuffisants';
-                          corps = 'Nous vous informons que votre enfant ' + prenom + ' obtient ' + app + (msgDetails.matiere?' en '+msgDetails.matiere:'') + '.' + (msgDetails.precision?' '+msgDetails.precision:'') + ' N hesitez pas a nous contacter pour plus d informations.';
+                          // Utiliser les vraies notes depuis les checkpoints
+                          const cpsR = checkpoints.filter(cp => {
+                            const p = planifications.find(pl => pl.id === cp.planification_id)
+                            return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+                          }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
+                          let progsR = []
+                          for (const cp of cpsR) {
+                            const pr = cp.progressions.filter(p => p.eleve_id === msgEleve.id)
+                            if (pr.length) { progsR = pr; break; }
+                          }
+                          const psR = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
+                          const lbR = (p) => psR ? (p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours d acquisition':'Debut d acquisition') : p+'%'
+                          const moyR = progsR.length ? Math.round(progsR.reduce((a,b)=>a+b.pourcentage,0)/progsR.length) : null
+                          const byDiscR = {}
+                          progsR.forEach(pr => {
+                            const d = pr.objectifs?.discipline || 'General'
+                            if (!byDiscR[d]) byDiscR[d] = []
+                            byDiscR[d].push(pr.pourcentage)
+                          })
+                          if (moyR !== null) {
+                            let details = Object.entries(byDiscR).map(([d, vals]) => {
+                              const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+                              return d + ' : ' + lbR(avg) + (psR ? '' : ' (' + avg + '%)')
+                            }).join(', ')
+                            const niveauGlobal = lbR(moyR)
+                            corps = 'Nous vous informons des resultats de votre enfant ' + prenom + ' pour cette periode. Niveau global : ' + niveauGlobal + (psR ? '' : ' (' + moyR + '%)') + '. Detail par discipline : ' + details + '.' + (msgDetails.precision ? ' ' + msgDetails.precision + '.' : '') + ' N hesitez pas a nous contacter pour plus d informations.'
+                          } else {
+                            corps = 'Nous vous informons des resultats de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision + '.' : '') + ' N hesitez pas a nous contacter pour plus d informations.'
+                          }
                         } else if(msgType==='absence'){
                           const ta = msgDetails.type_abs==='retard'?'un retard':msgDetails.type_abs==='depart'?'un depart anticipe':'une absence';
                           corps = 'Nous avons constate ' + ta + ' de votre enfant ' + prenom + (msgDetails.duree?' de '+msgDetails.duree:'') + '. Merci de nous informer des raisons et de fournir un justificatif si necessaire.';
