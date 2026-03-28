@@ -677,11 +677,23 @@ export default function ProfApp({ user, onLogout }) {
                     {objs.map(obj => (
                       <div key={obj.id} className="obj-row">
                         <div className="obj-label">{obj.description}</div>
-                        <input type="range" min="0" max="100" step="10"
-                          value={cpEntries[el.id]?.[obj.id] || 0}
-                          onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [obj.id]: parseInt(e.target.value)}}))}
-                        />
-                        <div className="obj-pct">{cpEntries[el.id]?.[obj.id] || 0}%</div>
+                        {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
+                          <select value={cpEntries[el.id]?.[obj.id] || 0} onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [obj.id]: parseInt(e.target.value)}}))} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
+                            <option value={0}>-- Choisir --</option>
+                            <option value={25}>Debut d acquisition</option>
+                            <option value={50}>En cours d acquisition</option>
+                            <option value={75}>Acquis</option>
+                            <option value={100}>Bien acquis</option>
+                          </select>
+                        ) : (
+                          <div style={{display:'flex',alignItems:'center',gap:6}}>
+                            <input type="number" min="0" max="100" value={cpEntries[el.id]?.[obj.id] || ''} placeholder="0" onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [obj.id]: Math.min(100,Math.max(0,parseInt(e.target.value)||0))}}))} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
+                            <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
+                          </div>
+                        )}
+                        <div className="obj-pct" style={{fontSize:11}}>
+                          {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (cpEntries[el.id]?.[obj.id] === 25 ? 'Debut' : cpEntries[el.id]?.[obj.id] === 50 ? 'En cours' : cpEntries[el.id]?.[obj.id] === 75 ? 'Acquis' : cpEntries[el.id]?.[obj.id] === 100 ? 'Bien acquis' : '--') : (cpEntries[el.id]?.[obj.id] || 0) + '%'}
+                        </div>
                       </div>
                     ))}
                   </div>
