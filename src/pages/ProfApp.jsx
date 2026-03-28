@@ -890,7 +890,7 @@ export default function ProfApp({ user, onLogout }) {
                               </select>
                             ) : (
                               <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                <input type=number min=0 max=100 value={cpEntries[el.id]?.[comp.id] || ''} placeholder=0 onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [comp.id]: Math.min(100,Math.max(0,parseInt(e.target.value)||0))}}))} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
+                                <input type=number min=0 max=100 value={cpEntries[el.id]?.[comp.id] || ''} placeholder=0 onChange={e => { const v=Math.min(100,Math.max(0,parseInt(e.target.value)||0)); setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [comp.id]: v}})); }} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
                                 <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
                               </div>
                             )}
