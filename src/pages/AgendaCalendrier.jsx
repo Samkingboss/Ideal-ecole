@@ -18,8 +18,8 @@ const VACANCES = [
 
 const TRIMESTRES = [
   { num: 1, debut: '2025-10-01', fin: '2025-12-19', color: '#1AAFE0', label: 'Trimestre 1' },
-  { num: 2, debut: '2026-01-06', fin: '2026-03-06', color: '#8DC63F', label: 'Trimestre 2' },
-  { num: 3, debut: '2026-03-23', fin: '2026-06-19', color: '#F7941D', label: 'Trimestre 3' },
+  { num: 2, debut: '2026-01-06', fin: '2026-03-31', color: '#8DC63F', label: 'Trimestre 2' },
+  { num: 3, debut: '2026-04-01', fin: '2026-06-26', color: '#F7941D', label: 'Trimestre 3' },
 ]
 
 const MOIS = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre']
