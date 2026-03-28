@@ -67,7 +67,7 @@ exports.handler = async (event) => {
         'X-Title': 'IDEAL EcoleApp',
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.3-70b-instruct:free',
+        model: 'mistralai/mistral-7b-instruct:free',
         messages: [{ role: 'user', content: PROMPT_CORRECTION(matiere || '—', classe || '—', langue || 'fr', texte) }],
         max_tokens: 1000,
         temperature: 0.3,
