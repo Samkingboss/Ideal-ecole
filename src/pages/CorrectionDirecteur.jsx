@@ -32,7 +32,7 @@ export default function CorrectionDirecteur() {
       .from('preparations')
       .select('*, classes(nom)')
       .order('heure_depot', { ascending: false })
-    setPreparations(data || [])
+    setPreparations(data || []); console.log('PREP:', data ? data.length : 0, 'ERR:', error ? error.message : 'ok')
   }
 
   const ouvrirCorrection = async (prep) => {
