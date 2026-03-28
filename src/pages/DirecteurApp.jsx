@@ -351,7 +351,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
 
         {tab === 'perfs' && (
-          <PerformancesDirecteur profs={profs} />
+          <PerformancesDirecteur />
         )}
       </div>
 

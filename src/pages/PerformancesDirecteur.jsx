@@ -1,124 +1,145 @@
-import { useState, useEffect } from "react"
-import { supabase } from "../lib/supabase"
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
-const MOIS = ["Jan","Fev","Mar","Avr","Mai","Jun","Jul","Aou","Sep","Oct","Nov","Dec"]
+export default function PerformancesDirecteur() {
+  const [profs, setProfs] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-export default function PerformancesDirecteur({ profs }) {
-  const [perfs, setPerfs] = useState([])
-  const [moisIdx, setMoisIdx] = useState(new Date().getMonth())
-  const [annee] = useState(new Date().getFullYear())
-  const [joursOuvres, setJoursOuvres] = useState(22)
+  useEffect(() => { charger() }, [])
 
-  useEffect(() => { chargerPerfs() }, [moisIdx])
+  const charger = async () => {
+    setLoading(true)
+    const { data: users } = await supabase.from('users').select('*').neq('role', 'directeur')
+    const { data: checkpoints } = await supabase.from('checkpoints').select('*')
+    const { data: recrees } = await supabase.from('recrees').select('*')
+    const { data: manquements } = await supabase.from('manquements').select('*')
 
-  const chargerPerfs = async () => {
-    const debut = annee + "-" + String(moisIdx+1).padStart(2,"0") + "-01"
-    const fin = annee + "-" + String(moisIdx+1).padStart(2,"0") + "-31"
-    const { data } = await supabase.from("performances")
-      .select("*, recrees(*)")
-      .gte("date_jour", debut)
-      .lte("date_jour", fin)
-    setPerfs(data || [])
-  }
+    const liste = (users || []).map(u => {
+      const cps = (checkpoints || []).filter(c => c.user_id === u.id)
+      const recs = (recrees || []).filter(r => r.user_id === u.id)
+      const manqs = (manquements || []).filter(m => m.user_id === u.id)
 
-  const calcScore = (profId) => {
-    const myPerfs = perfs.filter(p => p.prof_id === profId)
-    let ponct = 0, gestion = 0, prep = 0
-    myPerfs.forEach(p => {
-      if (p.heure_arrivee) {
-        if (p.heure_arrivee <= "07:30") ponct += 30
-        else if (p.heure_arrivee <= "08:00") ponct += 25
-      }
-      if (p.sacs_accroches) gestion += 4
-      const recrees = p.recrees || []
-      recrees.forEach(r => {
-        const checks = [r.outils,r.tables,r.ventilo,r.fermee,r.cle].filter(Boolean).length
-        gestion += checks + (checks === 5 ? 2 : 0)
-      })
-      prep += p.preparation || 0
+      const totalCps = cps.length
+      const cpsValides = cps.filter(c => c.statut === 'valide' || c.statut === 'ok').length
+      const ponctualite = totalCps > 0 ? Math.round((cpsValides / totalCps) * 100) : null
+
+      const totalRecs = recs.length
+      const recsOk = recs.filter(r => r.statut === 'present' || r.statut === 'ok').length
+      const presenceRec = totalRecs > 0 ? Math.round((recsOk / totalRecs) * 100) : null
+
+      const nbManquements = manqs.length
+
+      return { ...u, ponctualite, presenceRec, nbManquements, totalCps, totalRecs }
     })
-    const total = ponct + gestion + prep
-    const maxPossible = joursOuvres * 75
-    const pct = maxPossible > 0 ? Math.round(total / maxPossible * 100) : 0
-    return { ponct, gestion, prep, total, pct, jours: myPerfs.length }
+
+    setProfs(liste)
+    setLoading(false)
   }
 
-  const getBadge = (pct) => {
-    if (pct >= 85) return { label: "Excellent", color: "#16a34a" }
-    if (pct >= 70) return { label: "Bien", color: "#1AAFE0" }
-    if (pct >= 55) return { label: "Moyen", color: "#F7941D" }
-    return { label: "Insuffisant", color: "#ED1C24" }
+  const getColor = (val) => {
+    if (val === null) return '#aaa'
+    if (val >= 90) return '#8DC63F'
+    if (val >= 75) return '#F7941D'
+    return '#ED1C24'
   }
 
-  const enseignants = profs.filter(p => p.role === "professeur")
+  const getNote = (val) => {
+    if (val === null) return '—'
+    if (val >= 90) return 'Excellent'
+    if (val >= 75) return 'Bien'
+    if (val >= 60) return 'Moyen'
+    return 'Insuffisant'
+  }
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem', color: 'var(--muted)' }}>
+      Chargement...
+    </div>
+  )
+
+  if (selected) {
+    const p = selected
+    return (
+      <div style={{ padding: '1rem 1.2rem 3rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
+          <button onClick={() => setSelected(null)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>← Retour</button>
+          <div style={{ fontSize: 16, fontWeight: 900 }}>Performances de {p.prenom} {p.nom}</div>
+        </div>
+
+        <div style={{ background: 'linear-gradient(135deg,#0d2a3b,#1565a0)', borderRadius: 16, padding: '1.2rem', marginBottom: '1rem', color: '#fff' }}>
+          <div style={{ fontSize: 13, opacity: .7, marginBottom: 4 }}>{p.role} · {p.classe_nom || ''}</div>
+          <div style={{ fontSize: 22, fontWeight: 900 }}>{p.prenom} {p.nom}</div>
+        </div>
+
+        {[
+          { label: 'Ponctualité', val: p.ponctualite, total: p.totalCps, unite: 'check-points' },
+          { label: 'Présence récréations', val: p.presenceRec, total: p.totalRecs, unite: 'récréations' },
+        ].map((stat, i) => (
+          <div key={i} style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{stat.label}</div>
+              <div style={{ fontWeight: 900, fontSize: 20, color: getColor(stat.val) }}>
+                {stat.val !== null ? stat.val + '%' : '—'}
+              </div>
+            </div>
+            <div style={{ background: 'var(--bg)', borderRadius: 20, height: 8, overflow: 'hidden', marginBottom: 6 }}>
+              <div style={{ height: '100%', width: (stat.val || 0) + '%', background: getColor(stat.val), borderRadius: 20, transition: 'width .6s' }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{stat.total} {stat.unite} enregistrés · {getNote(stat.val)}</div>
+          </div>
+        ))}
+
+        <div style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Manquements disciplinaires</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: p.nbManquements === 0 ? '#8DC63F' : p.nbManquements < 3 ? '#F7941D' : '#ED1C24' }}>
+            {p.nbManquements}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            {p.nbManquements === 0 ? 'Aucun manquement enregistré' : 'manquements enregistrés'}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <div className="section-head">
-        <div className="section-title">Performances</div>
-      </div>
-      <div style={{display:"flex",gap:8,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"}}>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-          {MOIS.map((m,i) => (
-            <button key={i} onClick={() => setMoisIdx(i)}
-              style={{padding:"4px 10px",borderRadius:20,border:"1.5px solid",fontSize:11,fontWeight:600,cursor:"pointer",
-                borderColor: moisIdx===i ? "var(--accent)" : "var(--border)",
-                background: moisIdx===i ? "var(--accent)" : "var(--card)",
-                color: moisIdx===i ? "#fff" : "var(--muted)"}}>
-              {m}
-            </button>
-          ))}
+    <div style={{ padding: '1rem 1.2rem 3rem' }}>
+      <div style={{ fontSize: 20, fontWeight: 900, marginBottom: '1rem' }}>Performances de l équipe</div>
+
+      {profs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--muted)' }}>
+          <div style={{ fontSize: 48 }}>👥</div>
+          <div style={{ fontSize: 14, marginTop: 8 }}>Aucun employé trouvé</div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <span style={{fontSize:11,color:"var(--muted)"}}>Jours ouvres:</span>
-          <input type="number" value={joursOuvres} onChange={e=>setJoursOuvres(parseInt(e.target.value)||22)}
-            style={{width:50,padding:"4px 8px",borderRadius:8,border:"1px solid var(--border)",fontSize:12,textAlign:"center"}} />
-        </div>
-      </div>
-      {enseignants.length === 0 ? (
-        <div className="empty-state"><div className="empty-icon">⭐</div><p>Aucun enseignant enregistre</p></div>
-      ) : enseignants.map(prof => {
-        const sc = calcScore(prof.id)
-        const badge = getBadge(sc.pct)
-        const col = badge.color
-        return (
-          <div key={prof.id} style={{background:"var(--card)",borderRadius:14,border:"1px solid var(--border)",marginBottom:10,overflow:"hidden"}}>
-            <div style={{background:"linear-gradient(135deg,#0d2a3b,#1565a0)",color:"#fff",padding:".8rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:14}}>{prof.prenom} {prof.nom}</div>
-                <div style={{fontSize:11,opacity:.6,marginTop:2}}>{prof.langue === "en" ? "Anglais" : "Francais"} · {sc.jours} jours pointes</div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontFamily:"Georgia,serif",fontSize:28,fontWeight:900,color:"#1AAFE0"}}>{sc.pct}%</div>
-                <span style={{fontSize:10,fontWeight:700,background:"rgba(255,255,255,.15)",padding:"2px 8px",borderRadius:20}}>{badge.label}</span>
-              </div>
+      ) : profs.map(p => (
+        <div key={p.id} onClick={() => setSelected(p)}
+          style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem', marginBottom: 10, cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{p.prenom} {p.nom}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{p.role}</div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,background:"var(--border)"}}>
-              <div style={{background:"var(--card)",padding:".6rem",textAlign:"center"}}>
-                <div style={{fontSize:18,fontWeight:900,color:"var(--accent)"}}>{sc.ponct}</div>
-                <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>Ponctualite</div>
-              </div>
-              <div style={{background:"var(--card)",padding:".6rem",textAlign:"center"}}>
-                <div style={{fontSize:18,fontWeight:900,color:"var(--green)"}}>{sc.gestion}</div>
-                <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>Gestion classe</div>
-              </div>
-              <div style={{background:"var(--card)",padding:".6rem",textAlign:"center"}}>
-                <div style={{fontSize:18,fontWeight:900,color:"var(--amber)"}}>{sc.prep}</div>
-                <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>Preparations</div>
-              </div>
-            </div>
-            <div style={{padding:".6rem 1rem"}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--muted)",marginBottom:4}}>
-                <span>Score global</span>
-                <span style={{fontWeight:700,color:col}}>{sc.total} / {joursOuvres * 75} pts</span>
-              </div>
-              <div style={{background:"var(--bg)",borderRadius:20,height:8,overflow:"hidden"}}>
-                <div style={{height:"100%",background:col,borderRadius:20,width:sc.pct+"%",transition:"width .4s"}}></div>
-              </div>
-            </div>
+            <span style={{ fontSize: 11, background: 'rgba(26,175,224,.1)', color: 'var(--accent)', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+              Voir détails →
+            </span>
           </div>
-        )
-      })}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+            {[
+              { label: 'Ponctualité', val: p.ponctualite },
+              { label: 'Récréations', val: p.presenceRec },
+              { label: 'Manquements', val: p.nbManquements, invert: true },
+            ].map((s, i) => (
+              <div key={i} style={{ background: 'var(--bg)', borderRadius: 10, padding: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: s.invert ? (s.val === 0 ? '#8DC63F' : s.val < 3 ? '#F7941D' : '#ED1C24') : getColor(s.val) }}>
+                  {s.val !== null ? (s.invert ? s.val : s.val + '%') : '—'}
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
