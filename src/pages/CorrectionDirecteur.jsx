@@ -59,7 +59,7 @@ export default function CorrectionDirecteur() {
     setLoading(false)
   }
 
-  const prepsFiltrees = preparations.filter(p => {
+  const prepsFiltrees = preparations.filter(p => { if (filtre === "toutes") return true;
     if (filtre === 'en_attente') return p.note_ia === null
     if (filtre === 'corrigees') return p.note_ia !== null
     return true
