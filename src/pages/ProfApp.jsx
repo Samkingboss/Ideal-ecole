@@ -445,46 +445,149 @@ export default function ProfApp({ user, onLogout }) {
         {tab === 'messages' && (
           <>
             <div className="section-head"><div className="section-title">Messages parents</div></div>
-            <div className="form-group">
-              <label className="form-label">Eleve</label>
-              <select className="form-select" value={msgEleve?.id||''} onChange={e=>{setMsgEleve(classEleves.find(el=>el.id===e.target.value));setMsgBody('');}}>
-                <option value="">-- Selectionnez un eleve --</option>
-                {classEleves.map(el=><option key={el.id} value={el.id}>{el.prenom} {el.nom}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Type de message</label>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
-                {[['comportement','Comportement'],['resultats','Resultats'],['absence','Absence'],['felicitations','Felicitations'],['convocation','Convocation'],['libre','Message libre']].map(([v,label])=>(
-                  <div key={v} onClick={()=>{setMsgType(v);if(v!=='libre'&&msgEleve){const n=msgEleve.prenom;setMsgBody(v==='comportement'?'Nous souhaitons vous informer d un comportement de '+n+' qui necessite votre attention.':v==='resultats'?'Nous vous informons des resultats de '+n+' pour cette periode.':v==='absence'?'Nous avons constate l absence de '+n+' aujourd hui. Merci de nous en informer.':v==='felicitations'?n+' a fait preuve d un excellent comportement. Felicitations !':'Nous vous prions de vous presenter a l ecole concernant '+n+'.');}}}
-                    style={{background:msgType===v?'rgba(26,175,224,.08)':'var(--bg)',border:'1.5px solid '+(msgType===v?'var(--accent)':'var(--border)'),borderRadius:12,padding:'.6rem',textAlign:'center',cursor:'pointer'}}>
-                    <div style={{fontSize:12,fontWeight:600,color:msgType===v?'var(--accent)':'var(--muted)'}}>{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {msgEleve && (
-              <div className="form-group">
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                  <label className="form-label" style={{margin:0}}>Votre message</label>
-                  <span style={{fontSize:10,color:'var(--muted)'}}>{msgBody.length} car.</span>
+            {!msgPreview ? (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Eleve</label>
+                  <select className="form-select" value={msgEleve?.id||''} onChange={e=>{setMsgEleve(classEleves.find(el=>el.id===e.target.value));setMsgBody('');setMsgType('');setMsgDetails({});}}>
+                    <option value="">-- Selectionnez un eleve --</option>
+                    {classEleves.map(el=><option key={el.id} value={el.id}>{el.prenom} {el.nom}</option>)}
+                  </select>
                 </div>
-                <textarea className="form-input form-textarea" rows={5} value={msgBody} onChange={e=>setMsgBody(e.target.value)} placeholder="Redigez ou personnalisez..." style={{lineHeight:1.7,resize:'vertical'}} />
-              </div>
-            )}
-            {msgEleve && msgBody.trim().length > 5 && (
-              <div style={{background:'rgba(26,175,224,.05)',border:'1px solid rgba(26,175,224,.2)',borderRadius:14,padding:'1rem',marginBottom:'1rem'}}>
-                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textTransform:'uppercase',marginBottom:8}}>Apercu WhatsApp</div>
-                <div style={{fontSize:12,lineHeight:1.8,whiteSpace:'pre-wrap',background:'var(--bg)',borderRadius:8,padding:'8px'}}>
-                  {['Chers parents de ',msgEleve.prenom,' ',msgEleve.nom,',',String.fromCharCode(10),String.fromCharCode(10),msgBody.trim(),String.fromCharCode(10),String.fromCharCode(10),'Cordialement,',String.fromCharCode(10),(user.prenom||''),' ',(user.nom||''),String.fromCharCode(10),'IDEAL Ecole Internationale Bilingue',String.fromCharCode(10),'+223 90 19 00 07'].join('')}
+                {msgEleve && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Situation</label>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+                        {[['comportement','Comportement'],['resultats','Resultats'],['absence','Absence/Retard'],['felicitations','Felicitations'],['convocation','Convocation'],['sante','Sante']].map(([v,label])=>(
+                          <div key={v} onClick={()=>{setMsgType(v);setMsgDetails({});}}
+                            style={{background:msgType===v?'rgba(26,175,224,.1)':'var(--bg)',border:'1.5px solid '+(msgType===v?'var(--accent)':'var(--border)'),borderRadius:12,padding:'.7rem',textAlign:'center',cursor:'pointer'}}>
+                            <div style={{fontSize:12,fontWeight:600,color:msgType===v?'var(--accent)':'var(--muted)'}}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {msgType === 'comportement' && (
+                      <div className="form-group">
+                        <label className="form-label">Decrivez le comportement</label>
+                        <textarea className="form-input" rows={3} placeholder="Ex: bagarre, refus de travailler..." value={msgDetails.desc||''} onChange={e=>setMsgDetails({...msgDetails,desc:e.target.value})} style={{lineHeight:1.6,resize:'vertical'}} />
+                        <label className="form-label" style={{marginTop:8}}>Gravite</label>
+                        <div style={{display:'flex',gap:8}}>
+                          {[['leger','Leger'],['moyen','Moyen'],['grave','Grave']].map(([v,l])=>(
+                            <div key={v} onClick={()=>setMsgDetails({...msgDetails,gravite:v})} style={{flex:1,padding:'6px',textAlign:'center',borderRadius:10,border:'1.5px solid '+(msgDetails.gravite===v?'var(--accent)':'var(--border)'),background:msgDetails.gravite===v?'rgba(26,175,224,.1)':'var(--bg)',cursor:'pointer',fontSize:12,fontWeight:600,color:msgDetails.gravite===v?'var(--accent)':'var(--muted)'}}>{l}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {msgType === 'resultats' && (
+                      <div className="form-group">
+                        <label className="form-label">Matiere</label>
+                        <input className="form-input" placeholder="Ex: Mathematiques..." value={msgDetails.matiere||''} onChange={e=>setMsgDetails({...msgDetails,matiere:e.target.value})} />
+                        <label className="form-label" style={{marginTop:8}}>Appreciation</label>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                          {[['excellent','Excellent'],['bien','Bien'],['moyen','Peut mieux faire'],['insuffisant','Insuffisant']].map(([v,l])=>(
+                            <div key={v} onClick={()=>setMsgDetails({...msgDetails,appreciation:v})} style={{flex:1,minWidth:80,padding:'6px',textAlign:'center',borderRadius:10,border:'1.5px solid '+(msgDetails.appreciation===v?'var(--accent)':'var(--border)'),background:msgDetails.appreciation===v?'rgba(26,175,224,.1)':'var(--bg)',cursor:'pointer',fontSize:11,fontWeight:600,color:msgDetails.appreciation===v?'var(--accent)':'var(--muted)'}}>{l}</div>
+                          ))}
+                        </div>
+                        <label className="form-label" style={{marginTop:8}}>Precision (optionnel)</label>
+                        <input className="form-input" placeholder="Ex: tres bons progres..." value={msgDetails.precision||''} onChange={e=>setMsgDetails({...msgDetails,precision:e.target.value})} />
+                      </div>
+                    )}
+                    {msgType === 'absence' && (
+                      <div className="form-group">
+                        <label className="form-label">Type</label>
+                        <div style={{display:'flex',gap:8}}>
+                          {[['absence','Absence'],['retard','Retard'],['depart','Depart anticipe']].map(([v,l])=>(
+                            <div key={v} onClick={()=>setMsgDetails({...msgDetails,type_abs:v})} style={{flex:1,padding:'6px',textAlign:'center',borderRadius:10,border:'1.5px solid '+(msgDetails.type_abs===v?'var(--accent)':'var(--border)'),background:msgDetails.type_abs===v?'rgba(26,175,224,.1)':'var(--bg)',cursor:'pointer',fontSize:11,fontWeight:600,color:msgDetails.type_abs===v?'var(--accent)':'var(--muted)'}}>{l}</div>
+                          ))}
+                        </div>
+                        <label className="form-label" style={{marginTop:8}}>Duree</label>
+                        <input className="form-input" placeholder="Ex: 2 jours, ce matin..." value={msgDetails.duree||''} onChange={e=>setMsgDetails({...msgDetails,duree:e.target.value})} />
+                      </div>
+                    )}
+                    {msgType === 'felicitations' && (
+                      <div className="form-group">
+                        <label className="form-label">Raison</label>
+                        <textarea className="form-input" rows={2} placeholder="Ex: premier de classe, progres remarquables..." value={msgDetails.raison||''} onChange={e=>setMsgDetails({...msgDetails,raison:e.target.value})} style={{lineHeight:1.6,resize:'vertical'}} />
+                      </div>
+                    )}
+                    {msgType === 'convocation' && (
+                      <div className="form-group">
+                        <label className="form-label">Objet</label>
+                        <textarea className="form-input" rows={2} placeholder="Ex: situation scolaire, incident..." value={msgDetails.objet||''} onChange={e=>setMsgDetails({...msgDetails,objet:e.target.value})} style={{lineHeight:1.6,resize:'vertical'}} />
+                        <label className="form-label" style={{marginTop:8}}>Urgence</label>
+                        <div style={{display:'flex',gap:8}}>
+                          {[['normal','Normal'],['urgent','Urgent']].map(([v,l])=>(
+                            <div key={v} onClick={()=>setMsgDetails({...msgDetails,urgence:v})} style={{flex:1,padding:'6px',textAlign:'center',borderRadius:10,border:'1.5px solid '+(msgDetails.urgence===v?'var(--accent)':'var(--border)'),background:msgDetails.urgence===v?'rgba(26,175,224,.1)':'var(--bg)',cursor:'pointer',fontSize:12,fontWeight:600,color:msgDetails.urgence===v?'var(--accent)':'var(--muted)'}}>{l}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {msgType === 'sante' && (
+                      <div className="form-group">
+                        <label className="form-label">Situation</label>
+                        <textarea className="form-input" rows={3} placeholder="Ex: leger malaise, chute..." value={msgDetails.desc||''} onChange={e=>setMsgDetails({...msgDetails,desc:e.target.value})} style={{lineHeight:1.6,resize:'vertical'}} />
+                        <label className="form-label" style={{marginTop:8}}>Etat actuel</label>
+                        <div style={{display:'flex',gap:8}}>
+                          {[['bien','Va bien'],['soigne','Soigne'],['medecin','Medecin requis']].map(([v,l])=>(
+                            <div key={v} onClick={()=>setMsgDetails({...msgDetails,etat:v})} style={{flex:1,padding:'6px',textAlign:'center',borderRadius:10,border:'1.5px solid '+(msgDetails.etat===v?'var(--accent)':'var(--border)'),background:msgDetails.etat===v?'rgba(26,175,224,.1)':'var(--bg)',cursor:'pointer',fontSize:11,fontWeight:600,color:msgDetails.etat===v?'var(--accent)':'var(--muted)'}}>{l}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {msgType && (
+                      <button className="btn btn-primary" onClick={()=>{
+                        const nl = '\n';
+                        const prenom = msgEleve.prenom;
+                        const nom = msgEleve.prenom + ' ' + msgEleve.nom;
+                        const sig = 'Cordialement,' + nl + (user.prenom||'') + ' ' + (user.nom||'') + nl + 'IDEAL Ecole Internationale Bilingue' + nl + '+223 90 19 00 07';
+                        let corps = '';
+                        if(msgType==='comportement'){
+                          const grav = msgDetails.gravite==='grave'?'un incident grave':msgDetails.gravite==='moyen'?'un incident':'un incident';
+                          corps = 'Nous souhaitons vous informer que votre enfant ' + prenom + ' a ete implique(e) dans ' + grav + ' aujourd hui.' + (msgDetails.desc?' Il s agit de : ' + msgDetails.desc+'.' : '') + (msgDetails.gravite==='grave'?' Nous vous demandons de nous contacter dans les plus brefs delais.':' Nous restons disponibles pour en discuter.');
+                        } else if(msgType==='resultats'){
+                          const app = msgDetails.appreciation==='excellent'?'d excellents resultats':msgDetails.appreciation==='bien'?'de bons resultats':msgDetails.appreciation==='moyen'?'des resultats qui peuvent etre ameliores':'des resultats insuffisants';
+                          corps = 'Nous vous informons que votre enfant ' + prenom + ' obtient ' + app + (msgDetails.matiere?' en '+msgDetails.matiere:'') + '.' + (msgDetails.precision?' '+msgDetails.precision:'') + ' N hesitez pas a nous contacter pour plus d informations.';
+                        } else if(msgType==='absence'){
+                          const ta = msgDetails.type_abs==='retard'?'un retard':msgDetails.type_abs==='depart'?'un depart anticipe':'une absence';
+                          corps = 'Nous avons constate ' + ta + ' de votre enfant ' + prenom + (msgDetails.duree?' de '+msgDetails.duree:'') + '. Merci de nous informer des raisons et de fournir un justificatif si necessaire.';
+                        } else if(msgType==='felicitations'){
+                          corps = 'Nous avons le plaisir de vous informer que votre enfant ' + prenom + ' s est particulierement distingue(e).' + (msgDetails.raison?' '+msgDetails.raison+'.':'') + ' Felicitations a votre famille !';
+                        } else if(msgType==='convocation'){
+                          corps = (msgDetails.urgence==='urgent'?'URGENT - ':'') + 'Nous vous prions de bien vouloir vous presenter a l ecole' + (msgDetails.objet?' concernant : '+msgDetails.objet:'') + '. Merci de nous contacter pour convenir d un rendez-vous.';
+                        } else if(msgType==='sante'){
+                          const etat = msgDetails.etat==='medecin'?'Nous vous recommandons de consulter un medecin.':msgDetails.etat==='soigne'?'Votre enfant a ete pris(e) en charge.':'Votre enfant va bien.';
+                          corps = 'Nous vous informons que votre enfant ' + prenom + ' a eu un souci de sante aujourd hui.' + (msgDetails.desc?' '+msgDetails.desc+'.':'') + ' ' + etat;
+                        }
+                        setMsgBody('Chers parents de ' + nom + ',' + nl + nl + corps + nl + nl + sig);
+                        setMsgPreview(true);
+                      }}>
+                        Generer le message
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'1rem'}}>
+                  <button onClick={()=>setMsgPreview(false)} style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:10,padding:'6px 12px',cursor:'pointer',fontSize:13}}>Modifier</button>
+                  <div style={{fontSize:14,fontWeight:700}}>Apercu du message</div>
                 </div>
-              </div>
+                <div style={{background:'rgba(26,175,224,.05)',border:'1px solid rgba(26,175,224,.2)',borderRadius:14,padding:'1rem',marginBottom:'1rem'}}>
+                  <textarea className="form-input" rows={12} value={msgBody} onChange={e=>setMsgBody(e.target.value)} style={{lineHeight:1.8,resize:'vertical',fontFamily:'inherit',background:'transparent',border:'none',padding:0,width:'100%'}} />
+                </div>
+                <button className="btn btn-wa btn-primary" onClick={()=>window.open('https://wa.me/'+schoolNum+'?text='+encodeURIComponent(msgBody),'_blank')} disabled={!msgBody.trim()}>
+                  Envoyer via WhatsApp
+                </button>
+              </>
             )}
-            <button className="btn btn-wa btn-primary" onClick={()=>{if(!msgEleve||!msgBody.trim())return;const nl=String.fromCharCode(10);const msg=['Chers parents de ',msgEleve.prenom,' ',msgEleve.nom,',',nl,nl,msgBody.trim(),nl,nl,'Cordialement,',nl,(user.prenom||''),' ',(user.nom||''),nl,'IDEAL Ecole Internationale Bilingue',nl,'+223 90 19 00 07'].join('');window.open('https://wa.me/'+schoolNum+'?text='+encodeURIComponent(msg),'_blank');}} disabled={!msgEleve||!msgBody.trim()}>
-              Envoyer via WhatsApp
-            </button>
           </>
         )}
+
+
+
+
 
 
         {tab === 'preparation' && (
