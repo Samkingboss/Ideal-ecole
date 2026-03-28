@@ -1,3 +1,4 @@
+import ProgrammeManager from './ProgrammeManager'
 import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
 import { useState, useEffect } from 'react'
@@ -13,7 +14,7 @@ const RECREE_CHECKS = [
 ]
 
 const TABS = [
-  { id:'checkpoint', icon:'✅', label:'Check-point' },
+  { id:'programme', icon:'📚', label:'Programme' },  { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'classe', icon:'🏫', label:'Classe' }, { id:'messages', icon:'💬', label:'Messages' },
   { id:'agenda', icon:'📅', label:'Agenda' },
@@ -355,7 +356,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         )}
 
-        {tab === 'checkpoint' && (
+        {tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} />)} {tab === 'checkpoint' && (
           <>
             <div className="section-head">
               <div className="section-title">Check-points</div>
