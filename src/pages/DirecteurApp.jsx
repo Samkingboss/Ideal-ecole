@@ -9,7 +9,7 @@ const TABS = [
   { id:'planning', icon:'📋', label:'Planification' },
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Performances' },
-  { id:'corrections', icon:'📋', label:'Corrections' },
+  { id:'corrections', icon:'✏️', label:'Corrections' },
 ]
 
 export default function DirecteurApp({ user, onLogout }) {
