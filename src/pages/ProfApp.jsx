@@ -227,6 +227,23 @@ export default function ProfApp({ user, onLogout }) {
     setLoading(false);
   }
 
+  const handleCpChange = (eleveId, compId, val) => {
+    const v = Math.min(100, Math.max(0, parseInt(val) || 0))
+    setCpEntries(prev => {
+      const newEntries = {...prev}
+      if (!newEntries[eleveId]) newEntries[eleveId] = {}
+      newEntries[eleveId] = {...newEntries[eleveId], [compId]: v}
+      return newEntries
+    })
+  }
+  const handleCpSelectChange = (eleveId, compId, val) => {
+    setCpEntries(prev => {
+      const newEntries = {...prev}
+      if (!newEntries[eleveId]) newEntries[eleveId] = {}
+      newEntries[eleveId] = {...newEntries[eleveId], [compId]: parseInt(val)}
+      return newEntries
+    })
+  }
   const openCheckpoint = () => {
     const classEleves = getClasseEleves()
     if (programmeData.length === 0) {
@@ -881,7 +898,7 @@ export default function ProfApp({ user, onLogout }) {
                           <div key={comp.id} className="obj-row" style={{paddingLeft:8}}>
                             <div className="obj-label" style={{fontSize:12}}>⭐ {comp.nom}</div>
                             {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
-                              <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [comp.id]: parseInt(e.target.value)}}))} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
+                              <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => handleCpSelectChange(el.id, comp.id, e.target.value)} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
                                 <option value={0}>-- Choisir --</option>
                                 <option value={25}>Debut d acquisition</option>
                                 <option value={50}>En cours d acquisition</option>
@@ -890,7 +907,7 @@ export default function ProfApp({ user, onLogout }) {
                               </select>
                             ) : (
                               <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                <input type=number min=0 max=100 value={cpEntries[el.id]?.[comp.id] || ''} placeholder=0 onChange={e => { const v=Math.min(100,Math.max(0,parseInt(e.target.value)||0)); setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [comp.id]: v}})); }} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
+                                <input type=number min=0 max=100 value={cpEntries[el.id]?.[comp.id] || ''} placeholder=0 onChange={e => handleCpChange(el.id, comp.id, e.target.value)} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
                                 <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
                               </div>
                             )}
