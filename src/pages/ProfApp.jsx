@@ -1,4 +1,5 @@
 import ProgrammeManager from './ProgrammeManager'
+import CheckpointModal from './CheckpointModal'
 import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
 import { useState, useEffect } from 'react'
@@ -66,15 +67,6 @@ export default function ProfApp({ user, onLogout }) {
       result.push({ ...mat, objectifs: objsWithComps })
     }
     setProgrammeData(result)
-  }
-
-  const handleCpChange = (eid, cid, val) => {
-    const v = Math.min(100, Math.max(0, parseInt(val) || 0))
-    setCpEntries(p => ({ ...p, [eid]: { ...(p[eid]||{}), [cid]: v } }))
-  }
-
-  const handleCpSelect = (eid, cid, val) => {
-    setCpEntries(p => ({ ...p, [eid]: { ...(p[eid]||{}), [cid]: parseInt(val) } }))
   }
 
   const loadData = async () => {
@@ -237,23 +229,19 @@ export default function ProfApp({ user, onLogout }) {
   }
 
   const openCheckpoint = () => {
+    if (programmeData.length === 0) { alert('Creez dabord votre programme.'); return }
+    const plan = getCurrentPlan()
+    if (!plan) return
     const classEleves = getClasseEleves()
-    if (programmeData.length === 0) {
-      alert('Creez dabord votre programme avant de faire un checkpoint.')
-      return
-    }
     const entries = {}
     classEleves.forEach(el => {
       entries[el.id] = {}
-      programmeData.forEach(mat => {
-        mat.objectifs.forEach(obj => {
-          obj.competences.forEach(comp => { entries[el.id][comp.id] = 0 })
-        })
-      })
+      plan.objectifs.forEach(obj => { entries[el.id][obj.id] = 0 })
     })
+    // Pre-fill from last checkpoint
     const classCps2 = checkpoints.filter(cp => {
       const p = planifications.find(pl => pl.id === cp.planification_id)
-      return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+      return p && p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id
     }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
     const lastCp = classCps2[0]
     if (lastCp) {
@@ -266,20 +254,22 @@ export default function ProfApp({ user, onLogout }) {
     setCpDate(new Date().toISOString().slice(0,10))
     setShowCpModal(true)
   }
+
   const saveCheckpoint = async () => {
-    setLoading(true)
     const plan = getCurrentPlan()
+    if (!plan) return
+    setLoading(true)
     const { data: cpData, error } = await supabase.from('checkpoints')
-      .insert({ planification_id: plan?.id || null, prof_id: user.id, date_checkpoint: cpDate })
+      .insert({ planification_id: plan.id, prof_id: user.id, date_checkpoint: cpDate })
       .select().single()
-    if (error) { setLoading(false); alert('Erreur: ' + error.message); return }
+    if (error) { setLoading(false); return }
     const progressions = []
-    Object.entries(cpEntries).forEach(([eleveId, comps]) => {
-      Object.entries(comps).forEach(([compId, pct]) => {
-        if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: compId, pourcentage: pct })
+    Object.entries(cpEntries).forEach(([eleveId, objectives]) => {
+      Object.entries(objectives).forEach(([objId, pct]) => {
+        progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: objId, pourcentage: pct })
       })
     })
-    if (progressions.length > 0) await supabase.from('progressions').insert(progressions)
+    await supabase.from('progressions').insert(progressions)
     setShowCpModal(false)
     loadData()
     setLoading(false)
@@ -866,57 +856,7 @@ export default function ProfApp({ user, onLogout }) {
         ))}
       </div>
 
-      {showCpModal && plan && (
-        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowCpModal(false)}>
-          <div className="modal" style={{maxHeight:'88vh',overflowY:'auto'}}>
-            <div className="modal-handle"></div>
-            <div className="modal-title">Check-point — {selectedClasse?.nom}</div>
-            <div className="form-group"><label className="form-label">Date</label><input className="form-input" type="date" value={cpDate} max={new Date().toISOString().slice(0,10)} onChange={e=>{ if(e.target.value <= new Date().toISOString().slice(0,10)) setCpDate(e.target.value); }} /></div>
-            {classEleves.map(el => (
-              <div key={el.id} style={{background:'var(--bg)',borderRadius:12,padding:'.8rem',marginBottom:.8+'rem'}}>
-                <div style={{fontSize:13,fontWeight:700,marginBottom:.6+'rem',display:'flex',alignItems:'center',gap:8}}>
-                  <div className="avatar av-blue" style={{width:28,height:28,fontSize:11}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                  {el.prenom} {el.nom}
-                </div>
-                {/* Programme : matieres > objectifs > competences */}
-                {programmeData.length > 0 ? programmeData.map(mat => (
-                  <div key={mat.id} style={{marginBottom:12}}>
-                    <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',background:'rgba(26,175,224,.08)',padding:'4px 10px',borderRadius:8,marginBottom:6}}>{mat.nom}</div>
-                    {mat.objectifs.map(obj => (
-                      <div key={obj.id} style={{marginBottom:8,paddingLeft:6}}>
-                        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',marginBottom:4}}>🎯 {obj.nom}</div>
-                        {obj.competences.length === 0
-                          ? <div style={{fontSize:10,color:'var(--muted)',fontStyle:'italic',paddingLeft:8}}>Aucune competence</div>
-                          : obj.competences.map(comp => (
-                          <div key={comp.id} className="obj-row">
-                            <div className="obj-label" style={{fontSize:12}}>⭐ {comp.nom}</div>
-                            {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
-                              <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => handleCpSelect(el.id, comp.id, e.target.value)} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
-                                <option value={0}>-- Choisir --</option>
-                                <option value={25}>Debut</option>
-                                <option value={50}>En cours</option>
-                                <option value={75}>Acquis</option>
-                                <option value={100}>Bien acquis</option>
-                              </select>
-                            ) : (
-                              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                <input type="number" min="0" max="100" value={cpEntries[el.id]?.[comp.id] || ''} placeholder='0' onChange={e => handleCpChange(el.id, comp.id, e.target.value)} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
-                                <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )) : (<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun programme. Creez votre programme dabord.</div>)
-                }
-            ))}
-            <button className="btn btn-primary" onClick={saveCheckpoint} disabled={loading}>{loading?'Enregistrement...':'Enregistrer'}</button>
-            <button className="btn-cancel" onClick={()=>setShowCpModal(false)}>Annuler</button>
-          </div>
-        </div>
-      )}
+      {showCpModal && (<CheckpointModal classEleves={classEleves} programmeData={programmeData} selectedClasse={selectedClasse} checkpoints={checkpoints} planifications={planifications} selectedPeriode={selectedPeriode} supabase={supabase} user={user} onClose={()=>setShowCpModal(false)} onSaved={()=>{setShowCpModal(false);loadData();}} />)}
     </div>
   )
 }
