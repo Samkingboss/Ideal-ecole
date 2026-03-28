@@ -35,6 +35,7 @@ export default function ProfApp({ user, onLogout }) {
   const [msgEleve, setMsgEleve] = useState(null)
   const [msgType, setMsgType] = useState('comportement')
   const [msgBody, setMsgBody] = useState('')
+  const [selectedCpDate, setSelectedCpDate] = useState(null)
   const [msgPreview, setMsgPreview] = useState(false)
   const [msgDetails, setMsgDetails] = useState({})
   const [schoolNum] = useState('22390190007')
@@ -268,6 +269,27 @@ export default function ProfApp({ user, onLogout }) {
     })
   }
 
+  const getProgressAtDate = (eleveId, dateStr) => {
+    const classCps = checkpoints.filter(cp => {
+      const p = planifications.find(pl => pl.id === cp.planification_id)
+      return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+    })
+    const cp = classCps.find(cp => cp.date_checkpoint === dateStr || cp.date_checkpoint?.slice(0,10) === dateStr)
+    if (!cp) return { avg: 0, byDiscipline: {} }
+    const myProgs = cp.progressions.filter(pr => pr.eleve_id === eleveId)
+    const all = myProgs.map(pr => pr.pourcentage)
+    const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
+    const byDiscipline = {}
+    myProgs.forEach(pr => {
+      if (!byDiscipline[pr.objectifs?.discipline]) byDiscipline[pr.objectifs?.discipline] = []
+      byDiscipline[pr.objectifs?.discipline].push(pr.pourcentage)
+    })
+    Object.keys(byDiscipline).forEach(d => {
+      const vals = byDiscipline[d]
+      byDiscipline[d] = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+    })
+    return { avg, byDiscipline }
+  }
   const getEleveProgress = (eleveId) => {
     const plan = getCurrentPlan()
     if (!plan) return { avg: 0, byDiscipline: {} }
@@ -397,11 +419,11 @@ export default function ProfApp({ user, onLogout }) {
                 <div className="card-header">Evolution — {selectedClasse?.nom}</div>
                 <div style={{padding:'1rem',height:220}}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={getProgressionData()}>
+                    <LineChart data={getProgressionData()} onClick={(e)=>{ if(e&&e.activePayload&&e.activePayload[0]){ const d=e.activeLabel; setSelectedCpDate(prev=>prev===d?null:d); } }}>
                       <XAxis dataKey="date" style={{fontSize:10}} />
                       <YAxis domain={[0,100]} tickFormatter={v=>v+'%'} style={{fontSize:10}} />
                       <Tooltip formatter={v=>v+'%'} />
-                      <Line type="monotone" dataKey="moyenne" stroke="#1AAFE0" strokeWidth={2} dot={{r:4}} name="Moy. classe" />
+                      <Line type="monotone" dataKey="moyenne" stroke="#1AAFE0" strokeWidth={2} dot={(props)=>{ const sel = props.payload.date===selectedCpDate; return <circle key={props.key} cx={props.cx} cy={props.cy} r={sel?7:4} fill={sel?'#F7941D':'#1AAFE0'} stroke={sel?'#fff':'none'} strokeWidth={2} />; }} name="Moy. classe" />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -411,7 +433,7 @@ export default function ProfApp({ user, onLogout }) {
             )}
             {/* Per student detail */}
             {classEleves.map(el => {
-              const prog = getEleveProgress(el.id)
+              const prog = selectedCpDate ? getProgressAtDate(el.id, selectedCpDate) : getEleveProgress(el.id)
               const barColor = prog.avg >= 75 ? 'var(--green)' : prog.avg >= 50 ? 'var(--amber)' : 'var(--red)'
               return (
                 <div key={el.id} className="card" style={{marginBottom:8}}>
