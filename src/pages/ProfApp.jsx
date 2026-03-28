@@ -33,7 +33,7 @@ export default function ProfApp({ user, onLogout }) {
   const [showCpModal, setShowCpModal] = useState(false)
   const [cpEntries, setCpEntries] = useState({})
   const [cpDate, setCpDate] = useState(new Date().toISOString().slice(0,10))
-  const [programmeData, setProgrammeData] = useState([]) // [{matiere, objectifs:[{objectif, competences:[]}]}]
+  const [programmeData, setProgrammeData] = useState([])
   const [msgEleve, setMsgEleve] = useState(null)
   const [msgType, setMsgType] = useState('comportement')
   const [msgBody, setMsgBody] = useState('')
@@ -66,6 +66,15 @@ export default function ProfApp({ user, onLogout }) {
       result.push({ ...mat, objectifs: objsWithComps })
     }
     setProgrammeData(result)
+  }
+
+  const handleCpChange = (eid, cid, val) => {
+    const v = Math.min(100, Math.max(0, parseInt(val) || 0))
+    setCpEntries(p => ({ ...p, [eid]: { ...(p[eid]||{}), [cid]: v } }))
+  }
+
+  const handleCpSelect = (eid, cid, val) => {
+    setCpEntries(p => ({ ...p, [eid]: { ...(p[eid]||{}), [cid]: parseInt(val) } }))
   }
 
   const loadData = async () => {
@@ -227,23 +236,6 @@ export default function ProfApp({ user, onLogout }) {
     setLoading(false);
   }
 
-  const handleCpChange = (eleveId, compId, val) => {
-    const v = Math.min(100, Math.max(0, parseInt(val) || 0))
-    setCpEntries(prev => {
-      const newEntries = {...prev}
-      if (!newEntries[eleveId]) newEntries[eleveId] = {}
-      newEntries[eleveId] = {...newEntries[eleveId], [compId]: v}
-      return newEntries
-    })
-  }
-  const handleCpSelectChange = (eleveId, compId, val) => {
-    setCpEntries(prev => {
-      const newEntries = {...prev}
-      if (!newEntries[eleveId]) newEntries[eleveId] = {}
-      newEntries[eleveId] = {...newEntries[eleveId], [compId]: parseInt(val)}
-      return newEntries
-    })
-  }
   const openCheckpoint = () => {
     const classEleves = getClasseEleves()
     if (programmeData.length === 0) {
@@ -277,9 +269,8 @@ export default function ProfApp({ user, onLogout }) {
   const saveCheckpoint = async () => {
     setLoading(true)
     const plan = getCurrentPlan()
-    const planId = plan ? plan.id : null
     const { data: cpData, error } = await supabase.from('checkpoints')
-      .insert({ planification_id: planId, prof_id: user.id, date_checkpoint: cpDate, classe_id: selectedClasse?.id })
+      .insert({ planification_id: plan?.id || null, prof_id: user.id, date_checkpoint: cpDate })
       .select().single()
     if (error) { setLoading(false); alert('Erreur: ' + error.message); return }
     const progressions = []
@@ -890,18 +881,20 @@ export default function ProfApp({ user, onLogout }) {
                 {/* Programme : matieres > objectifs > competences */}
                 {programmeData.length > 0 ? programmeData.map(mat => (
                   <div key={mat.id} style={{marginBottom:12}}>
-                    <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,padding:'4px 8px',background:'rgba(26,175,224,.08)',borderRadius:8}}>{mat.nom}</div>
+                    <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',background:'rgba(26,175,224,.08)',padding:'4px 10px',borderRadius:8,marginBottom:6}}>{mat.nom}</div>
                     {mat.objectifs.map(obj => (
-                      <div key={obj.id} style={{marginBottom:8,paddingLeft:8}}>
+                      <div key={obj.id} style={{marginBottom:8,paddingLeft:6}}>
                         <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',marginBottom:4}}>🎯 {obj.nom}</div>
-                        {obj.competences.map(comp => (
-                          <div key={comp.id} className="obj-row" style={{paddingLeft:8}}>
-                            <div className="obj-label" style={{fontSize:12}}>⭐ {comp.nom}</div>
+                        {obj.competences.length === 0
+                          ? <div style={{fontSize:10,color:'var(--muted)',fontStyle:'italic',paddingLeft:8}}>Aucune competence</div>
+                          : obj.competences.map(comp => (
+                          <div key={comp.id} className=obj-row>
+                            <div className=obj-label style={{fontSize:12}}>⭐ {comp.nom}</div>
                             {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
-                              <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => handleCpSelectChange(el.id, comp.id, e.target.value)} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
+                              <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => handleCpSelect(el.id, comp.id, e.target.value)} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
                                 <option value={0}>-- Choisir --</option>
-                                <option value={25}>Debut d acquisition</option>
-                                <option value={50}>En cours d acquisition</option>
+                                <option value={25}>Debut</option>
+                                <option value={50}>En cours</option>
                                 <option value={75}>Acquis</option>
                                 <option value={100}>Bien acquis</option>
                               </select>
@@ -913,14 +906,10 @@ export default function ProfApp({ user, onLogout }) {
                             )}
                           </div>
                         ))}
-                        {obj.competences.length === 0 && <div style={{fontSize:11,color:'var(--muted)',paddingLeft:8,fontStyle:'italic'}}>Aucune competence</div>}
                       </div>
                     ))}
-                    {mat.objectifs.length === 0 && <div style={{fontSize:11,color:'var(--muted)',paddingLeft:8,fontStyle:'italic'}}>Aucun objectif</div>}
                   </div>
-                )) : (
-                  <div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun programme defini. Creez d abord votre programme.</div>
-                )}
+                )) : <div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun programme. Creez votre programme dabord.</div>}
             ))}
             <button className="btn btn-primary" onClick={saveCheckpoint} disabled={loading}>{loading?'Enregistrement...':'Enregistrer'}</button>
             <button className="btn-cancel" onClick={()=>setShowCpModal(false)}>Annuler</button>
