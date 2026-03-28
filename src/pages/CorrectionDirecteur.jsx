@@ -22,7 +22,6 @@ export default function CorrectionDirecteur() {
   const [selected, setSelected] = useState(null)
   const [notes, setNotes] = useState({ structure: 0, objectifs: 0, contenu: 0, methodes: 0, evaluation: 0 })
   const [commentaire, setCommentaire] = useState('')
-  const [conseil, setConseil] = useState('')
   const [loading, setLoading] = useState(false)
   const [filtre, setFiltre] = useState('toutes')
 
@@ -32,7 +31,7 @@ export default function CorrectionDirecteur() {
     const { data } = await supabase
       .from('preparations')
       .select('*, classes(nom)')
-      .order('created_at', { ascending: false })
+      .order('heure_depot', { ascending: false })
     setPreparations(data || [])
   }
 
@@ -40,9 +39,8 @@ export default function CorrectionDirecteur() {
     const { data: userData } = await supabase
       .from('users').select('prenom, nom').eq('id', prep.user_id).single()
     setSelected({ ...prep, user: userData })
-    setNotes(prep.notes_criteres || { structure: 0, objectifs: 0, contenu: 0, methodes: 0, evaluation: 0 })
+    setNotes({ structure: 0, objectifs: 0, contenu: 0, methodes: 0, evaluation: 0 })
     setCommentaire(prep.commentaire_ia || '')
-    setConseil(prep.conseil || '')
   }
 
   const total = Object.values(notes).reduce((a, b) => a + b, 0)
@@ -51,22 +49,25 @@ export default function CorrectionDirecteur() {
     if (!selected) return
     setLoading(true)
     await supabase.from('preparations').update({
-      note_ia: total, notes_criteres: notes,
-      commentaire_ia: commentaire, conseil: conseil, status: 'valide',
+      note_ia: total,
+      commentaire_ia: commentaire,
+      status: 'valide',
     }).eq('id', selected.id)
     setSelected(null)
     chargerPreparations()
     setLoading(false)
   }
 
-  const prepsFiltrees = preparations.filter(p => { if (filtre === "toutes") return true;
-    if (filtre === 'en_attente') return p.note_ia === null
-    if (filtre === 'corrigees') return p.note_ia !== null
+  const prepsFiltrees = preparations.filter(p => {
+    if (filtre === 'toutes') return true
+    if (filtre === 'en_attente') return !p.note_ia || p.status === 'en_attente'
+    if (filtre === 'corrigees') return p.note_ia && p.status === 'valide'
     return true
   })
 
   if (selected) {
     const badge = getBadge(total)
+    const dateDepot = selected.heure_depot ? new Date(selected.heure_depot).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
     return (
       <div style={{ padding: '1rem 1.2rem 3rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
@@ -75,12 +76,14 @@ export default function CorrectionDirecteur() {
         </div>
         <div style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem', marginBottom: '1rem' }}>
           <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.user ? selected.user.prenom + ' ' + selected.user.nom : 'Professeur'}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{selected.classes?.nom} · {selected.matiere}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{selected.classes?.nom} · {selected.date_cours}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Depose le {dateDepot}</div>
           {selected.url_doc && (
-            <a href={selected.url_doc} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, background: 'rgba(26,175,224,.08)', border: '1px solid rgba(26,175,224,.2)', borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
+            <a href={selected.url_doc} target='_blank' rel='noreferrer' style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, background: 'rgba(26,175,224,.08)', border: '1px solid rgba(26,175,224,.2)', borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
               Ouvrir la preparation
             </a>
           )}
+          {selected.status === 'rejete (retard)' && <div style={{ marginTop: 8, fontSize: 11, color: '#ED1C24', fontWeight: 600 }}>Soumis en retard</div>}
         </div>
         <div style={{ background: 'linear-gradient(135deg,#0d2a3b,#1565a0)', borderRadius: 14, padding: '1rem', marginBottom: '1rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 13, opacity: .8 }}>Note totale</div>
@@ -113,13 +116,9 @@ export default function CorrectionDirecteur() {
             )
           })}
         </div>
-        <div className="form-group">
-          <label className="form-label">Commentaire general</label>
-          <textarea className="form-input" rows={3} value={commentaire} onChange={e => setCommentaire(e.target.value)} placeholder="Appreciation globale..." style={{ resize: 'none', lineHeight: 1.6 }} />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Conseil prioritaire</label>
-          <textarea className="form-input" rows={2} value={conseil} onChange={e => setConseil(e.target.value)} placeholder="Un conseil concret..." style={{ resize: 'none', lineHeight: 1.6 }} />
+        <div className='form-group'>
+          <label className='form-label'>Commentaire general</label>
+          <textarea className='form-input' rows={3} value={commentaire} onChange={e => setCommentaire(e.target.value)} placeholder='Appreciation globale...' style={{ resize: 'none', lineHeight: 1.6 }} />
         </div>
         <button onClick={sauvegarderCorrection} disabled={loading}
           style={{ width: '100%', padding: '1rem', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', background: loading ? '#ccc' : '#0d2a3b', color: '#fff' }}>
@@ -132,9 +131,9 @@ export default function CorrectionDirecteur() {
   return (
     <div style={{ padding: '1rem 1.2rem 3rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <div style={{ fontSize: 20, fontWeight: 900 }}>Corrections</div>
+        <div style={{ fontSize: 20, fontWeight: 900 }}>Corrections ({preparations.length})</div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {[['en_attente','En attente'],['corrigees','Corrigees'],['toutes','Toutes']].map(([f,l]) => (
+          {[['toutes','Toutes'],['en_attente','En attente'],['corrigees','Corrigees']].map(([f,l]) => (
             <button key={f} onClick={() => setFiltre(f)}
               style={{ padding: '4px 10px', borderRadius: 20, border: '1.5px solid', borderColor: filtre === f ? 'var(--accent)' : 'var(--border)', background: filtre === f ? 'var(--accent)' : 'var(--card)', color: filtre === f ? '#fff' : 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
               {l}
@@ -145,19 +144,19 @@ export default function CorrectionDirecteur() {
       {prepsFiltrees.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--muted)' }}>
           <div style={{ fontSize: 48, marginBottom: '.5rem' }}>📋</div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{filtre === 'en_attente' ? 'Aucune preparation en attente' : 'Aucune preparation'}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Aucune preparation</div>
         </div>
       ) : prepsFiltrees.map(prep => {
         const badge = prep.note_ia !== null ? getBadge(prep.note_ia) : null
-        const date = new Date(prep.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+        const date = prep.heure_depot ? new Date(prep.heure_depot).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : ''
         return (
           <div key={prep.id} onClick={() => ouvrirCorrection(prep)}
             style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem', marginBottom: 8, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}>
-            <div style={{ fontSize: 28, flexShrink: 0 }}>{prep.note_ia !== null ? '✅' : prep.status === 'retard' ? '⏰' : '⏳'}</div>
+            <div style={{ fontSize: 28, flexShrink: 0 }}>{prep.status === 'valide' ? '✅' : prep.status === 'rejete (retard)' ? '⏰' : '⏳'}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>{prep.classes?.nom} · {prep.matiere}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{date}</div>
-              {prep.note_ia === null && <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>Cliquez pour corriger</div>}
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{prep.classes?.nom} · {prep.date_cours}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{date} · {prep.status}</div>
+              {prep.status !== 'valide' && <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>Cliquez pour corriger</div>}
             </div>
             {badge && (
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
