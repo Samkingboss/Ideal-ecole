@@ -782,7 +782,7 @@ export default function ProfApp({ user, onLogout }) {
           <div className="modal" style={{maxHeight:'88vh',overflowY:'auto'}}>
             <div className="modal-handle"></div>
             <div className="modal-title">Check-point — {selectedClasse?.nom}</div>
-            <div className="form-group"><label className="form-label">Date</label><input className="form-input" type="date" value={cpDate} onChange={e=>setCpDate(e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Date</label><input className="form-input" type="date" value={cpDate} max={new Date().toISOString().slice(0,10)} onChange={e=>{ if(e.target.value <= new Date().toISOString().slice(0,10)) setCpDate(e.target.value); }} /></div>
             {classEleves.map(el => (
               <div key={el.id} style={{background:'var(--bg)',borderRadius:12,padding:'.8rem',marginBottom:.8+'rem'}}>
                 <div style={{fontSize:13,fontWeight:700,marginBottom:.6+'rem',display:'flex',alignItems:'center',gap:8}}>
