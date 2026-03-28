@@ -523,16 +523,58 @@ export default function ProfApp({ user, onLogout }) {
                     )}
                     {msgType === 'resultats' && (
                       <div className="form-group">
-                        <label className="form-label">Matiere</label>
-                        <input className="form-input" placeholder="Ex: Mathematiques..." value={msgDetails.matiere||''} onChange={e=>setMsgDetails({...msgDetails,matiere:e.target.value})} />
-                        <label className="form-label" style={{marginTop:8}}>Appreciation</label>
-                        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                          {[['excellent','Excellent'],['bien','Bien'],['moyen','Peut mieux faire'],['insuffisant','Insuffisant']].map(([v,l])=>(
-                            <div key={v} onClick={()=>setMsgDetails({...msgDetails,appreciation:v})} style={{flex:1,minWidth:80,padding:'6px',textAlign:'center',borderRadius:10,border:'1.5px solid '+(msgDetails.appreciation===v?'var(--accent)':'var(--border)'),background:msgDetails.appreciation===v?'rgba(26,175,224,.1)':'var(--bg)',cursor:'pointer',fontSize:11,fontWeight:600,color:msgDetails.appreciation===v?'var(--accent)':'var(--muted)'}}>{l}</div>
-                          ))}
-                        </div>
-                        <label className="form-label" style={{marginTop:8}}>Precision (optionnel)</label>
-                        <input className="form-input" placeholder="Ex: tres bons progres..." value={msgDetails.precision||''} onChange={e=>setMsgDetails({...msgDetails,precision:e.target.value})} />
+                        {(() => {
+                          const cps = checkpoints.filter(cp => {
+                            const p = planifications.find(pl => pl.id === cp.planification_id)
+                            return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+                          }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
+                          let myProgs = []
+                          if (msgEleve) {
+                            for (const cp of cps) {
+                              const pr = cp.progressions.filter(p => p.eleve_id === msgEleve.id)
+                              if (pr.length) { myProgs = pr; break; }
+                            }
+                          }
+                          const ps = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
+                          const lb = (p) => ps ? (p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut') : p+'%'
+                          const gc = (p) => p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)'
+                          const moy = myProgs.length ? Math.round(myProgs.reduce((a,b)=>a+b.pourcentage,0)/myProgs.length) : null
+                          const byDisc = {}
+                          myProgs.forEach(pr => {
+                            const d = pr.objectifs?.discipline || 'General'
+                            if (!byDisc[d]) byDisc[d] = []
+                            byDisc[d].push(pr.pourcentage)
+                          })
+                          return myProgs.length > 0 ? (
+                            <div style={{background:'var(--bg)',borderRadius:12,padding:'1rem',border:'1px solid var(--border)'}}>
+                              <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textTransform:'uppercase',marginBottom:10}}>Resultats reels de {msgEleve?.prenom}</div>
+                              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,padding:'8px',background:'var(--card)',borderRadius:10}}>
+                                <div style={{fontSize:11,color:'var(--muted)'}}>Moyenne globale</div>
+                                <div style={{flex:1,background:'var(--border)',borderRadius:20,height:6,overflow:'hidden'}}>
+                                  <div style={{height:'100%',width:moy+'%',background:gc(moy),borderRadius:20}}></div>
+                                </div>
+                                <div style={{fontSize:14,fontWeight:900,color:gc(moy)}}>{lb(moy)}</div>
+                              </div>
+                              {Object.entries(byDisc).map(([disc, vals]) => {
+                                const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+                                return (
+                                  <div key={disc} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                                    <div style={{fontSize:11,color:'var(--muted)',width:80,flexShrink:0}}>{disc}</div>
+                                    <div style={{flex:1,background:'var(--border)',borderRadius:20,height:4,overflow:'hidden'}}>
+                                      <div style={{height:'100%',width:avg+'%',background:gc(avg),borderRadius:20}}></div>
+                                    </div>
+                                    <div style={{fontSize:11,fontWeight:700,color:gc(avg),width:60,textAlign:'right'}}>{lb(avg)}</div>
+                                  </div>
+                                )
+                              })}
+                              <div style={{fontSize:10,color:'var(--muted)',marginTop:8}}>Ces donnees seront incluses automatiquement dans le message</div>
+                            </div>
+                          ) : (
+                            <div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun checkpoint disponible pour cet eleve</div>
+                          )
+                        })()}
+                        <label className="form-label" style={{marginTop:8}}>Commentaire (optionnel)</label>
+                        <input className="form-input" placeholder="Ex: tres bons progres ce trimestre..." value={msgDetails.precision||''} onChange={e=>setMsgDetails({...msgDetails,precision:e.target.value})} />
                       </div>
                     )}
                     {msgType === 'absence' && (
