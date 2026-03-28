@@ -630,38 +630,23 @@ export default function ProfApp({ user, onLogout }) {
                           const grav = msgDetails.gravite==='grave'?'un incident grave':msgDetails.gravite==='moyen'?'un incident':'un incident';
                           corps = 'Nous souhaitons vous informer que votre enfant ' + prenom + ' a ete implique(e) dans ' + grav + ' aujourd hui.' + (msgDetails.desc?' Il s agit de : ' + msgDetails.desc+'.' : '') + (msgDetails.gravite==='grave'?' Nous vous demandons de nous contacter dans les plus brefs delais.':' Nous restons disponibles pour en discuter.');
                         } else if(msgType==='resultats'){
-                          const cpsR = checkpoints.filter(cp => {
-                            const p = planifications.find(pl => pl.id === cp.planification_id)
-                            return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
-                          }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
-                          let progsR = []
-                          let dateCp = ''
-                          for (const cp of cpsR) {
-                            const pr = cp.progressions.filter(p => p.eleve_id === msgEleve.id)
-                            if (pr.length) { progsR = pr; dateCp = cp.date_checkpoint?.slice(0,10); break; }
-                          }
-                          const psR = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
-                          const lbR = (p) => psR ? (p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours d acquisition':'Debut d acquisition') : p+'%'
-                          const moyR = progsR.length ? Math.round(progsR.reduce((a,b)=>a+b.pourcentage,0)/progsR.length) : null
-                          const byDiscR = {}
-                          progsR.forEach(pr => {
-                            const d = pr.objectifs?.discipline || 'General'
-                            if (!byDiscR[d]) byDiscR[d] = []
-                            byDiscR[d].push({pct: pr.pourcentage, desc: pr.objectifs?.description})
-                          })
-                          const dateFormate = dateCp ? new Date(dateCp+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : ''
+                          const cpsR = checkpoints.filter(cp => { const p = planifications.find(pl => pl.id === cp.planification_id); return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id; }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint));
+                          let progsR = []; let dateCp = '';
+                          for (const cp of cpsR) { const pr = cp.progressions.filter(p => p.eleve_id === msgEleve.id); if (pr.length) { progsR = pr; dateCp = cp.date_checkpoint?.slice(0,10); break; } }
+                          const psR = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section';
+                          const lbR = (p) => psR ? (p>=87?'Bien acquis':p>=62?'Acquis':p>=37?"En cours d'acquisition":"Debut d'acquisition") : p+'%';
+                          const moyR = progsR.length ? Math.round(progsR.reduce((a,b)=>a+b.pourcentage,0)/progsR.length) : null;
+                          const byDiscR = {};
+                          progsR.forEach(pr => { const d = pr.objectifs?.discipline || 'General'; if (!byDiscR[d]) byDiscR[d] = []; byDiscR[d].push({pct: pr.pourcentage, desc: pr.objectifs?.description}); });
+                          const dateF = dateCp ? new Date(dateCp+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : '';
+                          const nl = String.fromCharCode(10);
                           if (moyR !== null) {
-                            const niveauGlobal = lbR(moyR)
-                            const tendance = moyR >= 75 ? 'votre enfant progresse tres bien' : moyR >= 50 ? 'votre enfant est en bonne progression' : 'votre enfant necessite un soutien supplementaire'
-                            let detailDisc = Object.entries(byDiscR).map(([disc, items]) => {
-                              const avg = Math.round(items.reduce((a,b)=>a+b.pct,0)/items.length)
-                              const objectifs = items.map(i => i.desc).filter(Boolean).join(', ')
-                              return disc + ' : ' + lbR(avg) + (psR ? '' : ' ('+avg+'%)') + (objectifs ? ' [' + objectifs + ']' : '')
-                            }).join('
-- ')
-                            const nl = String.fromCharCode(10); corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' en date du ' + dateFormate + '.' + nl + nl + 'Niveau global : ' + niveauGlobal + (psR ? '' : ' ('+moyR+'%)') + nl + 'En resume, ' + tendance + ' cette periode.' + nl + nl + 'Detail par domaine :' + nl + '- ' + detailDisc + (msgDetails.precision ? nl + nl + msgDetails.precision : '') + nl + nl + 'Nous restons disponibles pour echanger avec vous sur la progression de ' + prenom + '.'
+                            const niveauG = lbR(moyR) + (psR ? '' : ' ('+moyR+'%)');
+                            const tendance = moyR >= 75 ? 'est en excellente progression' : moyR >= 50 ? 'progresse bien' : 'necessite un soutien supplementaire';
+                            const detailD = Object.entries(byDiscR).map(([disc, items]) => { const avg = Math.round(items.reduce((a,b)=>a+b.pct,0)/items.length); return '- ' + disc + ' : ' + lbR(avg) + (psR ? '' : ' ('+avg+'%)'); }).join(nl);
+                            corps = 'Rapport de progression de ' + prenom + ' en date du ' + dateF + '.' + nl + nl + 'Niveau global : ' + niveauG + nl + 'Votre enfant ' + tendance + ' cette periode.' + nl + nl + 'Resultats par domaine :' + nl + detailD + (msgDetails.precision ? nl + nl + msgDetails.precision : '') + nl + nl + 'Nous restons disponibles pour echanger avec vous.';
                           } else {
-                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision : '') + ' N hesitez pas a nous contacter.'
+                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision : '') + ' N hesitez pas a nous contacter.';
                           }
                         } else if(msgType==='absence'){
                           const ta = msgDetails.type_abs==='retard'?'un retard':msgDetails.type_abs==='depart'?'un depart anticipe':'une absence';
