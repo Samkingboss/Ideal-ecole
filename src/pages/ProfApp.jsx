@@ -33,6 +33,7 @@ export default function ProfApp({ user, onLogout }) {
   const [showCpModal, setShowCpModal] = useState(false)
   const [cpEntries, setCpEntries] = useState({})
   const [cpDate, setCpDate] = useState(new Date().toISOString().slice(0,10))
+  const [programmeData, setProgrammeData] = useState([]) // [{matiere, objectifs:[{objectif, competences:[]}]}]
   const [msgEleve, setMsgEleve] = useState(null)
   const [msgType, setMsgType] = useState('comportement')
   const [msgBody, setMsgBody] = useState('')
@@ -49,6 +50,23 @@ export default function ProfApp({ user, onLogout }) {
   const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
 
   useEffect(() => { loadData() }, [])
+
+  const loadProgramme = async () => {
+    if (!selectedClasse || !user) return
+    const { data: mats } = await supabase.from('matieres').select('*').eq('prof_id', user.id).eq('classe_id', selectedClasse.id).order('nom')
+    if (!mats || mats.length === 0) { setProgrammeData([]); return }
+    const result = []
+    for (const mat of mats) {
+      const { data: objs } = await supabase.from('objectifs_v2').select('*').eq('matiere_id', mat.id).order('nom')
+      const objsWithComps = []
+      for (const obj of (objs || [])) {
+        const { data: comps } = await supabase.from('competences').select('*').eq('objectif_id', obj.id).order('nom')
+        objsWithComps.push({ ...obj, competences: comps || [] })
+      }
+      result.push({ ...mat, objectifs: objsWithComps })
+    }
+    setProgrammeData(result)
+  }
 
   const loadData = async () => {
     const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -210,18 +228,23 @@ export default function ProfApp({ user, onLogout }) {
   }
 
   const openCheckpoint = () => {
-    const plan = getCurrentPlan()
-    if (!plan) return
     const classEleves = getClasseEleves()
+    if (programmeData.length === 0) {
+      alert('Creez dabord votre programme avant de faire un checkpoint.')
+      return
+    }
     const entries = {}
     classEleves.forEach(el => {
       entries[el.id] = {}
-      plan.objectifs.forEach(obj => { entries[el.id][obj.id] = 0 })
+      programmeData.forEach(mat => {
+        mat.objectifs.forEach(obj => {
+          obj.competences.forEach(comp => { entries[el.id][comp.id] = 0 })
+        })
+      })
     })
-    // Pre-fill from last checkpoint
     const classCps2 = checkpoints.filter(cp => {
       const p = planifications.find(pl => pl.id === cp.planification_id)
-      return p && p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id
+      return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
     }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
     const lastCp = classCps2[0]
     if (lastCp) {
@@ -234,22 +257,21 @@ export default function ProfApp({ user, onLogout }) {
     setCpDate(new Date().toISOString().slice(0,10))
     setShowCpModal(true)
   }
-
   const saveCheckpoint = async () => {
-    const plan = getCurrentPlan()
-    if (!plan) return
     setLoading(true)
+    const plan = getCurrentPlan()
+    const planId = plan ? plan.id : null
     const { data: cpData, error } = await supabase.from('checkpoints')
-      .insert({ planification_id: plan.id, prof_id: user.id, date_checkpoint: cpDate })
+      .insert({ planification_id: planId, prof_id: user.id, date_checkpoint: cpDate, classe_id: selectedClasse?.id })
       .select().single()
-    if (error) { setLoading(false); return }
+    if (error) { setLoading(false); alert('Erreur: ' + error.message); return }
     const progressions = []
-    Object.entries(cpEntries).forEach(([eleveId, objectives]) => {
-      Object.entries(objectives).forEach(([objId, pct]) => {
-        progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: objId, pourcentage: pct })
+    Object.entries(cpEntries).forEach(([eleveId, comps]) => {
+      Object.entries(comps).forEach(([compId, pct]) => {
+        if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: compId, pourcentage: pct })
       })
     })
-    await supabase.from('progressions').insert(progressions)
+    if (progressions.length > 0) await supabase.from('progressions').insert(progressions)
     setShowCpModal(false)
     loadData()
     setLoading(false)
@@ -848,41 +870,40 @@ export default function ProfApp({ user, onLogout }) {
                   <div className="avatar av-blue" style={{width:28,height:28,fontSize:11}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
                   {el.prenom} {el.nom}
                 </div>
-                {/* Group by discipline */}
-                {Object.entries(
-                  plan.objectifs.reduce((acc, obj) => {
-                    if (!acc[obj.discipline]) acc[obj.discipline] = []
-                    acc[obj.discipline].push(obj)
-                    return acc
-                  }, {})
-                ).map(([disc, objs]) => (
-                  <div key={disc} style={{marginBottom:8}}>
-                    <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4}}>{disc}</div>
-                    {objs.map(obj => (
-                      <div key={obj.id} className="obj-row">
-                        <div className="obj-label">{obj.description}</div>
-                        {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
-                          <select value={cpEntries[el.id]?.[obj.id] || 0} onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [obj.id]: parseInt(e.target.value)}}))} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
-                            <option value={0}>-- Choisir --</option>
-                            <option value={25}>Debut d acquisition</option>
-                            <option value={50}>En cours d acquisition</option>
-                            <option value={75}>Acquis</option>
-                            <option value={100}>Bien acquis</option>
-                          </select>
-                        ) : (
-                          <div style={{display:'flex',alignItems:'center',gap:6}}>
-                            <input type="number" min="0" max="100" value={cpEntries[el.id]?.[obj.id] || ''} placeholder="0" onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [obj.id]: Math.min(100,Math.max(0,parseInt(e.target.value)||0))}}))} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
-                            <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
+                {/* Programme : matieres > objectifs > competences */}
+                {programmeData.length > 0 ? programmeData.map(mat => (
+                  <div key={mat.id} style={{marginBottom:12}}>
+                    <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,padding:'4px 8px',background:'rgba(26,175,224,.08)',borderRadius:8}}>{mat.nom}</div>
+                    {mat.objectifs.map(obj => (
+                      <div key={obj.id} style={{marginBottom:8,paddingLeft:8}}>
+                        <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',marginBottom:4}}>🎯 {obj.nom}</div>
+                        {obj.competences.map(comp => (
+                          <div key={comp.id} className="obj-row" style={{paddingLeft:8}}>
+                            <div className="obj-label" style={{fontSize:12}}>⭐ {comp.nom}</div>
+                            {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (
+                              <select value={cpEntries[el.id]?.[comp.id] || 0} onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [comp.id]: parseInt(e.target.value)}}))} style={{padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)'}}>
+                                <option value={0}>-- Choisir --</option>
+                                <option value={25}>Debut d acquisition</option>
+                                <option value={50}>En cours d acquisition</option>
+                                <option value={75}>Acquis</option>
+                                <option value={100}>Bien acquis</option>
+                              </select>
+                            ) : (
+                              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                <input type=number min=0 max=100 value={cpEntries[el.id]?.[comp.id] || ''} placeholder=0 onChange={e => setCpEntries(prev => ({...prev, [el.id]: {...(prev[el.id]||{}), [comp.id]: Math.min(100,Math.max(0,parseInt(e.target.value)||0))}}))} style={{width:60,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
+                                <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="obj-pct" style={{fontSize:11}}>
-                          {(selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section') ? (cpEntries[el.id]?.[obj.id] === 25 ? 'Debut' : cpEntries[el.id]?.[obj.id] === 50 ? 'En cours' : cpEntries[el.id]?.[obj.id] === 75 ? 'Acquis' : cpEntries[el.id]?.[obj.id] === 100 ? 'Bien acquis' : '--') : (cpEntries[el.id]?.[obj.id] || 0) + '%'}
-                        </div>
+                        ))}
+                        {obj.competences.length === 0 && <div style={{fontSize:11,color:'var(--muted)',paddingLeft:8,fontStyle:'italic'}}>Aucune competence</div>}
                       </div>
                     ))}
+                    {mat.objectifs.length === 0 && <div style={{fontSize:11,color:'var(--muted)',paddingLeft:8,fontStyle:'italic'}}>Aucun objectif</div>}
                   </div>
-                ))}
-              </div>
+                )) : (
+                  <div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun programme defini. Creez d abord votre programme.</div>
+                )}
             ))}
             <button className="btn btn-primary" onClick={saveCheckpoint} disabled={loading}>{loading?'Enregistrement...':'Enregistrer'}</button>
             <button className="btn-cancel" onClick={()=>setShowCpModal(false)}>Annuler</button>
