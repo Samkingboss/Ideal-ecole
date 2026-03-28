@@ -573,7 +573,7 @@ export default function ProfApp({ user, onLogout }) {
         
         {tab === 'classe' && (
           <>
-            <div className="section-head"><div className="section-title">Progression de la classe</div></div>
+            <div className="section-head">
             {(() => {
               const classCps = checkpoints.filter(cp => {
                 const p = planifications.find(pl => pl.id === cp.planification_id)
