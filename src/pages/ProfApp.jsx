@@ -109,7 +109,7 @@ export default function ProfApp({ user, onLogout }) {
 
 
   const analyzeWithGemini = async (base64Data, mimeType) => {
-    const GEMINI_API_KEY = "AIzaSyDFY2r9DX0OmzIAgvWBAYl-BU1RWNo96n0";
+    const GEMINI_API_KEY = "";
     const prompt = `Tu es un inspecteur pédagogique rigoureux pour l'école IDEAL. 
     Analyse cette préparation de cours (image ou PDF joint). 
     Critères : 
