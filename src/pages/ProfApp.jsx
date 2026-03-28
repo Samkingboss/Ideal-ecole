@@ -1,3 +1,4 @@
+import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
@@ -16,6 +17,7 @@ const TABS = [
   { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'messages', icon:'💬', label:'Messages' },
+  { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
 ]
 
@@ -475,6 +477,10 @@ export default function ProfApp({ user, onLogout }) {
               )
             })}
           </>
+        )}
+
+        {tab === 'agenda' && (
+          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
         )}
 
         {tab === 'messages' && (
