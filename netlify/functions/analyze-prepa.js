@@ -67,7 +67,7 @@ exports.handler = async (event) => {
         'X-Title': 'IDEAL EcoleApp',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct:free',
+        model: 'openai/gpt-oss-20b:free',
         messages: [{ role: 'user', content: PROMPT_CORRECTION(matiere || '—', classe || '—', langue || 'fr', texte) }],
         max_tokens: 1000,
         temperature: 0.3,
