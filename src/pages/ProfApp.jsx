@@ -14,9 +14,8 @@ const RECREE_CHECKS = [
 
 const TABS = [
   { id:'checkpoint', icon:'✅', label:'Check-point' },
-  { id:'progression', icon:'📈', label:'Progression' },  { id:'classe', icon:'🏫', label:'Classe' },
-  { id:'classe', icon:'🏫', label:'Classe' },
-  { id:'messages', icon:'💬', label:'Messages' },
+  { id:'progression', icon:'📈', label:'Progression' },
+  { id:'classe', icon:'🏫', label:'Classe' }, { id:'messages', icon:'💬', label:'Messages' },
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
 ]
@@ -412,92 +411,7 @@ export default function ProfApp({ user, onLogout }) {
           </>
         )}
 
-        {tab === 'classe' && (
-          <>
-            <div className="section-head"><div className="section-title">Stats de la classe</div></div>
-
-            {(() => {
-              const classCps = checkpoints.filter(cp => {
-                const p = planifications.find(pl => pl.id === cp.planification_id)
-                return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
-              }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
-
-              const getEleveMoy = (eleveId) => {
-                let myProgs = []
-                for (const cp of classCps) {
-                  const progs = cp.progressions.filter(pr => pr.eleve_id === eleveId)
-                  if (progs.length > 0) { myProgs = progs; break; }
-                }
-                const all = myProgs.map(pr => pr.pourcentage)
-                return all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : null
-              }
-
-              const elevesAvecMoy = classEleves.map(el => ({
-                ...el,
-                moy: getEleveMoy(el.id)
-              })).sort((a,b) => (b.moy||0) - (a.moy||0))
-
-              const moyClasse = elevesAvecMoy.filter(e => e.moy !== null).length > 0
-                ? Math.round(elevesAvecMoy.filter(e => e.moy !== null).reduce((a,e)=>a+(e.moy||0),0) / elevesAvecMoy.filter(e => e.moy !== null).length)
-                : 0
-
-              const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
-              const getLabel = (pct) => isPS ? (pct >= 87 ? 'Bien acquis' : pct >= 62 ? 'Acquis' : pct >= 37 ? 'En cours' : 'Debut') : pct + '%'
-              const getColor = (pct) => pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)'
-
-              return (
-                <>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}>
-                    <div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}>
-                      <div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div>
-                      <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div>
-                    </div>
-                    <div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}>
-                      <div style={{fontSize:22,fontWeight:900,color:getColor(moyClasse)}}>{getLabel(moyClasse)}</div>
-                      <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div>
-                    </div>
-                    <div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}>
-                      <div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{elevesAvecMoy.filter(e=>e.moy!==null && e.moy>=75).length}</div>
-                      <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div>
-                    </div>
-                  </div>
-
-                  <div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden',marginBottom:'1rem'}}>
-                    <div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em'}}>
-                      Classement des eleves
-                    </div>
-                    {elevesAvecMoy.length === 0 ? (
-                      <div className="empty-state"><div className="empty-icon">🏫</div><p>Aucun checkpoint pour cette classe</p></div>
-                    ) : elevesAvecMoy.map((el, idx) => {
-                      const moy = el.moy
-                      const col = moy !== null ? getColor(moy) : 'var(--muted)'
-                      return (
-                        <div key={el.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
-                          <div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:20,textAlign:'center'}}>{idx+1}</div>
-                          <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff',flexShrink:0}}>
-                            {(el.prenom[0]||'')+(el.nom[0]||'')}
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:13,fontWeight:600}}>{el.prenom} {el.nom}</div>
-                            {moy !== null && (
-                              <div style={{background:'var(--bg)',borderRadius:20,height:5,marginTop:4,overflow:'hidden'}}>
-                                <div style={{height:'100%',width:moy+'%',background:col,borderRadius:20}}></div>
-                              </div>
-                            )}
-                          </div>
-                          <div style={{fontSize:14,fontWeight:900,color:col,minWidth:50,textAlign:'right'}}>
-                            {moy !== null ? getLabel(moy) : '—'}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )
-            })()}
-          </>
-        )}
-{tab === 'progression' && (
+        {tab === 'progression' && (
           <>
             <div className="section-head"><div className="section-title">Progression</div></div>
             {getProgressionData().length > 0 ? (
@@ -570,64 +484,7 @@ export default function ProfApp({ user, onLogout }) {
 
         
 
-        
-        {tab === 'classe' && (
-          <>
-            <div className="section-head">
-            {(() => {
-              const classCps = checkpoints.filter(cp => {
-                const p = planifications.find(pl => pl.id === cp.planification_id)
-                return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
-              }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
-              const allProgs = classCps.flatMap(cp => cp.progressions || [])
-              const elevesStats = classEleves.map(el => {
-                const progs = allProgs.filter(p => p.eleve_id === el.id)
-                const avg = progs.length ? Math.round(progs.reduce((a,b)=>a+b.pourcentage,0)/progs.length) : 0
-                return { ...el, avg, nbProgs: progs.length }
-              }).sort((a,b) => b.avg - a.avg)
-              const moyClasse = elevesStats.length ? Math.round(elevesStats.reduce((a,b)=>a+b.avg,0)/elevesStats.length) : 0
-              const isM = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
-              const lbl = (v) => isM ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':'Debut') : v+'%'
-              const col = (v) => v>=75?'var(--green)':v>=50?'var(--amber)':'var(--red)'
-              return (
-                <>
-                  <div style={{background:'linear-gradient(135deg,#0d2a3b,#1565a0)',borderRadius:14,padding:'1rem',marginBottom:'1rem',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontSize:12,opacity:.7}}>Moyenne de la classe</div>
-                      <div style={{fontSize:32,fontWeight:900,color:'#1AAFE0'}}>{lbl(moyClasse)}</div>
-                    </div>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontSize:12,opacity:.7}}>{classEleves.length} eleves</div>
-                      <div style={{fontSize:12,opacity:.7,marginTop:4}}>{classCps.length} checkpoints</div>
-                    </div>
-                  </div>
-                  <div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}>
-                    <div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',display:'grid',gridTemplateColumns:'1fr auto auto',gap:8}}>
-                      <span>Eleve</span><span style={{textAlign:'center'}}>Evals</span><span style={{textAlign:'right'}}>Moyenne</span>
-                    </div>
-                    {elevesStats.map((el,i) => (
-                      <div key={el.id} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:8,padding:'10px 14px',borderBottom:'1px solid var(--border)',alignItems:'center'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div style={{width:22,height:22,borderRadius:'50%',background:i===0?'#F7941D':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--bg)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0,color:i<3?'#fff':'var(--muted)'}}>{i+1}</div>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:600}}>{el.prenom} {el.nom}</div>
-                            <div style={{background:'var(--bg)',borderRadius:20,height:5,marginTop:4,width:80,overflow:'hidden'}}>
-                              <div style={{height:'100%',background:col(el.avg),borderRadius:20,width:el.avg+'%'}}></div>
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{fontSize:11,color:'var(--muted)',textAlign:'center'}}>{el.nbProgs}</div>
-                        <div style={{fontSize:13,fontWeight:900,color:col(el.avg),textAlign:'right'}}>{lbl(el.avg)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )
-            })()}
-          </>
-        )}
-
-        {tab === 'messages' && (
+        {tab === 'classe' && (<><div className='section-head'><div className='section-title'>Stats de la classe</div></div>{(()=>{const cps=checkpoints.filter(cp=>{const p=planifications.find(pl=>pl.id===cp.planification_id);return p&&p.classe_id===selectedClasse?.id&&p.periode_id===selectedPeriode?.id;}).sort((a,b)=>b.date_checkpoint.localeCompare(a.date_checkpoint));const gm=(id)=>{for(const cp of cps){const pr=cp.progressions.filter(p=>p.eleve_id===id);if(pr.length){const v=pr.map(p=>p.pourcentage);return Math.round(v.reduce((a,b)=>a+b,0)/v.length);}}return null;};const ps=selectedClasse?.nom==='Petite Section'||selectedClasse?.nom==='Grande Section';const lb=(p)=>ps?(p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut'):p+'%';const gc=(p)=>p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)';const el2=classEleves.map(e=>({...e,moy:gm(e.id)})).sort((a,b)=>(b.moy||0)-(a.moy||0));const mc=el2.filter(e=>e.moy!==null).length?Math.round(el2.filter(e=>e.moy!==null).reduce((a,e)=>a+(e.moy||0),0)/el2.filter(e=>e.moy!==null).length):0;return(<><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:16,fontWeight:900,color:gc(mc)}}>{lb(mc)}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{el2.filter(e=>e.moy!==null&&e.moy>=75).length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div></div></div><div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}><div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase'}}>Classement</div>{el2.map((e,i)=>{const m=e.moy;const c2=m!==null?gc(m):'var(--muted)';return(<div key={e.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:18}}>{i+1}</div><div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#fff',flexShrink:0}}>{(e.prenom[0]||'')+(e.nom[0]||'')}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div>{m!==null&&<div style={{background:'var(--bg)',borderRadius:20,height:4,marginTop:4}}><div style={{height:'100%',width:m+'%',background:c2,borderRadius:20}}></div></div>}</div><div style={{fontSize:13,fontWeight:900,color:c2}}>{m!==null?lb(m):'—'}</div></div>);})}</div></>);})()}</>)} {tab === 'messages' && (
           <>
             <div className="section-head"><div className="section-title">Messages parents</div></div>
             {!msgPreview ? (
