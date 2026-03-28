@@ -20,7 +20,7 @@ const TABS = [
 ]
 
 export default function ProfApp({ user, onLogout }) {
-  const [tab, setTab] = useState('agenda')
+  const [tab, setTab] = useState('perfs')
   const [classes, setClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
   const [eleves, setEleves] = useState([])
