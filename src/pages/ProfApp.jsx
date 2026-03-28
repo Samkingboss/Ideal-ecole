@@ -13,7 +13,6 @@ const RECREE_CHECKS = [
 ]
 
 const TABS = [
-  { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'messages', icon:'💬', label:'Messages' },
@@ -316,45 +315,7 @@ export default function ProfApp({ user, onLogout }) {
 
       <div className="page-content">
         {tab === 'agenda' && (
-          <>
-            <div className="section-head"><div className="section-title">Agenda & Événements</div></div>
-            
-            {calendrierUrl && (
-              <div className="card" style={{marginBottom:16, background:'linear-gradient(135deg,#0d2a3b,#1565a0)', color:'#fff'}}>
-                <div style={{padding:'1rem', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <div>
-                    <div style={{fontWeight:700, fontSize:14}}>Calendrier Scolaire</div>
-                    <div style={{fontSize:11, color:'rgba(255,255,255,.7)', marginTop:4}}>Consultez le calendrier officiel</div>
-                  </div>
-                  <a href={calendrierUrl} target="_blank" rel="noreferrer" style={{background:'#fff', color:'var(--accent)', padding:'6px 12px', borderRadius:20, textDecoration:'none', fontSize:11, fontWeight:700}}>📄 Ouvrir</a>
-                </div>
-              </div>
-            )}
-
-            <div className="card">
-              <div className="card-header">Événements à venir</div>
-              <div style={{padding:0}}>
-                {evenements.length === 0 ? (
-                  <div className="empty-state"><div className="empty-icon">📅</div><p>Aucun événement programmé.</p></div>
-                ) : evenements.map(ev => {
-                  const today = new Date(); today.setHours(0,0,0,0);
-                  const eventDate = new Date(ev.date_event); eventDate.setHours(0,0,0,0);
-                  const daysDiff = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24))
-                  const isUrgent = daysDiff >= 0 && daysDiff <= 2
-                  return (
-                    <div key={ev.id} style={{padding:'12px 14px', borderBottom:'1px solid var(--border)', background: isUrgent ? 'rgba(255,0,0,.05)' : 'transparent', borderLeft: isUrgent ? '3px solid var(--red)' : '3px solid transparent'}}>
-                      <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
-                        <span style={{fontWeight:700, fontSize:13, color: isUrgent ? 'var(--red)' : 'inherit'}}>{ev.titre}</span>
-                        <span style={{fontSize:11, fontWeight:700, color: isUrgent ? 'var(--red)' : 'var(--accent)'}}>{new Date(ev.date_event).toLocaleDateString('fr-FR')}</span>
-                      </div>
-                      {ev.description && <div style={{fontSize:12, color:'var(--muted)'}}>{ev.description}</div>}
-                      {isUrgent && <div style={{fontSize:10, fontWeight:700, color:'var(--red)', marginTop:6}}>⚠️ Alerte : Prévu {daysDiff === 0 ? "aujourd'hui" : daysDiff === 1 ? 'demain' : 'dans 2 jours'} !</div>}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </>
+          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
         )}
 
         {/* Filters */}
@@ -479,9 +440,7 @@ export default function ProfApp({ user, onLogout }) {
           </>
         )}
 
-        {tab === 'agenda' && (
-          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
-        )}
+        
 
         {tab === 'messages' && (
           <>
