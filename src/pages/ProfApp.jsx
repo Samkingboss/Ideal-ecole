@@ -277,7 +277,7 @@ export default function ProfApp({ user, onLogout }) {
     }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
     if (!classCps.length) return { avg: 0, byDiscipline: {} }
     const lastCp = classCps[0]
-    const myProgs = lastCp.progressions.filter(pr => pr.eleve_id === eleveId)
+    let myProgs = []; for (const cp of classCps) { const progs = cp.progressions.filter(pr => pr.eleve_id === eleveId); if (progs.length > 0) { myProgs = progs; break; } }
     const all = myProgs.map(pr => pr.pourcentage)
     const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
     const byDiscipline = {}
