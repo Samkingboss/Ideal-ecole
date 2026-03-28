@@ -1,7 +1,6 @@
 import PreparationIA from './PreparationIA'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import AgendaCalendrier from './AgendaCalendrier'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const RECREE_CHECKS = [
@@ -35,8 +34,6 @@ export default function ProfApp({ user, onLogout }) {
   const [msgEleve, setMsgEleve] = useState(null)
   const [msgType, setMsgType] = useState('comportement')
   const [msgBody, setMsgBody] = useState('')
-  const [msgAmeliore, setMsgAmeliore] = useState('')
-  const [showAmeliore, setShowAmeliore] = useState(false)
   const [schoolNum] = useState('22390190007')
   const [loading, setLoading] = useState(false)
   const [myPerfs, setMyPerfs] = useState([])
@@ -291,31 +288,6 @@ export default function ProfApp({ user, onLogout }) {
     return { avg, byDiscipline }
   }
 
-  const ameliorerMessage = (texte, eleve, type) => {
-    if (!texte || texte.trim().length < 10) return texte;
-    let msg = texte.trim();
-    // Capitaliser la premiere lettre
-    msg = msg.charAt(0).toUpperCase() + msg.slice(1);
-    // Ajouter point final si manquant
-    if (!/[.!?]$/.test(msg)) msg += '.';
-    // Construire message structure
-    const prenom = eleve ? eleve.prenom + ' ' + eleve.nom : 'votre enfant';
-    const intro = 'Chers parents de ' + prenom + ',';
-    const signature = '
-
-Cordialement,
-' + (user.prenom || '') + ' ' + (user.nom || '') + '
-IDEAL École Internationale Bilingue
-+223 90 19 00 07';
-    // Si le message contient deja l intro ne pas la rajouter
-    if (msg.toLowerCase().includes('chers parents')) {
-      return msg.includes('Cordialement') ? msg : msg + signature;
-    }
-    return intro + '
-
-' + msg + signature;
-  };
-
   const sendWhatsApp = (eleve) => {
     if (!eleve) return
     const msg = msgBody || `Chers parents de *${eleve.prenom} ${eleve.nom}*,\n\n${msgType === 'comportement' ? 'Nous souhaitons vous informer d un incident.' : 'Voici les resultats de votre enfant.'}\n\n— IDEAL Ecole Internationale Bilingue\n+223 90 19 00 07`
@@ -342,7 +314,45 @@ IDEAL École Internationale Bilingue
 
       <div className="page-content">
         {tab === 'agenda' && (
-          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
+          <>
+            <div className="section-head"><div className="section-title">Agenda & Événements</div></div>
+            
+            {calendrierUrl && (
+              <div className="card" style={{marginBottom:16, background:'linear-gradient(135deg,#0d2a3b,#1565a0)', color:'#fff'}}>
+                <div style={{padding:'1rem', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <div>
+                    <div style={{fontWeight:700, fontSize:14}}>Calendrier Scolaire</div>
+                    <div style={{fontSize:11, color:'rgba(255,255,255,.7)', marginTop:4}}>Consultez le calendrier officiel</div>
+                  </div>
+                  <a href={calendrierUrl} target="_blank" rel="noreferrer" style={{background:'#fff', color:'var(--accent)', padding:'6px 12px', borderRadius:20, textDecoration:'none', fontSize:11, fontWeight:700}}>📄 Ouvrir</a>
+                </div>
+              </div>
+            )}
+
+            <div className="card">
+              <div className="card-header">Événements à venir</div>
+              <div style={{padding:0}}>
+                {evenements.length === 0 ? (
+                  <div className="empty-state"><div className="empty-icon">📅</div><p>Aucun événement programmé.</p></div>
+                ) : evenements.map(ev => {
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const eventDate = new Date(ev.date_event); eventDate.setHours(0,0,0,0);
+                  const daysDiff = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24))
+                  const isUrgent = daysDiff >= 0 && daysDiff <= 2
+                  return (
+                    <div key={ev.id} style={{padding:'12px 14px', borderBottom:'1px solid var(--border)', background: isUrgent ? 'rgba(255,0,0,.05)' : 'transparent', borderLeft: isUrgent ? '3px solid var(--red)' : '3px solid transparent'}}>
+                      <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                        <span style={{fontWeight:700, fontSize:13, color: isUrgent ? 'var(--red)' : 'inherit'}}>{ev.titre}</span>
+                        <span style={{fontSize:11, fontWeight:700, color: isUrgent ? 'var(--red)' : 'var(--accent)'}}>{new Date(ev.date_event).toLocaleDateString('fr-FR')}</span>
+                      </div>
+                      {ev.description && <div style={{fontSize:12, color:'var(--muted)'}}>{ev.description}</div>}
+                      {isUrgent && <div style={{fontSize:10, fontWeight:700, color:'var(--red)', marginTop:6}}>⚠️ Alerte : Prévu {daysDiff === 0 ? "aujourd'hui" : daysDiff === 1 ? 'demain' : 'dans 2 jours'} !</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
         )}
 
         {/* Filters */}
@@ -488,30 +498,10 @@ IDEAL École Internationale Bilingue
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Votre message</label>
-              <textarea className="form-input form-textarea" rows={4} value={msgBody} onChange={e=>{setMsgBody(e.target.value);setShowAmeliore(false);}} placeholder={msgEleve ? 'Ecrivez votre message ici...' : 'Selectionnez d abord un eleve'} style={{lineHeight:1.6}} />
+              <label className="form-label">Message</label>
+              <textarea className="form-input form-textarea" rows={5} value={msgBody} onChange={e=>setMsgBody(e.target.value)} placeholder={msgEleve ? `Chers parents de ${msgEleve.prenom} ${msgEleve.nom}...` : 'Selectionnez d abord un eleve'} style={{lineHeight:1.6}} />
             </div>
-            {msgBody.trim().length >= 10 && msgEleve && (
-              <button onClick={() => { setMsgAmeliore(ameliorerMessage(msgBody, msgEleve, msgType)); setShowAmeliore(true); }}
-                style={{width:'100%',padding:'.7rem',border:'1.5px solid var(--accent)',borderRadius:12,background:'rgba(26,175,224,.06)',color:'var(--accent)',fontWeight:700,fontSize:13,cursor:'pointer',marginBottom:8}}>
-                ✨ Ameliorer le message
-              </button>
-            )}
-            {showAmeliore && (
-              <div style={{background:'rgba(141,198,63,.06)',border:'1px solid rgba(141,198,63,.3)',borderRadius:12,padding:'1rem',marginBottom:8}}>
-                <div style={{fontSize:11,fontWeight:700,color:'#8DC63F',marginBottom:6,textTransform:'uppercase',letterSpacing:'.05em'}}>✅ Version amelioree</div>
-                <textarea className="form-input" rows={6} value={msgAmeliore} onChange={e=>setMsgAmeliore(e.target.value)} style={{lineHeight:1.7,fontSize:13,marginBottom:8}} />
-                <div style={{display:'flex',gap:8}}>
-                  <button onClick={()=>setMsgBody(msgAmeliore)} style={{flex:1,padding:'.6rem',background:'#8DC63F',color:'#fff',border:'none',borderRadius:10,fontWeight:700,fontSize:12,cursor:'pointer'}}>
-                    Utiliser ce message
-                  </button>
-                  <button onClick={()=>setShowAmeliore(false)} style={{flex:1,padding:'.6rem',background:'var(--bg)',border:'1px solid var(--border)',borderRadius:10,fontWeight:600,fontSize:12,cursor:'pointer',color:'var(--muted)'}}>
-                    Ignorer
-                  </button>
-                </div>
-              </div>
-            )}
-            <button className="btn btn-wa btn-primary" onClick={()=>sendWhatsApp(showAmeliore ? {id: msgEleve?.id, ...msgEleve, _override: msgAmeliore} : msgEleve)} disabled={!msgEleve || !msgBody.trim()}>
+            <button className="btn btn-wa btn-primary" onClick={()=>sendWhatsApp(msgEleve)} disabled={!msgEleve}>
               📲 Envoyer via WhatsApp
             </button>
           </>
