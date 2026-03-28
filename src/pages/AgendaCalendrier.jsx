@@ -13,7 +13,7 @@ const JOURS_FERIES_2025_2026 = [
 const VACANCES = [
   { debut: '2025-12-20', fin: '2026-01-05', label: 'Vacances de Noel' },
   { debut: '2026-03-07', fin: '2026-03-22', label: 'Vacances T2' },
-  { debut: '2026-06-20', fin: '2026-09-30', label: 'Grandes Vacances' },
+  { debut: '2026-06-29', fin: '2026-09-30', label: 'Grandes Vacances' },
 ]
 
 const TRIMESTRES = [
