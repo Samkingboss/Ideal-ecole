@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import CorrectionDirecteur from './CorrectionDirecteur'
+import PerformancesDirecteur from './PerformancesDirecteur'
 
 const TABS = [
   { id:'dashboard', icon:'📊', label:'Tableau de bord' },
@@ -8,7 +8,7 @@ const TABS = [
   { id:'eleves', icon:'🎒', label:'Eleves' },
   { id:'planning', icon:'📋', label:'Planification' },
   { id:'agenda', icon:'📅', label:'Agenda' },
-  { id:'perfs', icon:'✏️', label:'Corrections' },
+  { id:'perfs', icon:'⭐', label:'Performances' },
 ]
 
 export default function DirecteurApp({ user, onLogout }) {
@@ -349,12 +349,9 @@ export default function DirecteurApp({ user, onLogout }) {
           </>
         )}
 
-        {tab === 'corrections' && (
-          <CorrectionDirecteur />
-        )}
 
         {tab === 'perfs' && (
-          <CorrectionDirecteur />
+          <PerformancesDirecteur profs={profs} />
         )}
       </div>
 

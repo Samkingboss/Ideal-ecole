@@ -17,7 +17,6 @@ const TABS = [
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'messages', icon:'💬', label:'Messages' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
-  { id:'preparation', icon:'📋', label:'Préparations' },
 ]
 
 export default function ProfApp({ user, onLogout }) {
