@@ -217,10 +217,7 @@ export default function ProfApp({ user, onLogout }) {
       plan.objectifs.forEach(obj => { entries[el.id][obj.id] = 0 })
     })
     // Pre-fill from last checkpoint
-    const lastCp = checkpoints.find(cp => {
-      const p = planifications.find(pl => pl.id === cp.planification_id)
-      return p && p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id
-    })
+    const classCps2 = checkpoints.filter(cp => {      const p = planifications.find(pl => pl.id === cp.planification_id)      return p && p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id    }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))    const lastCp = classCps2[0]
     if (lastCp) {
       lastCp.progressions.forEach(pr => {
         if (!entries[pr.eleve_id]) entries[pr.eleve_id] = {}
