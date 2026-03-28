@@ -630,15 +630,15 @@ export default function ProfApp({ user, onLogout }) {
                           const grav = msgDetails.gravite==='grave'?'un incident grave':msgDetails.gravite==='moyen'?'un incident':'un incident';
                           corps = 'Nous souhaitons vous informer que votre enfant ' + prenom + ' a ete implique(e) dans ' + grav + ' aujourd hui.' + (msgDetails.desc?' Il s agit de : ' + msgDetails.desc+'.' : '') + (msgDetails.gravite==='grave'?' Nous vous demandons de nous contacter dans les plus brefs delais.':' Nous restons disponibles pour en discuter.');
                         } else if(msgType==='resultats'){
-                          // Utiliser les vraies notes depuis les checkpoints
                           const cpsR = checkpoints.filter(cp => {
                             const p = planifications.find(pl => pl.id === cp.planification_id)
                             return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
                           }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
                           let progsR = []
+                          let dateCp = ''
                           for (const cp of cpsR) {
                             const pr = cp.progressions.filter(p => p.eleve_id === msgEleve.id)
-                            if (pr.length) { progsR = pr; break; }
+                            if (pr.length) { progsR = pr; dateCp = cp.date_checkpoint?.slice(0,10); break; }
                           }
                           const psR = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
                           const lbR = (p) => psR ? (p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours d acquisition':'Debut d acquisition') : p+'%'
@@ -647,17 +647,31 @@ export default function ProfApp({ user, onLogout }) {
                           progsR.forEach(pr => {
                             const d = pr.objectifs?.discipline || 'General'
                             if (!byDiscR[d]) byDiscR[d] = []
-                            byDiscR[d].push(pr.pourcentage)
+                            byDiscR[d].push({pct: pr.pourcentage, desc: pr.objectifs?.description})
                           })
+                          const dateFormate = dateCp ? new Date(dateCp+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : ''
                           if (moyR !== null) {
-                            let details = Object.entries(byDiscR).map(([d, vals]) => {
-                              const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
-                              return d + ' : ' + lbR(avg) + (psR ? '' : ' (' + avg + '%)')
-                            }).join(', ')
                             const niveauGlobal = lbR(moyR)
-                            corps = 'Nous vous informons des resultats de votre enfant ' + prenom + ' pour cette periode. Niveau global : ' + niveauGlobal + (psR ? '' : ' (' + moyR + '%)') + '. Detail par discipline : ' + details + '.' + (msgDetails.precision ? ' ' + msgDetails.precision + '.' : '') + ' N hesitez pas a nous contacter pour plus d informations.'
+                            const tendance = moyR >= 75 ? 'votre enfant progresse tres bien' : moyR >= 50 ? 'votre enfant est en bonne progression' : 'votre enfant necessite un soutien supplementaire'
+                            let detailDisc = Object.entries(byDiscR).map(([disc, items]) => {
+                              const avg = Math.round(items.reduce((a,b)=>a+b.pct,0)/items.length)
+                              const objectifs = items.map(i => i.desc).filter(Boolean).join(', ')
+                              return disc + ' : ' + lbR(avg) + (psR ? '' : ' ('+avg+'%)') + (objectifs ? ' [' + objectifs + ']' : '')
+                            }).join('
+- ')
+                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' en date du ' + dateFormate + '.
+
+Niveau global : ' + niveauGlobal + (psR ? '' : ' ('+moyR+'%)') + '
+En resume, ' + tendance + ' cette periode.
+
+Detail par domaine :
+- ' + detailDisc + (msgDetails.precision ? '
+
+' + msgDetails.precision : '') + '
+
+Nous restons disponibles pour echanger avec vous sur la progression de ' + prenom + '.'
                           } else {
-                            corps = 'Nous vous informons des resultats de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision + '.' : '') + ' N hesitez pas a nous contacter pour plus d informations.'
+                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision : '') + ' N hesitez pas a nous contacter.'
                           }
                         } else if(msgType==='absence'){
                           const ta = msgDetails.type_abs==='retard'?'un retard':msgDetails.type_abs==='depart'?'un depart anticipe':'une absence';
