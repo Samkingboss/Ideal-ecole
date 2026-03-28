@@ -489,79 +489,38 @@ export default function ProfApp({ user, onLogout }) {
             </div>
             <div className="form-group">
               <label className="form-label">Type de message</label>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8,marginBottom:12}}>
-                {[
-                  ['comportement','📋','Comportement'],
-                  ['resultats','📊','Resultats'],
-                  ['absence','🗓️','Absence'],
-                  ['felicitations','⭐','Felicitations'],
-                  ['convocation','📞','Convocation'],
-                  ['libre','✏️','Message libre'],
-                ].map(([v,icon,label])=>(
-                  <div key={v} onClick={()=>{
-                    setMsgType(v);
-                    if(v!=='libre' && msgEleve){
-                      const nom = msgEleve.prenom;
-                      const t = v==='comportement' ? 'Nous souhaitons vous informer d un comportement de ' + nom + ' qui necessite votre attention. Nous restons disponibles pour en discuter avec vous.' :
-                        v==='resultats' ? 'Nous vous informons des resultats de ' + nom + ' pour cette periode. N hesitez pas a nous contacter pour plus d informations.' :
-                        v==='absence' ? 'Nous avons constate l absence de ' + nom + ' aujourd hui. Merci de nous informer de la raison de cette absence.' :
-                        v==='felicitations' ? nom + ' a fait preuve d un excellent comportement et de serieux dans son travail. Nous tenions a vous en informer et vous adresser nos felicitations.' :
-                        v==='convocation' ? 'Nous vous prions de bien vouloir vous presenter a l ecole concernant la situation de ' + nom + '. Merci de nous contacter pour convenir d un rendez-vous.' : '';
-                      setMsgBody(t);
-                    }
-                  }}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+                {[['comportement','Comportement'],['resultats','Resultats'],['absence','Absence'],['felicitations','Felicitations'],['convocation','Convocation'],['libre','Message libre']].map(([v,label])=>(
+                  <div key={v} onClick={()=>{setMsgType(v);if(v!=='libre'&&msgEleve){const n=msgEleve.prenom;setMsgBody(v==='comportement'?'Nous souhaitons vous informer d un comportement de '+n+' qui necessite votre attention.':v==='resultats'?'Nous vous informons des resultats de '+n+' pour cette periode.':v==='absence'?'Nous avons constate l absence de '+n+' aujourd hui. Merci de nous en informer.':v==='felicitations'?n+' a fait preuve d un excellent comportement. Felicitations !':'Nous vous prions de vous presenter a l ecole concernant '+n+'.');}}}
                     style={{background:msgType===v?'rgba(26,175,224,.08)':'var(--bg)',border:'1.5px solid '+(msgType===v?'var(--accent)':'var(--border)'),borderRadius:12,padding:'.6rem',textAlign:'center',cursor:'pointer'}}>
-                    <div style={{fontSize:18}}>{icon}</div>
-                    <div style={{fontSize:11,fontWeight:600,marginTop:3,color:msgType===v?'var(--accent)':'var(--muted)'}}>{label}</div>
+                    <div style={{fontSize:12,fontWeight:600,color:msgType===v?'var(--accent)':'var(--muted)'}}>{label}</div>
                   </div>
                 ))}
               </div>
             </div>
             {msgEleve && (
               <div className="form-group">
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
                   <label className="form-label" style={{margin:0}}>Votre message</label>
                   <span style={{fontSize:10,color:'var(--muted)'}}>{msgBody.length} car.</span>
                 </div>
-                <textarea className="form-input form-textarea" rows={5} value={msgBody}
-                  onChange={e=>setMsgBody(e.target.value)}
-                  placeholder="Redigez ou personnalisez votre message..."
-                  style={{lineHeight:1.7,resize:'vertical'}} />
+                <textarea className="form-input form-textarea" rows={5} value={msgBody} onChange={e=>setMsgBody(e.target.value)} placeholder="Redigez ou personnalisez..." style={{lineHeight:1.7,resize:'vertical'}} />
               </div>
             )}
             {msgEleve && msgBody.trim().length > 5 && (
               <div style={{background:'rgba(26,175,224,.05)',border:'1px solid rgba(26,175,224,.2)',borderRadius:14,padding:'1rem',marginBottom:'1rem'}}>
-                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>👁 Apercu WhatsApp</div>
-                <div style={{fontSize:12,lineHeight:1.8,whiteSpace:'pre-wrap',color:'var(--text)',fontFamily:'monospace'}}>
-                  {'Chers parents de ' + msgEleve.prenom + ' ' + msgEleve.nom + ',
-
-' + msgBody.trim() + '
-
-Cordialement,
-' + (user.prenom||'') + ' ' + (user.nom||'') + '
-IDEAL Ecole Internationale Bilingue
-+223 90 19 00 07'}
+                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textTransform:'uppercase',marginBottom:8}}>Apercu WhatsApp</div>
+                <div style={{fontSize:12,lineHeight:1.8,whiteSpace:'pre-wrap',background:'var(--bg)',borderRadius:8,padding:'8px'}}>
+                  {['Chers parents de ',msgEleve.prenom,' ',msgEleve.nom,',',String.fromCharCode(10),String.fromCharCode(10),msgBody.trim(),String.fromCharCode(10),String.fromCharCode(10),'Cordialement,',String.fromCharCode(10),(user.prenom||''),' ',(user.nom||''),String.fromCharCode(10),'IDEAL Ecole Internationale Bilingue',String.fromCharCode(10),'+223 90 19 00 07'].join('')}
                 </div>
               </div>
             )}
-            <button className="btn btn-wa btn-primary"
-              onClick={()=>{
-                if(!msgEleve || !msgBody.trim()) return;
-                const msg = 'Chers parents de ' + msgEleve.prenom + ' ' + msgEleve.nom + ',
-
-' + msgBody.trim() + '
-
-Cordialement,
-' + (user.prenom||'') + ' ' + (user.nom||'') + '
-IDEAL Ecole Internationale Bilingue
-+223 90 19 00 07';
-                window.open('https://wa.me/' + schoolNum + '?text=' + encodeURIComponent(msg), '_blank');
-              }}
-              disabled={!msgEleve || !msgBody.trim()}>
-              📲 Envoyer via WhatsApp
+            <button className="btn btn-wa btn-primary" onClick={()=>{if(!msgEleve||!msgBody.trim())return;const nl=String.fromCharCode(10);const msg=['Chers parents de ',msgEleve.prenom,' ',msgEleve.nom,',',nl,nl,msgBody.trim(),nl,nl,'Cordialement,',nl,(user.prenom||''),' ',(user.nom||''),nl,'IDEAL Ecole Internationale Bilingue',nl,'+223 90 19 00 07'].join('');window.open('https://wa.me/'+schoolNum+'?text='+encodeURIComponent(msg),'_blank');}} disabled={!msgEleve||!msgBody.trim()}>
+              Envoyer via WhatsApp
             </button>
           </>
         )}
+
 
         {tab === 'preparation' && (
           <PreparationIA user={user} />
