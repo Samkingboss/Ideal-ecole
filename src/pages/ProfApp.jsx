@@ -739,7 +739,7 @@ export default function ProfApp({ user, onLogout }) {
 
       {showCpModal && plan && (
         <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowCpModal(false)}>
-          <div className="modal" style={{maxHeight:'88vh'}}>
+          <div className="modal" style={{maxHeight:'88vh',overflowY:'auto'}}>
             <div className="modal-handle"></div>
             <div className="modal-title">Check-point — {selectedClasse?.nom}</div>
             <div className="form-group"><label className="form-label">Date</label><input className="form-input" type="date" value={cpDate} onChange={e=>setCpDate(e.target.value)} /></div>
