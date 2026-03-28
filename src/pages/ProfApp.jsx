@@ -16,7 +16,6 @@ const TABS = [
   { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'messages', icon:'💬', label:'Messages' },
-  { id:'prepas', icon:'📝', label:'Préparations' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
   { id:'preparation', icon:'📋', label:'Préparations' },
 ]
@@ -506,55 +505,6 @@ export default function ProfApp({ user, onLogout }) {
             <button className="btn btn-wa btn-primary" onClick={()=>sendWhatsApp(msgEleve)} disabled={!msgEleve}>
               📲 Envoyer via WhatsApp
             </button>
-          </>
-        )}
-
-        {tab === 'prepas' && (
-          <>
-            <div className="section-head"><div className="section-title">Mes Préparations (IA)</div></div>
-            <div className="card" style={{marginBottom:16, background:'rgba(26,175,224,.05)'}}>
-              <div style={{padding:'1rem'}}>
-                <div className="form-group"><label className="form-label">Classe</label>
-                  <select className="form-select" value={newPrepa.classe_id} onChange={e=>setNewPrepa({...newPrepa, classe_id: e.target.value})}>
-                    <option value="">Sélectionner une classe</option>
-                    {classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
-                  </select>
-                </div>
-                <div style={{display:'flex', gap:10}}>
-                  <div className="form-group" style={{flex:1}}><label className="form-label">Date du cours</label><input type="date" className="form-input" value={newPrepa.date_cours} onChange={e=>setNewPrepa({...newPrepa, date_cours: e.target.value})} /></div>
-                  <div className="form-group" style={{flex:1}}><label className="form-label">Heure du cours</label><input type="time" className="form-input" value={newPrepa.heure_cours} onChange={e=>setNewPrepa({...newPrepa, heure_cours: e.target.value})} /></div>
-                </div>
-                <div className="form-group"><label className="form-label">Fichier (PDF ou Image)</label><input type="file" className="form-input" onChange={e=>setNewPrepa({...newPrepa, file: e.target.files[0]})} /></div>
-                <button className="btn btn-primary" onClick={uploadPrepa} disabled={loading}>{loading?'Analyse IA en cours...':'Envoyer pour Notation'}</button>
-                <div style={{fontSize:10, color:'var(--muted)', marginTop:8, textAlign:'center'}}>
-                  ⚠️ Doit être envoyé au moins 10h avant le début du cours.
-                </div>
-              </div>
-            </div>
-
-            {preparations.length === 0 ? (
-              <div className="empty-state">📝<p>Aucune préparation envoyée.</p></div>
-            ) : preparations.map(p => (
-              <div key={p.id} className="card" style={{marginBottom:12}}>
-                <div style={{padding:'1rem'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-                    <span style={{fontSize:13,fontWeight:700}}>{p.classes?.nom}</span>
-                    <span style={{fontSize:12,color:p.status.includes('retard')?'var(--red)':'var(--green)'}}>{p.status}</span>
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:15}}>
-                    <div style={{textAlign:'center',background:'var(--bg)',padding:'10px',borderRadius:10, minWidth:60}}>
-                      <div style={{fontSize:20,fontWeight:900,color:'var(--accent)'}}>{p.note_ia}/20</div>
-                      <div style={{fontSize:10,color:'var(--muted)'}}>NOTE IA</div>
-                    </div>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Cours du {new Date(p.date_cours).toLocaleDateString()} à {p.heure_cours}</div>
-                      <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.3}}>"{p.commentaire_ia}"</div>
-                    </div>
-                  </div>
-                  <a href={p.url_doc} target="_blank" rel="noreferrer" style={{display:'block',marginTop:10,fontSize:11,color:'var(--accent)',textDecoration:'none'}}>👁️ Voir le document</a>
-                </div>
-              </div>
-            ))}
           </>
         )}
 
