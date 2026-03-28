@@ -909,7 +909,8 @@ export default function ProfApp({ user, onLogout }) {
                       </div>
                     ))}
                   </div>
-                )) : <div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun programme. Creez votre programme dabord.</div>}
+                )) : (<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',padding:'1rem'}}>Aucun programme. Creez votre programme dabord.</div>)
+                }
             ))}
             <button className="btn btn-primary" onClick={saveCheckpoint} disabled={loading}>{loading?'Enregistrement...':'Enregistrer'}</button>
             <button className="btn-cancel" onClick={()=>setShowCpModal(false)}>Annuler</button>
