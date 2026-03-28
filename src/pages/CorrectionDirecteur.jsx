@@ -2,19 +2,19 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 const CRITERES = [
-  { id: 'structure',  label: 'Structure & organisation', max: 4 },
-  { id: 'objectifs',  label: 'Clarté des objectifs',     max: 4 },
-  { id: 'contenu',    label: 'Qualité du contenu',       max: 4 },
-  { id: 'methodes',   label: 'Méthodes & activités',     max: 4 },
-  { id: 'evaluation', label: 'Évaluation prévue',        max: 4 },
+  { id: 'structure',  label: 'Structure et organisation', max: 4 },
+  { id: 'objectifs',  label: 'Clarte des objectifs',      max: 4 },
+  { id: 'contenu',    label: 'Qualite du contenu',        max: 4 },
+  { id: 'methodes',   label: 'Methodes et activites',     max: 4 },
+  { id: 'evaluation', label: 'Evaluation prevue',         max: 4 },
 ]
 
 const getBadge = (note) => {
-  if (note >= 18) return { label: 'Excellent',   color: '#16a34a', bg: 'rgba(22,163,74,.1)',  icon: '🏆' }
-  if (note >= 15) return { label: 'Très bien',   color: '#2563eb', bg: 'rgba(37,99,235,.1)',  icon: '⭐' }
-  if (note >= 12) return { label: 'Bien',        color: '#1AAFE0', bg: 'rgba(26,175,224,.1)', icon: '👍' }
-  if (note >= 10) return { label: 'Assez bien',  color: '#F7941D', bg: 'rgba(247,148,29,.1)', icon: '📝' }
-  return           { label: 'À améliorer', color: '#ED1C24', bg: 'rgba(237,28,36,.1)', icon: '⚠️' }
+  if (note >= 18) return { label: 'Excellent',   color: '#16a34a', bg: 'rgba(22,163,74,.1)'  }
+  if (note >= 15) return { label: 'Tres bien',   color: '#2563eb', bg: 'rgba(37,99,235,.1)'  }
+  if (note >= 12) return { label: 'Bien',        color: '#1AAFE0', bg: 'rgba(26,175,224,.1)' }
+  if (note >= 10) return { label: 'Assez bien',  color: '#F7941D', bg: 'rgba(247,148,29,.1)' }
+  return           { label: 'A ameliorer', color: '#ED1C24', bg: 'rgba(237,28,36,.1)'  }
 }
 
 export default function CorrectionDirecteur() {
@@ -31,13 +31,15 @@ export default function CorrectionDirecteur() {
   const chargerPreparations = async () => {
     const { data } = await supabase
       .from('preparations')
-      .select('*, classes(nom), users(prenom, nom)')
+      .select('*, classes(nom)')
       .order('created_at', { ascending: false })
     setPreparations(data || [])
   }
 
-  const ouvrirCorrection = (prep) => {
-    setSelected(prep)
+  const ouvrirCorrection = async (prep) => {
+    const { data: userData } = await supabase
+      .from('users').select('prenom, nom').eq('id', prep.user_id).single()
+    setSelected({ ...prep, user: userData })
     setNotes(prep.notes_criteres || { structure: 0, objectifs: 0, contenu: 0, methodes: 0, evaluation: 0 })
     setCommentaire(prep.commentaire_ia || '')
     setConseil(prep.conseil || '')
@@ -49,11 +51,8 @@ export default function CorrectionDirecteur() {
     if (!selected) return
     setLoading(true)
     await supabase.from('preparations').update({
-      note_ia: total,
-      notes_criteres: notes,
-      commentaire_ia: commentaire,
-      conseil: conseil,
-      status: 'valide',
+      note_ia: total, notes_criteres: notes,
+      commentaire_ia: commentaire, conseil: conseil, status: 'valide',
     }).eq('id', selected.id)
     setSelected(null)
     chargerPreparations()
@@ -71,39 +70,27 @@ export default function CorrectionDirecteur() {
     return (
       <div style={{ padding: '1rem 1.2rem 3rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
-          <button onClick={() => setSelected(null)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>← Retour</button>
-          <div style={{ fontSize: 16, fontWeight: 900 }}>Corriger la préparation</div>
+          <button onClick={() => setSelected(null)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Retour</button>
+          <div style={{ fontSize: 16, fontWeight: 900 }}>Corriger la preparation</div>
         </div>
-
         <div style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem', marginBottom: '1rem' }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.users?.prenom} {selected.users?.nom}</div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>{selected.user ? selected.user.prenom + ' ' + selected.user.nom : 'Professeur'}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{selected.classes?.nom} · {selected.matiere}</div>
           {selected.url_doc && (
-            <a href={selected.url_doc} target="_blank" rel="noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, background: 'rgba(26,175,224,.08)', border: '1px solid rgba(26,175,224,.2)', borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
-              📄 Ouvrir la préparation
+            <a href={selected.url_doc} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, background: 'rgba(26,175,224,.08)', border: '1px solid rgba(26,175,224,.2)', borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
+              Ouvrir la preparation
             </a>
           )}
-          {selected.status === 'retard' && (
-            <div style={{ marginTop: 8, fontSize: 11, color: '#ED1C24', fontWeight: 600 }}>⏰ Soumis en retard — {selected.retard_minutes} min après H-10</div>
-          )}
         </div>
-
         <div style={{ background: 'linear-gradient(135deg,#0d2a3b,#1565a0)', borderRadius: 14, padding: '1rem', marginBottom: '1rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 13, opacity: .8 }}>Note totale</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ fontFamily: 'Georgia, serif', fontSize: 40, fontWeight: 900 }}>{total}</div>
-            <div>
-              <div style={{ fontSize: 14, opacity: .6 }}>/20</div>
-              <span style={{ fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.color, padding: '2px 8px', borderRadius: 20 }}>{badge.label}</span>
-            </div>
+            <div><div style={{ fontSize: 14, opacity: .6 }}>/20</div><span style={{ fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.color, padding: '2px 8px', borderRadius: 20 }}>{badge.label}</span></div>
           </div>
         </div>
-
         <div style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1rem' }}>
-          <div style={{ background: '#0d2a3b', color: '#fff', padding: '8px 14px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-            Notation par critère
-          </div>
+          <div style={{ background: '#0d2a3b', color: '#fff', padding: '8px 14px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Notation par critere</div>
           {CRITERES.map(crit => {
             const note = notes[crit.id] || 0
             const pct = (note / crit.max) * 100
@@ -126,22 +113,17 @@ export default function CorrectionDirecteur() {
             )
           })}
         </div>
-
         <div className="form-group">
-          <label className="form-label">Commentaire général</label>
-          <textarea className="form-input" rows={3} value={commentaire} onChange={e => setCommentaire(e.target.value)}
-            placeholder="Appréciation globale de la préparation..." style={{ resize: 'none', lineHeight: 1.6 }} />
+          <label className="form-label">Commentaire general</label>
+          <textarea className="form-input" rows={3} value={commentaire} onChange={e => setCommentaire(e.target.value)} placeholder="Appreciation globale..." style={{ resize: 'none', lineHeight: 1.6 }} />
         </div>
-
         <div className="form-group">
           <label className="form-label">Conseil prioritaire</label>
-          <textarea className="form-input" rows={2} value={conseil} onChange={e => setConseil(e.target.value)}
-            placeholder="Un conseil concret pour s'améliorer..." style={{ resize: 'none', lineHeight: 1.6 }} />
+          <textarea className="form-input" rows={2} value={conseil} onChange={e => setConseil(e.target.value)} placeholder="Un conseil concret..." style={{ resize: 'none', lineHeight: 1.6 }} />
         </div>
-
         <button onClick={sauvegarderCorrection} disabled={loading}
           style={{ width: '100%', padding: '1rem', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', background: loading ? '#ccc' : '#0d2a3b', color: '#fff' }}>
-          {loading ? 'Enregistrement...' : '✅ Valider la correction'}
+          {loading ? 'Enregistrement...' : 'Valider la correction'}
         </button>
       </div>
     )
@@ -152,21 +134,18 @@ export default function CorrectionDirecteur() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <div style={{ fontSize: 20, fontWeight: 900 }}>Corrections</div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {['en_attente', 'corrigees', 'toutes'].map(f => (
+          {[['en_attente','En attente'],['corrigees','Corrigees'],['toutes','Toutes']].map(([f,l]) => (
             <button key={f} onClick={() => setFiltre(f)}
               style={{ padding: '4px 10px', borderRadius: 20, border: '1.5px solid', borderColor: filtre === f ? 'var(--accent)' : 'var(--border)', background: filtre === f ? 'var(--accent)' : 'var(--card)', color: filtre === f ? '#fff' : 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-              {f === 'en_attente' ? '⏳ En attente' : f === 'corrigees' ? '✅ Corrigées' : 'Toutes'}
+              {l}
             </button>
           ))}
         </div>
       </div>
-
       {prepsFiltrees.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--muted)' }}>
           <div style={{ fontSize: 48, marginBottom: '.5rem' }}>📋</div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>
-            {filtre === 'en_attente' ? 'Aucune préparation en attente' : 'Aucune préparation'}
-          </div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{filtre === 'en_attente' ? 'Aucune preparation en attente' : 'Aucune preparation'}</div>
         </div>
       ) : prepsFiltrees.map(prep => {
         const badge = prep.note_ia !== null ? getBadge(prep.note_ia) : null
@@ -176,9 +155,9 @@ export default function CorrectionDirecteur() {
             style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem', marginBottom: 8, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}>
             <div style={{ fontSize: 28, flexShrink: 0 }}>{prep.note_ia !== null ? '✅' : prep.status === 'retard' ? '⏰' : '⏳'}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>{prep.users?.prenom} {prep.users?.nom}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{prep.classes?.nom} · {prep.matiere} · {date}</div>
-              {prep.note_ia === null && <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>Cliquez pour corriger →</div>}
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{prep.classes?.nom} · {prep.matiere}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{date}</div>
+              {prep.note_ia === null && <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>Cliquez pour corriger</div>}
             </div>
             {badge && (
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
