@@ -288,7 +288,7 @@ export default function ProfApp({ user, onLogout }) {
       const vals = byDiscipline[d]
       byDiscipline[d] = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
     })
-    return { avg, avgGlobal, byDiscipline }
+    return { avg, byDiscipline }
   }
   const getEleveProgress = (eleveId) => {
     const plan = getCurrentPlan()
@@ -302,9 +302,6 @@ export default function ProfApp({ user, onLogout }) {
     let myProgs = []; for (const cp of classCps) { const progs = cp.progressions.filter(pr => pr.eleve_id === eleveId); if (progs.length > 0) { myProgs = progs; break; } }
     const all = myProgs.map(pr => pr.pourcentage)
     const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
-    // Moyenne globale sur tous les checkpoints
-    const allProgsEver = classCps.flatMap(cp => cp.progressions.filter(pr => pr.eleve_id === eleveId))
-    const avgGlobal = allProgsEver.length ? Math.round(allProgsEver.reduce((a,b)=>a+b.pourcentage,0)/allProgsEver.length) : 0
     const byDiscipline = {}
     myProgs.forEach(pr => {
       if (!byDiscipline[pr.objectifs?.discipline]) byDiscipline[pr.objectifs?.discipline] = []
@@ -402,12 +399,7 @@ export default function ProfApp({ user, onLogout }) {
                             <div className="progress-wrap" style={{flex:1}}>
                               <div className="progress-fill" style={{width:prog.avg+'%',background:barColor}}></div>
                             </div>
-                            <span style={{fontSize:11,fontWeight:700,color:barColor,width:32,textAlign:'right'}}>{prog.avg}%</span>
-                          </div>
-                          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
-                            <div style={{fontSize:9,color:'var(--muted)',width:70,flexShrink:0}}>Moy. periode</div>
-                            <div className="progress-wrap" style={{flex:1}}><div className="progress-fill" style={{width:(prog.avgGlobal||0)+'%',background:'var(--accent)'}}></div></div>
-                            <span style={{fontSize:11,fontWeight:700,color:'var(--accent)',width:32,textAlign:'right'}}>{prog.avgGlobal||0}%</span>
+                            <div style={{fontSize:12,fontWeight:700,color:barColor,width:35,textAlign:'right'}}>{prog.avg}%</div>
                           </div>
                         </div>
                       </div>
