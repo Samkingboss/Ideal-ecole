@@ -659,17 +659,7 @@ export default function ProfApp({ user, onLogout }) {
                               return disc + ' : ' + lbR(avg) + (psR ? '' : ' ('+avg+'%)') + (objectifs ? ' [' + objectifs + ']' : '')
                             }).join('
 - ')
-                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' en date du ' + dateFormate + '.
-
-Niveau global : ' + niveauGlobal + (psR ? '' : ' ('+moyR+'%)') + '
-En resume, ' + tendance + ' cette periode.
-
-Detail par domaine :
-- ' + detailDisc + (msgDetails.precision ? '
-
-' + msgDetails.precision : '') + '
-
-Nous restons disponibles pour echanger avec vous sur la progression de ' + prenom + '.'
+                            const nl = String.fromCharCode(10); corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' en date du ' + dateFormate + '.' + nl + nl + 'Niveau global : ' + niveauGlobal + (psR ? '' : ' ('+moyR+'%)') + nl + 'En resume, ' + tendance + ' cette periode.' + nl + nl + 'Detail par domaine :' + nl + '- ' + detailDisc + (msgDetails.precision ? nl + nl + msgDetails.precision : '') + nl + nl + 'Nous restons disponibles pour echanger avec vous sur la progression de ' + prenom + '.'
                           } else {
                             corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision : '') + ' N hesitez pas a nous contacter.'
                           }
