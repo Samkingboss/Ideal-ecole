@@ -274,7 +274,7 @@ export default function ProfApp({ user, onLogout }) {
       const p = planifications.find(pl => pl.id === cp.planification_id)
       return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
     })
-    const cpYear = new Date().getFullYear(); const fullDate = dateStr.length === 5 ? cpYear + - + dateStr : dateStr; const cp = classCps.find(cp => cp.date_checkpoint?.slice(0,10) === fullDate || cp.date_checkpoint === fullDate)
+    const fullDate = dateStr.length <= 5 ? String(new Date().getFullYear()) + "-" + dateStr : dateStr; const cp = classCps.find(cp => cp.date_checkpoint?.slice(0,10) === fullDate || cp.date_checkpoint === fullDate)
     if (!cp) return { avg: 0, byDiscipline: {} }
     const myProgs = cp.progressions.filter(pr => pr.eleve_id === eleveId)
     const all = myProgs.map(pr => pr.pourcentage)
