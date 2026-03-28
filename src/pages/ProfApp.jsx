@@ -51,6 +51,7 @@ export default function ProfApp({ user, onLogout }) {
   const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
 
   useEffect(() => { loadData() }, [])
+  useEffect(() => { loadProgramme() }, [selectedClasse])
 
   const loadProgramme = async () => {
     if (!selectedClasse || !user) return
