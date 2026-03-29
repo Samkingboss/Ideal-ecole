@@ -42,6 +42,7 @@ export default function ProfApp({ user, onLogout }) {
   const [msgPreview, setMsgPreview] = useState(false)
   const [msgDetails, setMsgDetails] = useState({})
   const [schoolNum] = useState('22390190007')
+  const [selectedMatiere, setSelectedMatiere] = useState(null)
   const [loading, setLoading] = useState(false)
   const [myPerfs, setMyPerfs] = useState([])
   const [evenements, setEvenements] = useState([])
@@ -450,75 +451,102 @@ export default function ProfApp({ user, onLogout }) {
         {tab === 'progression' && (
           <>
             <div className="section-head"><div className="section-title">Progression</div></div>
-            {getProgressionData().length > 0 ? (
-              <div className="card" style={{marginBottom:12}}>
-                <div className="card-header">Evolution — {selectedClasse?.nom}</div>
-                <div style={{padding:'1rem',height:220}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={getProgressionData()} onClick={(e)=>{ if(e&&e.activeLabel){ setSelectedCpDate(prev=>prev===e.activeLabel?null:e.activeLabel); } }}>
-                      <XAxis dataKey="date" style={{fontSize:10}} />
-                      <YAxis domain={[0,100]} tickFormatter={v=>v+'%'} style={{fontSize:10}} />
-                      <Tooltip formatter={v=>v+'%'} />
-                      <Line type="monotone" dataKey="moyenne" stroke="#1AAFE0" strokeWidth={2} dot={(props)=>{ const sel = props.payload.date===selectedCpDate; return <circle key={props.key} cx={props.cx} cy={props.cy} r={sel?7:4} fill={sel?'#F7941D':'#1AAFE0'} stroke={sel?'#fff':'none'} strokeWidth={2} />; }} name="Moy. classe" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',padding:'0 1rem 1rem'}}>
-                  {getProgressionData().map(d => (
-                    <button key={d.date} onClick={()=>setSelectedCpDate(prev=>prev===d.date?null:d.date)}
-                      style={{padding:'4px 10px',borderRadius:20,border:'1.5px solid',fontSize:11,fontWeight:600,cursor:'pointer',
-                        borderColor: selectedCpDate===d.date ? '#F7941D' : 'var(--border)',
-                        background: selectedCpDate===d.date ? '#F7941D' : 'var(--bg)',
-                        color: selectedCpDate===d.date ? '#fff' : 'var(--muted)'}}>
-                      {d.date}
+            {programmeData.length === 0 ? (
+              <div className="empty-state"><div className="empty-icon">📚</div><p>Aucun programme défini.</p></div>
+            ) : (
+              <>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                  {programmeData.map(mat => (
+                    <button key={mat.id} onClick={() => setSelectedMatiere(mat.id === selectedMatiere ? null : mat.id)}
+                      style={{padding:'6px 14px',borderRadius:20,border:'2px solid',fontSize:12,fontWeight:700,cursor:'pointer',
+                        borderColor: selectedMatiere===mat.id ? 'var(--accent)' : 'var(--border)',
+                        background: selectedMatiere===mat.id ? 'var(--accent)' : 'var(--bg)',
+                        color: selectedMatiere===mat.id ? '#fff' : 'var(--muted)'}}>
+                      {mat.nom}
                     </button>
                   ))}
-                  {selectedCpDate && (
-                    <button onClick={()=>setSelectedCpDate(null)}
-                      style={{padding:'4px 10px',borderRadius:20,border:'1.5px solid var(--red)',fontSize:11,fontWeight:600,cursor:'pointer',background:'var(--bg)',color:'var(--red)'}}>
-                      Effacer
-                    </button>
-                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="empty-state"><div className="empty-icon">📈</div><p>Pas encore de check-points pour cette classe et periode.</p></div>
-            )}
-            {/* Per student detail */}
-            {classEleves.map(el => {
-              const prog = selectedCpDate ? getProgressAtDate(el.id, selectedCpDate) : getEleveProgress(el.id)
-              const barColor = prog.avg >= 75 ? 'var(--green)' : prog.avg >= 50 ? 'var(--amber)' : 'var(--red)'
-              return (
-                <div key={el.id} className="card" style={{marginBottom:8}}>
-                  <div style={{padding:'.8rem 1rem'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                      <div className="avatar av-blue">{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:700}}>{el.prenom} {el.nom}</div>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
-                          <div className="progress-wrap" style={{flex:1}}><div className="progress-fill" style={{width:prog.avg+'%',background:barColor}}></div></div>
-                          <span style={{fontSize:13,fontWeight:700,color:barColor}}>{prog.avg}%</span>
+                {(() => {
+                  const mat = programmeData.find(m => m.id === selectedMatiere) || programmeData[0]
+                  if (!mat) return null
+                  const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
+                  const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
+                  const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
+                  const cps = checkpoints.filter(cp => {
+                    const p = planifications.find(pl => pl.id === cp.planification_id)
+                    return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+                  }).sort((a,b) => a.date_checkpoint.localeCompare(b.date_checkpoint))
+                  return (
+                    <>
+                      <div className="card" style={{marginBottom:12}}>
+                        <div className="card-header">📊 {mat.nom} — Evolution</div>
+                        <div style={{padding:'1rem'}}>
+                          {cps.length === 0 ? (
+                            <div style={{fontSize:12,color:'var(--muted)',textAlign:'center'}}>Aucun checkpoint encore</div>
+                          ) : (
+                            <div style={{overflowX:'auto'}}>
+                              <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                                <thead>
+                                  <tr>
+                                    <th style={{textAlign:'left',padding:'4px 8px',color:'var(--muted)',fontWeight:700}}>Elève</th>
+                                    {cps.map(cp => <th key={cp.id} style={{padding:'4px 8px',color:'var(--muted)',fontWeight:700}}>{cp.date_checkpoint?.slice(5)}</th>)}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {classEleves.map(el => (
+                                    <tr key={el.id} style={{borderTop:'1px solid var(--border)'}}>
+                                      <td style={{padding:'6px 8px',fontWeight:600}}>{el.prenom} {el.nom}</td>
+                                      {cps.map(cp => {
+                                        const comps = mat.objectifs.flatMap(o => o.competences)
+                                        const prs = cp.progressions?.filter(p => p.eleve_id === el.id && comps.some(co => co.id === p.competence_id)) || []
+                                        const avg = prs.length ? Math.round(prs.reduce((a,p)=>a+p.pourcentage,0)/prs.length) : 0
+                                        const c2 = col(avg)
+                                        return <td key={cp.id} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:c2}}>{avg>0?lbl(avg):'—'}</td>
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    {Object.entries(prog.byDiscipline).map(([disc, pct]) => {
-                      const c = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)'
-                      return (
-                        <div key={disc} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                          <div style={{fontSize:11,width:100,color:'var(--muted)',flexShrink:0}}>{disc}</div>
-                          <div className="progress-wrap" style={{flex:1}}><div className="progress-fill" style={{width:pct+'%',background:c}}></div></div>
-                          <span style={{fontSize:11,fontWeight:700,color:c,width:30,textAlign:'right'}}>{pct}%</span>
+                      {mat.objectifs.map(obj => (
+                        <div key={obj.id} style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden',marginBottom:10}}>
+                          <div style={{background:'rgba(26,175,224,.08)',padding:'8px 14px',fontSize:12,fontWeight:700,color:'var(--accent)'}}>🎯 {obj.nom}</div>
+                          {obj.competences.map(comp => {
+                            const lastCp = cps[cps.length-1]
+                            return (
+                              <div key={comp.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)'}}>
+                                <div style={{fontSize:12,fontWeight:600,marginBottom:6}}>{comp.nom}</div>
+                                {classEleves.map(el => {
+                                  let val = 0
+                                  for (const cp of [...cps].reverse()) {
+                                    const pr = cp.progressions?.find(p => p.eleve_id === el.id && p.competence_id === comp.id)
+                                    if (pr) { val = pr.pourcentage; break }
+                                  }
+                                  const c2 = col(val)
+                                  return (
+                                    <div key={el.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                                      <div className="avatar av-blue" style={{width:24,height:24,fontSize:9,flexShrink:0}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
+                                      <div style={{fontSize:11,width:90,flexShrink:0}}>{el.prenom} {el.nom}</div>
+                                      <div className="progress-wrap" style={{flex:1}}><div className="progress-fill" style={{width:val+'%',background:c2}}></div></div>
+                                      <span style={{fontSize:11,fontWeight:700,color:c2,width:60,textAlign:'right'}}>{lbl(val)}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+                      ))}
+                    </>
+                  )
+                })()}
+              </>
+            )}
           </>
         )}
-
-        
 
         {tab === 'classe' && (<><div className='section-head'><div className='section-title'>Stats de la classe</div></div>{(()=>{const cps=checkpoints.filter(cp=>{const p=planifications.find(pl=>pl.id===cp.planification_id);return p&&p.classe_id===selectedClasse?.id&&p.periode_id===selectedPeriode?.id;}).sort((a,b)=>b.date_checkpoint.localeCompare(a.date_checkpoint));const gm=(id)=>{for(const cp of cps){const pr=cp.progressions.filter(p=>p.eleve_id===id);if(pr.length){const v=pr.map(p=>p.pourcentage);return Math.round(v.reduce((a,b)=>a+b,0)/v.length);}}return null;};const ps=selectedClasse?.nom==='Petite Section'||selectedClasse?.nom==='Grande Section';const lb=(p)=>ps?(p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut'):p+'%';const gc=(p)=>p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)';const el2=classEleves.map(e=>({...e,moy:gm(e.id)})).sort((a,b)=>(b.moy||0)-(a.moy||0));const mc=el2.filter(e=>e.moy!==null).length?Math.round(el2.filter(e=>e.moy!==null).reduce((a,e)=>a+(e.moy||0),0)/el2.filter(e=>e.moy!==null).length):0;return(<><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:16,fontWeight:900,color:gc(mc)}}>{lb(mc)}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{el2.filter(e=>e.moy!==null&&e.moy>=75).length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div></div></div><div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}><div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase'}}>Classement</div>{el2.map((e,i)=>{const m=e.moy;const c2=m!==null?gc(m):'var(--muted)';return(<div key={e.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:18}}>{i+1}</div><div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#fff',flexShrink:0}}>{(e.prenom[0]||'')+(e.nom[0]||'')}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div>{m!==null&&<div style={{background:'var(--bg)',borderRadius:20,height:4,marginTop:4}}><div style={{height:'100%',width:m+'%',background:c2,borderRadius:20}}></div></div>}</div><div style={{fontSize:13,fontWeight:900,color:c2}}>{m!==null?lb(m):'—'}</div></div>);})}</div></>);})()}</>)} {tab === 'messages' && (
           <>
