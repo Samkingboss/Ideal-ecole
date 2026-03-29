@@ -34,7 +34,7 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
         if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: compId, pourcentage: pct })
       })
     })
-    if (progressions.length > 0) await supabase.from('progressions').insert(progressions)
+    if (progressions.length > 0) { const {error: insErr} = await supabase.from('progressions').insert(progressions); if(insErr) alert('Erreur insert: ' + insErr.message) }
     setLoading(false)
     onSaved()
   }
