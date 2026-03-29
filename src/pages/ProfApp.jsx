@@ -105,7 +105,7 @@ export default function ProfApp({ user, onLogout }) {
     setPlanifications(pl || [])
     // Load checkpoints by this prof
     const { data: cp } = await supabase.from('checkpoints')
-      .select('*, progressions(*, eleves(prenom,nom), objectifs(discipline,description))')
+      .select('*, progressions(*, eleves(prenom,nom), competences(nom, objectifs_v2(nom, matieres(nom))))')
       .eq('prof_id', user.id)
       .order('date_checkpoint', { ascending: false })
     setCheckpoints(cp || [])
@@ -303,8 +303,9 @@ export default function ProfApp({ user, onLogout }) {
     const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
     const byDiscipline = {}
     myProgs.forEach(pr => {
-      if (!byDiscipline[pr.objectifs?.discipline]) byDiscipline[pr.objectifs?.discipline] = []
-      byDiscipline[pr.objectifs?.discipline].push(pr.pourcentage)
+      const mat = pr.competences?.objectifs_v2?.matieres?.nom || 'General'
+      if (!byDiscipline[mat]) byDiscipline[mat] = []
+      byDiscipline[mat].push(pr.pourcentage)
     })
     Object.keys(byDiscipline).forEach(d => {
       const vals = byDiscipline[d]
@@ -326,8 +327,9 @@ export default function ProfApp({ user, onLogout }) {
     const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
     const byDiscipline = {}
     myProgs.forEach(pr => {
-      if (!byDiscipline[pr.objectifs?.discipline]) byDiscipline[pr.objectifs?.discipline] = []
-      byDiscipline[pr.objectifs?.discipline].push(pr.pourcentage)
+      const mat = pr.competences?.objectifs_v2?.matieres?.nom || 'General'
+      if (!byDiscipline[mat]) byDiscipline[mat] = []
+      byDiscipline[mat].push(pr.pourcentage)
     })
     Object.keys(byDiscipline).forEach(d => {
       const vals = byDiscipline[d]
