@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function CheckpointModal({ classEleves, programmeData, selectedClasse, checkpoints, planifications, selectedPeriode, supabase, user, onClose, onSaved }) {
+export default function CheckpointModal({ classEleves, programmeData, selectedClasse, checkpoints, planifications, selectedPeriode, supabase, user, plan, onClose, onSaved }) {
   const today = new Date().toISOString().slice(0,10)
   const [cpDate, setCpDate] = useState(today)
   const [entries, setEntries] = useState(() => {
@@ -25,7 +25,7 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
   const save = async () => {
     setLoading(true)
     const { data: cpData, error } = await supabase.from('checkpoints')
-      .insert({ prof_id: user.id, date_checkpoint: cpDate })
+      .insert({ prof_id: user.id, date_checkpoint: cpDate, planification_id: plan?.id })
       .select().single()
     if (error) { setLoading(false); alert('Erreur: ' + error.message); return }
     const progressions = []

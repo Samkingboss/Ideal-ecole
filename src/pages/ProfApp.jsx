@@ -857,7 +857,7 @@ export default function ProfApp({ user, onLogout }) {
         ))}
       </div>
 
-      {showCpModal && (<CheckpointModal classEleves={classEleves} programmeData={programmeData} selectedClasse={selectedClasse} checkpoints={checkpoints} planifications={planifications} selectedPeriode={selectedPeriode} supabase={supabase} user={user} onClose={()=>setShowCpModal(false)} onSaved={()=>{setShowCpModal(false);loadData();}} />)}
+      {showCpModal && (<CheckpointModal classEleves={classEleves} programmeData={programmeData} selectedClasse={selectedClasse} checkpoints={checkpoints} planifications={planifications} selectedPeriode={selectedPeriode} supabase={supabase} user={user} plan={getCurrentPlan()} onClose={()=>setShowCpModal(false)} onSaved={()=>{setShowCpModal(false);loadData();}} />)}
     </div>
   )
 }
