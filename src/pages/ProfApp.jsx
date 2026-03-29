@@ -388,48 +388,60 @@ export default function ProfApp({ user, onLogout }) {
             {!plan ? (
               <div className="empty-state">
                 <div className="empty-icon">📋</div>
-                <p>Aucune planification {user.langue==='en'?'anglais':'francais'} pour {selectedClasse?.nom} - {selectedPeriode?.nom}.</p>
-                <p style={{fontSize:12,marginTop:8}}>Contactez le directeur pour charger la planification.</p>
+                <p>Aucune planification pour {selectedClasse?.nom} - {selectedPeriode?.nom}.</p>
               </div>
+            ) : programmeData.length === 0 ? (
+              <div className="empty-state"><div className="empty-icon">📚</div><p>Creez votre programme dabord.</p></div>
             ) : (
               <>
-                <div className="card" style={{marginBottom:12}}>
-                  <div className="card-header">{plan.classes?.nom} — {plan.periodes?.nom}</div>
-                  <div style={{padding:0}}>
-                    {plan.pdf_url && (
-                      <div style={{padding:'10px 14px', borderBottom:'1px solid var(--border)', background:'rgba(26,175,224,.05)'}}>
-                        <a href={plan.pdf_url} target="_blank" rel="noreferrer" style={{color:'var(--accent)', fontSize:13, fontWeight:700, textDecoration:'none'}}>📄 Télécharger la planification (PDF)</a>
+                {programmeData.map(mat => (
+                  <div key={mat.id} style={{marginBottom:12}}>
+                    <div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}>
+                      <div style={{background:'#0d2a3b',color:'#fff',padding:'10px 14px',fontSize:13,fontWeight:700,textTransform:'uppercase'}}>
+                        {mat.nom}
                       </div>
-                    )}
-                    {plan.objectifs?.map(obj => (
-                      <div key={obj.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)',display:'flex',gap:8}}>
-                        <span style={{background:'rgba(26,175,224,.1)',color:'var(--accent)',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>{obj.discipline}</span>
-                        <span style={{fontSize:12}}>{obj.description}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Progression overview */}
-                {classEleves.map(el => {
-                  const prog = getEleveProgress(el.id)
-                  const barColor = prog.avg >= 75 ? 'var(--green)' : prog.avg >= 50 ? 'var(--amber)' : 'var(--red)'
-                  return (
-                    <div key={el.id} style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',padding:'.8rem 1rem',marginBottom:6}}>
-                      <div style={{display:'flex',alignItems:'center',gap:10}}>
-                        <div className="avatar av-blue">{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:600}}>{el.prenom} {el.nom}</div>
-                          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
-                            <div className="progress-wrap" style={{flex:1}}>
-                              <div className="progress-fill" style={{width:prog.avg+'%',background:barColor}}></div>
-                            </div>
-                            <div style={{fontSize:12,fontWeight:700,color:barColor,width:35,textAlign:'right'}}>{prog.avg}%</div>
+                      {mat.objectifs.map(obj => (
+                        <div key={obj.id}>
+                          <div style={{padding:'8px 14px',background:'rgba(26,175,224,.06)',fontSize:12,fontWeight:700,color:'var(--accent)',borderBottom:'1px solid var(--border)'}}>
+                            {obj.nom}
                           </div>
+                          {obj.competences.length === 0 ? (
+                            <div style={{padding:'8px 14px',fontSize:11,color:'var(--muted)',fontStyle:'italic'}}>Aucune competence</div>
+                          ) : obj.competences.map(comp => {
+                            const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
+                            const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
+                            const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
+                            return (
+                              <div key={comp.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)'}}>
+                                <div style={{fontSize:12,fontWeight:600,marginBottom:8}}>{comp.nom}</div>
+                                {classEleves.map(el => {
+                                  const cps = checkpoints.filter(cp => {
+                                    const p = planifications.find(pl => pl.id === cp.planification_id)
+                                    return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+                                  }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
+                                  let val = 0
+                                  for (const cp of cps) {
+                                    const pr = cp.progressions?.find(p => p.eleve_id === el.id && p.competence_id === comp.id)
+                                    if (pr) { val = pr.pourcentage; break }
+                                  }
+                                  const c2 = col(val)
+                                  return (
+                                    <div key={el.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                                      <div className="avatar av-blue" style={{width:26,height:26,fontSize:10,flexShrink:0}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
+                                      <div style={{fontSize:11,width:90,flexShrink:0}}>{el.prenom} {el.nom}</div>
+                                      <div className="progress-wrap" style={{flex:1}}><div className="progress-fill" style={{width:val+'%',background:c2}}></div></div>
+                                      <span style={{fontSize:11,fontWeight:700,color:c2,width:60,textAlign:'right'}}>{lbl(val)}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })}
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  )
-                })}
+                  </div>
+                ))}
               </>
             )}
           </>
