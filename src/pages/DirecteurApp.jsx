@@ -6,7 +6,6 @@ const TABS = [
   { id:'dashboard', icon:'📊', label:'Tableau de bord' },
   { id:'profs', icon:'👥', label:'Equipe' },
   { id:'eleves', icon:'🎒', label:'Eleves' },
-  { id:'planning', icon:'📋', label:'Planification' },
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Performances' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
@@ -34,6 +33,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [preparations, setPreparations] = useState([])
   const [syntheseData, setSyntheseData] = useState([])
   const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
+  const [activeEleveClass, setActiveEleveClass] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -253,67 +253,48 @@ export default function DirecteurApp({ user, onLogout }) {
         {tab === 'eleves' && (
           <>
             <div className="section-head">
-              <div className="section-title">Eleves</div>
-              <button className="btn-sm" onClick={()=>setShowModal('eleve')}>+ Ajouter</button>
+              <div className="section-title">Gestion des Eleves</div>
+              <button className="btn-sm" onClick={()=>setShowModal('eleve')}>+ Ajouter un élève</button>
             </div>
             {classes.map(cls => {
               const clsEleves = eleves.filter(e => e.classe_id === cls.id)
-              if (!clsEleves.length) return null
+              const isActive = activeEleveClass === cls.id
               return (
-                <div key={cls.id} className="card" style={{marginBottom:12}}>
-                  <div className="card-header">{cls.nom} — {clsEleves.length} eleve{clsEleves.length>1?'s':''}</div>
-                  <div style={{padding:0}}>
-                    {clsEleves.map(el => (
-                      <div key={el.id} className="user-row">
-                        <div className="avatar av-blue">{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                        <div style={{flex:1,fontWeight:600,fontSize:13}}>{el.prenom} {el.nom}</div>
+                <div key={cls.id} className="card" style={{marginBottom:12, overflow:'hidden', borderRadius:16, border: isActive ? '1.5px solid var(--accent)' : '1px solid var(--border)', transition:'all 0.2s'}}>
+                  <div 
+                    onClick={() => setActiveEleveClass(isActive ? null : cls.id)}
+                    style={{padding:'14px 18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', background: isActive ? 'rgba(26,175,224,.05)' : 'var(--bg)'}}
+                  >
+                    <div style={{display:'flex', alignItems:'center', gap:12}}>
+                      <div className="avatar av-blue" style={{width:32, height:32, fontSize:12}}>{cls.nom.slice(0,2)}</div>
+                      <div style={{display:'flex', flexDirection:'column'}}>
+                        <span style={{fontWeight:800, fontSize:14, color: isActive ? 'var(--accent)' : 'var(--text)'}}>{cls.nom}</span>
+                        <span style={{fontSize:11, color:'var(--muted)'}}>{clsEleves.length} élève{clsEleves.length>1?'s':''}</span>
                       </div>
-                    ))}
+                    </div>
+                    <span style={{fontSize:18, color:'var(--muted)', transform: isActive ? 'rotate(180deg)' : 'none', transition:'0.3s'}}>⌄</span>
                   </div>
+                  
+                  {isActive && (
+                    <div style={{padding:'0', borderTop:'1px solid var(--border)'}}>
+                      {clsEleves.length === 0 ? (
+                        <div style={{fontSize:12, color:'var(--muted)', textAlign:'center', padding:'2rem'}}>Aucun élève dans cette classe.</div>
+                      ) : clsEleves.map(el => (
+                        <div key={el.id} className="user-row" style={{borderBottom:'1px solid var(--border)', padding:'10px 18px'}}>
+                          <div className="avatar av-blue" style={{width:28, height:28, fontSize:10}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
+                          <div style={{flex:1, fontWeight:600, fontSize:13}}>{el.prenom} {el.nom}</div>
+                          <button onClick={async () => { if(confirm('Sûr ?')) { await supabase.from('eleves').update({actif:false}).eq('id', el.id); loadData() } }} style={{background:'none', border:'none', color:'var(--red)', fontSize:18, cursor:'pointer'}}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
-            {eleves.length === 0 && <div className="empty-state"><div className="empty-icon">🎒</div><p>Aucun eleve enregistre</p></div>}
+            {eleves.length === 0 && <div className="empty-state"><div className="empty-icon">🎒</div><p>Aucun eleve enregistré</p></div>}
           </>
         )}
 
-        {tab === 'planning' && (
-          <>
-            <div className="section-head">
-              <div className="section-title">Planification</div>
-              <button className="btn-sm" onClick={()=>{setNewPlan({classe_id:classes[0]?.id||'',periode_id:periodes[0]?.id||'',langue:'fr',objectives:[{discipline:'',description:''},{discipline:'',description:''},{discipline:'',description:''}]});setShowModal('plan')}}>+ Nouvelle</button>
-            </div>
-            {planifications.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">📋</div><p>Aucune planification. Importez depuis un PDF ou saisissez les objectifs.</p></div>
-            ) : planifications.map(pl => (
-              <div key={pl.id} className="card" style={{marginBottom:10}}>
-                <div className="card-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span>{pl.classes?.nom} — {pl.periodes?.nom}</span>
-                  <span className={`chip ${pl.langue==='fr'?'chip-blue':'chip-green'}`}>{pl.langue==='fr'?'FR':'EN'}</span>
-                </div>
-                <div style={{padding:0}}>
-                  {pl.pdf_url && (
-                    <div style={{padding:'8px 14px', borderBottom:'1px solid var(--border)', background: 'rgba(26,175,224,.05)'}}>
-                      <a href={pl.pdf_url} target="_blank" rel="noreferrer" style={{color:'var(--accent)', fontSize: 13, fontWeight: 700, textDecoration:'none'}}>📄 Voir le document de planification (PDF)</a>
-                    </div>
-                  )}
-                  {(pl.objectifs||[]).map(obj => (
-                    <div key={obj.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)',display:'flex',gap:10,alignItems:'flex-start'}}>
-                      <span style={{background:'rgba(26,175,224,.1)',color:'var(--accent)',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>{obj.discipline}</span>
-                      <span style={{fontSize:13}}>{obj.description}</span>
-                    </div>
-                  ))}
-                  <div style={{padding:'8px 14px', display:'flex', alignItems:'center', gap: 10}}>
-                    <label style={{fontSize: 11, color: 'var(--muted)', cursor:'pointer', border:'1px dotted var(--border)', padding:'4px 8px', borderRadius: 4}}>
-                      + Joindre un PDF
-                      <input type="file" accept=".pdf" style={{display:'none'}} onChange={e => handleUploadPDF(e, 'planification', pl.id)} />
-                    </label>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
 
         {tab === 'agenda' && (
           <>
@@ -519,48 +500,6 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
       )}
 
-      {showModal === 'plan' && (
-        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
-          <div className="modal">
-            <div className="modal-handle"></div>
-            <div className="modal-title">Nouvelle planification</div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Classe</label>
-                <select className="form-select" value={newPlan.classe_id} onChange={e=>setNewPlan({...newPlan,classe_id:e.target.value})}>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Periode</label>
-                <select className="form-select" value={newPlan.periode_id} onChange={e=>setNewPlan({...newPlan,periode_id:e.target.value})}>
-                  {periodes.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Langue</label>
-              <select className="form-select" value={newPlan.langue} onChange={e=>setNewPlan({...newPlan,langue:e.target.value})}>
-                <option value="fr">Francais</option>
-                <option value="en">Anglais</option>
-              </select>
-            </div>
-            <div style={{marginBottom:'1rem'}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Objectifs par discipline</div>
-              {newPlan.objectives.map((obj, i) => (
-                <div key={i} style={{display:'flex',gap:8,marginBottom:8,alignItems:'flex-start'}}>
-                  <input className="form-input" style={{width:120,flexShrink:0,fontSize:12}} placeholder="Discipline" value={obj.discipline} onChange={e=>{const o=[...newPlan.objectives];o[i]={...o[i],discipline:e.target.value};setNewPlan({...newPlan,objectives:o})}} />
-                  <input className="form-input" style={{flex:1,fontSize:12}} placeholder="Decrire l objectif..." value={obj.description} onChange={e=>{const o=[...newPlan.objectives];o[i]={...o[i],description:e.target.value};setNewPlan({...newPlan,objectives:o})}} />
-                  <button onClick={()=>setNewPlan({...newPlan,objectives:newPlan.objectives.filter((_,j)=>j!==i)})} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',fontSize:18,padding:0,flexShrink:0}}>×</button>
-                </div>
-              ))}
-              <button onClick={addObjective} style={{width:'100%',padding:'8px',background:'transparent',border:'1.5px dashed var(--border)',borderRadius:10,color:'var(--muted)',fontSize:12,cursor:'pointer',marginTop:4}}>+ Ajouter un objectif</button>
-            </div>
-            <button className="btn btn-primary" onClick={savePlan} disabled={loading}>{loading?'Enregistrement...':'Enregistrer'}</button>
-            <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
