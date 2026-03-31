@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 
-export default function ProgrammeManager({ user, selectedClasse, supabase }) {
+export default function ProgrammeManager({ user, selectedClasse, supabase, onUpdate }) {
   const [matieres, setMatieres] = useState([])
   const [selectedMatiere, setSelectedMatiere] = useState(null)
   const [selectedObjectif, setSelectedObjectif] = useState(null)
@@ -52,6 +52,7 @@ export default function ProgrammeManager({ user, selectedClasse, supabase }) {
       setCompetences(data || [])
     }
     setFormVal(""); setShowForm(false); setEditItem(null); setLoading(false)
+    if (onUpdate) onUpdate()
   }
 
   const handleDelete = async (table, id) => {
@@ -60,6 +61,7 @@ export default function ProgrammeManager({ user, selectedClasse, supabase }) {
     if (view === "matieres") await loadMatieres()
     else if (view === "objectifs") { const { data } = await supabase.from("objectifs_v2").select("*").eq("matiere_id", selectedMatiere.id).order("nom"); setObjectifs(data || []) }
     else { const { data } = await supabase.from("competences").select("*").eq("objectif_id", selectedObjectif.id).order("nom"); setCompetences(data || []) }
+    if (onUpdate) onUpdate()
   }
 
   const startEdit = (item) => { setEditItem(item); setFormVal(item.nom); setShowForm(true) }

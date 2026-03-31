@@ -407,7 +407,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         )}
 
-        {tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} />)} {tab === 'checkpoint' && (
+        {tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} onUpdate={loadProgramme} />)} {tab === 'checkpoint' && (
           <>
             <div className="section-head">
               <div className="section-title">Check-points</div>
