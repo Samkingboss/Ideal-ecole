@@ -31,6 +31,7 @@ export default function ProfApp({ user, onLogout }) {
   const [checkpoints, setCheckpoints] = useState([])
   const [selectedClasse, setSelectedClasse] = useState(null)
   const [selectedPeriode, setSelectedPeriode] = useState(null)
+  const [activeProgObjId, setActiveProgObjId] = useState(null)
   const [showCpModal, setShowCpModal] = useState(false)
   const [cpEntries, setCpEntries] = useState({})
   const [cpDate, setCpDate] = useState(new Date().toISOString().slice(0,10))
@@ -473,73 +474,105 @@ export default function ProfApp({ user, onLogout }) {
                   const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
                   const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
                   const cps = checkpoints.filter(cp => {
-                    const p = planifications.find(pl => pl.id === cp.planification_id)
-                    return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
+                    const p = planifications.find(pl => pl.id == cp.planification_id)
+                    return p && p.classe_id == selectedClasse?.id && p.periode_id == selectedPeriode?.id
                   }).sort((a,b) => a.date_checkpoint.localeCompare(b.date_checkpoint))
+                  
                   return (
                     <>
-                      <div className="card" style={{marginBottom:12}}>
-                        <div className="card-header">📊 {mat.nom} — Evolution</div>
-                        <div style={{padding:'1rem'}}>
-                          {cps.length === 0 ? (
-                            <div style={{fontSize:12,color:'var(--muted)',textAlign:'center'}}>Aucun checkpoint encore</div>
-                          ) : (
-                            <div style={{overflowX:'auto'}}>
-                              <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                                <thead>
-                                  <tr>
-                                    <th style={{textAlign:'left',padding:'4px 8px',color:'var(--muted)',fontWeight:700}}>Elève</th>
-                                    {cps.map(cp => <th key={cp.id} style={{padding:'4px 8px',color:'var(--muted)',fontWeight:700}}>{cp.date_checkpoint?.slice(5)}</th>)}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {classEleves.map(el => (
-                                    <tr key={el.id} style={{borderTop:'1px solid var(--border)'}}>
-                                      <td style={{padding:'6px 8px',fontWeight:600}}>{el.prenom} {el.nom}</td>
-                                      {cps.map(cp => {
-                                        const comps = mat.objectifs.flatMap(o => o.competences)
-                                        const prs = cp.progressions?.filter(p => p.eleve_id === el.id && comps.some(co => co.id === p.competence_id)) || []
-                                        const avg = prs.length ? Math.round(prs.reduce((a,p)=>a+p.pourcentage,0)/prs.length) : 0
-                                        const c2 = col(avg)
-                                        return <td key={cp.id} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:c2}}>{avg>0?lbl(avg):'—'}</td>
-                                      })}
+                      <div className="card" style={{marginBottom:15, borderRadius:16, border:'1px solid var(--border)', overflow:'hidden'}}>
+                        <div 
+                          className="card-header" 
+                          onClick={() => setActiveProgObjId(activeProgObjId === 'evolution' ? null : 'evolution')}
+                          style={{cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', background:'var(--bg)', padding:'12px 16px'}}
+                        >
+                          <span style={{fontWeight:800, fontSize:13, color:'var(--accent)'}}>📊 Evolution Globale</span>
+                          <span style={{fontSize:16, transform: activeProgObjId === 'evolution' ? 'rotate(180deg)' : 'none', transition:'0.2s'}}>⌄</span>
+                        </div>
+                        
+                        {activeProgObjId === 'evolution' && (
+                          <div style={{padding:'1rem', borderTop:'1px solid var(--border)'}}>
+                            {cps.length === 0 ? (
+                              <div style={{fontSize:12,color:'var(--muted)',textAlign:'center', padding:'1rem'}}>Aucun checkpoint pour cette période.</div>
+                            ) : (
+                              <div style={{overflowX:'auto'}}>
+                                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                                  <thead>
+                                    <tr>
+                                      <th style={{textAlign:'left',padding:'4px 8px',color:'var(--muted)',fontWeight:700}}>Elève</th>
+                                      {cps.map(cp => <th key={cp.id} style={{padding:'4px 8px',color:'var(--muted)',fontWeight:700}}>{cp.date_checkpoint?.slice(5)}</th>)}
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {mat.objectifs.map(obj => (
-                        <div key={obj.id} style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden',marginBottom:10}}>
-                          <div style={{background:'rgba(26,175,224,.08)',padding:'8px 14px',fontSize:12,fontWeight:700,color:'var(--accent)'}}>🎯 {obj.nom}</div>
-                          {obj.competences.map(comp => {
-                            const lastCp = cps[cps.length-1]
-                            return (
-                              <div key={comp.id} style={{padding:'8px 14px',borderBottom:'1px solid var(--border)'}}>
-                                <div style={{fontSize:12,fontWeight:600,marginBottom:6}}>{comp.nom}</div>
-                                {classEleves.map(el => {
-                                  let val = 0
-                                  for (const cp of [...cps].reverse()) {
-                                    const pr = cp.progressions?.find(p => p.eleve_id === el.id && p.competence_id === comp.id)
-                                    if (pr) { val = pr.pourcentage; break }
-                                  }
-                                  const c2 = col(val)
-                                  return (
-                                    <div key={el.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                                      <div className="avatar av-blue" style={{width:24,height:24,fontSize:9,flexShrink:0}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                                      <div style={{fontSize:11,width:90,flexShrink:0}}>{el.prenom} {el.nom}</div>
-                                      <div className="progress-wrap" style={{flex:1}}><div className="progress-fill" style={{width:val+'%',background:c2}}></div></div>
-                                      <span style={{fontSize:11,fontWeight:700,color:c2,width:60,textAlign:'right'}}>{lbl(val)}</span>
-                                    </div>
-                                  )
-                                })}
+                                  </thead>
+                                  <tbody>
+                                    {classEleves.map(el => (
+                                      <tr key={el.id} style={{borderTop:'1px solid var(--border)'}}>
+                                        <td style={{padding:'8px',fontWeight:600}}>{el.prenom} {el.nom}</td>
+                                        {cps.map(cp => {
+                                          const matO = mat.objectifs || []
+                                          const comps = matO.flatMap(o => o.competences || [])
+                                          const prs = cp.progressions?.filter(p => p.eleve_id == el.id && comps.some(co => co.id == p.competence_id)) || []
+                                          const avg = prs.length ? Math.round(prs.reduce((acc,p)=>acc + (p.pourcentage||0),0)/prs.length) : 0
+                                          const c2 = col(avg)
+                                          return <td key={cp.id} style={{padding:'8px',textAlign:'center',fontWeight:700,color:c2}}>{avg>0 ? lbl(avg) : '—'}</td>
+                                        })}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
                               </div>
-                            )
-                          })}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {mat.objectifs.map(obj => {
+                        const isActive = activeProgObjId === obj.id
+                        return (
+                          <div key={obj.id} style={{background:'var(--card)', borderRadius:16, border: isActive ? '1.5px solid var(--accent)' : '1px solid var(--border)', overflow:'hidden', marginBottom:12, boxShadow: isActive ? '0 4px 15px rgba(26,175,224,0.1)' : 'none', transition:'all 0.2s'}}>
+                            <div 
+                              onClick={() => setActiveProgObjId(isActive ? null : obj.id)}
+                              style={{padding:'12px 16px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', background: isActive ? 'rgba(26,175,224,.04)' : 'transparent'}}
+                            >
+                              <div style={{fontSize:13, fontWeight:800, color: isActive ? 'var(--accent)' : 'var(--text)', display:'flex', alignItems:'center', gap:8}}>
+                                <span>🎯</span> {obj.nom}
+                              </div>
+                              <span style={{fontSize:16, color:'var(--muted)', transform: isActive ? 'rotate(180deg)' : 'none', transition:'0.2s'}}>⌄</span>
+                            </div>
+
+                            {isActive && (
+                              <div style={{padding:'4px 16px 16px', borderTop:'1px solid var(--border)'}}>
+                                {obj.competences.length === 0 ? (
+                                  <div style={{padding:'1rem', fontSize:11, color:'var(--muted)', fontStyle:'italic', textAlign:'center'}}>Aucune compétence définie pour cet objectif.</div>
+                                ) : obj.competences.map(comp => (
+                                  <div key={comp.id} style={{padding:'10px 0', borderBottom: obj.competences.indexOf(comp) === obj.competences.length-1 ? 'none' : '1px solid var(--border)'}}>
+                                    <div style={{fontSize:12, fontWeight:700, marginBottom:8, color:'var(--muted)'}}>⭐ {comp.nom}</div>
+                                    {classEleves.map(el => {
+                                      let val = 0
+                                      for (const cp of [...cps].reverse()) {
+                                        const pr = cp.progressions?.find(p => p.eleve_id == el.id && p.competence_id == comp.id)
+                                        if (pr) { val = pr.pourcentage; break }
+                                      }
+                                      const c2 = col(val)
+                                      return (
+                                        <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
+                                          <div className="avatar av-blue" style={{width:28, height:28, fontSize:10, flexShrink:0, background: isActive ? 'var(--accent)' : 'rgba(26,175,224,.1)'}}>
+                                            {(el.prenom[0]||'')+(el.nom[0]||'')}
+                                          </div>
+                                          <div style={{fontSize:11, width:110, flexShrink:0, fontWeight:600}}>{el.prenom} {el.nom}</div>
+                                          <div className="progress-wrap" style={{flex:1, height:6, background:'rgba(0,0,0,0.03)'}}>
+                                            <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
+                                          </div>
+                                          <span style={{fontSize:11, fontWeight:800, color:c2, width:75, textAlign:'right'}}>{lbl(val)}</span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </>
                   )
                 })()}
