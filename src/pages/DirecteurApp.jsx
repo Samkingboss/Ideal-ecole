@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import PerformancesDirecteur from './PerformancesDirecteur'
+import AgendaCalendrier from './AgendaCalendrier'
 
 const TABS = [
   { id:'dashboard', icon:'📊', label:'Tableau de bord' },
@@ -31,6 +32,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
   const [preparations, setPreparations] = useState([])
+  const [checkpoints, setCheckpoints] = useState([])
   const [syntheseData, setSyntheseData] = useState([])
   const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
   const [activeEleveClass, setActiveEleveClass] = useState(null)
@@ -39,7 +41,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
   const loadData = async () => {
     const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }, { data: param }, { data: prep }] = await Promise.all([
+    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }, { data: param }, { data: prep }, { data: cp }] = await Promise.all([
       supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
       supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
       supabase.from('classes').select('*').order('ordre'),
@@ -48,7 +50,8 @@ export default function DirecteurApp({ user, onLogout }) {
       supabase.from('evenements').select('*').order('date_event', { ascending: true }),
       supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
       supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle(),
-      supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false })
+      supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false }),
+      supabase.from('checkpoints').select('*')
     ])
     if (param) setJoursOuvresGlobal(param.jours_ouvres);
     setPreparations(prep || [])
@@ -60,7 +63,8 @@ export default function DirecteurApp({ user, onLogout }) {
     setPlanifications(pl || [])
     setEvenements(ev || [])
     if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
-    setStats({ profs: (u||[]).length, eleves: (el||[]).length, checkpoints: 0 })
+    setStats({ profs: (u||[]).length, eleves: (el||[]).length, checkpoints: (cp||[]).length })
+    setCheckpoints(cp || [])
     if (cl && cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
     if (cl && cl.length > 0) setNewPlan(p => ({ ...p, classe_id: cl[0].id, periode_id: per?.[0]?.id || '' }))
 
@@ -196,25 +200,26 @@ export default function DirecteurApp({ user, onLogout }) {
         {tab === 'dashboard' && (
           <>
             <div className="section-head"><div className="section-title">Tableau de bord</div></div>
+            <div className="section-head"><div className="section-title">Tableau de bord</div></div>
             <div className="kpi-grid">
               <div className="kpi-card kpi-accent"><div className="kpi-value">{stats.profs}</div><div className="kpi-label">Enseignants</div></div>
               <div className="kpi-card kpi-green"><div className="kpi-value">{stats.eleves}</div><div className="kpi-label">Eleves</div></div>
-              <div className="kpi-card kpi-amber"><div className="kpi-value">{planifications.length}</div><div className="kpi-label">Planifications</div></div>
+              <div className="kpi-card kpi-amber"><div className="kpi-value">{stats.checkpoints}</div><div className="kpi-label">Check-points</div></div>
               <div className="kpi-card kpi-pink"><div className="kpi-value">{classes.length}</div><div className="kpi-label">Classes</div></div>
             </div>
+            
             <div className="card">
-              <div className="card-header">Planifications chargees</div>
+              <div className="card-header">Activités récentes (Préparations)</div>
               <div className="card-body" style={{padding:'0'}}>
-                {planifications.length === 0 ? (
-                  <div className="empty-state"><div className="empty-icon">📋</div><p>Aucune planification encore</p></div>
-                ) : planifications.map(pl => (
-                  <div key={pl.id} className="user-row">
-                    <div className={`avatar ${pl.langue==='fr'?'av-blue':'av-green'}`}>{pl.langue.toUpperCase()}</div>
+                {(preparations || []).length === 0 ? (
+                  <div className="empty-state"><div className="empty-icon">📝</div><p>Aucune préparation de cours déposée.</p></div>
+                ) : preparations.slice(0, 5).map(pre => (
+                  <div key={pre.id} className="user-row">
+                    <div className="avatar av-amber">{(pre.users?.prenom?.[0]||'')+(pre.users?.nom?.[0]||'')}</div>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:600,fontSize:13}}>{pl.classes?.nom} — {pl.periodes?.nom}</div>
-                      <div style={{fontSize:11,color:'var(--muted)'}}>{pl.objectifs?.length || 0} objectifs</div>
+                      <div style={{fontWeight:600,fontSize:13}}>{pre.users?.prenom} {pre.users?.nom}</div>
+                      <div style={{fontSize:11,color:'var(--muted)'}}>Déposé le {new Date(pre.heure_depot).toLocaleDateString()} pour {pre.classes?.nom}</div>
                     </div>
-                    <span className={`chip ${pl.langue==='fr'?'chip-blue':'chip-green'}`}>{pl.langue==='fr'?'Francais':'Anglais'}</span>
                   </div>
                 ))}
               </div>
@@ -297,61 +302,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
 
         {tab === 'agenda' && (
-          <>
-            <div className="section-head"><div className="section-title">Agenda & Configuration</div></div>
-            
-            <div className="card" style={{marginBottom:16, background:'rgba(26,175,224,.05)'}}>
-              <div className="card-header" style={{color:'var(--accent)'}}>Finance : Jours ouvrés du mois en cours</div>
-              <div style={{padding:'1rem'}}>
-                <p style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Ce chiffre sert de base absolue pour le calcul du salaire des professeurs ce mois-ci. Vous pouvez le modifier pour déduire les congés ou vacances du mois.</p>
-                <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                  <input type="number" className="form-input" style={{width:80}} value={joursOuvresGlobal} onChange={e => setJoursOuvresGlobal(parseInt(e.target.value, 10))} />
-                  <span style={{fontSize:13, fontWeight:600}}>jours réels de travail</span>
-                  <button className="btn-sm" onClick={saveJoursOuvres} disabled={loading} style={{marginLeft:'auto', background:'var(--accent)', color:'#fff', border:'none'}}>{loading?'...':'Sauvegarder'}</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="card" style={{marginBottom:16}}>
-              <div className="card-header">Calendrier Scolaire (PDF)</div>
-              <div style={{padding:'1rem'}}>
-                {calendrierUrl ? (
-                  <div style={{marginBottom:10}}>
-                    <a href={calendrierUrl} target="_blank" rel="noreferrer" className="btn-sm" style={{textDecoration:'none',background:'var(--accent)',color:'#fff'}}>📄 Ouvrir le calendrier officiel (PDF)</a>
-                  </div>
-                ) : <p style={{fontSize:13,color:'var(--muted)'}}>Aucun calendrier uploadé pour le moment.</p>}
-                <div style={{marginTop:10}}>
-                  <label className="form-label" style={{display:'block', marginBottom:4}}>Remplacer ou définir le calendrier :</label>
-                  <label className="btn-sm" style={{cursor:'pointer', display:'inline-block'}}>
-                    Importer un PDF
-                    <input type="file" accept=".pdf" style={{display:'none'}} onChange={e => handleUploadPDF(e, 'calendrier')} disabled={uploading} />
-                  </label>
-                  {uploading && <span style={{fontSize:12,color:'var(--accent)',marginLeft:10}}>Upload en cours...</span>}
-                </div>
-              </div>
-            </div>
-            
-            <div className="card">
-              <div className="card-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <span>Événements Majeurs</span>
-                <button className="btn-sm" onClick={() => setShowModal('evenement')}>+ Ajouter événement</button>
-              </div>
-              <div style={{padding:0}}>
-                {evenements.length === 0 ? (
-                  <div className="empty-state"><div className="empty-icon">📅</div><p>Aucun événement programmé.</p></div>
-                ) : evenements.map(ev => (
-                  <div key={ev.id} style={{padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                      <span style={{fontWeight:700,fontSize:13}}>{ev.titre}</span>
-                      <span style={{fontSize:11,color:'var(--accent)',fontWeight:700}}>{new Date(ev.date_event).toLocaleDateString('fr-FR')}</span>
-                    </div>
-                    {ev.description && <div style={{fontSize:12,color:'var(--muted)'}}>{ev.description}</div>}
-                    <button onClick={async () => { await supabase.from('evenements').delete().eq('id', ev.id); loadData() }} style={{background:'none',border:'none',color:'var(--red)',fontSize:11,cursor:'pointer',padding:0,marginTop:6,textDecoration:'underline'}}>Supprimer</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+          <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} />
         )}
 
 
