@@ -26,7 +26,13 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
   const save = async () => {
     setLoading(true)
     const { data: cpData, error } = await supabase.from('checkpoints')
-      .insert({ prof_id: user.id, date_checkpoint: cpDate, planification_id: plan?.id })
+      .insert({ 
+        prof_id: user.id, 
+        date_checkpoint: cpDate, 
+        planification_id: plan?.id || null,
+        classe_id: selectedClasse.id,
+        periode_id: selectedPeriode.id
+      })
       .select().single()
     if (error) { setLoading(false); alert('Erreur: ' + error.message); return }
     const progressions = []

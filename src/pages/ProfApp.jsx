@@ -411,11 +411,7 @@ export default function ProfApp({ user, onLogout }) {
           <>
             <div className="section-head">
               <div className="section-title">Check-points — {selectedClasse?.nom}</div>
-              {plan ? (
-                <button className="btn-sm" onClick={openCheckpoint}>+ Check-point</button>
-              ) : (
-                <div style={{fontSize:10, color:'var(--red)', fontWeight:700, background:'rgba(237,28,36,.05)', padding:'4px 8px', borderRadius:6}}>⚠️ Planification non dispo (voir Directeur)</div>
-              )}
+              <button className="btn-sm" onClick={openCheckpoint}>+ Check-point</button>
             </div>
 
             {programmeData.length === 0 ? (
@@ -426,11 +422,6 @@ export default function ProfApp({ user, onLogout }) {
               </div>
             ) : (
               <>
-                {!plan && (
-                  <div style={{background:'rgba(26,175,224,.05)', border:'1px dashed var(--accent)', padding:10, borderRadius:12, marginBottom:15, fontSize:11, color:'var(--accent)'}}>
-                    ℹ️ Vous consultez le programme de la classe. Pour enregistrer un <b>Check-point</b>, le directeur doit d'abord créer la planification de cette période.
-                  </div>
-                )}
                 {programmeData.map(mat => (
                   <div key={mat.id} style={{marginBottom:15}}>
                     <div style={{background:'#0d2a3b', color:'#fff', padding:'12px 16px', fontSize:13, fontWeight:800, textTransform:'uppercase', borderRadius:'16px 16px 0 0'}}>
@@ -459,6 +450,10 @@ export default function ProfApp({ user, onLogout }) {
                                   <div style={{fontSize:12, fontWeight:700, marginBottom:8, color:'var(--muted)'}}>⭐ {comp.nom}</div>
                                   {classEleves.map(el => {
                                     const cps = checkpoints.filter(cp => {
+                                      // First try new direct fields, fallback to plan linking
+                                      if (cp.classe_id && cp.periode_id) {
+                                        return cp.classe_id == selectedClasse?.id && cp.periode_id == selectedPeriode?.id
+                                      }
                                       const p = planifications.find(pl => pl.id == cp.planification_id)
                                       return p && p.classe_id == selectedClasse?.id && p.periode_id == selectedPeriode?.id
                                     }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
@@ -526,6 +521,11 @@ export default function ProfApp({ user, onLogout }) {
                   const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
                   const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
                   const cps = checkpoints.filter(cp => {
+                    // Nouveau système : lien direct
+                    if (cp.classe_id && cp.periode_id) {
+                      return cp.classe_id == selectedClasse?.id && cp.periode_id == selectedPeriode?.id
+                    }
+                    // Ancien système : via planification
                     const p = planifications.find(pl => pl.id == cp.planification_id)
                     return p && p.classe_id == selectedClasse?.id && p.periode_id == selectedPeriode?.id
                   }).sort((a,b) => a.date_checkpoint.localeCompare(b.date_checkpoint))

@@ -9,6 +9,7 @@ const TABS = [
   { id:'planning', icon:'📋', label:'Planification' },
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Performances' },
+  { id:'synthese', icon:'📊', label:'Synthèse' },
 ]
 
 export default function DirecteurApp({ user, onLogout }) {
@@ -31,6 +32,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
   const [preparations, setPreparations] = useState([])
+  const [syntheseData, setSyntheseData] = useState([])
 
   useEffect(() => { loadData() }, [])
 
@@ -60,6 +62,27 @@ export default function DirecteurApp({ user, onLogout }) {
     setStats({ profs: (u||[]).length, eleves: (el||[]).length, checkpoints: 0 })
     if (cl && cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
     if (cl && cl.length > 0) setNewPlan(p => ({ ...p, classe_id: cl[0].id, periode_id: per?.[0]?.id || '' }))
+
+    // Load curriculum data for synthesis
+    const { data: allMats } = await supabase.from('matieres').select('*, objectifs_v2(*, competences(*))')
+    const { data: allProgs } = await supabase.from('progressions').select('*, eleves(classe_id), competences(objectif_id)')
+    
+    // Group analysis
+    const analysis = []
+    cl.forEach(c => {
+      const cMats = (allMats || []).filter(m => m.classe_id === c.id)
+      const cProgs = (allProgs || []).filter(p => p.eleves?.classe_id === c.id)
+      
+      const matStats = cMats.map(m => {
+        const mCompIds = m.objectifs_v2?.flatMap(o => o.competences?.map(co => co.id)) || []
+        const mProgs = cProgs.filter(p => mCompIds.includes(p.competence_id))
+        const avg = mProgs.length ? Math.round(mProgs.reduce((acc,p)=>acc+p.pourcentage,0)/mProgs.length) : 0
+        return { nom: m.nom, avg }
+      }).sort((a,b) => b.avg - a.avg)
+      
+      analysis.push({ classe: c.nom, stats: matStats })
+    })
+    setSyntheseData(analysis)
   }
 
   const generateCode = () => {
@@ -352,6 +375,42 @@ export default function DirecteurApp({ user, onLogout }) {
 
         {tab === 'perfs' && (
           <PerformancesDirecteur />
+        )}
+
+        {tab === 'synthese' && (
+          <>
+            <div className="section-head"><div className="section-title">Synthèse des Programmes</div></div>
+            {syntheseData.map(c => (
+              <div key={c.classe} className="card" style={{marginBottom:15}}>
+                <div className="card-header" style={{background:'#0d2a3b', color:'#fff'}}>{c.classe} — Performance par matière</div>
+                <div style={{padding:'1rem'}}>
+                  {c.stats.length === 0 ? (
+                    <div style={{fontSize:12, color:'var(--muted)', textAlign:'center'}}>Aucune donnée pour cette classe.</div>
+                  ) : (
+                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12}}>
+                      {c.stats.map(s => {
+                        const col = s.avg >= 75 ? 'var(--green)' : s.avg >= 50 ? 'var(--amber)' : 'var(--red)'
+                        return (
+                          <div key={s.nom} style={{background:'rgba(255,255,255,0.05)', borderRadius:12, padding:12, border:'1px solid var(--border)'}}>
+                            <div style={{display:'flex', justifyContent:'space-between', marginBottom:6}}>
+                              <span style={{fontSize:12, fontWeight:700}}>{s.nom}</span>
+                              <span style={{fontSize:12, fontWeight:900, color:col}}>{s.avg}%</span>
+                            </div>
+                            <div style={{height:6, background:'rgba(0,0,0,0.05)', borderRadius:10, overflow:'hidden'}}>
+                              <div style={{height:'100%', width:s.avg+'%', background:col}}></div>
+                            </div>
+                            <div style={{fontSize:10, color:col, marginTop:4, fontWeight:700}}>
+                              {s.avg >= 75 ? '🌟 Excellence' : s.avg >= 50 ? '📈 En progrès' : '⚠️ Difficultés'}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
 
