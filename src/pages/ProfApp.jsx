@@ -83,7 +83,8 @@ export default function ProfApp({ user, onLogout }) {
       supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
     ])
     setJoursOuvresForce(paramMois?.jours_ouvres || null)
-    setPeriodes(per || [])
+    const uniquePeriods = (per || []).filter((v, i, a) => a.findIndex(t => t.nom === v.nom) === i);
+    setPeriodes(uniquePeriods)
     // Filter classes for this prof
     let myClasses = cl || []
     if (profClasses && profClasses.length > 0) {
