@@ -147,7 +147,7 @@ export default function SurveillantApp({ user, onLogout }) {
         </div>
         <div className="topbar-user">
           <span className="role-badge role-surveillant">Surveillant</span>
-          <button className="btn-logout" onClick={onLogout}>x</button>
+          <button className="btn-logout" onClick={onLogout} style={{padding:'4px 12px', fontSize:11, borderRadius:8, width:'auto', height:'auto', marginLeft:10}}>Déconnexion</button>
         </div>
       </div>
 

@@ -367,7 +367,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
           <div className="topbar-user" style={{gap:10}}>
             <span className="role-badge role-professeur" style={{fontSize:10, padding:'2px 8px'}}>{user.langue === 'en' ? 'English' : 'Français'}</span>
-            <button className="btn-logout" onClick={onLogout} style={{width:28, height:28, fontSize:16}}>×</button>
+            <button className="btn-logout" onClick={onLogout} style={{padding:'4px 10px', fontSize:11, borderRadius:8, width:'auto', height:'auto'}}>Déconnexion</button>
           </div>
         </div>
 
