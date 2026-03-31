@@ -33,6 +33,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [msg, setMsg] = useState('')
   const [preparations, setPreparations] = useState([])
   const [syntheseData, setSyntheseData] = useState([])
+  const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -380,36 +381,51 @@ export default function DirecteurApp({ user, onLogout }) {
         {tab === 'synthese' && (
           <>
             <div className="section-head"><div className="section-title">Synthèse des Programmes</div></div>
-            {syntheseData.map(c => (
-              <div key={c.classe} className="card" style={{marginBottom:15}}>
-                <div className="card-header" style={{background:'#0d2a3b', color:'#fff'}}>{c.classe} — Performance par matière</div>
-                <div style={{padding:'1rem'}}>
-                  {c.stats.length === 0 ? (
-                    <div style={{fontSize:12, color:'var(--muted)', textAlign:'center'}}>Aucune donnée pour cette classe.</div>
-                  ) : (
-                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12}}>
-                      {c.stats.map(s => {
-                        const col = s.avg >= 75 ? 'var(--green)' : s.avg >= 50 ? 'var(--amber)' : 'var(--red)'
-                        return (
-                          <div key={s.nom} style={{background:'rgba(255,255,255,0.05)', borderRadius:12, padding:12, border:'1px solid var(--border)'}}>
-                            <div style={{display:'flex', justifyContent:'space-between', marginBottom:6}}>
-                              <span style={{fontSize:12, fontWeight:700}}>{s.nom}</span>
-                              <span style={{fontSize:12, fontWeight:900, color:col}}>{s.avg}%</span>
-                            </div>
-                            <div style={{height:6, background:'rgba(0,0,0,0.05)', borderRadius:10, overflow:'hidden'}}>
-                              <div style={{height:'100%', width:s.avg+'%', background:col}}></div>
-                            </div>
-                            <div style={{fontSize:10, color:col, marginTop:4, fontWeight:700}}>
-                              {s.avg >= 75 ? '🌟 Excellence' : s.avg >= 50 ? '📈 En progrès' : '⚠️ Difficultés'}
-                            </div>
-                          </div>
-                        )
-                      })}
+            {syntheseData.map(c => {
+              const isActive = activeSyntheseClass === c.classe
+              return (
+                <div key={c.classe} className="card" style={{marginBottom:12, overflow:'hidden', borderRadius:16, border: isActive ? '1.5px solid var(--accent)' : '1px solid var(--border)', transition:'all 0.2s'}}>
+                  <div 
+                    onClick={() => setActiveSyntheseClass(isActive ? null : c.classe)}
+                    style={{padding:'14px 18px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', background: isActive ? 'rgba(26,175,224,.05)' : 'var(--bg)'}}
+                  >
+                    <div style={{display:'flex', alignItems:'center', gap:12}}>
+                      <div className="avatar av-blue" style={{width:32, height:32, fontSize:12}}>{c.classe.slice(0,2)}</div>
+                      <span style={{fontWeight:800, fontSize:14, color: isActive ? 'var(--accent)' : 'var(--text)'}}>{c.classe} — Performance par matière</span>
+                    </div>
+                    <span style={{fontSize:18, color:'var(--muted)', transform: isActive ? 'rotate(180deg)' : 'none', transition:'0.3s'}}>⌄</span>
+                  </div>
+                  
+                  {isActive && (
+                    <div style={{padding:'1rem', borderTop:'1px solid var(--border)', background:'rgba(255,255,255,0.02)'}}>
+                      {c.stats.length === 0 ? (
+                        <div style={{fontSize:12, color:'var(--muted)', textAlign:'center', padding:'1rem'}}>Aucune donnée pour cette classe.</div>
+                      ) : (
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12}}>
+                          {c.stats.map(s => {
+                            const col = s.avg >= 75 ? 'var(--green)' : s.avg >= 50 ? 'var(--amber)' : 'var(--red)'
+                            return (
+                              <div key={s.nom} style={{background:'var(--card)', borderRadius:12, padding:12, border:'1px solid var(--border)', boxShadow:'0 2px 5px rgba(0,0,0,0.02)'}}>
+                                <div style={{display:'flex', justifyContent:'space-between', marginBottom:8}}>
+                                  <span style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{s.nom}</span>
+                                  <span style={{fontSize:12, fontWeight:900, color:col}}>{s.avg}%</span>
+                                </div>
+                                <div style={{height:6, background:'rgba(0,0,0,0.05)', borderRadius:10, overflow:'hidden'}}>
+                                  <div style={{height:'100%', width:s.avg+'%', background:col}}></div>
+                                </div>
+                                <div style={{fontSize:10, color:col, marginTop:6, fontWeight:700, display:'flex', alignItems:'center', gap:4}}>
+                                  {s.avg >= 75 ? '🌟 Excellence' : s.avg >= 50 ? '📈 En progrès' : '⚠️ Difficultés'}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </>
         )}
       </div>
