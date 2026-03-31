@@ -410,18 +410,27 @@ export default function ProfApp({ user, onLogout }) {
         {tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} onUpdate={loadProgramme} />)} {tab === 'checkpoint' && (
           <>
             <div className="section-head">
-              <div className="section-title">Check-points</div>
-              {plan && <button className="btn-sm" onClick={openCheckpoint}>+ Check-point</button>}
+              <div className="section-title">Check-points — {selectedClasse?.nom}</div>
+              {plan ? (
+                <button className="btn-sm" onClick={openCheckpoint}>+ Check-point</button>
+              ) : (
+                <div style={{fontSize:10, color:'var(--red)', fontWeight:700, background:'rgba(237,28,36,.05)', padding:'4px 8px', borderRadius:6}}>⚠️ Planification non dispo (voir Directeur)</div>
+              )}
             </div>
-            {!plan ? (
+
+            {programmeData.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-icon">📋</div>
-                <p>Aucune planification pour {selectedClasse?.nom} - {selectedPeriode?.nom}.</p>
+                <div className="empty-icon">📚</div>
+                <p>Aucun programme défini pour {selectedClasse?.nom}.</p>
+                <button className="btn-sm" onClick={() => setTab('programme')} style={{marginTop:10}}>Créer le programme</button>
               </div>
-            ) : programmeData.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">📚</div><p>Creez votre programme dabord.</p></div>
             ) : (
               <>
+                {!plan && (
+                  <div style={{background:'rgba(26,175,224,.05)', border:'1px dashed var(--accent)', padding:10, borderRadius:12, marginBottom:15, fontSize:11, color:'var(--accent)'}}>
+                    ℹ️ Vous consultez le programme de la classe. Pour enregistrer un <b>Check-point</b>, le directeur doit d'abord créer la planification de cette période.
+                  </div>
+                )}
                 {programmeData.map(mat => (
                   <div key={mat.id} style={{marginBottom:15}}>
                     <div style={{background:'#0d2a3b', color:'#fff', padding:'12px 16px', fontSize:13, fontWeight:800, textTransform:'uppercase', borderRadius:'16px 16px 0 0'}}>
