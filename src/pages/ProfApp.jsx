@@ -17,8 +17,12 @@ const RECREE_CHECKS = [
 const TABS = [
   { id:'programme', icon:'📚', label:'Programme' },  { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
-  { id:'classe', icon:'🏫', label:'Classe' }, { id:'messages', icon:'💬', label:'Messages' },
+  { id:'classe', icon:'🏫', label:'Classe' },
+]
+
+const TOP_TABS = [
   { id:'agenda', icon:'📅', label:'Agenda' },
+  { id:'messages', icon:'💬', label:'Messages' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
 ]
 
@@ -353,16 +357,36 @@ export default function ProfApp({ user, onLogout }) {
 
   return (
     <div className="app-shell">
-      <div className="topbar">
-        <div className="topbar-brand">
-          <div>
-            <div className="topbar-logo">IDEAL</div>
-            <div className="topbar-sub">{user.prenom} {user.nom}</div>
+      <div className="topbar" style={{height:'auto', minHeight:68, padding:'10px 16px', display:'flex', flexDirection:'column', gap:10}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', width:'100%'}}>
+          <div className="topbar-brand">
+            <div>
+              <div className="topbar-logo">IDEAL</div>
+              <div className="topbar-sub">{user.prenom} {user.nom}</div>
+            </div>
+          </div>
+          <div className="topbar-user" style={{gap:10}}>
+            <span className="role-badge role-professeur" style={{fontSize:10, padding:'2px 8px'}}>{user.langue === 'en' ? 'English' : 'Français'}</span>
+            <button className="btn-logout" onClick={onLogout} style={{width:28, height:28, fontSize:16}}>×</button>
           </div>
         </div>
-        <div className="topbar-user">
-          <span className="role-badge role-professeur">{user.langue === 'en' ? 'English' : 'Francais'}</span>
-          <button className="btn-logout" onClick={onLogout}>×</button>
+
+        {/* Top Navigation Icons */}
+        <div style={{display:'flex', justifyContent:'space-between', background:'rgba(255,255,255,0.08)', borderRadius:14, padding:'4px'}}>
+          {TOP_TABS.map(t => (
+            <div 
+              key={t.id} 
+              onClick={() => setTab(t.id)}
+              style={{
+                flex:1, textAlign:'center', padding:'8px 0', cursor:'pointer', borderRadius:10, transition:'all 0.2s',
+                background: tab === t.id ? 'var(--accent)' : 'transparent',
+                boxShadow: tab === t.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              <div style={{fontSize:16, marginBottom:2}}>{t.icon}</div>
+              <div style={{fontSize:10, fontWeight:700, color: tab === t.id ? '#fff' : 'rgba(255,255,255,0.6)'}}>{t.label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
