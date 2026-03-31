@@ -549,14 +549,21 @@ export default function ProfApp({ user, onLogout }) {
                                   <tbody>
                                     {classEleves.map(el => (
                                       <tr key={el.id} style={{borderTop:'1px solid var(--border)'}}>
-                                        <td style={{padding:'8px',fontWeight:600}}>{el.prenom} {el.nom}</td>
+                                        <td style={{padding:'10px 8px'}}>
+                                          <div style={{display:'flex', alignItems:'center', gap:10}}>
+                                            <div style={{width:26, height:26, borderRadius:'50%', background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#fff', flexShrink:0}}>
+                                              {(el.prenom[0]||'')+(el.nom[0]||'')}
+                                            </div>
+                                            <div style={{fontSize:11, fontWeight:600}}>{el.prenom} {el.nom}</div>
+                                          </div>
+                                        </td>
                                         {cps.map(cp => {
                                           const matO = mat.objectifs || []
                                           const comps = matO.flatMap(o => o.competences || [])
                                           const prs = cp.progressions?.filter(p => p.eleve_id == el.id && comps.some(co => co.id == p.competence_id)) || []
                                           const avg = prs.length ? Math.round(prs.reduce((acc,p)=>acc + (p.pourcentage||0),0)/prs.length) : 0
                                           const c2 = col(avg)
-                                          return <td key={cp.id} style={{padding:'8px',textAlign:'center',fontWeight:700,color:c2}}>{avg>0 ? lbl(avg) : '—'}</td>
+                                          return <td key={cp.id} style={{padding:'10px 8px',textAlign:'center',fontWeight:700,color:c2}}>{avg>0 ? lbl(avg) : '—'}</td>
                                         })}
                                       </tr>
                                     ))}
@@ -597,15 +604,17 @@ export default function ProfApp({ user, onLogout }) {
                                       }
                                       const c2 = col(val)
                                       return (
-                                        <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
-                                          <div className="avatar av-blue" style={{width:28, height:28, fontSize:10, flexShrink:0, background: isActive ? 'var(--accent)' : 'rgba(26,175,224,.1)'}}>
+                                        <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:8, padding:'4px 0'}}>
+                                          <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0}}>
                                             {(el.prenom[0]||'')+(el.nom[0]||'')}
                                           </div>
-                                          <div style={{fontSize:11, width:110, flexShrink:0, fontWeight:600}}>{el.prenom} {el.nom}</div>
-                                          <div className="progress-wrap" style={{flex:1, height:6, background:'rgba(0,0,0,0.03)'}}>
-                                            <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
+                                          <div style={{flex:1}}>
+                                            <div style={{fontSize:12, fontWeight:600, color:'var(--text)'}}>{el.prenom} {el.nom}</div>
+                                            <div className="progress-wrap" style={{width:'100%', height:5, background:'rgba(0,0,0,0.03)', marginTop:4}}>
+                                              <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
+                                            </div>
                                           </div>
-                                          <span style={{fontSize:11, fontWeight:800, color:c2, width:75, textAlign:'right'}}>{lbl(val)}</span>
+                                          <span style={{fontSize:12, fontWeight:900, color:c2, width:80, textAlign:'right'}}>{lbl(val)}</span>
                                         </div>
                                       )
                                     })}
