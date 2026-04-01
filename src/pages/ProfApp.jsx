@@ -91,10 +91,10 @@ export default function ProfApp({ user, onLogout }) {
     const uniquePeriods = (per || []).filter((v, i, a) => a.findIndex(t => t.nom === v.nom) === i);
     setPeriodes(uniquePeriods)
     // Filter classes for this prof
-    let myClasses = cl || []
+    let myClasses = []
     if (profClasses && profClasses.length > 0) {
       const myClassIds = profClasses.map(pc => pc.classe_id)
-      myClasses = myClasses.filter(c => myClassIds.includes(c.id))
+      myClasses = (cl || []).filter(c => myClassIds.includes(c.id))
     }
     setClasses(myClasses)
     if (myClasses.length > 0) setSelectedClasse(myClasses[0])

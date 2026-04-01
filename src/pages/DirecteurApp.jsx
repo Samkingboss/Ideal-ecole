@@ -24,7 +24,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
-  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000 })
+  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
   const [newPlan, setNewPlan] = useState({ classe_id:'', periode_id:'', langue:'fr', objectives:[] })
   const [newEvenement, setNewEvenement] = useState({ titre:'', date_event:'', description:'' })
@@ -41,17 +41,17 @@ export default function DirecteurApp({ user, onLogout }) {
 
   const loadData = async () => {
     const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: pl }, { data: ev }, { data: docs }, { data: param }, { data: prep }, { data: cp }] = await Promise.all([
+    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: ev }, { data: docs }, { data: param }, { data: prep }, { data: cp }, { data: pc }] = await Promise.all([
       supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
       supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('periodes').select('*').order('ordre'),
-      supabase.from('planifications').select('*, classes(nom), periodes(nom), objectifs(*)'),
       supabase.from('evenements').select('*').order('date_event', { ascending: true }),
       supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
       supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle(),
       supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false }),
-      supabase.from('checkpoints').select('*')
+      supabase.from('checkpoints').select('*'),
+      supabase.from('prof_classes').select('*')
     ])
     if (param) setJoursOuvresGlobal(param.jours_ouvres);
     setPreparations(prep || [])
@@ -59,12 +59,19 @@ export default function DirecteurApp({ user, onLogout }) {
     setProfs(u || [])
     setEleves(el || [])
     setClasses(cl || [])
-    setPeriodes(per || [])
-    setPlanifications(pl || [])
+    setPlanifications([])
     setEvenements(ev || [])
     if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
     setStats({ profs: (u||[]).length, eleves: (el||[]).length, checkpoints: (cp||[]).length })
     setCheckpoints(cp || [])
+    
+    // Enrich profs with classes
+    const enrichedProfs = (u || []).map(p => ({
+      ...p,
+      classe_ids: (pc || []).filter(link => link.user_id === p.id).map(link => link.classe_id)
+    }))
+    setProfs(enrichedProfs)
+    
     if (cl && cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
     if (cl && cl.length > 0) setNewPlan(p => ({ ...p, classe_id: cl[0].id, periode_id: per?.[0]?.id || '' }))
 
@@ -100,8 +107,34 @@ export default function DirecteurApp({ user, onLogout }) {
   const saveProf = async () => {
     setLoading(true)
     const code = newProf.code_acces || generateCode()
-    const { error } = await supabase.from('users').insert({ ...newProf, code_acces: code, actif: true })
-    if (error) { setMsg('Erreur: ' + error.message) } else { setMsg('Compte cree! Code: ' + code); loadData(); setShowModal(null) }
+    const { data: userData, error } = await supabase.from('users').upsert({ 
+      id: newProf.id || undefined,
+      prenom: newProf.prenom, 
+      nom: newProf.nom, 
+      role: newProf.role, 
+      langue: newProf.langue, 
+      code_acces: code, 
+      plafond_salaire: newProf.plafond_salaire,
+      actif: true 
+    }, { onConflict: 'id' }).select().single()
+
+    if (error) { 
+      setMsg('Erreur: ' + error.message) 
+    } else {
+      if (newProf.role === 'professeur') {
+        // Clear old links
+        await supabase.from('prof_classes').delete().eq('user_id', userData.id)
+        // Insert new links
+        if (newProf.classe_ids?.length > 0) {
+          const links = newProf.classe_ids.map(cid => ({ user_id: userData.id, classe_id: cid }))
+          await supabase.from('prof_classes').insert(links)
+        }
+      }
+      setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
+      loadData()
+      setShowModal(null)
+      setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
+    }
     setLoading(false)
   }
 
@@ -231,12 +264,12 @@ export default function DirecteurApp({ user, onLogout }) {
           <>
             <div className="section-head">
               <div className="section-title">Equipe</div>
-              <button className="btn-sm" onClick={()=>{setNewProf({prenom:'',nom:'',role:'professeur',langue:'fr',code_acces:''});setShowModal('prof')}}>+ Ajouter</button>
+              <button className="btn-sm" onClick={()=>{setNewProf({prenom:'',nom:'',role:'professeur',langue:'fr',code_acces:'', plafond_salaire: 180000, classe_ids: []});setShowModal('prof')}}>+ Ajouter</button>
             </div>
             {profs.length === 0 ? (
               <div className="empty-state"><div className="empty-icon">👥</div><p>Aucun membre. Ajoutez des professeurs et surveillants.</p></div>
             ) : profs.map((p, i) => (
-              <div key={p.id} className="card">
+              <div key={p.id} className="card" style={{marginBottom:10}}>
                 <div className="user-row">
                   <div className={`avatar ${['av-blue','av-green','av-amber','av-pink'][i%4]}`}>{(p.prenom[0]||'')+((p.nom||'')[0]||'')}</div>
                   <div style={{flex:1}}>
@@ -244,10 +277,26 @@ export default function DirecteurApp({ user, onLogout }) {
                     <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
                       Code: <b style={{color:'var(--accent)'}}>{p.code_acces}</b> &middot; {p.role}
                     </div>
+                    {p.role === 'professeur' && (
+                      <div style={{display:'flex', gap:4, flexWrap:'wrap', marginTop:6}}>
+                        {(p.classe_ids || []).map(cid => (
+                          <span key={cid} style={{fontSize:9, background:'rgba(26,175,224,.1)', color:'var(--accent)', padding:'2px 6px', borderRadius:6, fontWeight:700}}>
+                            {classes.find(c => c.id === cid)?.nom}
+                          </span>
+                        ))}
+                        {(p.classe_ids || []).length === 0 && <span style={{fontSize:9, color:'var(--red)', fontStyle:'italic'}}>Aucune classe attribuée</span>}
+                      </div>
+                    )}
                   </div>
-                  <div style={{display:'flex',gap:6,flexDirection:'column',alignItems:'flex-end'}}>
-                    <span className={`chip ${p.role==='professeur'?'chip-blue':'chip-amber'}`}>{p.role}</span>
-                    {p.langue && <span className="chip chip-green">{p.langue==='fr'?'FR':p.langue==='en'?'EN':'FR+EN'}</span>}
+                  <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                    <div style={{display:'flex',gap:6,flexDirection:'column',alignItems:'flex-end'}}>
+                      <span className={`chip ${p.role==='professeur'?'chip-blue':'chip-amber'}`}>{p.role}</span>
+                      {p.langue && <span className="chip chip-green">{p.langue==='fr'?'FR':p.langue==='en'?'EN':'FR+EN'}</span>}
+                    </div>
+                    <div style={{display:'flex', gap:8}}>
+                      <button className="btn-sm" onClick={() => {setNewProf({...p}); setShowModal('prof')}} style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', padding:'6px'}}>✏️</button>
+                      <button className="btn-sm" onClick={() => {if(confirm('Supprimer ce compte?')) deleteProf(p.id)}} style={{background:'rgba(237,28,36,.1)', border:'1px solid var(--red)', color:'var(--red)', padding:'6px'}}>🗑️</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -397,14 +446,36 @@ export default function DirecteurApp({ user, onLogout }) {
             )}
 
             {newProf.role === 'professeur' && (
-              <div className="form-group">
-                <label className="form-label">Langue enseignee</label>
-                <select className="form-select" value={newProf.langue} onChange={e=>setNewProf({...newProf,langue:e.target.value})}>
-                  <option value="fr">Francais</option>
-                  <option value="en">Anglais</option>
-                  <option value="both">Les deux</option>
-                </select>
-              </div>
+              <>
+                <div className="form-group">
+                  <label className="form-label">Langue enseignée</label>
+                  <select className="form-select" value={newProf.langue} onChange={e=>setNewProf({...newProf,langue:e.target.value})}>
+                    <option value="fr">Français</option>
+                    <option value="en">Anglais</option>
+                    <option value="both">Les deux</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Classes attribuées</label>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, background:'rgba(255,255,255,0.05)', padding:12, borderRadius:12, border:'1px solid var(--border)'}}>
+                    {classes.map(c => (
+                      <label key={c.id} style={{display:'flex', alignItems:'center', gap:8, fontSize:12, cursor:'pointer'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={newProf.classe_ids?.includes(c.id)} 
+                          onChange={e => {
+                            const ids = e.target.checked 
+                              ? [...(newProf.classe_ids||[]), c.id]
+                              : (newProf.classe_ids||[]).filter(id => id !== c.id)
+                            setNewProf({...newProf, classe_ids: ids})
+                          }} 
+                        />
+                        {c.nom}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
             <div className="form-group">
               <label className="form-label">Code d acces (laisser vide pour generer)</label>
