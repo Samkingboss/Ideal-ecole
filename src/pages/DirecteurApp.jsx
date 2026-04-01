@@ -130,10 +130,19 @@ export default function DirecteurApp({ user, onLogout }) {
           const links = newProf.classe_ids.map(cid => ({ user_id: userData.id, classe_id: cid }))
           console.log('[DEBUG] Insertion nouveaux liens:', links)
           const { error: linkErr } = await supabase.from('prof_classes').insert(links)
-          if (linkErr) console.error('[DEBUG] Erreur liens:', linkErr)
+          if (linkErr) {
+            console.error('[DEBUG] Erreur liens:', linkErr)
+            alert("Erreur de sauvegarde des classes : " + linkErr.message + " (" + linkErr.code + "). Détails: " + JSON.stringify(linkErr.details || linkErr.hint))
+            setMsg('Le compte a été créé mais les classes n\'ont pas pu être attribuées. Vérifiez la base de données.')
+          } else {
+            setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
+          }
+        } else {
+          setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
         }
+      } else {
+        setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
       }
-      setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
       loadData()
       setShowModal(null)
       setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
