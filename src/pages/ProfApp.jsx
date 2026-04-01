@@ -28,6 +28,7 @@ const TOP_TABS = [
 
 export default function ProfApp({ user, onLogout }) {
   const [tab, setTab] = useState('perfs')
+  const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
   const [eleves, setEleves] = useState([])
@@ -49,7 +50,6 @@ export default function ProfApp({ user, onLogout }) {
   const [msgDetails, setMsgDetails] = useState({})
   const [schoolNum] = useState('22390190007')
   const [selectedMatiere, setSelectedMatiere] = useState(null)
-  const [loading, setLoading] = useState(false)
   const [myPerfs, setMyPerfs] = useState([])
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
@@ -172,9 +172,10 @@ export default function ProfApp({ user, onLogout }) {
       const resultText = data.candidates[0].content.parts[0].text;
       const jsonMatch = resultText.match(/\{.*\}/s);
       return JSON.parse(jsonMatch ? jsonMatch[0] : resultText);
-    } catch (e) {
-      console.error("Gemini Proxy Error:", e);
-      return { note: 10, commentaire: `Erreur IA (Proxy) : ${e.message.substring(0, 50)}...` };
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -396,7 +397,7 @@ export default function ProfApp({ user, onLogout }) {
         )}
 
         {/* Filters */}
-        {tab !== 'agenda' && tab !== 'messages' && tab !== 'perfs' && (
+        {!loading && classes.length > 0 && tab !== 'agenda' && tab !== 'messages' && tab !== 'perfs' && (
           <div style={{display:'flex',gap:8,marginBottom:'1rem',flexWrap:'wrap'}}>
             <select className="form-select" style={{flex:1,minWidth:120}} value={selectedClasse?.id||''} onChange={e=>setSelectedClasse(classes.find(c=>c.id===e.target.value))}>
               {classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
@@ -407,7 +408,21 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         )}
 
-        {tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} onUpdate={loadProgramme} />)} {tab === 'checkpoint' && (
+        {/* Empty State: No Classes */}
+        {!loading && classes.length === 0 && (
+          <div className="empty-state" style={{height:'60vh', justifyContent:'center'}}>
+            <div className="empty-icon" style={{fontSize:60}}>🗝️</div>
+            <h3 style={{fontSize:18, fontWeight:800, marginBottom:10}}>Accès Restreint</h3>
+            <p style={{fontSize:14, color:'var(--muted)', maxWidth:280, margin:'0 auto'}}>
+              Aucune classe ne vous est attribuée pour le moment. 
+              <b> Veuillez contacter la Direction </b> pour activer vos accès.
+            </p>
+            <button className="btn-sm" onClick={loadData} style={{marginTop:20, background:'var(--accent)', color:'#fff', border:'none'}}>Actualiser</button>
+          </div>
+        )}
+
+        {!loading && classes.length > 0 && tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} onUpdate={loadProgramme} />)} 
+        {!loading && classes.length > 0 && tab === 'checkpoint' && (
           <>
             <div className="section-head">
               <div className="section-title">Check-points — {selectedClasse?.nom}</div>
