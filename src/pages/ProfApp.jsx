@@ -253,24 +253,30 @@ export default function ProfApp({ user, onLogout }) {
 
   const openCheckpoint = () => {
     if (programmeData.length === 0) { alert('Creez dabord votre programme.'); return }
-    const plan = getCurrentPlan()
-    if (!plan) return
     const classEleves = getClasseEleves()
     const entries = {}
     classEleves.forEach(el => {
       entries[el.id] = {}
-      plan.objectifs.forEach(obj => { entries[el.id][obj.id] = 0 })
+      programmeData.forEach(mat => {
+        mat.objectifs.forEach(obj => {
+          obj.competences.forEach(comp => {
+            entries[el.id][comp.id] = 0
+          })
+        })
+      })
     })
     // Pre-fill from last checkpoint
     const classCps2 = checkpoints.filter(cp => {
+      if (cp.classe_id && cp.periode_id) return cp.classe_id === selectedClasse?.id && cp.periode_id === selectedPeriode?.id
       const p = planifications.find(pl => pl.id === cp.planification_id)
       return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
     }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
     const lastCp = classCps2[0]
     if (lastCp) {
-      lastCp.progressions.forEach(pr => {
+      (lastCp.progressions || []).forEach(pr => {
         if (!entries[pr.eleve_id]) entries[pr.eleve_id] = {}
-        entries[pr.eleve_id][pr.objectif_id] = pr.pourcentage
+        const key = pr.competence_id || pr.objectif_id
+        if (key) entries[pr.eleve_id][key] = pr.pourcentage
       })
     }
     setCpEntries(entries)
@@ -279,20 +285,34 @@ export default function ProfApp({ user, onLogout }) {
   }
 
   const saveCheckpoint = async () => {
-    const plan = getCurrentPlan()
-    if (!plan) return
     setLoading(true)
+    const plan = getCurrentPlan()
     const { data: cpData, error } = await supabase.from('checkpoints')
-      .insert({ planification_id: plan.id, prof_id: user.id, date_checkpoint: cpDate })
+      .insert({ 
+        planification_id: plan ? plan.id : null, 
+        classe_id: selectedClasse?.id,
+        periode_id: selectedPeriode?.id,
+        prof_id: user.id, 
+        date_checkpoint: cpDate 
+      })
       .select().single()
-    if (error) { setLoading(false); return }
+      
+    if (error) { 
+      setLoading(false); 
+      alert("Erreur Check-point: " + error.message)
+      return 
+    }
+    
     const progressions = []
-    Object.entries(cpEntries).forEach(([eleveId, objectives]) => {
-      Object.entries(objectives).forEach(([objId, pct]) => {
-        progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: objId, pourcentage: pct })
+    Object.entries(cpEntries).forEach(([eleveId, comps]) => {
+      Object.entries(comps).forEach(([compId, pct]) => {
+        progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, competence_id: compId, pourcentage: pct })
       })
     })
-    await supabase.from('progressions').insert(progressions)
+    
+    const { error: progErr } = await supabase.from('progressions').insert(progressions)
+    if (progErr) console.error("Progression err:", progErr)
+    
     setShowCpModal(false)
     loadData()
     setLoading(false)
