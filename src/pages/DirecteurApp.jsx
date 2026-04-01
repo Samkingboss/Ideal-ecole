@@ -310,8 +310,8 @@ export default function DirecteurApp({ user, onLogout }) {
                       {p.langue && <span className="chip chip-green">{p.langue==='fr'?'FR':p.langue==='en'?'EN':'FR+EN'}</span>}
                     </div>
                     <div style={{display:'flex', gap:8}}>
-                      <button className="btn-sm" onClick={() => {setNewProf({...p}); setShowModal('prof')}} style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', padding:'6px'}}>✏️</button>
-                      <button className="btn-sm" onClick={() => {if(confirm('Supprimer ce compte?')) deleteProf(p.id)}} style={{background:'rgba(237,28,36,.1)', border:'1px solid var(--red)', color:'var(--red)', padding:'6px'}}>🗑️</button>
+                      <button aria-label="Modifier" className="btn-sm" onClick={() => {setNewProf({...p}); setShowModal('prof')}} style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', padding:'6px'}}>✏️</button>
+                      <button aria-label="Supprimer" className="btn-sm" onClick={() => {if(confirm('Supprimer ce compte?')) deleteProf(p.id)}} style={{background:'rgba(237,28,36,.1)', border:'1px solid var(--red)', color:'var(--red)', padding:'6px'}}>🗑️</button>
                     </div>
                   </div>
                 </div>
@@ -353,7 +353,7 @@ export default function DirecteurApp({ user, onLogout }) {
                         <div key={el.id} className="user-row" style={{borderBottom:'1px solid var(--border)', padding:'10px 18px'}}>
                           <div className="avatar av-blue" style={{width:28, height:28, fontSize:10}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
                           <div style={{flex:1, fontWeight:600, fontSize:13}}>{el.prenom} {el.nom}</div>
-                          <button onClick={async () => { if(confirm('Sûr ?')) { await supabase.from('eleves').update({actif:false}).eq('id', el.id); loadData() } }} style={{background:'none', border:'none', color:'var(--red)', fontSize:18, cursor:'pointer'}}>×</button>
+                          <button aria-label="Désactiver" onClick={async () => { if(confirm('Sûr ?')) { await supabase.from('eleves').update({actif:false}).eq('id', el.id); loadData() } }} style={{background:'none', border:'none', color:'var(--red)', fontSize:18, cursor:'pointer'}}>×</button>
                         </div>
                       ))}
                     </div>
