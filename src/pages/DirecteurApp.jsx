@@ -127,7 +127,11 @@ export default function DirecteurApp({ user, onLogout }) {
         await supabase.from('prof_classes').delete().eq('user_id', userData.id)
         // Insert new links
         if (newProf.classe_ids?.length > 0) {
-          const links = newProf.classe_ids.map(cid => ({ user_id: userData.id, classe_id: cid }))
+          const links = newProf.classe_ids.map(cid => ({ 
+            user_id: userData.id, 
+            classe_id: cid,
+            langue: newProf.langue || 'fr'
+          }))
           console.log('[DEBUG] Insertion nouveaux liens:', links)
           const { error: linkErr } = await supabase.from('prof_classes').insert(links)
           if (linkErr) {
