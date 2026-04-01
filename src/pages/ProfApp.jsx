@@ -62,7 +62,7 @@ export default function ProfApp({ user, onLogout }) {
 
   const loadProgramme = async () => {
     if (!selectedClasse || !user) return
-    const { data: mats } = await supabase.from('matieres').select('*').eq('prof_id', user.id).eq('classe_id', selectedClasse.id).order('nom')
+    const { data: mats } = await supabase.from('matieres').select('*').eq('prof_id', user.id).eq('classe_id', selectedClasse?.id).order('nom')
     if (!mats || mats.length === 0) { setProgrammeData([]); return }
     const result = []
     for (const mat of mats) {
@@ -78,66 +78,79 @@ export default function ProfApp({ user, onLogout }) {
   }
 
   const loadData = async () => {
-    const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [{ data: cl }, { data: per }, { data: profClasses }, { data: ev }, { data: docs }, { data: paramMois }] = await Promise.all([
-      supabase.from('classes').select('*').order('ordre'),
-      supabase.from('periodes').select('*').order('ordre'),
-      supabase.from('prof_classes').select('*, classes(*)').eq('user_id', user.id),
-      supabase.from('evenements').select('*').order('date_event', { ascending: true }),
-      supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
-      supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
-    ])
-    setJoursOuvresForce(paramMois?.jours_ouvres || null)
-    const uniquePeriods = (per || []).filter((v, i, a) => a.findIndex(t => t.nom === v.nom) === i);
-    setPeriodes(uniquePeriods)
-    // Filter classes for this prof
-    let myClasses = []
-    if (profClasses && profClasses.length > 0) {
-      const myClassIds = profClasses.map(pc => pc.classe_id)
-      myClasses = (cl || []).filter(c => myClassIds.includes(c.id))
+    try {
+      const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const [{ data: cl }, { data: per }, { data: profClasses }, { data: ev }, { data: docs }, { data: paramMois }] = await Promise.all([
+        supabase.from('classes').select('*').order('ordre'),
+        supabase.from('periodes').select('*').order('ordre'),
+        supabase.from('prof_classes').select('*, classes(*)').eq('user_id', user.id),
+        supabase.from('evenements').select('*').order('date_event', { ascending: true }),
+        supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
+        supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
+      ])
+      setJoursOuvresForce(paramMois?.jours_ouvres || null)
+      const uniquePeriods = (per || []).filter((v, i, a) => a.findIndex(t => t.nom === v.nom) === i);
+      setPeriodes(uniquePeriods)
+      
+      // Filter classes for this prof
+      let myClasses = []
+      console.log('[DEBUG] profClasses reçus:', profClasses)
+      if (profClasses && profClasses.length > 0) {
+        const myClassIds = profClasses.map(pc => pc.classe_id)
+        console.log('[DEBUG] Mes IDs de classes:', myClassIds)
+        myClasses = (cl || []).filter(c => myClassIds.includes(c.id))
+      }
+      console.log('[DEBUG] Classes finales affichées:', myClasses)
+      setClasses(myClasses)
+      
+      if (myClasses.length > 0) setSelectedClasse(myClasses[0])
+      if (per && per.length > 0) setSelectedPeriode(per[0])
+      // Load all eleves
+      const { data: el } = await supabase.from('eleves').select('*').eq('actif', true)
+      setEleves(el || [])
+      
+      setEvenements(ev || [])
+      if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
+
+      // Load planifications for this prof's langue
+      const { data: pl } = await supabase.from('planifications')
+        .select('*, classes(nom), periodes(nom), objectifs(*)')
+        .eq('langue', user.langue || 'fr')
+      setPlanifications(pl || [])
+      
+      // Load checkpoints by this prof
+      const { data: cp } = await supabase.from('checkpoints')
+        .select('*, progressions(*, eleves(prenom,nom), competences(nom, objectifs_v2(nom, matieres(nom))))')
+        .eq('prof_id', user.id)
+        .order('date_checkpoint', { ascending: false })
+      setCheckpoints(cp || [])
+      
+      // Load performances
+      const { data: perfsData } = await supabase.from('performances')
+        .select('*, recrees(*)').eq('prof_id', user.id).order('date_jour', { ascending: false }).limit(30)
+      setMyPerfs(perfsData || [])
+
+      // Load preparations
+      const { data: prepData } = await supabase.from('preparations')
+        .select('*, classes(nom)')
+        .eq('user_id', user.id)
+        .order('heure_depot', { ascending: false })
+      setPreparations(prepData || [])
+    } catch (err) {
+      console.error('[DEBUG] Erreur loadData:', err)
+    } finally {
+      setLoading(false)
     }
-    setClasses(myClasses)
-    if (myClasses.length > 0) setSelectedClasse(myClasses[0])
-    if (per && per.length > 0) setSelectedPeriode(per[0])
-    // Load all eleves
-    const { data: el } = await supabase.from('eleves').select('*').eq('actif', true)
-    setEleves(el || [])
-    
-    setEvenements(ev || [])
-    if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
-
-    // Load planifications for this prof's langue
-    const { data: pl } = await supabase.from('planifications')
-      .select('*, classes(nom), periodes(nom), objectifs(*)')
-      .eq('langue', user.langue || 'fr')
-    setPlanifications(pl || [])
-    // Load checkpoints by this prof
-    const { data: cp } = await supabase.from('checkpoints')
-      .select('*, progressions(*, eleves(prenom,nom), competences(nom, objectifs_v2(nom, matieres(nom))))')
-      .eq('prof_id', user.id)
-      .order('date_checkpoint', { ascending: false })
-    setCheckpoints(cp || [])
-    // Load performances
-    const { data: perfsData } = await supabase.from('performances')
-      .select('*, recrees(*)').eq('prof_id', user.id).order('date_jour', { ascending: false }).limit(30)
-    setMyPerfs(perfsData || [])
-
-    // Load preparations
-    const { data: prepData } = await supabase.from('preparations')
-      .select('*, classes(nom)')
-      .eq('user_id', user.id)
-      .order('heure_depot', { ascending: false })
-    setPreparations(prepData || [])
   }
 
   const getCurrentPlan = () => {
     if (!selectedClasse || !selectedPeriode) return null
-    return planifications.find(p => p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id)
+    return planifications.find(p => p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id)
   }
 
   const getClasseEleves = () => {
     if (!selectedClasse) return []
-    return eleves.filter(e => e.classe_id === selectedClasse.id)
+    return eleves.filter(e => e.classe_id === selectedClasse?.id)
   }
 
 
@@ -251,7 +264,7 @@ export default function ProfApp({ user, onLogout }) {
     // Pre-fill from last checkpoint
     const classCps2 = checkpoints.filter(cp => {
       const p = planifications.find(pl => pl.id === cp.planification_id)
-      return p && p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id
+      return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
     }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
     const lastCp = classCps2[0]
     if (lastCp) {
@@ -291,7 +304,7 @@ export default function ProfApp({ user, onLogout }) {
     if (!plan) return []
     const classCps = checkpoints.filter(cp => {
       const p = planifications.find(pl => pl.id === cp.planification_id)
-      return p && p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id
+      return p && p.classe_id === selectedClasse?.id && p.periode_id === selectedPeriode?.id
     }).sort((a,b) => a.date_checkpoint.localeCompare(b.date_checkpoint))
     return classCps.map(cp => {
       const allPcts = cp.progressions.map(pr => pr.pourcentage)
