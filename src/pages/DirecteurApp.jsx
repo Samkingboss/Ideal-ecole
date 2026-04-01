@@ -123,11 +123,14 @@ export default function DirecteurApp({ user, onLogout }) {
     } else {
       if (newProf.role === 'professeur') {
         // Clear old links
+        console.log('[DEBUG] Nettoyage anciens liens pour user:', userData.id)
         await supabase.from('prof_classes').delete().eq('user_id', userData.id)
         // Insert new links
         if (newProf.classe_ids?.length > 0) {
           const links = newProf.classe_ids.map(cid => ({ user_id: userData.id, classe_id: cid }))
-          await supabase.from('prof_classes').insert(links)
+          console.log('[DEBUG] Insertion nouveaux liens:', links)
+          const { error: linkErr } = await supabase.from('prof_classes').insert(links)
+          if (linkErr) console.error('[DEBUG] Erreur liens:', linkErr)
         }
       }
       setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
