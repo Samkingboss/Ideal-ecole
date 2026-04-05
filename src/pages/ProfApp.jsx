@@ -31,6 +31,7 @@ export default function ProfApp({ user, onLogout }) {
   const [tab, setTab] = useState('perfs')
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState([])
+  const [allClasses, setAllClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
   const [eleves, setEleves] = useState([])
   const [planifications, setPlanifications] = useState([])
@@ -62,6 +63,7 @@ export default function ProfApp({ user, onLogout }) {
   const [searchDisc, setSearchDisc] = useState('')
   const [foundDiscEleves, setFoundDiscEleves] = useState([])
   const [selectedDiscEleve, setSelectedDiscEleve] = useState(null)
+  const [selectedDiscClassId, setSelectedDiscClassId] = useState('')
   const [discGravite, setDiscGravite] = useState('mineure')
   const [discMotif, setDiscMotif] = useState('')
   const [discLoading, setDiscLoading] = useState(false)
@@ -109,6 +111,7 @@ export default function ProfApp({ user, onLogout }) {
         myClasses = (cl || []).filter(c => myClassIds.includes(c.id))
       }
       console.log('[DEBUG] Classes finales affichées:', myClasses)
+      setAllClasses(cl || [])
       setClasses(myClasses)
       
       if (myClasses.length > 0) setSelectedClasse(myClasses[0])
@@ -275,6 +278,7 @@ export default function ProfApp({ user, onLogout }) {
       alert('Incident signalé au surveillant !')
       setDiscMotif('')
       setSelectedDiscEleve(null)
+      setSelectedDiscClassId('')
       setSearchDisc('')
     }
     setDiscLoading(false)
@@ -707,40 +711,38 @@ export default function ProfApp({ user, onLogout }) {
             </div>
             <div className="card" style={{padding:'1rem'}}>
               <div className="form-group">
-                <label className="form-label">Chercher un élève (toutes classes)</label>
-                <div style={{display:'flex', gap:8}}>
-                  <input 
-                    className="form-input" 
-                    placeholder="Nom ou Prénom..." 
-                    value={searchDisc} 
-                    onChange={e => {
-                      const v = e.target.value
-                      setSearchDisc(v)
-                      if (v.length > 2) {
-                        const matched = allEleves.filter(el => 
-                          (el.prenom + ' ' + el.nom).toLowerCase().includes(v.toLowerCase())
-                        )
-                        setFoundDiscEleves(matched)
-                      } else {
-                        setFoundDiscEleves([])
-                      }
-                    }} 
-                  />
-                </div>
-                {foundDiscEleves.length > 0 && !selectedDiscEleve && (
-                  <div style={{marginTop:8, maxHeight:200, overflowY:'auto', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:10, position:'relative', zIndex:10}}>
-                    {foundDiscEleves.map(el => (
-                      <div 
-                        key={el.id} 
-                        onClick={() => { setSelectedDiscEleve(el); setFoundDiscEleves([]); setSearchDisc(el.prenom + ' ' + el.nom) }}
-                        style={{padding:12, borderBottom:'1px solid var(--border)', cursor:'pointer', fontSize:13, fontWeight:600}}
-                      >
-                        {el.prenom} {el.nom} <span style={{fontSize:11, color:'var(--muted)', float:'right'}}>{el.classes?.nom}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <label className="form-label">Sélectionner la classe</label>
+                <select 
+                  className="form-select" 
+                  value={selectedDiscClassId} 
+                  onChange={e => {
+                    setSelectedDiscClassId(e.target.value)
+                    setSelectedDiscEleve(null)
+                  }}
+                >
+                  <option value="">-- Choisir une classe --</option>
+                  {allClasses.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
               </div>
+
+              {selectedDiscClassId && (
+                <div className="form-group" style={{marginTop:12}}>
+                  <label className="form-label">Sélectionner l'élève</label>
+                  <select 
+                    className="form-select" 
+                    value={selectedDiscEleve?.id || ''} 
+                    onChange={e => {
+                      const el = allEleves.find(el => el.id === e.target.value)
+                      setSelectedDiscEleve(el)
+                    }}
+                  >
+                    <option value="">-- Choisir un élève --</option>
+                    {allEleves.filter(e => e.classe_id === selectedDiscClassId).map(el => (
+                      <option key={el.id} value={el.id}>{el.prenom} {el.nom}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {selectedDiscEleve && (
                 <div style={{marginTop:16, borderTop:'1px solid var(--border)', paddingTop:16}}>
