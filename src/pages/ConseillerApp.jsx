@@ -25,7 +25,7 @@ export default function ConseillerApp({ user, onLogout }) {
       { data: cp },
       { data: pres }
     ] = await Promise.all([
-      supabase.from('eleves').select('*, classes!eleves_classe_id_fkey(nom)').eq('actif', true).order('nom'),
+      supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom'),
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('disciplines').select('*, users!prof_id(prenom, nom)').eq('date_incident', today),
       supabase.from('checkpoints').select('*, planification:planifications(classe_id), progressions(eleve_id, pourcentage, objectifs(nom))').eq('date_checkpoint', today),
@@ -49,14 +49,28 @@ export default function ConseillerApp({ user, onLogout }) {
   const saveEleve = async (e) => {
     e.preventDefault()
     setLoading(true)
-    console.log('[DEBUG] Enregistrement élève:', newEleve)
-    const { error } = await supabase.from('eleves').insert([newEleve])
+    
+    // On nettoie l'objet pour ne garder que les champs nécessaires
+    const cleanEleve = {
+      prenom: newEleve.prenom,
+      nom: newEleve.nom,
+      sexe: newEleve.sexe,
+      date_naissance: newEleve.date_naissance || null,
+      parent_nom: newEleve.parent_nom,
+      parent_phone: newEleve.parent_phone,
+      adresse: newEleve.adresse,
+      photo_url: newEleve.photo_url || null,
+      classe_id: newEleve.classe_id,
+      actif: true
+    }
+
+    const { error } = await supabase.from('eleves').insert([cleanEleve])
     if (!error) {
       setShowModal(null)
-      setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', adresse:'', photo_url:'', classe_id:'' })
+      setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', adresse:'', photo_url:'', classe_id: classes[0]?.id || '' })
       loadData()
     } else {
-      alert(error.message)
+      alert("Erreur base de données : " + error.message)
     }
     setLoading(false)
   }
