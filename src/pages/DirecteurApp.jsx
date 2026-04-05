@@ -19,14 +19,12 @@ export default function DirecteurApp({ user, onLogout }) {
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
-  const [planifications, setPlanifications] = useState([])
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
   const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
-  const [newPlan, setNewPlan] = useState({ classe_id:'', periode_id:'', langue:'fr', objectives:[] })
   const [newEvenement, setNewEvenement] = useState({ titre:'', date_event:'', description:'' })
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -73,11 +71,10 @@ export default function DirecteurApp({ user, onLogout }) {
     setProfs(enrichedProfs)
     
     if (cl && cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
-    if (cl && cl.length > 0) setNewPlan(p => ({ ...p, classe_id: cl[0].id, periode_id: per?.[0]?.id || '' }))
 
     // Load curriculum data for synthesis
-    const { data: allMats } = await supabase.from('matieres').select('*, objectifs_v2(*, competences(*))')
-    const { data: allProgs } = await supabase.from('progressions').select('*, eleves(classe_id), competences(objectif_id)')
+    const { data: allMats } = await supabase.from('matieres').select('*, objectifs(*)')
+    const { data: allProgs } = await supabase.from('progressions').select('*, eleves(classe_id), objectifs(id)')
     
     // Group analysis
     const analysis = []
@@ -86,8 +83,8 @@ export default function DirecteurApp({ user, onLogout }) {
       const cProgs = (allProgs || []).filter(p => p.eleves?.classe_id === c.id)
       
       const matStats = cMats.map(m => {
-        const mCompIds = m.objectifs_v2?.flatMap(o => o.competences?.map(co => co.id)) || []
-        const mProgs = cProgs.filter(p => mCompIds.includes(p.competence_id))
+        const mObjIds = (m.objectifs || []).map(o => o.id)
+        const mProgs = cProgs.filter(p => mObjIds.includes(p.objectif_id))
         const avg = mProgs.length ? Math.round(mProgs.reduce((acc,p)=>acc+p.pourcentage,0)/mProgs.length) : 0
         return { nom: m.nom, avg }
       }).sort((a,b) => b.avg - a.avg)
@@ -201,27 +198,6 @@ export default function DirecteurApp({ user, onLogout }) {
     setUploading(false)
   }
 
-  const addObjective = () => {
-    setNewPlan(p => ({ ...p, objectives: [...p.objectives, { discipline:'', description:'' }] }))
-  }
-
-  const savePlan = async () => {
-    if (!newPlan.objectives.filter(o => o.description.trim()).length) { setMsg('Ajoutez au moins un objectif'); return }
-    setLoading(true)
-    const { data: planData, error: planErr } = await supabase.from('planifications')
-      .upsert({ classe_id: newPlan.classe_id, periode_id: newPlan.periode_id, langue: newPlan.langue, created_by: user.id }, { onConflict: 'classe_id,periode_id,langue' })
-      .select().single()
-    if (planErr) { setMsg('Erreur planification: ' + planErr.message); setLoading(false); return }
-    // delete old objectives
-    await supabase.from('objectifs').delete().eq('planification_id', planData.id)
-    // insert new
-    const objs = newPlan.objectives.filter(o => o.description.trim()).map((o, i) => ({ planification_id: planData.id, discipline: o.discipline || 'General', description: o.description, ordre: i }))
-    await supabase.from('objectifs').insert(objs)
-    setMsg('Planification enregistree!')
-    loadData()
-    setShowModal(null)
-    setLoading(false)
-  }
 
   const deleteProf = async (id) => {
     await supabase.from('users').update({ actif: false }).eq('id', id)

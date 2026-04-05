@@ -9,7 +9,7 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
       e[el.id] = {}
       programmeData.forEach(mat => {
         mat.objectifs.forEach(obj => {
-          obj.competences.forEach(comp => { e[el.id][comp.id] = 0 })
+          e[el.id][obj.id] = 0
         })
       })
     })
@@ -19,8 +19,8 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
   const [activeId, setActiveId] = useState(null)
   const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
 
-  const setVal = (eid, cid, val) => {
-    setEntries(prev => ({ ...prev, [eid]: { ...prev[eid], [cid]: val } }))
+  const setVal = (eid, oid, val) => {
+    setEntries(prev => ({ ...prev, [eid]: { ...prev[eid], [oid]: val } }))
   }
 
   const save = async () => {
@@ -36,9 +36,9 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
       .select().single()
     if (error) { setLoading(false); alert('Erreur: ' + error.message); return }
     const progressions = []
-    Object.entries(entries).forEach(([eleveId, comps]) => {
-      Object.entries(comps).forEach(([compId, pct]) => {
-        if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, competence_id: compId, pourcentage: pct })
+    Object.entries(entries).forEach(([eleveId, objs]) => {
+      Object.entries(objs).forEach(([objId, pct]) => {
+        if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: objId, pourcentage: pct })
       })
     })
     if (progressions.length > 0) { const {error: insErr} = await supabase.from('progressions').insert(progressions); if(insErr) alert('Erreur insert: ' + insErr.message) }
@@ -79,30 +79,22 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
                     <div key={mat.id} style={{marginBottom:12}}>
                       <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',background:'rgba(26,175,224,.08)',padding:'4px 10px',borderRadius:8,marginBottom:8}}>{mat.nom}</div>
                       {mat.objectifs.map(obj => (
-                        <div key={obj.id} style={{paddingLeft:6,marginBottom:8}}>
-                          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',marginBottom:6}}>Objectif: {obj.nom}</div>
-                          {obj.competences.length === 0
-                            ? <div style={{fontSize:10,color:'var(--muted)',fontStyle:'italic',paddingLeft:8}}>Aucune compétence</div>
-                            : obj.competences.map(comp => (
-                              <div key={comp.id} className="obj-row" style={{padding:'4px 0'}}>
-                                <div className="obj-label" style={{fontSize:12}}>{comp.nom}</div>
-                                {isPS ? (
-                                  <select value={entries[el.id]?.[comp.id] || 0} onChange={e => setVal(el.id, comp.id, parseInt(e.target.value))} style={{padding:'6px 10px',borderRadius:10,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)', cursor:'pointer'}}>
-                                    <option value={0}>-- Choisir --</option>
-                                    <option value={25}>Début</option>
-                                    <option value={50}>En cours</option>
-                                    <option value={75}>Acquis</option>
-                                    <option value={100}>Bien acquis</option>
-                                  </select>
-                                ) : (
-                                  <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                    <input type="number" min="0" max="100" value={entries[el.id]?.[comp.id] || ''} placeholder="0" onChange={e => setVal(el.id, comp.id, Math.min(100,Math.max(0,parseInt(e.target.value)||0)))} style={{width:65,padding:'6px 10px',borderRadius:10,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
-                                    <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
-                                  </div>
-                                )}
-                              </div>
-                            ))
-                          }
+                        <div key={obj.id} className="obj-row" style={{padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
+                          <div className="obj-label" style={{fontSize:12, fontWeight:600}}>{obj.nom}</div>
+                          {isPS ? (
+                            <select value={entries[el.id]?.[obj.id] || 0} onChange={e => setVal(el.id, obj.id, parseInt(e.target.value))} style={{padding:'6px 10px',borderRadius:10,border:'1px solid var(--border)',fontSize:12,background:'var(--bg)', cursor:'pointer'}}>
+                              <option value={0}>-- Choisir --</option>
+                              <option value={25}>Début</option>
+                              <option value={50}>En cours</option>
+                              <option value={75}>Acquis</option>
+                              <option value={100}>Bien acquis</option>
+                            </select>
+                          ) : (
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <input type="number" min="0" max="100" value={entries[el.id]?.[obj.id] || ''} placeholder="0" onChange={e => setVal(el.id, obj.id, Math.min(100,Math.max(0,parseInt(e.target.value)||0)))} style={{width:65,padding:'6px 10px',borderRadius:10,border:'1px solid var(--border)',fontSize:13,textAlign:'center'}} />
+                              <span style={{fontSize:12,color:'var(--muted)'}}>%</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

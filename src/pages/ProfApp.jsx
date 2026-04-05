@@ -66,13 +66,8 @@ export default function ProfApp({ user, onLogout }) {
     if (!mats || mats.length === 0) { setProgrammeData([]); return }
     const result = []
     for (const mat of mats) {
-      const { data: objs } = await supabase.from('objectifs_v2').select('*').eq('matiere_id', mat.id).order('nom')
-      const objsWithComps = []
-      for (const obj of (objs || [])) {
-        const { data: comps } = await supabase.from('competences').select('*').eq('objectif_id', obj.id).order('nom')
-        objsWithComps.push({ ...obj, competences: comps || [] })
-      }
-      result.push({ ...mat, objectifs: objsWithComps })
+      const { data: objs } = await supabase.from('objectifs').select('*').eq('matiere_id', mat.id).order('nom')
+      result.push({ ...mat, objectifs: objs || [] })
     }
     setProgrammeData(result)
   }
@@ -120,7 +115,7 @@ export default function ProfApp({ user, onLogout }) {
       
       // Load checkpoints by this prof
       const { data: cp } = await supabase.from('checkpoints')
-        .select('*, progressions(*, eleves(prenom,nom), competences(nom, objectifs_v2(nom, matieres(nom))))')
+        .select('*, progressions(*, eleves(prenom,nom), objectifs(nom, matieres(nom)))')
         .eq('prof_id', user.id)
         .order('date_checkpoint', { ascending: false })
       setCheckpoints(cp || [])
@@ -259,9 +254,7 @@ export default function ProfApp({ user, onLogout }) {
       entries[el.id] = {}
       programmeData.forEach(mat => {
         mat.objectifs.forEach(obj => {
-          obj.competences.forEach(comp => {
-            entries[el.id][comp.id] = 0
-          })
+          entries[el.id][obj.id] = 0
         })
       })
     })
@@ -275,7 +268,7 @@ export default function ProfApp({ user, onLogout }) {
     if (lastCp) {
       (lastCp.progressions || []).forEach(pr => {
         if (!entries[pr.eleve_id]) entries[pr.eleve_id] = {}
-        const key = pr.competence_id || pr.objectif_id
+        const key = pr.objectif_id
         if (key) entries[pr.eleve_id][key] = pr.pourcentage
       })
     }
@@ -304,9 +297,9 @@ export default function ProfApp({ user, onLogout }) {
     }
     
     const progressions = []
-    Object.entries(cpEntries).forEach(([eleveId, comps]) => {
-      Object.entries(comps).forEach(([compId, pct]) => {
-        progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, competence_id: compId, pourcentage: pct })
+    Object.entries(cpEntries).forEach(([eleveId, objs]) => {
+      Object.entries(objs).forEach(([objId, pct]) => {
+        progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: objId, pourcentage: pct })
       })
     })
     
@@ -345,7 +338,7 @@ export default function ProfApp({ user, onLogout }) {
     const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
     const byDiscipline = {}
     myProgs.forEach(pr => {
-      const mat = pr.competences?.objectifs_v2?.matieres?.nom || 'General'
+      const mat = pr.objectifs?.matieres?.nom || 'General'
       if (!byDiscipline[mat]) byDiscipline[mat] = []
       byDiscipline[mat].push(pr.pourcentage)
     })
@@ -369,7 +362,7 @@ export default function ProfApp({ user, onLogout }) {
     const avg = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0
     const byDiscipline = {}
     myProgs.forEach(pr => {
-      const mat = pr.competences?.objectifs_v2?.matieres?.nom || 'General'
+      const mat = pr.objectifs?.matieres?.nom || 'General'
       if (!byDiscipline[mat]) byDiscipline[mat] = []
       byDiscipline[mat].push(pr.pourcentage)
     })
@@ -491,47 +484,39 @@ export default function ProfApp({ user, onLogout }) {
 
                           {isActive && (
                             <div style={{padding:'4px 16px 16px', borderTop:'1px solid var(--border)'}}>
-                              {obj.competences.length === 0 ? (
-                                <div style={{padding:'1rem', fontSize:11, color:'var(--muted)', fontStyle:'italic', textAlign:'center'}}>Aucune compétence définie.</div>
-                              ) : obj.competences.map(comp => (
-                                <div key={comp.id} style={{padding:'10px 0', borderBottom: obj.competences.indexOf(comp) === obj.competences.length-1 ? 'none' : '1px solid var(--border)'}}>
-                                  <div style={{fontSize:12, fontWeight:700, marginBottom:8, color:'var(--muted)'}}>⭐ {comp.nom}</div>
-                                  {classEleves.map(el => {
-                                    const cps = checkpoints.filter(cp => {
-                                      // First try new direct fields, fallback to plan linking
-                                      if (cp.classe_id && cp.periode_id) {
-                                        return cp.classe_id == selectedClasse?.id && cp.periode_id == selectedPeriode?.id
-                                      }
-                                      const p = planifications.find(pl => pl.id == cp.planification_id)
-                                      return p && p.classe_id == selectedClasse?.id && p.periode_id == selectedPeriode?.id
-                                    }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
-                                    
-                                    let val = 0
-                                    for (const cp of cps) {
-                                      const pr = cp.progressions?.find(p => p.eleve_id == el.id && p.competence_id == comp.id)
-                                      if (pr) { val = pr.pourcentage; break }
-                                    }
-                                    
-                                    const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
-                                    const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
-                                    const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
-                                    const c2 = col(val)
-                                    
-                                    return (
-                                      <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
-                                        <div className="avatar av-blue" style={{width:28, height:28, fontSize:10, flexShrink:0, background: isActive ? 'var(--accent)' : 'rgba(26,175,224,.1)'}}>
-                                          {(el.prenom[0]||'')+(el.nom[0]||'')}
-                                        </div>
-                                        <div style={{fontSize:11, width:110, flexShrink:0, fontWeight:600}}>{el.prenom} {el.nom}</div>
-                                        <div className="progress-wrap" style={{flex:1, height:6, background:'rgba(0,0,0,0.03)'}}>
-                                          <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
-                                        </div>
-                                        <span style={{fontSize:11, fontWeight:800, color:c2, width:75, textAlign:'right'}}>{lbl(val)}</span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              ))}
+                              {classEleves.map(el => {
+                                const cps = checkpoints.filter(cp => {
+                                  if (cp.classe_id && cp.periode_id) {
+                                    return cp.classe_id == selectedClasse?.id && cp.periode_id == selectedPeriode?.id
+                                  }
+                                  const p = planifications.find(pl => pl.id == cp.planification_id)
+                                  return p && p.classe_id == selectedClasse?.id && p.periode_id == selectedPeriode?.id
+                                }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
+                                
+                                let val = 0
+                                for (const cp of cps) {
+                                  const pr = cp.progressions?.find(p => p.eleve_id == el.id && p.objectif_id == obj.id)
+                                  if (pr) { val = pr.pourcentage; break }
+                                }
+                                
+                                const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
+                                const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
+                                const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
+                                const c2 = col(val)
+                                
+                                return (
+                                  <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
+                                    <div className="avatar av-blue" style={{width:28, height:28, fontSize:10, flexShrink:0, background: isActive ? 'var(--accent)' : 'rgba(26,175,224,.1)'}}>
+                                      {(el.prenom[0]||'')+(el.nom[0]||'')}
+                                    </div>
+                                    <div style={{fontSize:11, width:110, flexShrink:0, fontWeight:600}}>{el.prenom} {el.nom}</div>
+                                    <div className="progress-wrap" style={{flex:1, height:6, background:'rgba(0,0,0,0.03)'}}>
+                                      <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
+                                    </div>
+                                    <span style={{fontSize:11, fontWeight:800, color:c2, width:75, textAlign:'right'}}>{lbl(val)}</span>
+                                  </div>
+                                )
+                              })}
                             </div>
                           )}
                         </div>
@@ -615,9 +600,7 @@ export default function ProfApp({ user, onLogout }) {
                                           </div>
                                         </td>
                                         {cps.map(cp => {
-                                          const matO = mat.objectifs || []
-                                          const comps = matO.flatMap(o => o.competences || [])
-                                          const prs = cp.progressions?.filter(p => p.eleve_id == el.id && comps.some(co => co.id == p.competence_id)) || []
+                                          const prs = cp.progressions?.filter(p => p.eleve_id == el.id && mat.objectifs.some(obj => obj.id == p.objectif_id)) || []
                                           const avg = prs.length ? Math.round(prs.reduce((acc,p)=>acc + (p.pourcentage||0),0)/prs.length) : 0
                                           const c2 = col(avg)
                                           return <td key={cp.id} style={{padding:'10px 8px',textAlign:'center',fontWeight:700,color:c2}}>{avg>0 ? lbl(avg) : '—'}</td>
@@ -648,35 +631,28 @@ export default function ProfApp({ user, onLogout }) {
 
                             {isActive && (
                               <div style={{padding:'4px 16px 16px', borderTop:'1px solid var(--border)'}}>
-                                {obj.competences.length === 0 ? (
-                                  <div style={{padding:'1rem', fontSize:11, color:'var(--muted)', fontStyle:'italic', textAlign:'center'}}>Aucune compétence définie pour cet objectif.</div>
-                                ) : obj.competences.map(comp => (
-                                  <div key={comp.id} style={{padding:'10px 0', borderBottom: obj.competences.indexOf(comp) === obj.competences.length-1 ? 'none' : '1px solid var(--border)'}}>
-                                    <div style={{fontSize:12, fontWeight:700, marginBottom:8, color:'var(--muted)'}}>⭐ {comp.nom}</div>
-                                    {classEleves.map(el => {
-                                      let val = 0
-                                      for (const cp of [...cps].reverse()) {
-                                        const pr = cp.progressions?.find(p => p.eleve_id == el.id && p.competence_id == comp.id)
-                                        if (pr) { val = pr.pourcentage; break }
-                                      }
-                                      const c2 = col(val)
-                                      return (
-                                        <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:8, padding:'4px 0'}}>
-                                          <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0}}>
-                                            {(el.prenom[0]||'')+(el.nom[0]||'')}
-                                          </div>
-                                          <div style={{flex:1}}>
-                                            <div style={{fontSize:12, fontWeight:600, color:'var(--text)'}}>{el.prenom} {el.nom}</div>
-                                            <div className="progress-wrap" style={{width:'100%', height:5, background:'rgba(0,0,0,0.03)', marginTop:4}}>
-                                              <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
-                                            </div>
-                                          </div>
-                                          <span style={{fontSize:12, fontWeight:900, color:c2, width:80, textAlign:'right'}}>{lbl(val)}</span>
+                                {classEleves.map(el => {
+                                  let val = 0
+                                  for (const cp of [...cps].reverse()) {
+                                    const pr = cp.progressions?.find(p => p.eleve_id == el.id && p.objectif_id == obj.id)
+                                    if (pr) { val = pr.pourcentage; break }
+                                  }
+                                  const c2 = col(val)
+                                  return (
+                                    <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:8, padding:'4px 0'}}>
+                                      <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0}}>
+                                        {(el.prenom[0]||'')+(el.nom[0]||'')}
+                                      </div>
+                                      <div style={{flex:1}}>
+                                        <div style={{fontSize:12, fontWeight:600, color:'var(--text)'}}>{el.prenom} {el.nom}</div>
+                                        <div className="progress-wrap" style={{width:'100%', height:5, background:'rgba(0,0,0,0.03)', marginTop:4}}>
+                                          <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
                                         </div>
-                                      )
-                                    })}
-                                  </div>
-                                ))}
+                                      </div>
+                                      <span style={{fontSize:12, fontWeight:900, color:c2, width:80, textAlign:'right'}}>{lbl(val)}</span>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             )}
                           </div>
@@ -747,7 +723,7 @@ export default function ProfApp({ user, onLogout }) {
                           const moy = myProgs.length ? Math.round(myProgs.reduce((a,b)=>a+b.pourcentage,0)/myProgs.length) : null
                           const byDisc = {}
                           myProgs.forEach(pr => {
-                            const d = pr.objectifs?.discipline || 'General'
+                            const d = pr.objectifs?.matieres?.nom || 'General'
                             if (!byDisc[d]) byDisc[d] = []
                             byDisc[d].push(pr.pourcentage)
                           })
@@ -843,7 +819,7 @@ export default function ProfApp({ user, onLogout }) {
                           const lbR = (p) => psR ? (p>=87?'Bien acquis':p>=62?'Acquis':p>=37?"En cours d'acquisition":"Debut d'acquisition") : p+'%';
                           const moyR = progsR.length ? Math.round(progsR.reduce((a,b)=>a+b.pourcentage,0)/progsR.length) : null;
                           const byDiscR = {};
-                          progsR.forEach(pr => { const d = pr.objectifs?.discipline || 'General'; if (!byDiscR[d]) byDiscR[d] = []; byDiscR[d].push({pct: pr.pourcentage, desc: pr.objectifs?.description}); });
+                          progsR.forEach(pr => { const d = pr.objectifs?.matieres?.nom || 'General'; if (!byDiscR[d]) byDiscR[d] = []; byDiscR[d].push({pct: pr.pourcentage, desc: pr.objectifs?.nom}); });
                           const dateF = dateCp ? new Date(dateCp+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : '';
                           const nl = String.fromCharCode(10);
                           if (moyR !== null) {
