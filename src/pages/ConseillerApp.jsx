@@ -101,19 +101,19 @@ export default function ConseillerApp({ user, onLogout }) {
     const studentCps = checkpoints.filter(cp => cp.planification?.classe_id === eleve.classe_id)
     const classDevs = devoirs.filter(d => d.classe_id === eleve.classe_id)
     
-    let msg = `✨ *BILAN QUOTIDIEN - ÉCOLE IDEAL* ✨\n`
-    msg += `📅 *${today}*\n`
-    msg += `👤 Élève : *${eleve.prenom} ${eleve.nom}*\n`
-    msg += `━━━━━━━━━━━━━━━━━━━━\n\n`
+    let msg = `✨ * BILAN QUOTIDIEN - ÉCOLE IDEAL * ✨\n`
+    msg += `📅 * ${today} * \n`
+    msg += `👤 Élève : * ${eleve.prenom} ${eleve.nom} * \n`
+    msg += `--------------------------------------\n\n`
 
-    msg += `📍 *ASSIDUITÉ* : `
+    msg += `📍 * ASSIDUITÉ * : `
     if (!pres) msg += `Non renseigné\n`
     else if (pres.statut === 'present') msg += `✅ Présent(e)\n`
     else if (pres.statut === 'absent') msg += `❌ Absent(e)${pres.justification ? ` (Justifié: ${pres.justification})` : ' (Non justifié)'}\n`
     else msg += `⏰ Arrivée tardive (${pres.minutes_retard} min)\n`
     
-    msg += `\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`
-    msg += `🎓 *SITUATION PÉDAGOGIQUE*\n`
+    msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+    msg += `🎓 * SITUATION PÉDAGOGIQUE * \n`
     if (studentCps.length === 0) {
       msg += `- Travail régulier en classe ✅\n`
     } else {
@@ -121,23 +121,23 @@ export default function ConseillerApp({ user, onLogout }) {
         const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
         if (prog) {
           const stars = prog.pourcentage >= 80 ? '🌟' : prog.pourcentage >= 50 ? '📈' : '⚠️'
-          msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%* ${stars}\n`
+          msg += `- ${prog.objectifs?.nom || 'Leçon'} : * ${prog.pourcentage}% * ${stars}\n`
         }
       })
     }
 
     if (classDevs.length > 0) {
-      msg += `\n📝 *Travail à la maison* :\n`
+      msg += `\n📝 * Travail à la maison * :\n`
       classDevs.forEach(d => {
         msg += `> ${d.matiere} : ${d.description}\n`
         msg += `📅 _À rendre pour le : ${new Date(d.date_rendu).toLocaleDateString('fr-FR')}_\n`
       })
     } else {
-      msg += `\n📝 *Travail à la maison* :\n- Aucun devoir particulier ce soir.\n`
+      msg += `\n📝 * Travail à la maison * :\n- Aucun devoir particulier ce soir.\n`
     }
     
-    msg += `\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`
-    msg += `⚖️ *DISCIPLINE* :\n`
+    msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+    msg += `⚖️ * DISCIPLINE * :\n`
     if (disc.length === 0) {
       msg += `- RAS : Attitude exemplaire ! 🏅\n`
     } else {
@@ -145,11 +145,11 @@ export default function ConseillerApp({ user, onLogout }) {
         msg += `- ${d.motif} (-${d.points_perdus} pts)\n`
       })
     }
-    msg += `🛡️ Capital restant : *${eleve.points_discipline}/100*\n\n`
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`
+    msg += `🛡️ Capital restant : * ${eleve.points_discipline} / 100 * \n\n`
+    msg += `--------------------------------------\n`
     msg += `🚀 À demain pour de nouveaux progrès !\n_Administration IDEAL_`
     
-    const url = `https://wa.me/${eleve.parent_phone?.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(msg)}`
+    const url = `https://api.whatsapp.com/send?phone=${eleve.parent_phone?.replace(/[^\d+]/g, '')}&text=${encodeURIComponent(msg)}`
     window.open(url, '_blank')
   }
 
