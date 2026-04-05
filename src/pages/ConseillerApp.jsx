@@ -101,9 +101,9 @@ export default function ConseillerApp({ user, onLogout }) {
     const studentCps = checkpoints.filter(cp => cp.planification?.classe_id === eleve.classe_id)
     const classDevs = devoirs.filter(d => d.classe_id === eleve.classe_id)
     
-    let msg = `* BILAN QUOTIDIEN - ÉCOLE IDEAL *\n`
-    msg += `Date : * ${today} * \n`
-    msg += `Élève : * ${eleve.prenom} ${eleve.nom} * \n`
+    let msg = `*BILAN QUOTIDIEN - ÉCOLE IDEAL*\n`
+    msg += `Date : *${today}*\n`
+    msg += `Élève : *${eleve.prenom} ${eleve.nom}*\n`
     msg += `--------------------------------------\n\n`
 
     msg += `[ ASSIDUITÉ ] : `
@@ -113,14 +113,14 @@ export default function ConseillerApp({ user, onLogout }) {
     else msg += `ARRIVÉE TARDIVE (${pres.minutes_retard} min)\n`
     
     msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
-    msg += `* SITUATION PÉDAGOGIQUE *\n\n`
+    msg += `*SITUATION PÉDAGOGIQUE*\n\n`
     if (studentCps.length === 0) {
       msg += `- Travail régulier en classe\n`
     } else {
       studentCps.forEach(cp => {
         const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
         if (prog) {
-          msg += `- ${prog.objectifs?.nom || 'Leçon'} : * ${prog.pourcentage}% * \n`
+          msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%*\n`
         }
       })
     }
@@ -136,7 +136,7 @@ export default function ConseillerApp({ user, onLogout }) {
     }
     
     msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
-    msg += `* DISCIPLINE *\n`
+    msg += `*DISCIPLINE*\n`
     if (disc.length === 0) {
       msg += `- RAS : Attitude exemplaire !\n`
     } else {
@@ -144,7 +144,7 @@ export default function ConseillerApp({ user, onLogout }) {
         msg += `- ${d.motif} (-${d.points_perdus} pts)\n`
       })
     }
-    msg += `Capital restant : * ${eleve.points_discipline} / 100 * \n\n`
+    msg += `Capital restant : *${eleve.points_discipline}/100*\n\n`
     msg += `--------------------------------------\n`
     msg += `À demain pour de nouveaux progrès !\n_Administration IDEAL_`
     
