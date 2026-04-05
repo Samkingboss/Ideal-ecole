@@ -18,6 +18,7 @@ const TABS = [
   { id:'programme', icon:'📚', label:'Programme' },  { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
   { id:'classe', icon:'🏫', label:'Classe' },
+  { id:'discipline', icon:'⚖️', label:'Discipline' },
 ]
 
 const TOP_TABS = [
@@ -56,6 +57,14 @@ export default function ProfApp({ user, onLogout }) {
   const [joursOuvresForce, setJoursOuvresForce] = useState(null)
   const [preparations, setPreparations] = useState([])
   const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
+  // Discipline states
+  const [allEleves, setAllEleves] = useState([])
+  const [searchDisc, setSearchDisc] = useState('')
+  const [foundDiscEleves, setFoundDiscEleves] = useState([])
+  const [selectedDiscEleve, setSelectedDiscEleve] = useState(null)
+  const [discGravite, setDiscGravite] = useState('mineure')
+  const [discMotif, setDiscMotif] = useState('')
+  const [discLoading, setDiscLoading] = useState(false)
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { loadProgramme() }, [selectedClasse])
@@ -84,6 +93,10 @@ export default function ProfApp({ user, onLogout }) {
         supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
       ])
       setJoursOuvresForce(paramMois?.jours_ouvres || null)
+      // Load all students for global discipline search
+      const { data: allEl } = await supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom')
+      setAllEleves(allEl || [])
+      
       const uniquePeriods = (per || []).filter((v, i, a) => a.findIndex(t => t.nom === v.nom) === i);
       setPeriodes(uniquePeriods)
       
@@ -244,6 +257,27 @@ export default function ProfApp({ user, onLogout }) {
       alert("Erreur: " + e.message);
     }
     setLoading(false);
+  }
+
+  const reportIncident = async () => {
+    if (!selectedDiscEleve || !discMotif.trim()) return
+    setDiscLoading(true)
+    const { error } = await supabase.from('disciplines').insert({
+      eleve_id: selectedDiscEleve.id,
+      prof_id: user.id,
+      motif: discMotif,
+      gravite: discGravite,
+      statut: 'signalé'
+    })
+    if (error) {
+      alert('Erreur: ' + error.message)
+    } else {
+      alert('Incident signalé au surveillant !')
+      setDiscMotif('')
+      setSelectedDiscEleve(null)
+      setSearchDisc('')
+    }
+    setDiscLoading(false)
   }
 
   const openCheckpoint = () => {
@@ -666,7 +700,105 @@ export default function ProfApp({ user, onLogout }) {
           </>
         )}
 
-        {tab === 'classe' && (<><div className='section-head'><div className='section-title'>Stats de la classe</div></div>{(()=>{const cps=checkpoints.filter(cp=>{const p=planifications.find(pl=>pl.id===cp.planification_id);return p&&p.classe_id===selectedClasse?.id&&p.periode_id===selectedPeriode?.id;}).sort((a,b)=>b.date_checkpoint.localeCompare(a.date_checkpoint));const gm=(id)=>{for(const cp of cps){const pr=cp.progressions.filter(p=>p.eleve_id===id);if(pr.length){const v=pr.map(p=>p.pourcentage);return Math.round(v.reduce((a,b)=>a+b,0)/v.length);}}return null;};const ps=selectedClasse?.nom==='Petite Section'||selectedClasse?.nom==='Grande Section';const lb=(p)=>ps?(p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut'):p+'%';const gc=(p)=>p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)';const el2=classEleves.map(e=>({...e,moy:gm(e.id)})).sort((a,b)=>(b.moy||0)-(a.moy||0));const mc=el2.filter(e=>e.moy!==null).length?Math.round(el2.filter(e=>e.moy!==null).reduce((a,e)=>a+(e.moy||0),0)/el2.filter(e=>e.moy!==null).length):0;return(<><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:16,fontWeight:900,color:gc(mc)}}>{lb(mc)}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{el2.filter(e=>e.moy!==null&&e.moy>=75).length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div></div></div><div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}><div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase'}}>Classement</div>{el2.map((e,i)=>{const m=e.moy;const c2=m!==null?gc(m):'var(--muted)';return(<div key={e.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:18}}>{i+1}</div><div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#fff',flexShrink:0}}>{(e.prenom[0]||'')+(e.nom[0]||'')}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div>{m!==null&&<div style={{background:'var(--bg)',borderRadius:20,height:4,marginTop:4}}><div style={{height:'100%',width:m+'%',background:c2,borderRadius:20}}></div></div>}</div><div style={{fontSize:13,fontWeight:900,color:c2}}>{m!==null?lb(m):'—'}</div></div>);})}</div></>);})()}</>)} {tab === 'messages' && (
+        {tab === 'classe' && (<><div className='section-head'><div className='section-title'>Stats de la classe</div></div>{(()=>{const cps=checkpoints.filter(cp=>{const p=planifications.find(pl=>pl.id===cp.planification_id);return p&&p.classe_id===selectedClasse?.id&&p.periode_id===selectedPeriode?.id;}).sort((a,b)=>b.date_checkpoint.localeCompare(a.date_checkpoint));const gm=(id)=>{for(const cp of cps){const pr=cp.progressions.filter(p=>p.eleve_id===id);if(pr.length){const v=pr.map(p=>p.pourcentage);return Math.round(v.reduce((a,b)=>a+b,0)/v.length);}}return null;};const ps=selectedClasse?.nom==='Petite Section'||selectedClasse?.nom==='Grande Section';const lb=(p)=>ps?(p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut'):p+'%';const gc=(p)=>p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)';const el2=classEleves.map(e=>({...e,moy:gm(e.id)})).sort((a,b)=>(b.moy||0)-(a.moy||0));const mc=el2.filter(e=>e.moy!==null).length?Math.round(el2.filter(e=>e.moy!==null).reduce((a,e)=>a+(e.moy||0),0)/el2.filter(e=>e.moy!==null).length):0;return(<><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:16,fontWeight:900,color:gc(mc)}}>{lb(mc)}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{el2.filter(e=>e.moy!==null&&e.moy>=75).length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div></div></div><div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}><div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase'}}>Classement</div>{el2.map((e,i)=>{const m=e.moy;const c2=m!==null?gc(m):'var(--muted)';return(<div key={e.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:18}}>{i+1}</div><div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#fff',flexShrink:0}}>{(e.prenom[0]||'')+(e.nom[0]||'')}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div>{m!==null&&<div style={{background:'var(--bg)',borderRadius:20,height:4,marginTop:4}}><div style={{height:'100%',width:m+'%',background:c2,borderRadius:20}}></div></div>}</div><div style={{fontSize:13,fontWeight:900,color:c2}}>{m!==null?lb(m):'—'}</div></div>);})}</div></>);})()}</>)}        {tab === 'discipline' && (
+          <div className="section">
+            <div className="section-head">
+              <div className="section-title">⚖️ Discipline — Signaler un incident</div>
+            </div>
+            <div className="card" style={{padding:'1rem'}}>
+              <div className="form-group">
+                <label className="form-label">Chercher un élève (toutes classes)</label>
+                <div style={{display:'flex', gap:8}}>
+                  <input 
+                    className="form-input" 
+                    placeholder="Nom ou Prénom..." 
+                    value={searchDisc} 
+                    onChange={e => {
+                      const v = e.target.value
+                      setSearchDisc(v)
+                      if (v.length > 2) {
+                        const matched = allEleves.filter(el => 
+                          (el.prenom + ' ' + el.nom).toLowerCase().includes(v.toLowerCase())
+                        )
+                        setFoundDiscEleves(matched)
+                      } else {
+                        setFoundDiscEleves([])
+                      }
+                    }} 
+                  />
+                </div>
+                {foundDiscEleves.length > 0 && !selectedDiscEleve && (
+                  <div style={{marginTop:8, maxHeight:200, overflowY:'auto', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:10, position:'relative', zIndex:10}}>
+                    {foundDiscEleves.map(el => (
+                      <div 
+                        key={el.id} 
+                        onClick={() => { setSelectedDiscEleve(el); setFoundDiscEleves([]); setSearchDisc(el.prenom + ' ' + el.nom) }}
+                        style={{padding:12, borderBottom:'1px solid var(--border)', cursor:'pointer', fontSize:13, fontWeight:600}}
+                      >
+                        {el.prenom} {el.nom} <span style={{fontSize:11, color:'var(--muted)', float:'right'}}>{el.classes?.nom}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedDiscEleve && (
+                <div style={{marginTop:16, borderTop:'1px solid var(--border)', paddingTop:16}}>
+                  <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16}}>
+                    <div className="avatar av-blue" style={{width:40, height:40}}>{(selectedDiscEleve.prenom[0]||'')+(selectedDiscEleve.nom[0]||'')}</div>
+                    <div>
+                      <div style={{fontWeight:800}}>{selectedDiscEleve.prenom} {selectedDiscEleve.nom}</div>
+                      <div style={{fontSize:11, color:'var(--muted)'}}>Classe: {selectedDiscEleve.classes?.nom} • <b style={{color:'var(--accent)'}}>{selectedDiscEleve.points_discipline || 100} pts</b></div>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Gravité</label>
+                    <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+                      {['mineure','moyenne','grave','blâme','exclusion'].map(g => (
+                        <div 
+                          key={g} 
+                          onClick={() => setDiscGravite(g)}
+                          style={{
+                            flex:1, textAlign:'center', padding:'8px 4px', borderRadius:10, fontSize:10, fontWeight:700, cursor:'pointer', border:'1.5px solid '+(discGravite===g?'var(--accent)':'var(--border)'),
+                            background: discGravite===g ? 'rgba(26,175,224,.1)' : 'var(--bg)',
+                            color: discGravite===g ? 'var(--accent)' : 'var(--muted)',
+                            textTransform:'capitalize'
+                          }}
+                        >
+                          {g}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Description / Motif</label>
+                    <textarea 
+                      className="form-input" 
+                      rows={3} 
+                      placeholder="Que s'est-il passé ?" 
+                      value={discMotif}
+                      onChange={e => setDiscMotif(e.target.value)}
+                    />
+                  </div>
+
+                  <button 
+                    className="btn btn-primary" 
+                    style={{width:'100%', padding:12}} 
+                    onClick={reportIncident}
+                    disabled={discLoading || !discMotif.trim()}
+                  >
+                    {discLoading ? 'Envoi...' : 'Signaler au surveillant'}
+                  </button>
+                  <button className="btn-cancel" style={{width:'100%', marginTop:8}} onClick={() => setSelectedDiscEleve(null)}>Annuler</button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'messages' && (
           <>
             <div className="section-head"><div className="section-title">Messages parents</div></div>
             {!msgPreview ? (

@@ -34,12 +34,13 @@ export default function DirecteurApp({ user, onLogout }) {
   const [syntheseData, setSyntheseData] = useState([])
   const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
   const [activeEleveClass, setActiveEleveClass] = useState(null)
+  const [disciplines, setDisciplines] = useState([])
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
     const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: ev }, { data: docs }, { data: param }, { data: prep }, { data: cp }, { data: pc }] = await Promise.all([
+    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: ev }, { data: docs }, { data: param }, { data: prep }, { data: cp }, { data: pc }, { data: disc }] = await Promise.all([
       supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
       supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
       supabase.from('classes').select('*').order('ordre'),
@@ -49,8 +50,10 @@ export default function DirecteurApp({ user, onLogout }) {
       supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle(),
       supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false }),
       supabase.from('checkpoints').select('*'),
-      supabase.from('prof_classes').select('*')
+      supabase.from('prof_classes').select('*'),
+      supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false })
     ])
+    setDisciplines(disc || [])
     if (param) setJoursOuvresGlobal(param.jours_ouvres);
     setPreparations(prep || [])
 
@@ -232,6 +235,27 @@ export default function DirecteurApp({ user, onLogout }) {
               <div className="kpi-card kpi-amber"><div className="kpi-value">{stats.checkpoints}</div><div className="kpi-label">Check-points</div></div>
               <div className="kpi-card kpi-pink"><div className="kpi-value">{classes.length}</div><div className="kpi-label">Classes</div></div>
             </div>
+
+            {/* Alerts / Notifications for Discipline */}
+            {disciplines.some(d => (d.gravite === 'grave' || d.gravite === 'blâme' || d.gravite === 'exclusion') && d.statut === 'signalé') && (
+              <div className="card" style={{borderLeft:'4px solid var(--red)', marginBottom:20}}>
+                <div className="card-header" style={{background:'rgba(255,0,0,0.05)', color:'var(--red)', fontWeight:900, fontSize:12, padding:'8px 16px'}}>
+                  ⚠️ ALERTES DISCIPLINE (GRAVE)
+                </div>
+                <div style={{padding:'1rem'}}>
+                  {disciplines.filter(d => (d.gravite === 'grave' || d.gravite === 'blâme' || d.gravite === 'exclusion') && d.statut === 'signalé').map(d => (
+                    <div key={d.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--border)'}}>
+                      <div>
+                        <div style={{fontSize:13, fontWeight:800}}>{d.eleves?.prenom} {d.eleves?.nom} ({d.eleves?.classes?.nom})</div>
+                        <div style={{fontSize:11, color:'var(--muted)'}}>Motif: <span style={{color:'var(--text)'}}>{d.motif}</span></div>
+                        <div style={{fontSize:10, color:'var(--muted)', marginTop:4}}>Signale par: {d.users?.prenom} {d.users?.nom}</div>
+                      </div>
+                      <div className="chip chip-red" style={{fontSize:9}}>{d.gravite}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div className="card">
               <div className="card-header">Activités récentes (Préparations)</div>
