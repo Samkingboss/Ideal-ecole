@@ -219,8 +219,10 @@ export default function ConseillerApp({ user, onLogout }) {
                     <button className="btn-sm" style={{flex:1, background:p.statut==='present'?'var(--green)':'#eee', color:p.statut==='present'?'#fff':'#333'}} onClick={()=>markPresence(el.id,'present')}>P</button>
                     <button className="btn-sm" style={{flex:1, background:p.statut==='absent'?'var(--red)':'#eee', color:p.statut==='absent'?'#fff':'#333'}} onClick={()=>markPresence(el.id,'absent')}>A</button>
                     <button className="btn-sm" style={{flex:1, background:p.statut==='retard'?'var(--amber)':'#eee', color:p.statut==='retard'?'#fff':'#333'}} onClick={()=>{
-                      const min = prompt('Minutes de retard ?', p.minutes_retard || 15)
-                      if (min !== null) markPresence(el.id, 'retard', parseInt(min))
+                      const now = new Date()
+                      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0)
+                      const diff = Math.max(0, Math.floor((now - start) / 60000))
+                      markPresence(el.id, 'retard', diff)
                     }}>R {p.minutes_retard ? `(${p.minutes_retard}')` : ''}</button>
                   </div>
                 </div>
