@@ -16,11 +16,18 @@ const RECREE_CHECKS = [
 
 export default function SurveillantApp({ user, onLogout }) {
   const [saving, setSaving] = useState(false)
+  const [tab, setTab] = useState('pointage')
+  const [profs, setProfs] = useState([])
+  const [performances, setPerformances] = useState({})
+  const [preparations, setPreparations] = useState({})
+  
   // Discipline states
   const [disciplines, setDisciplines] = useState([])
   const [eleves, setEleves] = useState([])
   const [selectedIncident, setSelectedIncident] = useState(null)
   const [sanctionForm, setSanctionForm] = useState({ pts: 0, type: 'retenue', duree: 10, details: '' })
+
+  const today = new Date().toISOString().slice(0, 10)
 
   useEffect(() => { loadData() }, [])
 
