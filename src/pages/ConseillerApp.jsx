@@ -59,13 +59,14 @@ export default function ConseillerApp({ user, onLogout }) {
     setLoading(false)
   }
 
-  const markPresence = async (eleveId, statut, minutes = 0) => {
+  const markPresence = async (eleveId, statut, minutes = 0, justification = null) => {
     const today = new Date().toISOString().slice(0, 10)
     const { data, error } = await supabase.from('presences_eleves').upsert({
       eleve_id: eleveId,
       date_jour: today,
       statut,
-      minutes_retard: minutes
+      minutes_retard: minutes,
+      justification
     }, { onConflict: 'eleve_id, date_jour' }).select().single()
 
     if (!error) {
@@ -86,7 +87,7 @@ export default function ConseillerApp({ user, onLogout }) {
     msg += `📍 *Assiduité* : `
     if (!pres) msg += `Non renseigné\n`
     else if (pres.statut === 'present') msg += `✅ Présent(e)\n`
-    else if (pres.statut === 'absent') msg += `❌ Absent(e)\n`
+    else if (pres.statut === 'absent') msg += `❌ Absent(e)${pres.justification ? ` (Justifié: ${pres.justification})` : ' (Non justifié)'}\n`
     else msg += `⏰ Arrivée tardive (${pres.minutes_retard} min)\n`
     msg += `\n`
 
@@ -217,7 +218,10 @@ export default function ConseillerApp({ user, onLogout }) {
                   </div>
                   <div style={{display:'flex', gap:6}}>
                     <button className="btn-sm" style={{flex:1, background:p.statut==='present'?'var(--green)':'#eee', color:p.statut==='present'?'#fff':'#333'}} onClick={()=>markPresence(el.id,'present')}>P</button>
-                    <button className="btn-sm" style={{flex:1, background:p.statut==='absent'?'var(--red)':'#eee', color:p.statut==='absent'?'#fff':'#333'}} onClick={()=>markPresence(el.id,'absent')}>A</button>
+                    <button className="btn-sm" style={{flex:1, background:p.statut==='absent'?'var(--red)':'#eee', color:p.statut==='absent'?'#fff':'#333'}} onClick={()=>{
+                      const motif = prompt('Motif de l\'absence ? (Laisser vide si non justifiée)')
+                      markPresence(el.id, 'absent', 0, motif)
+                    }}>A</button>
                     <button className="btn-sm" style={{flex:1, background:p.statut==='retard'?'var(--amber)':'#eee', color:p.statut==='retard'?'#fff':'#333'}} onClick={()=>{
                       const now = new Date()
                       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0)
