@@ -362,6 +362,25 @@ export default function SurveillantApp({ user, onLogout }) {
               {el.points_discipline <= 20 && <span className="chip chip-red" style={{fontSize:9}}>⚠️ SAMEDI</span>}
             </div>
           ))}
+
+          <div className="card-header" style={{background:'transparent', padding:'20px 0 10px 4px', fontSize:12, fontWeight:800}}>📜 Historique des Sanctions</div>
+          {disciplines.filter(d => d.statut === 'validé').length === 0 ? (
+            <div style={{fontSize:11, color:'var(--muted)', textAlign:'center', padding:20}}>Aucun historique.</div>
+          ) : disciplines.filter(d => d.statut === 'validé').slice(0, 20).map(d => (
+            <div key={d.id} className="card" style={{marginBottom:8, padding:12, opacity:0.8}}>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                <span style={{fontSize:12, fontWeight:700}}>{d.eleves?.prenom} {d.eleves?.nom}</span>
+                <span style={{fontSize:10, color:'var(--red)', fontWeight:800}}>-{d.points_perdus} pts</span>
+              </div>
+              <div style={{fontSize:10, color:'var(--muted)'}}>Motif: {d.motif}</div>
+              <div style={{fontSize:10, marginTop:4, color:'var(--accent)', fontWeight:600}}>
+                Punition: {d.sanction_type} {d.sanction_duree ? `(${d.sanction_duree} min)` : ''}
+              </div>
+              <div style={{fontSize:9, color:'var(--muted)', marginTop:4, textAlign:'right'}}>
+                Validé le {new Date(d.created_at).toLocaleDateString('fr-FR')} à {new Date(d.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -10,6 +10,7 @@ const TABS = [
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'perfs', icon:'⭐', label:'Performances' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
+  { id:'discipline', icon:'⚖️', label:'Discipline' },
 ]
 
 export default function DirecteurApp({ user, onLogout }) {
@@ -427,6 +428,49 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               )
             })}
+          </>
+        )}
+
+        {tab === 'discipline' && (
+          <>
+            <div className="section-head"><div className="section-title">⚖️ Registre de Discipline</div></div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
+              <div className="kpi-card kpi-pink" style={{padding:15}}>
+                <div style={{fontSize:24, fontWeight:900}}>{eleves.filter(e => e.points_discipline <= 20).length}</div>
+                <div style={{fontSize:11}}>Élèves sous le seuil critique (Samedi)</div>
+              </div>
+              <div className="kpi-card kpi-amber" style={{padding:15}}>
+                <div style={{fontSize:24, fontWeight:900}}>{eleves.filter(e => e.points_discipline < 100).length}</div>
+                <div style={{fontSize:11}}>Total élèves avec signalements</div>
+              </div>
+            </div>
+
+            <div className="card-header" style={{background:'transparent', padding:'0 0 10px 4px', fontSize:13, fontWeight:800}}>📜 Historique des Sanctions (Toutes classes)</div>
+            {disciplines.length === 0 ? (
+              <div className="empty-state">Aucun incident enregistré.</div>
+            ) : disciplines.map(d => (
+              <div key={d.id} className="card" style={{marginBottom:10, padding:15, borderLeft: `4px solid ${d.statut==='validé'?'#4caf50':'#ff9800'}`}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+                  <div>
+                    <span style={{fontSize:14, fontWeight:800}}>{d.eleves?.prenom} {d.eleves?.nom}</span>
+                    <div style={{fontSize:11, color:'var(--muted)'}}>Classe: {d.eleves?.classes?.nom}</div>
+                  </div>
+                  <div className={`chip ${d.statut==='validé'?'chip-green':'chip-amber'}`}>{d.statut === 'validé' ? 'Validé' : 'En attente'}</div>
+                </div>
+                <div style={{background:'rgba(0,0,0,0.03)', padding:10, borderRadius:10, fontSize:12, marginBottom:10}}>
+                  <b>Motif:</b> {d.motif}
+                  {d.statut === 'validé' && (
+                    <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed #ccc', color:'var(--accent)', fontWeight:600}}>
+                      Sanction: {d.sanction_type} {d.sanction_duree ? `(${d.sanction_duree} min)` : ''} - Détails: {d.sanction_details || 'RAS'}
+                    </div>
+                  )}
+                </div>
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:10, color:'var(--muted)'}}>
+                  <span>Prof: {(d.users?.prenom || '') + ' ' + (d.users?.nom || '')}</span>
+                  <span>{new Date(d.created_at).toLocaleDateString('fr-FR')} {new Date(d.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span>
+                </div>
+              </div>
+            ))}
           </>
         )}
       </div>
