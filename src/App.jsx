@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import DirecteurApp from './pages/DirecteurApp'
 import ProfApp from './pages/ProfApp'
 import SurveillantApp from './pages/SurveillantApp'
+import ConseillerApp from './pages/ConseillerApp'
 import './App.css'
 
 export default function App() {
@@ -37,5 +38,6 @@ export default function App() {
   if (user.role === 'directeur') return <DirecteurApp user={user} onLogout={handleLogout} />
   if (user.role === 'professeur') return <ProfApp user={user} onLogout={handleLogout} />
   if (user.role === 'surveillant') return <SurveillantApp user={user} onLogout={handleLogout} />
+  if (user.role === 'conseiller_vie_scolaire') return <ConseillerApp user={user} onLogout={handleLogout} />
   return <LoginPage onLogin={handleLogin} />
 }

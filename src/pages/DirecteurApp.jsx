@@ -447,6 +447,7 @@ export default function DirecteurApp({ user, onLogout }) {
               <select className="form-select" value={newProf.role} onChange={e=>setNewProf({...newProf,role:e.target.value})}>
                 <option value="professeur">Professeur / Enseignant</option>
                 <option value="surveillant">Surveillant</option>
+                <option value="conseiller_vie_scolaire">Conseiller Vie Scolaire</option>
               </select>
             </div>
 
@@ -517,6 +518,10 @@ export default function DirecteurApp({ user, onLogout }) {
               <select className="form-select" value={newEleve.classe_id} onChange={e=>setNewEleve({...newEleve,classe_id:e.target.value})}>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
               </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Téléphone Parent (WhatsApp)</label>
+              <input className="form-input" value={newEleve.parent_phone} onChange={e=>setNewEleve({...newEleve,parent_phone:e.target.value})} placeholder="+223..." />
             </div>
             <button className="btn btn-primary" onClick={saveEleve} disabled={loading}>{loading?'...':'Ajouter'}</button>
             <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
