@@ -104,52 +104,66 @@ export default function ConseillerApp({ user, onLogout }) {
     let msg = `*BILAN QUOTIDIEN - ÉCOLE IDEAL*\n`
     msg += `Date : *${today}*\n`
     msg += `Élève : *${eleve.prenom} ${eleve.nom}*\n`
-    msg += `--------------------------------------\n\n`
+    msg += `--------------------------------------\n`
 
-    msg += `[ ASSIDUITÉ ] : `
+    // 1. SECTION ASSIDUITÉ (Toujours obligatoire)
+    msg += `\n[ ASSIDUITÉ ] : `
     if (!pres) msg += `Non renseigné\n`
     else if (pres.statut === 'present') msg += `PRESENT(E)\n`
     else if (pres.statut === 'absent') msg += `ABSENT(E)${pres.justification ? ` (Justifié: ${pres.justification})` : ' (Non justifié)'}\n`
     else msg += `ARRIVÉE TARDIVE (${pres.minutes_retard} min)\n`
     
-    msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
-    msg += `*SITUATION PÉDAGOGIQUE*\n\n`
-    if (studentCps.length === 0) {
-      msg += `- Travail régulier en classe\n`
-    } else {
-      studentCps.forEach(cp => {
-        const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
-        if (prog) {
-          msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%*\n`
-        }
-      })
-    }
+    // 2. SECTION PÉDAGOGIQUE (Conditionnelle)
+    const hasPedaResults = studentCps.some(cp => cp.progressions?.some(p => p.eleve_id === eleve.id))
+    const hasHomework = classDevs.length > 0
+    if (hasPedaResults || hasHomework) {
+      msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+      msg += `*SITUATION PÉDAGOGIQUE*\n\n`
+      
+      if (hasPedaResults) {
+        studentCps.forEach(cp => {
+          const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
+          if (prog) {
+            msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%*\n`
+          }
+        })
+      } else if (hasHomework) {
+        msg += `- Voir travail à la maison ci-dessous\n`
+      }
 
-    if (classDevs.length > 0) {
-      msg += `\n[ TRAVAIL À LA MAISON ] :\n`
-      classDevs.forEach(d => {
-        msg += `> ${d.matiere} : ${d.description}\n`
-        msg += `A rendre pour le : ${new Date(d.date_rendu).toLocaleDateString('fr-FR')}\n`
-      })
-    } else {
-      msg += `\n[ TRAVAIL À LA MAISON ] :\n- Aucun devoir particulier ce soir.\n`
+      if (hasHomework) {
+        msg += `\n[ TRAVAIL À LA MAISON ] :\n`
+        classDevs.forEach(d => {
+          msg += `> ${d.matiere} : ${d.description}\n`
+          msg += `A rendre pour le : ${new Date(d.date_rendu).toLocaleDateString('fr-FR')}\n`
+        })
+      }
     }
     
-    msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
-    msg += `*DISCIPLINE*\n`
-    if (disc.length === 0) {
-      msg += `- RAS : Attitude exemplaire !\n`
-    } else {
+    // 3. SECTION DISCIPLINE (Conditionnelle)
+    if (disc.length > 0) {
+      msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+      msg += `*DISCIPLINE*\n`
       disc.forEach(d => {
         msg += `- ${d.motif} (-${d.points_perdus} pts)\n`
       })
+      msg += `Capital restant : *${eleve.points_discipline}/100*\n`
     }
-    msg += `Capital restant : *${eleve.points_discipline}/100*\n\n`
-    msg += `--------------------------------------\n`
+    
+    msg += `\n--------------------------------------\n`
     msg += `À demain pour de nouveaux progrès !\n_Administration IDEAL_`
     
     const url = `https://api.whatsapp.com/send?phone=${eleve.parent_phone?.replace(/[^\d+]/g, '')}&text=${encodeURIComponent(msg)}`
     window.open(url, '_blank')
+  }
+
+  const hasDailyInfo = (el) => {
+    // Info si : Absence/Retard OU Discipline OU Note
+    const p = presences[el.id]
+    if (p && p.statut !== 'present') return true
+    if (disciplines.some(d => d.eleve_id === el.id)) return true
+    if (checkpoints.some(cp => cp.progressions?.some(pr => pr.eleve_id === el.id))) return true
+    return false
   }
 
   return (
@@ -275,22 +289,43 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'bilans' && (
           <>
             <div className="section-head">
-              <div className="section-title">Envoi des Bilans</div>
+              <div className="section-title">Bilans (Informations du jour)</div>
               <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
               </select>
             </div>
-            {eleves.filter(e => e.classe_id === selectedClass).map(el => (
-              <div key={el.id} className="card" style={{marginBottom:10, padding:12, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <div>
-                  <div style={{fontWeight:700}}>{el.prenom} {el.nom}</div>
-                  <div style={{fontSize:10, color:'var(--muted)'}}>Tél: {el.parent_phone || 'Non renseigné'}</div>
-                </div>
-                <button className="btn-sm" style={{background:'#25D366', color:'#fff', border:'none'}} onClick={()=>generateCartography(el)} disabled={!el.parent_phone}>
-                  Envoyer 📲
-                </button>
+            
+            <div style={{fontSize:11, color:'var(--muted)', marginBottom:15, padding:'0 5px'}}>
+              Note: Seuls les élèves ayant eu un événement (Retard, Absence, Discipline ou Note) s'affichent ici.
+            </div>
+
+            {eleves.filter(e => e.classe_id === selectedClass && hasDailyInfo(e)).length === 0 ? (
+              <div className="card" style={{padding:'2rem', textAlign:'center', color:'var(--muted)', borderRadius:16, border:'1px dashed var(--border)'}}>
+                Aucun élève à bilan pour cette classe aujourd'hui. ✅
               </div>
-            ))}
+            ) : (
+              eleves.filter(e => e.classe_id === selectedClass && hasDailyInfo(e)).map(el => (
+                <div key={el.id} className="card" style={{marginBottom:10, padding:12, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800}}>{el.prenom} {el.nom}</div>
+                    <div style={{display:'flex', gap:6, marginTop:4}}>
+                      {presences[el.id]?.statut !== 'present' && presences[el.id] && (
+                        <span style={{fontSize:8, background:'rgba(237,28,36,0.1)', color:'var(--red)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS PRESENCE</span>
+                      )}
+                      {disciplines.some(d => d.eleve_id === el.id) && (
+                        <span style={{fontSize:8, background:'rgba(247,148,29,0.1)', color:'var(--amber)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS DISCIPLINE</span>
+                      )}
+                      {checkpoints.some(cp => cp.progressions?.some(p => p.eleve_id === el.id)) && (
+                        <span style={{fontSize:8, background:'rgba(141,198,63,0.1)', color:'var(--green)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS NOTES</span>
+                      )}
+                    </div>
+                  </div>
+                  <button className="btn-sm" style={{background:'#25D366', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 15px'}} onClick={()=>generateCartography(el)} disabled={!el.parent_phone}>
+                    Envoyer 📲
+                  </button>
+                </div>
+              ))
+            )}
           </>
         )}
       </div>
