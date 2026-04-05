@@ -39,62 +39,71 @@ export default function DirecteurApp({ user, onLogout }) {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [{ data: u }, { data: el }, { data: cl }, { data: per }, { data: ev }, { data: docs }, { data: param }, { data: prep }, { data: cp }, { data: pc }, { data: disc }] = await Promise.all([
-      supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
-      supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
-      supabase.from('classes').select('*').order('ordre'),
-      supabase.from('periodes').select('*').order('ordre'),
-      supabase.from('evenements').select('*').order('date_event', { ascending: true }),
-      supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
-      supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle(),
-      supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false }),
-      supabase.from('checkpoints').select('*'),
-      supabase.from('prof_classes').select('*'),
-      supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false })
-    ])
-    setDisciplines(disc || [])
-    if (param) setJoursOuvresGlobal(param.jours_ouvres);
-    setPreparations(prep || [])
+    try {
+      const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const results = await Promise.all([
+        supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
+        supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
+        supabase.from('classes').select('*').order('ordre'),
+        supabase.from('periodes').select('*').order('ordre'),
+        supabase.from('evenements').select('*').order('date_event', { ascending: true }),
+        supabase.from('documents').select('*').eq('type', 'calendrier').order('created_at', { ascending: false }).limit(1),
+        supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle(),
+        supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false }),
+        supabase.from('checkpoints').select('*'),
+        supabase.from('prof_classes').select('*'),
+        supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false })
+      ])
 
-    setProfs(u || [])
-    setEleves(el || [])
-    setClasses(cl || [])
-    setPlanifications([])
-    setEvenements(ev || [])
-    if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
-    setStats({ profs: (u||[]).length, eleves: (el||[]).length, checkpoints: (cp||[]).length })
-    setCheckpoints(cp || [])
-    
-    // Enrich profs with classes
-    const enrichedProfs = (u || []).map(p => ({
-      ...p,
-      classe_ids: (pc || []).filter(link => link.user_id === p.id).map(link => link.classe_id)
-    }))
-    setProfs(enrichedProfs)
-    
-    if (cl && cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
+      const u = results[0].data || []
+      const el = results[1].data || []
+      const cl = results[2].data || []
+      const ev = results[4].data || []
+      const docs = results[5].data || []
+      const param = results[6].data
+      const prep = results[7].data || []
+      const cp = results[8].data || []
+      const pc = results[9].data || []
+      const disc = results[10].data || []
 
-    // Load curriculum data for synthesis
-    const { data: allMats } = await supabase.from('matieres').select('*, objectifs(*)')
-    const { data: allProgs } = await supabase.from('progressions').select('*, eleves(classe_id), objectifs(id)')
-    
-    // Group analysis
-    const analysis = []
-    cl.forEach(c => {
-      const cMats = (allMats || []).filter(m => m.classe_id === c.id)
-      const cProgs = (allProgs || []).filter(p => p.eleves?.classe_id === c.id)
+      setDisciplines(disc)
+      if (param) setJoursOuvresGlobal(param.jours_ouvres);
+      setPreparations(prep)
+
+      setEleves(el)
+      setClasses(cl)
+      setEvenements(ev)
+      if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
+      setStats({ profs: u.length, eleves: el.length, checkpoints: cp.length })
+      setCheckpoints(cp)
       
-      const matStats = cMats.map(m => {
-        const mObjIds = (m.objectifs || []).map(o => o.id)
-        const mProgs = cProgs.filter(p => mObjIds.includes(p.objectif_id))
-        const avg = mProgs.length ? Math.round(mProgs.reduce((acc,p)=>acc+p.pourcentage,0)/mProgs.length) : 0
-        return { nom: m.nom, avg }
-      }).sort((a,b) => b.avg - a.avg)
+      const enrichedProfs = u.map(p => ({
+        ...p,
+        classe_ids: pc.filter(link => link.user_id === p.id).map(link => link.classe_id)
+      }))
+      setProfs(enrichedProfs)
       
-      analysis.push({ classe: c.nom, stats: matStats })
-    })
-    setSyntheseData(analysis)
+      if (cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
+
+      const { data: allMats } = await supabase.from('matieres').select('*, objectifs(*)')
+      const { data: allProgs } = await supabase.from('progressions').select('*, eleves(classe_id), objectifs(id)')
+      
+      const analysis = []
+      cl.forEach(c => {
+        const cMats = (allMats || []).filter(m => m.classe_id === c.id)
+        const cProgs = (allProgs || []).filter(p => p.eleves?.classe_id === c.id)
+        const matStats = cMats.map(m => {
+          const mObjIds = (m.objectifs || []).map(o => o.id)
+          const mProgs = cProgs.filter(p => mObjIds.includes(p.objectif_id))
+          const avg = mProgs.length ? Math.round(mProgs.reduce((acc,p)=>acc+p.pourcentage,0)/mProgs.length) : 0
+          return { nom: m.nom, avg }
+        }).sort((a,b) => b.avg - a.avg)
+        analysis.push({ classe: c.nom, stats: matStats })
+      })
+      setSyntheseData(analysis)
+    } catch (e) {
+      console.error('Error loading data:', e)
+    }
   }
 
   const generateCode = () => {
@@ -106,52 +115,47 @@ export default function DirecteurApp({ user, onLogout }) {
 
   const saveProf = async () => {
     setLoading(true)
-    const code = newProf.code_acces || generateCode()
-    const { data: userData, error } = await supabase.from('users').upsert({ 
-      id: newProf.id || undefined,
-      prenom: newProf.prenom, 
-      nom: newProf.nom, 
-      role: newProf.role, 
-      langue: newProf.langue, 
-      code_acces: code, 
-      plafond_salaire: newProf.plafond_salaire,
-      actif: true 
-    }, { onConflict: 'id' }).select().single()
+    try {
+      const code = newProf.code_acces || generateCode()
+      const { data: userData, error } = await supabase.from('users').upsert({ 
+        id: newProf.id || undefined,
+        prenom: newProf.prenom, 
+        nom: newProf.nom, 
+        role: newProf.role, 
+        langue: newProf.langue, 
+        code_acces: code, 
+        plafond_salaire: newProf.plafond_salaire,
+        actif: true 
+      }, { onConflict: 'id' }).select().single()
 
-    if (error) { 
-      setMsg('Erreur: ' + error.message) 
-    } else {
-      if (newProf.role === 'professeur') {
-        // Clear old links
-        console.log('[DEBUG] Nettoyage anciens liens pour user:', userData.id)
-        await supabase.from('prof_classes').delete().eq('user_id', userData.id)
-        // Insert new links
-        if (newProf.classe_ids?.length > 0) {
-          const links = newProf.classe_ids.map(cid => ({ 
-            user_id: userData.id, 
-            classe_id: cid,
-            langue: newProf.langue || 'fr'
-          }))
-          console.log('[DEBUG] Insertion nouveaux liens:', links)
-          const { error: linkErr } = await supabase.from('prof_classes').insert(links)
-          if (linkErr) {
-            console.error('[DEBUG] Erreur liens:', linkErr)
-            alert("Erreur de sauvegarde des classes : " + linkErr.message + " (" + linkErr.code + "). Détails: " + JSON.stringify(linkErr.details || linkErr.hint))
-            setMsg('Le compte a été créé mais les classes n\'ont pas pu être attribuées. Vérifiez la base de données.')
-          } else {
-            setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
+      if (error) { 
+        setMsg('Erreur: ' + error.message) 
+      } else if (userData) {
+        if (newProf.role === 'professeur') {
+          await supabase.from('prof_classes').delete().eq('user_id', userData.id)
+          if (newProf.classe_ids?.length > 0) {
+            const links = newProf.classe_ids.map(cid => ({ 
+              user_id: userData.id, 
+              classe_id: cid,
+              langue: newProf.langue || 'fr'
+            }))
+            const { error: linkErr } = await supabase.from('prof_classes').insert(links)
+            if (linkErr) {
+              alert("Classes non sauvées: " + linkErr.message)
+            }
           }
-        } else {
-          setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
         }
-      } else {
         setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
+        await loadData()
+        setShowModal(null)
+        setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', code_access:'', plafond_salaire: 180000, classe_ids: [] })
       }
-      await loadData()
-      setShowModal(null)
-      setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
+    } catch (e) {
+      console.error(e)
+      setMsg('Erreur imprévue')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const saveJoursOuvres = async () => {
