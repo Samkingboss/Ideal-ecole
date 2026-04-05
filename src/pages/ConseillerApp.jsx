@@ -25,7 +25,7 @@ export default function ConseillerApp({ user, onLogout }) {
       { data: cp },
       { data: pres }
     ] = await Promise.all([
-      supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom'),
+      supabase.from('eleves').select('*, classes!eleves_classe_id_fkey(nom)').eq('actif', true).order('nom'),
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('disciplines').select('*, users!prof_id(prenom, nom)').eq('date_incident', today),
       supabase.from('checkpoints').select('*, planification:planifications(classe_id), progressions(eleve_id, pourcentage, objectifs(nom))').eq('date_checkpoint', today),
@@ -42,13 +42,15 @@ export default function ConseillerApp({ user, onLogout }) {
     setPresences(pMap)
     
     if (cl && cl.length > 0 && !selectedClass) setSelectedClass(cl[0].id)
+    if (cl && cl.length > 0 && !newEleve.classe_id) setNewEleve(prev => ({ ...prev, classe_id: cl[0].id }))
     setLoading(false)
   }
 
   const saveEleve = async (e) => {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.from('eleves').upsert(newEleve)
+    console.log('[DEBUG] Enregistrement élève:', newEleve)
+    const { error } = await supabase.from('eleves').insert([newEleve])
     if (!error) {
       setShowModal(null)
       setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', adresse:'', photo_url:'', classe_id:'' })
