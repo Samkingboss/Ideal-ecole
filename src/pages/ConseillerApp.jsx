@@ -8,6 +8,7 @@ export default function ConseillerApp({ user, onLogout }) {
   const [disciplines, setDisciplines] = useState([])
   const [checkpoints, setCheckpoints] = useState([])
   const [presences, setPresences] = useState({})
+  const [devoirs, setDevoirs] = useState([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(null)
   const [selectedClass, setSelectedClass] = useState(null)
@@ -23,19 +24,22 @@ export default function ConseillerApp({ user, onLogout }) {
       { data: cl },
       { data: disc },
       { data: cp },
-      { data: pres }
+      { data: pres },
+      { data: dev }
     ] = await Promise.all([
       supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom'),
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('disciplines').select('*, users!prof_id(prenom, nom)').eq('date_incident', today),
       supabase.from('checkpoints').select('*, planification:planifications(classe_id), progressions(eleve_id, pourcentage, objectifs(nom))').eq('date_checkpoint', today),
-      supabase.from('presences_eleves').select('*').eq('date_jour', today)
+      supabase.from('presences_eleves').select('*').eq('date_jour', today),
+      supabase.from('devoirs').select('*').gte('date_rendu', today)
     ])
     
     setEleves(el || [])
     setClasses(cl || [])
     setDisciplines(disc || [])
     setCheckpoints(cp || [])
+    setDevoirs(dev || [])
     
     const pMap = {}
     ;(pres || []).forEach(p => { pMap[p.eleve_id] = p })
@@ -95,37 +99,55 @@ export default function ConseillerApp({ user, onLogout }) {
     const pres = presences[eleve.id]
     const disc = disciplines.filter(d => d.eleve_id === eleve.id)
     const studentCps = checkpoints.filter(cp => cp.planification?.classe_id === eleve.classe_id)
+    const classDevs = devoirs.filter(d => d.classe_id === eleve.classe_id)
     
-    let msg = `✨ *Bilan Quotidien - IDEAL École* ✨\n`
+    let msg = `✨ *BILAN QUOTIDIEN - ÉCOLE IDEAL* ✨\n`
     msg += `📅 *${today}*\n`
-    msg += `👤 Élève : *${eleve.prenom} ${eleve.nom}*\n\n`
+    msg += `👤 Élève : *${eleve.prenom} ${eleve.nom}*\n`
+    msg += `━━━━━━━━━━━━━━━━━━━━\n\n`
 
-    msg += `📍 *Assiduité* : `
+    msg += `📍 *ASSIDUITÉ* : `
     if (!pres) msg += `Non renseigné\n`
     else if (pres.statut === 'present') msg += `✅ Présent(e)\n`
     else if (pres.statut === 'absent') msg += `❌ Absent(e)${pres.justification ? ` (Justifié: ${pres.justification})` : ' (Non justifié)'}\n`
     else msg += `⏰ Arrivée tardive (${pres.minutes_retard} min)\n`
-    msg += `\n`
-
-    msg += `📚 *Scolarité* :\n`
-    if (studentCps.length === 0) msg += `- Cours normaux dispensés\n`
-    else {
+    
+    msg += `\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`
+    msg += `🎓 *SITUATION PÉDAGOGIQUE*\n`
+    if (studentCps.length === 0) {
+      msg += `- Travail régulier en classe ✅\n`
+    } else {
       studentCps.forEach(cp => {
         const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
-        if (prog) msg += `- ${prog.objectifs?.nom || 'Leçon'} : ${prog.pourcentage}%\n`
+        if (prog) {
+          const stars = prog.pourcentage >= 80 ? '🌟' : prog.pourcentage >= 50 ? '📈' : '⚠️'
+          msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%* ${stars}\n`
+        }
       })
     }
-    msg += `\n`
 
-    msg += `⚖️ *Discipline* :\n`
-    if (disc.length === 0) msg += `- RAS : Exemplaire ✅\n`
-    else {
+    if (classDevs.length > 0) {
+      msg += `\n📝 *Travail à la maison* :\n`
+      classDevs.forEach(d => {
+        msg += `> ${d.matiere} : ${d.description}\n`
+        msg += `📅 _À rendre pour le : ${new Date(d.date_rendu).toLocaleDateString('fr-FR')}_\n`
+      })
+    } else {
+      msg += `\n📝 *Travail à la maison* :\n- Aucun devoir particulier ce soir.\n`
+    }
+    
+    msg += `\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`
+    msg += `⚖️ *DISCIPLINE* :\n`
+    if (disc.length === 0) {
+      msg += `- RAS : Attitude exemplaire ! 🏅\n`
+    } else {
       disc.forEach(d => {
         msg += `- ${d.motif} (-${d.points_perdus} pts)\n`
       })
     }
     msg += `🛡️ Capital restant : *${eleve.points_discipline}/100*\n\n`
-    msg += `🚀 Bonne soirée !\n_Vie Scolaire IDEAL_`
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`
+    msg += `🚀 À demain pour de nouveaux progrès !\n_Administration IDEAL_`
     
     const url = `https://wa.me/${eleve.parent_phone?.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(msg)}`
     window.open(url, '_blank')
