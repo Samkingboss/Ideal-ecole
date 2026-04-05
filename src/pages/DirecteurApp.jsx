@@ -147,7 +147,7 @@ export default function DirecteurApp({ user, onLogout }) {
       } else {
         setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
       }
-      loadData()
+      await loadData()
       setShowModal(null)
       setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
     }
