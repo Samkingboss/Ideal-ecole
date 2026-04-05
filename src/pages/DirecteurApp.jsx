@@ -475,10 +475,17 @@ export default function DirecteurApp({ user, onLogout }) {
         )}
       </div>
 
-      <div className="bottom-nav">
+      <div className="bottom-nav" role="tablist">
         {TABS.map(t => (
-          <button key={t.id} className={`nav-item ${tab===t.id?'active':''}`} onClick={()=>setTab(t.id)}>
-            <div className="nav-icon">{t.icon}</div>
+          <button 
+            key={t.id} 
+            className={`nav-item ${tab===t.id?'active':''}`} 
+            onClick={()=>setTab(t.id)}
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-label={t.label}
+          >
+            <div className="nav-icon" aria-hidden="true">{t.icon}</div>
             <span>{t.label}</span>
           </button>
         ))}

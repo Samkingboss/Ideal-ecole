@@ -466,20 +466,24 @@ export default function ProfApp({ user, onLogout }) {
         </div>
 
         {/* Top Navigation Icons */}
-        <div style={{display:'flex', justifyContent:'space-between', background:'rgba(255,255,255,0.08)', borderRadius:14, padding:'4px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', background:'rgba(255,255,255,0.08)', borderRadius:14, padding:'4px'}} role="tablist">
           {TOP_TABS.map(t => (
-            <div 
+            <button 
               key={t.id} 
               onClick={() => setTab(t.id)}
+              role="tab"
+              aria-selected={tab === t.id}
+              aria-label={t.label}
               style={{
                 flex:1, textAlign:'center', padding:'8px 0', cursor:'pointer', borderRadius:10, transition:'all 0.2s',
                 background: tab === t.id ? 'var(--accent)' : 'transparent',
-                boxShadow: tab === t.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none'
+                boxShadow: tab === t.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none',
+                border:'none', color:'#fff', fontFamily:'inherit'
               }}
             >
-              <div style={{fontSize:16, marginBottom:2}}>{t.icon}</div>
+              <div style={{fontSize:16, marginBottom:2}} aria-hidden="true">{t.icon}</div>
               <div style={{fontSize:10, fontWeight:700, color: tab === t.id ? '#fff' : 'rgba(255,255,255,0.6)'}}>{t.label}</div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -1211,10 +1215,17 @@ export default function ProfApp({ user, onLogout }) {
         )}
       </div>
 
-      <div className="bottom-nav">
+      <div className="bottom-nav" role="tablist">
         {TABS.map(t=>(
-          <button key={t.id} className={`nav-item ${tab===t.id?'active':''}`} onClick={()=>setTab(t.id)}>
-            <div className="nav-icon">{t.icon}</div>
+          <button 
+            key={t.id} 
+            className={`nav-item ${tab===t.id?'active':''}`} 
+            onClick={()=>setTab(t.id)}
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-label={t.label}
+          >
+            <div className="nav-icon" aria-hidden="true">{t.icon}</div>
             <span>{t.label}</span>
           </button>
         ))}

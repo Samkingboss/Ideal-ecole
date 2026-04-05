@@ -17,6 +17,20 @@ export default function App() {
     setLoading(false)
   }, [])
 
+  useEffect(() => {
+    if (!user) {
+      document.title = "Connexion - IDEAL EcoleApp"
+    } else {
+      const roleMap = {
+        'directeur': 'Direction',
+        'professeur': 'Espace Enseignant',
+        'surveillant': 'Surveillance',
+        'conseiller_vie_scolaire': 'Vie Scolaire'
+      }
+      document.title = `${roleMap[user.role] || 'Portail'} - IDEAL EcoleApp`
+    }
+  }, [user])
+
   const handleLogin = (u) => {
     localStorage.setItem('ideal_user', JSON.stringify(u))
     setUser(u)

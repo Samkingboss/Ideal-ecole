@@ -9,9 +9,9 @@
   --bg: #f0f7fa;
   --card: #ffffff;
   --text: #0d2a3b;
-  --muted: #6b7280;
+  --muted: #4b5563; /* Amélioré de #6b7280 pour l'accessibilité */
   --border: #d0e8f0;
-  --red: #ED1C24;
+  --red: #c53030; /* Amélioré pour le contraste */
   --radius: 16px;
 }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -30,10 +30,10 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 .topbar-sub { font-size:9px; color:rgba(255,255,255,.5); font-weight:600; letter-spacing:.04em; }
 .topbar-user { display:flex; align-items:center; gap:8px; }
 .role-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; }
-.role-directeur { background:rgba(247,148,29,.2); color:#F7941D; }
-.role-professeur { background:rgba(26,175,224,.2); color:#1AAFE0; }
-.role-surveillant { background:rgba(141,198,63,.2); color:#8DC63F; }
-.btn-logout { background:rgba(255,255,255,.1); border:none; border-radius:20px; padding:5px 12px; color:rgba(255,255,255,.7); font-size:11px; cursor:pointer; }
+.role-directeur { background:rgba(192,86,33,.1); color:#C05621; } /* Amélioré de #F7941D */
+.role-professeur { background:rgba(0,119,162,.1); color:#0077A2; } /* Amélioré de #1AAFE0 */
+.role-surveillant { background:rgba(47,133,90,.1); color:#2F855A; } /* Amélioré de #8DC63F */
+.btn-logout { background:rgba(255,255,255,.15); border:none; border-radius:20px; padding:5px 12px; color:rgba(255,255,255,.7); font-size:11px; cursor:pointer; }
 .page-content { flex:1; padding:1rem 1.2rem 80px; }
 .bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:var(--card); border-top:1px solid var(--border); display:flex; justify-content:space-around; padding:.5rem 0 .8rem; z-index:100; }
 .nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:9px; font-weight:600; color:var(--muted); cursor:pointer; padding:4px 10px; transition:color .2s; border:none; background:none; }

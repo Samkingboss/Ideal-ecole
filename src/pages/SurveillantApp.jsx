@@ -193,13 +193,13 @@ export default function SurveillantApp({ user, onLogout }) {
         </div>
       </div>
 
-      <div className="bottom-nav">
-        <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')}>
-          <div className="nav-icon">📋</div>
+      <div className="bottom-nav" role="tablist">
+        <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')} role="tab" aria-selected={tab === 'pointage'} aria-label="Pointage des professeurs">
+          <div className="nav-icon" aria-hidden="true">📋</div>
           <span>Pointage</span>
         </button>
-        <button className={`nav-item ${tab==='discipline'?'active':''}`} onClick={()=>setTab('discipline')}>
-          <div className="nav-icon">⚖️</div>
+        <button className={`nav-item ${tab==='discipline'?'active':''}`} onClick={()=>setTab('discipline')} role="tab" aria-selected={tab === 'discipline'} aria-label="Gestion de la discipline">
+          <div className="nav-icon" aria-hidden="true">⚖️</div>
           <span>Discipline</span>
         </button>
       </div>

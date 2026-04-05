@@ -182,20 +182,20 @@ export default function ConseillerApp({ user, onLogout }) {
       </div>
 
       <div className="bottom-nav">
-        <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>
-          <div className="nav-icon">📊</div>
+        <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} aria-label="Tableau de bord">
+          <div className="nav-icon" aria-hidden="true">📊</div>
           <span>Stats</span>
         </button>
-        <button className={`nav-item ${tab==='inscriptions'?'active':''}`} onClick={()=>setTab('inscriptions')}>
-          <div className="nav-icon">🎒</div>
+        <button className={`nav-item ${tab==='inscriptions'?'active':''}`} onClick={()=>setTab('inscriptions')} aria-label="Gestion des inscriptions">
+          <div className="nav-icon" aria-hidden="true">🎒</div>
           <span>Inscriptions</span>
         </button>
-        <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')}>
-          <div className="nav-icon">⏰</div>
+        <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')} aria-label="Pointage des présences">
+          <div className="nav-icon" aria-hidden="true">⏰</div>
           <span>Pointage</span>
         </button>
-        <button className={`nav-item ${tab==='bilans'?'active':''}`} onClick={()=>setTab('bilans')}>
-          <div className="nav-icon">📱</div>
+        <button className={`nav-item ${tab==='bilans'?'active':''}`} onClick={()=>setTab('bilans')} aria-label="Envoi des bilans quotidiens">
+          <div className="nav-icon" aria-hidden="true">📱</div>
           <span>Bilans</span>
         </button>
       </div>
