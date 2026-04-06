@@ -14,7 +14,7 @@ export default function ProgrammeManager({ user, selectedClasse, supabase, onUpd
 
   const loadMatieres = async () => {
     if (!selectedClasse) return
-    const { data } = await supabase.from("matieres").select("*").eq("prof_id", user.id).eq("classe_id", selectedClasse.id).order("nom")
+    const { data } = await supabase.from("matieres").select("*").eq("classe_id", selectedClasse.id).order("nom")
     setMatieres(data || [])
     setSelectedMatiere(null); setView("matieres")
   }
