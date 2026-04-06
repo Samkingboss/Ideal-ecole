@@ -12,7 +12,7 @@ export default function ConseillerApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(null)
   const [selectedClass, setSelectedClass] = useState(null)
-  const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', adresse:'', photo_url:'', classe_id:'' })
+  const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:'' })
 
   useEffect(() => { loadData() }, [])
 
@@ -62,16 +62,21 @@ export default function ConseillerApp({ user, onLogout }) {
       date_naissance: newEleve.date_naissance || null,
       parent_nom: newEleve.parent_nom,
       parent_phone: newEleve.parent_phone,
+      parent2_nom: newEleve.parent2_nom || '',
+      parent2_phone: newEleve.parent2_phone || '',
       adresse: newEleve.adresse,
       photo_url: newEleve.photo_url || null,
       classe_id: newEleve.classe_id,
       actif: true
     }
 
-    const { error } = await supabase.from('eleves').insert([cleanEleve])
+    const { error } = await supabase.from('eleves').upsert([
+      { ...cleanEleve, id: newEleve.id }
+    ], { onConflict: 'id' })
+
     if (!error) {
       setShowModal(null)
-      setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', adresse:'', photo_url:'', classe_id: classes[0]?.id || '' })
+      setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id: classes[0]?.id || '' })
       loadData()
     } else {
       alert("Erreur base de données : " + error.message)
@@ -251,7 +256,7 @@ export default function ConseillerApp({ user, onLogout }) {
           <>
             <div className="section-head">
               <div className="section-title">Gestion des Élèves</div>
-              <button className="btn-sm" onClick={()=>{setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', adresse:'', photo_url:'', classe_id:classes[0]?.id || '' }); setShowModal('eleve')}}>+ Ajouter</button>
+              <button className="btn-sm" onClick={()=>{setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:classes[0]?.id || '' }); setShowModal('eleve')}}>+ Ajouter</button>
             </div>
             {classes.map(cls => (
               <div key={cls.id} className="card" style={{marginBottom:10}}>
@@ -381,9 +386,11 @@ export default function ConseillerApp({ user, onLogout }) {
                 </select>
               </div>
               <hr style={{margin:'20px 0', border:'none', borderTop:'1px solid #eee'}}/>
-              <div className="form-group"><label className="form-label">Nom du Parent / Tuteur</label><input className="form-input" value={newEleve.parent_nom} onChange={e=>setNewEleve({...newEleve, parent_nom:e.target.value})}/></div>
-              <div className="form-group"><label className="form-label">Téléphone Parent (WhatsApp)</label><input className="form-input" value={newEleve.parent_phone} onChange={e=>setNewEleve({...newEleve, parent_phone:e.target.value})} placeholder="+223..."/></div>
-              <div className="form-group"><label className="form-label">Adresse</label><textarea className="form-input" value={newEleve.adresse} onChange={e=>setNewEleve({...newEleve, adresse:e.target.value})} /></div>
+              <div className="form-group"><label className="form-label">Nom du Parent 1</label><input className="form-input" value={newEleve.parent_nom} onChange={e=>setNewEleve({...newEleve, parent_nom:e.target.value})}/></div>
+              <div className="form-group"><label className="form-label">Téléphone Parent 1 (WhatsApp)</label><input className="form-input" value={newEleve.parent_phone} onChange={e=>setNewEleve({...newEleve, parent_phone:e.target.value})} placeholder="+223..."/></div>
+              <div className="form-group"><label className="form-label">Nom du Parent 2</label><input className="form-input" value={newEleve.parent2_nom} onChange={e=>setNewEleve({...newEleve, parent2_nom:e.target.value})}/></div>
+              <div className="form-group"><label className="form-label">Téléphone Parent 2 (WhatsApp)</label><input className="form-input" value={newEleve.parent2_phone} onChange={e=>setNewEleve({...newEleve, parent2_phone:e.target.value})} placeholder="+223..."/></div>
+              <div className="form-group"><label className="form-label">Adresse Résidence</label><textarea className="form-input" value={newEleve.adresse} onChange={e=>setNewEleve({...newEleve, adresse:e.target.value})} /></div>
               
               <div style={{display:'flex', gap:10, marginTop:10}}>
                 <button className="btn btn-primary" type="submit" disabled={loading}>{loading?'...':'Enregistrer'}</button>
