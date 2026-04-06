@@ -495,47 +495,7 @@ export default function ProfApp({ user, onLogout }) {
 
       <div className="page-content">
         {tab === 'agenda' && (
-          <div className="animate-in">
-            <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
-            
-            <div style={{padding:'0 1.2rem 2rem'}}>
-              <div className="section-head" style={{marginBottom:15}}><div className="section-title">📝 Travail à la maison</div></div>
-              
-              <div className="card" style={{padding:'1rem', marginBottom:20, boxShadow:'0 4px 12px rgba(0,0,0,0.05)'}}>
-                <div style={{fontSize:12, fontWeight:700, color:'var(--muted)', marginBottom:12}}>AJOUTER UN DEVOIR : {selectedClasse?.nom}</div>
-                <form onSubmit={saveDevoir}>
-                  <div style={{display:'flex', gap:8, marginBottom:10}}>
-                    <input type="text" className="form-input" style={{flex:1}} value={newDevoir.matiere} onChange={e=>setNewDevoir({...newDevoir, matiere:e.target.value})} placeholder="Matière (ex: Dictée)" required />
-                    <input type="date" className="form-input" style={{width:130}} value={newDevoir.date_rendu} onChange={e=>setNewDevoir({...newDevoir, date_rendu:e.target.value})} required />
-                  </div>
-                  <textarea className="form-input" style={{marginBottom:12}} value={newDevoir.description} onChange={e=>setNewDevoir({...newDevoir, description:e.target.value})} placeholder="Description du devoir..." required rows={2}></textarea>
-                  <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-                    {loading ? '...' : 'Enregistrer le devoir'}
-                  </button>
-                </form>
-              </div>
-
-              <div className="section-subtitle" style={{marginBottom:12, fontWeight:800}}>Devoirs actifs</div>
-              {devoirs.filter(d => d.classe_id === selectedClasse?.id).length === 0 ? (
-                <div style={{textAlign:'center', padding:'2rem', background:'var(--card)', borderRadius:16, border:'1px dashed var(--border)', color:'var(--muted)', fontSize:12}}>
-                  Aucun devoir enregistré pour cette classe.
-                </div>
-              ) : (
-                devoirs.filter(d => d.classe_id === selectedClasse?.id).map(d => (
-                  <div key={d.id} className="card" style={{padding:'.8rem 1rem', marginBottom:12, borderLeft:'4px solid var(--accent)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                    <div style={{flex:1}}>
-                      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:4}}>
-                        <span style={{fontSize:10, fontWeight:900, background:'rgba(26,175,224,0.1)', color:'var(--accent)', padding:'2px 6px', borderRadius:4, textTransform:'uppercase'}}>{d.matiere}</span>
-                        <span style={{fontSize:11, color:'var(--muted)'}}>📅 Pour le : {new Date(d.date_rendu).toLocaleDateString('fr-FR')}</span>
-                      </div>
-                      <div style={{fontSize:13, fontWeight:600, color:'var(--text)'}}>{d.description}</div>
-                    </div>
-                    <button onClick={()=>deleteDevoir(d.id)} style={{background:'none', border:'none', color:'var(--red)', fontSize:18, cursor:'pointer', padding:'0 10px'}}>×</button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
         )}
 
         {/* Filters */}
