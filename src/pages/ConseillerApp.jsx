@@ -95,66 +95,82 @@ export default function ConseillerApp({ user, onLogout }) {
   }
 
   const generateCartography = (eleve) => {
-    const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    const pres = presences[eleve.id]
-    const disc = disciplines.filter(d => d.eleve_id === eleve.id)
-    const studentCps = checkpoints.filter(cp => cp.planification?.classe_id === eleve.classe_id)
-    const classDevs = devoirs.filter(d => d.classe_id === eleve.classe_id)
-    
-    let msg = `*BILAN QUOTIDIEN - ÉCOLE IDEAL*\n`
-    msg += `Date : *${today}*\n`
-    msg += `Élève : *${eleve.prenom} ${eleve.nom}*\n`
-    msg += `--------------------------------------\n`
-
-    // 1. SECTION ASSIDUITÉ (Toujours obligatoire)
-    msg += `\n[ ASSIDUITÉ ] : `
-    if (!pres) msg += `Non renseigné\n`
-    else if (pres.statut === 'present') msg += `PRESENT(E)\n`
-    else if (pres.statut === 'absent') msg += `ABSENT(E)${pres.justification ? ` (Justifié: ${pres.justification})` : ' (Non justifié)'}\n`
-    else msg += `ARRIVÉE TARDIVE (${pres.minutes_retard} min)\n`
-    
-    // 2. SECTION PÉDAGOGIQUE (Conditionnelle)
-    const hasPedaResults = studentCps.some(cp => cp.progressions?.some(p => p.eleve_id === eleve.id))
-    const hasHomework = classDevs.length > 0
-    if (hasPedaResults || hasHomework) {
-      msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
-      msg += `*SITUATION PÉDAGOGIQUE*\n\n`
+    try {
+      const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      const pres = presences[eleve.id]
+      const disc = (disciplines || []).filter(d => d.eleve_id === eleve.id)
+      const studentCps = (checkpoints || []).filter(cp => cp.planification?.classe_id === eleve.classe_id)
+      const classDevs = (devoirs || []).filter(d => d.classe_id === eleve.classe_id)
       
-      if (hasPedaResults) {
-        studentCps.forEach(cp => {
-          const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
-          if (prog) {
-            msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%*\n`
-          }
+      let msg = `*BILAN QUOTIDIEN - ÉCOLE IDEAL*\n`
+      msg += `Date : *${today}*\n`
+      msg += `Élève : *${eleve.prenom} ${eleve.nom}*\n`
+      msg += `--------------------------------------\n`
+
+      // 1. SECTION ASSIDUITÉ (Toujours obligatoire)
+      msg += `\n[ ASSIDUITÉ ] : `
+      if (!pres) msg += `Non renseigné\n`
+      else if (pres.statut === 'present') msg += `PRESENT(E)\n`
+      else if (pres.statut === 'absent') msg += `ABSENT(E)${pres.justification ? ` (Justifié: ${pres.justification})` : ' (Non justifié)'}\n`
+      else msg += `ARRIVÉE TARDIVE (${pres.minutes_retard} min)\n`
+      
+      // 2. SECTION PÉDAGOGIQUE (Conditionnelle)
+      const hasPedaResults = studentCps.some(cp => cp.progressions?.some(p => p.eleve_id === eleve.id))
+      const hasHomework = classDevs.length > 0
+      if (hasPedaResults || hasHomework) {
+        msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+        msg += `*SITUATION PÉDAGOGIQUE*\n\n`
+        
+        if (hasPedaResults) {
+          studentCps.forEach(cp => {
+            const prog = cp.progressions?.find(p => p.eleve_id === eleve.id)
+            if (prog && prog.pourcentage !== undefined) {
+              msg += `- ${prog.objectifs?.nom || 'Leçon'} : *${prog.pourcentage}%*\n`
+            }
+          })
+        } else if (hasHomework) {
+          msg += `- Voir travail à la maison ci-dessous\n`
+        }
+
+        if (hasHomework) {
+          msg += `\n[ TRAVAIL À LA MAISON ] :\n`
+          classDevs.forEach(d => {
+            msg += `> ${d.matiere || 'Devoir'} : ${d.description || 'RAS'}\n`
+            msg += `A rendre pour le : ${d.date_rendu ? new Date(d.date_rendu).toLocaleDateString('fr-FR') : '—'}\n`
+          })
+        }
+      }
+      
+      // 3. SECTION DISCIPLINE (Conditionnelle)
+      if (disc.length > 0) {
+        msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+        msg += `*DISCIPLINE*\n`
+        disc.forEach(d => {
+          msg += `- ${d.motif || 'Incident'} (-${d.points_perdus || 0} pts)\n`
         })
-      } else if (hasHomework) {
-        msg += `- Voir travail à la maison ci-dessous\n`
+        msg += `Capital restant : *${eleve.points_discipline || 100}/100*\n`
+      }
+      
+      msg += `\n--------------------------------------\n`
+      msg += `À demain pour de nouveaux progrès !\n_Administration IDEAL_`
+      
+      // Normalisation du téléphone (Mali)
+      let phone = eleve.parent_phone?.replace(/[^\d+]/g, '') || ''
+      if (phone.length === 8 && !phone.startsWith('+')) phone = '223' + phone
+      if (phone.startsWith('00')) phone = phone.substring(2)
+      if (!phone.startsWith('+')) phone = '+' + phone
+
+      if (phone.length < 5) {
+        alert("Numéro de téléphone invalide ou manquant pour cet élève.")
+        return
       }
 
-      if (hasHomework) {
-        msg += `\n[ TRAVAIL À LA MAISON ] :\n`
-        classDevs.forEach(d => {
-          msg += `> ${d.matiere} : ${d.description}\n`
-          msg += `A rendre pour le : ${new Date(d.date_rendu).toLocaleDateString('fr-FR')}\n`
-        })
-      }
+      const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+      window.open(url, '_blank')
+    } catch (err) {
+      console.error(err)
+      alert("Erreur lors de la génération du message. Vérifiez les informations de l'élève.")
     }
-    
-    // 3. SECTION DISCIPLINE (Conditionnelle)
-    if (disc.length > 0) {
-      msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
-      msg += `*DISCIPLINE*\n`
-      disc.forEach(d => {
-        msg += `- ${d.motif} (-${d.points_perdus} pts)\n`
-      })
-      msg += `Capital restant : *${eleve.points_discipline}/100*\n`
-    }
-    
-    msg += `\n--------------------------------------\n`
-    msg += `À demain pour de nouveaux progrès !\n_Administration IDEAL_`
-    
-    const url = `https://api.whatsapp.com/send?phone=${eleve.parent_phone?.replace(/[^\d+]/g, '')}&text=${encodeURIComponent(msg)}`
-    window.open(url, '_blank')
   }
 
   const hasDailyInfo = (el) => {
