@@ -94,7 +94,7 @@ export default function ConseillerApp({ user, onLogout }) {
     }
   }
 
-  const generateCartography = (eleve) => {
+  const generateCartography = (eleve, toGroup = false) => {
     try {
       const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
       const pres = presences[eleve.id]
@@ -154,19 +154,25 @@ export default function ConseillerApp({ user, onLogout }) {
       msg += `\n--------------------------------------\n`
       msg += `À demain pour de nouveaux progrès !\n_Administration IDEAL_`
       
-      // Normalisation du téléphone (Mali)
-      let phone = eleve.parent_phone?.replace(/[^\d+]/g, '') || ''
-      if (phone.length === 8 && !phone.startsWith('+')) phone = '223' + phone
-      if (phone.startsWith('00')) phone = phone.substring(2)
-      if (!phone.startsWith('+')) phone = '+' + phone
+      if (toGroup) {
+        // Envoi vers un groupe (ou choix libre du destinataire)
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`
+        window.open(url, '_blank')
+      } else {
+        // Envoi direct au parent
+        let phone = eleve.parent_phone?.replace(/[^\d+]/g, '') || ''
+        if (phone.length === 8 && !phone.startsWith('+')) phone = '223' + phone
+        if (phone.startsWith('00')) phone = phone.substring(2)
+        if (!phone.startsWith('+')) phone = '+' + phone
 
-      if (phone.length < 5) {
-        alert("Numéro de téléphone invalide ou manquant pour cet élève.")
-        return
+        if (phone.length < 5) {
+          alert("Numéro de téléphone invalide ou manquant pour cet élève.")
+          return
+        }
+
+        const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+        window.open(url, '_blank')
       }
-
-      const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
-      window.open(url, '_blank')
     } catch (err) {
       console.error(err)
       alert("Erreur lors de la génération du message. Vérifiez les informations de l'élève.")
@@ -337,9 +343,25 @@ export default function ConseillerApp({ user, onLogout }) {
                       )}
                     </div>
                   </div>
-                  <button className="btn-sm" style={{background:'#25D366', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 15px'}} onClick={()=>generateCartography(el)} disabled={!el.parent_phone}>
-                    Envoyer 📲
-                  </button>
+                  <div style={{display:'flex', gap:8}}>
+                    <button 
+                      className="btn-sm" 
+                      style={{background:'#25D366', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 12px', fontSize:11, fontWeight:700}} 
+                      onClick={()=>generateCartography(el, false)} 
+                      disabled={!el.parent_phone}
+                      title="Envoyer au parent (Privé)"
+                    >
+                      📱 Parent
+                    </button>
+                    <button 
+                      className={`btn-sm ${!el.parent_phone ? 'disabled' : ''}`}
+                      style={{background:'#34B7F1', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 12px', fontSize:11, fontWeight:700}} 
+                      onClick={()=>generateCartography(el, true)}
+                      title="Partager dans le groupe de l'élève"
+                    >
+                      👥 Groupe
+                    </button>
+                  </div>
                 </div>
               ))
             )}
