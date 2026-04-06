@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 
 export default function ConseillerApp({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard')
+  const [selectedTrimester, setSelectedTrimester] = useState('T3')
+  const [retardStats, setRetardStats] = useState([])
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
   const [disciplines, setDisciplines] = useState([])
@@ -14,7 +16,48 @@ export default function ConseillerApp({ user, onLogout }) {
   const [selectedClass, setSelectedClass] = useState(null)
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:'' })
 
+  const TRIMESTRES = {
+    T1: { start: '2025-09-01', end: '2025-12-31', label: '1er Trimestre' },
+    T2: { start: '2026-01-01', end: '2026-03-31', label: '2ème Trimestre' },
+    T3: { start: '2026-04-01', end: '2026-06-30', label: '3ème Trimestre' }
+  }
+
   useEffect(() => { loadData() }, [])
+  useEffect(() => { if (tab === 'retards') loadRetardStats() }, [tab, selectedTrimester, selectedClass])
+
+  const loadRetardStats = async () => {
+    if (!selectedClass) return
+    setLoading(true)
+    const period = TRIMESTRES[selectedTrimester]
+    
+    const { data, error } = await supabase
+      .from('presences_eleves')
+      .select('eleve_id, minutes_retard, eleves(prenom, nom, classe_id)')
+      .eq('statut', 'retard')
+      .gte('date_jour', period.start)
+      .lte('date_jour', period.end)
+
+    if (!error) {
+      // Filtrer par classe (car le join via select ne filtre pas la racine)
+      const classRetards = (data || []).filter(r => r.eleves?.classe_id === selectedClass)
+      
+      // Aggréger par élève
+      const stats = {}
+      // Initialiser tous les élèves de la classe à 0
+      eleves.filter(e => e.classe_id === selectedClass).forEach(e => {
+        stats[e.id] = { name: `${e.prenom} ${e.nom}`, total: 0 }
+      })
+      
+      classRetards.forEach(r => {
+        if (stats[r.eleve_id]) {
+          stats[r.eleve_id].total += (r.minutes_retard || 0)
+        }
+      })
+      
+      setRetardStats(Object.values(stats).sort((a,b) => b.total - a.total))
+    }
+    setLoading(false)
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -225,6 +268,10 @@ export default function ConseillerApp({ user, onLogout }) {
           <div className="nav-icon" aria-hidden="true">📱</div>
           <span>Bilans</span>
         </button>
+        <button className={`nav-item ${tab==='retards'?'active':''}`} onClick={()=>setTab('retards')} aria-label="Bilan des retards trimestriels">
+          <div className="nav-icon" aria-hidden="true">📊</div>
+          <span>Retards</span>
+        </button>
       </div>
 
       <div className="page-content" style={{paddingBottom:100}}>
@@ -360,6 +407,63 @@ export default function ConseillerApp({ user, onLogout }) {
               ))
             )}
           </>
+        )}
+
+        {tab === 'retards' && (
+          <div className="printable-bilan">
+            <div className="section-head no-print">
+              <div className="section-title">Bilan des Retards</div>
+              <div style={{display:'flex', gap:10}}>
+                <select className="form-input" style={{width:'auto'}} value={selectedTrimester} onChange={e=>setSelectedTrimester(e.target.value)}>
+                  {Object.entries(TRIMESTRES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+                <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+                <button className="btn btn-primary" onClick={() => window.print()}>Imprimer 🖨️</button>
+              </div>
+            </div>
+
+            <div className="print-header" style={{textAlign:'center', marginBottom:30}}>
+              <h2 style={{margin:0}}>ÉCOLE IDÉAL</h2>
+              <h3 style={{margin:5, color:'var(--muted)'}}>Bilan Trimesriel des Retards</h3>
+              <p>Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong></p>
+            </div>
+
+            <div className="card" style={{padding:0, overflow:'hidden'}}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{width:50}}>#</th>
+                    <th>Élève</th>
+                    <th style={{textAlign:'right'}}>Total Retard (min)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retardStats.length === 0 ? (
+                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Aucun retard enregistré pour cette période.</td></tr>
+                  ) : (
+                    retardStats.map((s, idx) => (
+                      <tr key={idx}>
+                        <td style={{fontWeight:800, color:'var(--muted)'}}>{idx + 1}</td>
+                        <td style={{fontWeight:700}}>{s.name}</td>
+                        <td style={{textAlign:'right', fontWeight:800, color: s.total > 120 ? 'var(--red)' : 'inherit'}}>
+                          {s.total} min
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="print-footer" style={{marginTop:40, textAlign:'right', fontSize:12}}>
+              <p>Signature du CVS : _________________________</p>
+              <p style={{fontSize:10, color:'#999', marginTop:20}}>Document généré le {new Date().toLocaleDateString('fr-FR')}</p>
+            </div>
+          </div>
         )}
       </div>
 

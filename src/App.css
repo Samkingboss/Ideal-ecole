@@ -142,3 +142,21 @@ input[type=range] { accent-color:var(--accent); width:80px; }
 .banner { border-radius:14px; padding:1rem; margin-bottom:1rem; color:#fff; display:flex; align-items:center; gap:12px; }
 .banner-dark { background:var(--dark); }
 .banner-accent { background:linear-gradient(135deg,#0d2a3b,#1AAFE0); }
+
+/* ── TABLES ── */
+.table { width: 100%; border-collapse: collapse; }
+.table th { background: #f8fafc; text-align: left; padding: 12px; font-size: 10px; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--border); }
+.table td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+
+/* ── PRINT ── */
+@media print {
+  .topbar, .bottom-nav, .no-print, .btn, .btn-sm, .btn-logout { display: none !important; }
+  .app-shell { max-width: none !important; margin: 0 !important; width: 100% !important; background: #fff !important; }
+  .page-content { padding: 0 !important; margin: 0 !important; }
+  .card { border: 1px solid #eee !important; border-radius: 0 !important; box-shadow: none !important; margin: 0 !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .print-header { display: block !important; }
+  .printable-bilan { width: 100% !important; }
+  .table th { background: #eee !important; color: #000 !important; border: 1px solid #ddd !important; }
+  .table td { border: 1px solid #eee !important; }
+}
