@@ -105,7 +105,7 @@ export default function ConseillerApp({ user, onLogout }) {
       let msg = `*BILAN QUOTIDIEN - ÉCOLE IDEAL*\n`
       msg += `Date : *${today}*\n`
       msg += `Élève : *${eleve.prenom} ${eleve.nom}*\n`
-      msg += `--------------------------------------\n`
+      msg += `--------------------------\n`
 
       // 1. SECTION ASSIDUITÉ (Toujours obligatoire)
       msg += `\n[ ASSIDUITÉ ] : `
@@ -118,7 +118,7 @@ export default function ConseillerApp({ user, onLogout }) {
       const hasPedaResults = studentCps.some(cp => cp.progressions?.some(p => p.eleve_id === eleve.id))
       const hasHomework = classDevs.length > 0
       if (hasPedaResults || hasHomework) {
-        msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+        msg += `\n- - - - - - - - - - - -\n`
         msg += `*SITUATION PÉDAGOGIQUE*\n\n`
         
         if (hasPedaResults) {
@@ -143,7 +143,7 @@ export default function ConseillerApp({ user, onLogout }) {
       
       // 3. SECTION DISCIPLINE (Conditionnelle)
       if (disc.length > 0) {
-        msg += `\n- - - - - - - - - - - - - - - - - - - -\n`
+        msg += `\n- - - - - - - - - - - -\n`
         msg += `*DISCIPLINE*\n`
         disc.forEach(d => {
           msg += `- ${d.motif || 'Incident'} (-${d.points_perdus || 0} pts)\n`
@@ -151,7 +151,7 @@ export default function ConseillerApp({ user, onLogout }) {
         msg += `Capital restant : *${eleve.points_discipline || 100}/100*\n`
       }
       
-      msg += `\n--------------------------------------\n`
+      msg += `\n--------------------------\n`
       msg += `À demain pour de nouveaux progrès !\n_Administration IDEAL_`
       
       if (toGroup) {
