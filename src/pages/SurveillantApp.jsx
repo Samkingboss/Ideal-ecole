@@ -17,6 +17,7 @@ const RECREE_CHECKS = [
 export default function SurveillantApp({ user, onLogout }) {
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('pointage')
+  const [activeProf, setActiveProf] = useState(null)
   const [profs, setProfs] = useState([])
   const [performances, setPerformances] = useState({})
   const [preparations, setPreparations] = useState({})
@@ -216,88 +217,99 @@ export default function SurveillantApp({ user, onLogout }) {
             const ponct = calcPonct(perf)
             const gestion = calcGestion(perf)
             const total = calcTotal(perf)
+            const isOpen = activeProf === prof.id
 
             return (
-              <div key={prof.id} className="card" style={{marginBottom:12}}>
-                <div style={{background:'linear-gradient(135deg,#0d2a3b,#1565a0)',color:'#fff',padding:'.8rem 1rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div key={prof.id} className="card" style={{marginBottom:10, padding:0, overflow:'hidden'}}>
+                {/* —— HEADER (toujours visible, cliquable) —— */}
+                <div
+                  onClick={() => setActiveProf(isOpen ? null : prof.id)}
+                  style={{background:'linear-gradient(135deg,#0d2a3b,#1565a0)', color:'#fff', padding:'.8rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none'}}
+                >
                   <div>
-                    <div style={{fontWeight:700,fontSize:14}}>{prof.prenom} {prof.nom}</div>
-                    <div style={{fontSize:10,color:'rgba(255,255,255,.6)',marginTop:2}}>{prof.langue === 'en' ? 'Anglais' : 'Francais'}</div>
+                    <div style={{fontWeight:700, fontSize:14}}>{prof.prenom} {prof.nom}</div>
+                    <div style={{fontSize:10, color:'rgba(255,255,255,.6)', marginTop:2}}>{prof.langue === 'en' ? 'Anglais' : 'Francais'}</div>
                   </div>
-                  <div style={{textAlign:'right'}}>
-                    <div style={{fontFamily:'monospace',fontSize:20,fontWeight:900,color:'#1AAFE0'}}>{total}/75</div>
-                    <div style={{fontSize:10,color:'rgba(255,255,255,.6)'}}>pts</div>
+                  <div style={{display:'flex', alignItems:'center', gap:12}}>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontFamily:'monospace', fontSize:20, fontWeight:900, color:'#1AAFE0'}}>{total}/75</div>
+                      <div style={{fontSize:10, color:'rgba(255,255,255,.6)'}}>pts</div>
+                    </div>
+                    <div style={{fontSize:18, color:'rgba(255,255,255,0.7)', transform: isOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.25s'}}>∨</div>
                   </div>
                 </div>
 
-                <div style={{padding:'1rem'}}>
-                  <div style={{marginBottom:12}}>
-                    <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Ponctualite ({ponct}/30 pts)</div>
-                    <div className="time-row">
-                      <span style={{fontSize:12,color:'var(--muted)',width:55}}>Arrivee</span>
-                      <input type="time" className="time-input" disabled={perf.valide} value={perf.heure_arrivee||''} onChange={e=>updateArrival(prof.id, e.target.value)} />
-                      <span style={{fontSize:11,fontWeight:700,color:ponct===30?'var(--green)':ponct===25?'var(--amber)':'var(--muted)'}}>{ponct} pts</span>
-                    </div>
-                    <div className="time-row">
-                      <span style={{fontSize:12,color:'var(--muted)',width:55}}>Depart</span>
-                      <input type="time" className="time-input" disabled={perf.valide} value={perf.heure_depart||''} onChange={e=>updateDepart(prof.id, e.target.value)} />
-                      {perf.heure_depart && <span style={{fontSize:11,color:perf.heure_depart>='16:00'?'var(--green)':'var(--red)'}}>{perf.heure_depart >= '16:00' ? 'Conforme' : 'Depart anticipe'}</span>}
-                    </div>
-                  </div>
-
-                  <div style={{marginBottom:15, padding:10, background:'rgba(26,175,224,.05)', borderRadius:12}}>
-                    <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>📚 Préparation IA ({perf.preparation || 0}/20 pts)</div>
-                    {preparations[prof.id] ? (
-                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12, fontWeight:700, color:'var(--accent)'}}>Note IA : {preparations[prof.id].note_ia}/20</div>
-                          <div style={{fontSize:10, color:'var(--muted)', fontStyle:'italic'}}>"{preparations[prof.id].commentaire_ia}"</div>
-                        </div>
-                        <button className="btn-sm" disabled={perf.valide || perf.preparation === preparations[prof.id].note_ia} onClick={() => applyIaNote(prof.id)}>
-                          {perf.preparation === preparations[prof.id].note_ia ? 'Appliquée' : 'Appliquer'}
-                        </button>
+                {/* —— DETAILS (accordeon) —— */}
+                {isOpen && (
+                  <div style={{padding:'1rem'}}>
+                    <div style={{marginBottom:12}}>
+                      <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Ponctualite ({ponct}/30 pts)</div>
+                      <div className="time-row">
+                        <span style={{fontSize:12,color:'var(--muted)',width:55}}>Arrivee</span>
+                        <input type="time" className="time-input" disabled={perf.valide} value={perf.heure_arrivee||''} onChange={e=>updateArrival(prof.id, e.target.value)} />
+                        <span style={{fontSize:11,fontWeight:700,color:ponct===30?'var(--green)':ponct===25?'var(--amber)':'var(--muted)'}}>{ponct} pts</span>
                       </div>
-                    ) : (
-                      <div style={{fontSize:11, color:'var(--red)'}}>Pas de préparation reçue pour aujourd'hui</div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Gestion de classe ({gestion}/25 pts)</div>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                      <button className={`chk-btn ${perf.sacs_accroches ? 'on' : ''}`} disabled={perf.valide} onClick={()=>toggleSacs(prof.id)}>{perf.sacs_accroches ? '✓' : ''}</button>
-                      <span style={{fontSize:12}}>Sacs bien accroches (4 pts)</span>
+                      <div className="time-row">
+                        <span style={{fontSize:12,color:'var(--muted)',width:55}}>Depart</span>
+                        <input type="time" className="time-input" disabled={perf.valide} value={perf.heure_depart||''} onChange={e=>updateDepart(prof.id, e.target.value)} />
+                        {perf.heure_depart && <span style={{fontSize:11,color:perf.heure_depart>='16:00'?'var(--green)':'var(--red)'}}>{perf.heure_depart >= '16:00' ? 'Conforme' : 'Depart anticipe'}</span>}
+                      </div>
                     </div>
-                    {RECREES.map(recree => {
-                      const recData = (perf.recrees||[]).find(r => r.recree_id === recree.id) || {}
-                      const checked = RECREE_CHECKS.filter(c => recData[c.id]).length
-                      return (
-                        <div key={recree.id} style={{background:'var(--bg)',borderRadius:10,padding:'.6rem',marginBottom:6}}>
-                          <div style={{fontSize:11,fontWeight:700,marginBottom:6,display:'flex',justifyContent:'space-between'}}>
-                            <span>{recree.label}</span>
-                            <span style={{color:'var(--accent)'}}>{checked + (checked===5?2:0)}/7 pts</span>
-                          </div>
-                          {RECREE_CHECKS.map(chk => (
-                            <div key={chk.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)'}}>
-                              <button className={`chk-btn ${recData[chk.id] ? 'on' : ''}`} disabled={perf.valide} style={{width:22,height:22}} onClick={()=>toggleRecreeCheck(prof.id, recree.id, chk.id)}>{recData[chk.id]?'✓':''}</button>
-                              <span style={{fontSize:11,flex:1}}>{chk.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })}
-                  </div>
 
-                  <div style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', textAlign: 'center'}}>
-                    {perf.valide ? (
-                      <div style={{color: 'var(--green)', fontSize: 13, fontWeight: 700}}>✅ Journée validée</div>
-                    ) : (
-                      <button className="btn btn-primary" onClick={() => validerJournee(prof.id)} disabled={saving} style={{width:'100%', padding:'10px'}}>
-                        {saving ? '...' : 'Valider la journée'}
-                      </button>
-                    )}
+                    <div style={{marginBottom:15, padding:10, background:'rgba(26,175,224,.05)', borderRadius:12}}>
+                      <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>📚 Préparation IA ({perf.preparation || 0}/20 pts)</div>
+                      {preparations[prof.id] ? (
+                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12, fontWeight:700, color:'var(--accent)'}}>Note IA : {preparations[prof.id].note_ia}/20</div>
+                            <div style={{fontSize:10, color:'var(--muted)', fontStyle:'italic'}}>"{ preparations[prof.id].commentaire_ia}"</div>
+                          </div>
+                          <button className="btn-sm" disabled={perf.valide || perf.preparation === preparations[prof.id].note_ia} onClick={() => applyIaNote(prof.id)}>
+                            {perf.preparation === preparations[prof.id].note_ia ? 'Appliquée' : 'Appliquer'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{fontSize:11, color:'var(--red)'}}>Pas de préparation reçue pour aujourd'hui</div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Gestion de classe ({gestion}/25 pts)</div>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                        <button className={`chk-btn ${perf.sacs_accroches ? 'on' : ''}`} disabled={perf.valide} onClick={()=>toggleSacs(prof.id)}>{perf.sacs_accroches ? '✓' : ''}</button>
+                        <span style={{fontSize:12}}>Sacs bien accroches (4 pts)</span>
+                      </div>
+                      {RECREES.map(recree => {
+                        const recData = (perf.recrees||[]).find(r => r.recree_id === recree.id) || {}
+                        const checked = RECREE_CHECKS.filter(c => recData[c.id]).length
+                        return (
+                          <div key={recree.id} style={{background:'var(--bg)',borderRadius:10,padding:'.6rem',marginBottom:6}}>
+                            <div style={{fontSize:11,fontWeight:700,marginBottom:6,display:'flex',justifyContent:'space-between'}}>
+                              <span>{recree.label}</span>
+                              <span style={{color:'var(--accent)'}}>{checked + (checked===5?2:0)}/7 pts</span>
+                            </div>
+                            {RECREE_CHECKS.map(chk => (
+                              <div key={chk.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)'}}>
+                                <button className={`chk-btn ${recData[chk.id] ? 'on' : ''}`} disabled={perf.valide} style={{width:22,height:22}} onClick={()=>toggleRecreeCheck(prof.id, recree.id, chk.id)}>{recData[chk.id]?'✓':''}</button>
+                                <span style={{fontSize:11,flex:1}}>{chk.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div style={{marginTop:'1rem', paddingTop:'1rem', borderTop:'1px solid var(--border)', textAlign:'center'}}>
+                      {perf.valide ? (
+                        <div style={{color:'var(--green)', fontSize:13, fontWeight:700}}>✅ Journée validée</div>
+                      ) : (
+                        <button className="btn btn-primary" onClick={() => validerJournee(prof.id)} disabled={saving} style={{width:'100%', padding:'10px'}}>
+                          {saving ? '...' : 'Valider la journée'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )
           })}
