@@ -76,7 +76,7 @@ export default function ProfApp({ user, onLogout }) {
 
   const loadProgramme = async () => {
     if (!selectedClasse || !user) return
-    const { data: mats } = await supabase.from('matieres').select('*').eq('prof_id', user.id).eq('classe_id', selectedClasse?.id).order('nom')
+    const { data: mats } = await supabase.from('matieres').select('*').eq('classe_id', selectedClasse?.id).order('nom')
     if (!mats || mats.length === 0) { setProgrammeData([]); return }
     const result = []
     for (const mat of mats) {
