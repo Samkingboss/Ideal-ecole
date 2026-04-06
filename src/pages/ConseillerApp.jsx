@@ -253,23 +253,23 @@ export default function ConseillerApp({ user, onLogout }) {
 
       <div className="bottom-nav">
         <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} aria-label="Tableau de bord">
-          <div className="nav-icon">📊</div>
+          <div className="nav-icon" aria-hidden="true">📊</div>
           <span>Stats</span>
         </button>
         <button className={`nav-item ${tab==='inscriptions'?'active':''}`} onClick={()=>setTab('inscriptions')} aria-label="Gestion des inscriptions">
-          <div className="nav-icon">🎒</div>
-          <span>Élèves</span>
+          <div className="nav-icon" aria-hidden="true">🎒</div>
+          <span>Inscriptions</span>
         </button>
         <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')} aria-label="Pointage des présences">
-          <div className="nav-icon">⏰</div>
+          <div className="nav-icon" aria-hidden="true">⏰</div>
           <span>Pointage</span>
         </button>
         <button className={`nav-item ${tab==='bilans'?'active':''}`} onClick={()=>setTab('bilans')} aria-label="Envoi des bilans quotidiens">
-          <div className="nav-icon">📱</div>
+          <div className="nav-icon" aria-hidden="true">📱</div>
           <span>Bilans</span>
         </button>
         <button className={`nav-item ${tab==='retards'?'active':''}`} onClick={()=>setTab('retards')} aria-label="Bilan des retards trimestriels">
-          <div className="nav-icon">📝</div>
+          <div className="nav-icon" aria-hidden="true">📊</div>
           <span>Retards</span>
         </button>
       </div>
@@ -278,24 +278,20 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'dashboard' && (
           <>
             <div className="section-head"><div className="section-title">Tableau de Bord</div></div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:25}}>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
               <div className="kpi-card kpi-accent">
-                <div style={{fontSize:24, marginBottom:8}}>🎒</div>
                 <div className="kpi-value">{eleves.length}</div>
-                <div className="kpi-label">Inscrits</div>
+                <div className="kpi-label">Élèves inscrits</div>
               </div>
               <div className="kpi-card kpi-green">
-                <div style={{fontSize:24, marginBottom:8}}>✅</div>
                 <div className="kpi-value">{Object.values(presences).filter(p=>p.statut==='present').length}</div>
-                <div className="kpi-label">Présents</div>
+                <div className="kpi-label">Présents ce matin</div>
               </div>
               <div className="kpi-card kpi-amber">
-                <div style={{fontSize:24, marginBottom:8}}>⏰</div>
                 <div className="kpi-value">{Object.values(presences).filter(p=>p.statut==='retard').length}</div>
-                <div className="kpi-label">Retards</div>
+                <div className="kpi-label">En retard</div>
               </div>
               <div className="kpi-card kpi-pink">
-                <div style={{fontSize:24, marginBottom:8}}>❌</div>
                 <div className="kpi-value">{Object.values(presences).filter(p=>p.statut==='absent').length}</div>
                 <div className="kpi-label">Absents</div>
               </div>
@@ -306,33 +302,23 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'inscriptions' && (
           <>
             <div className="section-head">
-              <div className="section-title">Élèves Inscrits</div>
-              <button 
-                className="btn btn-primary" 
-                style={{width:'auto', padding:'8px 16px', fontSize:13}}
-                onClick={()=>{setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:classes[0]?.id || '' }); setShowModal('eleve')}}
-              >
-                + Ajouter
-              </button>
+              <div className="section-title">Gestion des Élèves</div>
+              <button className="btn-sm" onClick={()=>{setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:classes[0]?.id || '' }); setShowModal('eleve')}}>+ Ajouter</button>
             </div>
             {classes.map(cls => (
-              <div key={cls.id} className="card" style={{padding:0, marginBottom:16}}>
-                <div className="card-header" style={{background:'var(--bg)', color:'var(--dark)', borderBottom:'1px solid var(--border)', padding:'10px 14px'}}>{cls.nom}</div>
-                <div style={{padding:'4px 0'}}>
-                  {eleves.filter(e => e.classe_id === cls.id).length === 0 ? (
-                    <div style={{padding:20, textAlign:'center', color:'var(--muted)', fontSize:12}}>Aucun élève.</div>
-                  ) : (
-                    eleves.filter(e => e.classe_id === cls.id).map(el => (
-                      <div key={el.id} className="user-row" style={{borderBottom:'1px solid var(--border)'}}>
-                        <div className={`avatar ${el.sexe==='F'?'av-pink':'av-blue'}`}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                        <div style={{flex:1}}>
-                          <div style={{fontWeight:700, fontSize:14}}>{el.prenom} {el.nom}</div>
-                          <div style={{fontSize:11, color:'var(--muted)', marginTop:2}}>📱 {el.parent_phone}</div>
-                        </div>
-                        <button className="btn-sm" onClick={()=>{setNewEleve({...el}); setShowModal('eleve')}}>✏️</button>
+              <div key={cls.id} className="card" style={{marginBottom:10}}>
+                <div className="card-header">{cls.nom}</div>
+                <div className="card-body">
+                  {eleves.filter(e => e.classe_id === cls.id).map(el => (
+                    <div key={el.id} className="user-row">
+                      <div className="avatar av-blue">{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700, fontSize:13}}>{el.prenom} {el.nom}</div>
+                        <div style={{fontSize:10, color:'var(--muted)'}}>{el.parent_phone}</div>
                       </div>
-                    ))
-                  )}
+                      <button className="btn-sm" onClick={()=>{setNewEleve({...el}); setShowModal('eleve')}}>✏️</button>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -347,58 +333,31 @@ export default function ConseillerApp({ user, onLogout }) {
                 {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
               </select>
             </div>
-            {eleves.filter(e => e.classe_id === selectedClass).length === 0 ? (
-              <div className="card empty-state">
-                <div className="empty-icon">🎒</div>
-                Sélectionnez une classe pour commencer le pointage.
-              </div>
-            ) : (
-              eleves.filter(e => e.classe_id === selectedClass).map(el => {
-                const p = presences[el.id] || {}
-                return (
-                  <div key={el.id} className="card" style={{marginBottom:12, padding:14}}>
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
-                      <div style={{fontWeight:800, fontSize:15}}>{el.prenom} {el.nom}</div>
-                      <div className={`chip ${p.statut==='present'?'chip-green':p.statut==='absent'?'chip-red':p.statut==='retard'?'chip-amber':''}`} style={{fontSize:10, padding:'4px 10px'}}>
-                        {p.statut ? p.statut.toUpperCase() : 'À POINTER'}
-                      </div>
-                    </div>
-                    <div style={{display:'flex', gap:8}}>
-                      <button 
-                        className="btn" 
-                        style={{flex:1, height:42, background:p.statut==='present'?'var(--green)':'var(--bg)', color:p.statut==='present'?'#fff':'var(--text)', border:p.statut==='present'?'none':'1px solid var(--border)'}} 
-                        onClick={()=>markPresence(el.id,'present')}
-                      >
-                        P
-                      </button>
-                      <button 
-                        className="btn" 
-                        style={{flex:1, height:42, background:p.statut==='absent'?'var(--red)':'var(--bg)', color:p.statut==='absent'?'#fff':'var(--text)', border:p.statut==='absent'?'none':'1px solid var(--border)'}} 
-                        onClick={()=>{
-                          const motif = prompt('Motif de l\'absence ? (Laisser vide si non justifiée)')
-                          markPresence(el.id, 'absent', 0, motif)
-                        }}
-                      >
-                        A
-                      </button>
-                      <button 
-                        className="btn" 
-                        style={{flex:1, height:42, background:p.statut==='retard'?'var(--amber)':'var(--bg)', color:p.statut==='retard'?'#fff':'var(--text)', border:p.statut==='retard'?'none':'1px solid var(--border)'}} 
-                        onClick={()=>{
-                          const now = new Date()
-                          const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0)
-                          const diff = Math.max(0, Math.floor((now - start) / 60000))
-                          const ms = prompt('Minutes de retard ?', diff)
-                          if (ms !== null) markPresence(el.id, 'retard', parseInt(ms, 10) || 0)
-                        }}
-                      >
-                        R {p.statut==='retard' && `(${p.minutes_retard}')`}
-                      </button>
-                    </div>
+            {eleves.filter(e => e.classe_id === selectedClass).map(el => {
+              const p = presences[el.id] || {}
+              return (
+                <div key={el.id} className="card" style={{marginBottom:10, padding:12}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+                    <div style={{fontWeight:700}}>{el.prenom} {el.nom}</div>
+                    <div className={`chip ${p.statut==='present'?'chip-green':p.statut==='absent'?'chip-red':p.statut==='retard'?'chip-amber':''}`}>{p.statut || 'Non pointé'}</div>
                   </div>
-                )
-              })
-            )}
+                  <div style={{display:'flex', gap:6}}>
+                    <button className="btn-sm" style={{flex:1, background:p.statut==='present'?'var(--green)':'#eee', color:p.statut==='present'?'#fff':'#333'}} onClick={()=>markPresence(el.id,'present')}>P</button>
+                    <button className="btn-sm" style={{flex:1, background:p.statut==='absent'?'var(--red)':'#eee', color:p.statut==='absent'?'#fff':'#333'}} onClick={()=>{
+                      const motif = prompt('Motif de l\'absence ? (Laisser vide si non justifiée)')
+                      markPresence(el.id, 'absent', 0, motif)
+                    }}>A</button>
+                    <button className="btn-sm" style={{flex:1, background:p.statut==='retard'?'var(--amber)':'#eee', color:p.statut==='retard'?'#fff':'#333'}} onClick={()=>{
+                      const now = new Date()
+                      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0)
+                      const diff = Math.max(0, Math.floor((now - start) / 60000))
+                      const ms = prompt('Minutes de retard ?', diff)
+                      if (ms !== null) markPresence(el.id, 'retard', parseInt(ms, 10) || 0)
+                    }}>R {p.statut==='retard' ? `(${p.minutes_retard || 0}')` : ''}</button>
+                  </div>
+                </div>
+              )
+            })}
           </>
         )}
 
@@ -416,33 +375,33 @@ export default function ConseillerApp({ user, onLogout }) {
             </div>
 
             {eleves.filter(e => e.classe_id === selectedClass && hasDailyInfo(e)).length === 0 ? (
-              <div className="card empty-state">
-                <div className="empty-icon">✅</div>
-                Aucun élève à bilan aujourd'hui.
+              <div className="card" style={{padding:'2rem', textAlign:'center', color:'var(--muted)', borderRadius:16, border:'1px dashed var(--border)'}}>
+                Aucun élève à bilan pour cette classe aujourd'hui. ✅
               </div>
             ) : (
               eleves.filter(e => e.classe_id === selectedClass && hasDailyInfo(e)).map(el => (
-                <div key={el.id} className="card" style={{padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div key={el.id} className="card" style={{marginBottom:10, padding:12, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                   <div style={{flex:1}}>
-                    <div style={{fontWeight:800, fontSize:15}}>{el.prenom} {el.nom}</div>
-                    <div style={{display:'flex', gap:6, marginTop:6}}>
+                    <div style={{fontWeight:800}}>{el.prenom} {el.nom}</div>
+                    <div style={{display:'flex', gap:6, marginTop:4}}>
                       {presences[el.id]?.statut !== 'present' && presences[el.id] && (
-                        <span className="badge badge-red">PRÉSENCE</span>
+                        <span style={{fontSize:8, background:'rgba(237,28,36,0.1)', color:'var(--red)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS PRESENCE</span>
                       )}
                       {disciplines.some(d => d.eleve_id === el.id) && (
-                        <span className="badge badge-amber">DISCIPLINE</span>
+                        <span style={{fontSize:8, background:'rgba(247,148,29,0.1)', color:'var(--amber)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS DISCIPLINE</span>
                       )}
                       {checkpoints.some(cp => cp.progressions?.some(p => p.eleve_id === el.id)) && (
-                        <span className="badge badge-green">NOTES</span>
+                        <span style={{fontSize:8, background:'rgba(141,198,63,0.1)', color:'var(--green)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS NOTES</span>
                       )}
                     </div>
                   </div>
                   <button 
-                    className="btn btn-primary" 
-                    style={{height:40, padding:'0 15px', width:'auto'}}
+                    className="btn-sm" 
+                    style={{background:'#34B7F1', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 20px', fontSize:12, fontWeight:700}} 
                     onClick={()=>generateCartography(el, true)}
+                    title="Partager dans le groupe de l'élève"
                   >
-                    🚀 Envoyer
+                    Envoyer 👥
                   </button>
                 </div>
               ))
@@ -453,74 +412,56 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'retards' && (
           <div className="printable-bilan">
             <div className="section-head no-print">
-              <div className="section-title">Bilan Retards</div>
-            </div>
-            
-            <div className="no-print" style={{display:'flex', gap:8, marginBottom:20}}>
-              <select className="form-select" value={selectedTrimester} onChange={e=>setSelectedTrimester(e.target.value)}>
-                {Object.entries(TRIMESTRES).map(([key, val]) => (
-                  <option key={key} value={key}>{val.label}</option>
-                ))}
-              </select>
-              <select className="form-select" value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-              </select>
-            </div>
-
-            <div className="no-print" style={{marginBottom:25}}>
-              <button className="btn btn-primary" onClick={() => window.print()} style={{width:'100%'}}>
-                <span>🖨️</span> Imprimer le rapport de classe
-              </button>
-            </div>
-
-            <div className="print-header" style={{textAlign:'center', marginBottom:40}}>
-              <div style={{fontSize:28, fontWeight:900, letterSpacing:-1}}>ÉCOLE IDÉAL</div>
-              <div style={{fontSize:14, textTransform:'uppercase', letterSpacing:2, color:'var(--muted)', marginTop:5}}>Rapport d'Assiduité Trimestriel</div>
-              <div style={{marginTop:20, fontSize:16}}>
-                Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong>
+              <div className="section-title">Bilan des Retards</div>
+              <div style={{display:'flex', gap:10}}>
+                <select className="form-input" style={{width:'auto'}} value={selectedTrimester} onChange={e=>setSelectedTrimester(e.target.value)}>
+                  {Object.entries(TRIMESTRES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+                <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+                <button className="btn btn-primary" onClick={() => window.print()}>Imprimer 🖨️</button>
               </div>
             </div>
 
-            <div className="table-container">
+            <div className="print-header" style={{textAlign:'center', marginBottom:30}}>
+              <h2 style={{margin:0}}>ÉCOLE IDÉAL</h2>
+              <h3 style={{margin:5, color:'var(--muted)'}}>Bilan Trimesriel des Retards</h3>
+              <p>Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong></p>
+            </div>
+
+            <div className="card" style={{padding:0, overflow:'hidden'}}>
               <table className="table">
                 <thead>
                   <tr>
                     <th style={{width:50}}>#</th>
                     <th>Élève</th>
-                    <th style={{textAlign:'right'}}>Situation</th>
+                    <th style={{textAlign:'right'}}>Total Retard (min)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {retardStats.length === 0 ? (
-                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Aucun retard enregistré. ✅</td></tr>
+                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Aucun retard enregistré pour cette période.</td></tr>
                   ) : (
-                    retardStats.map((s, idx) => {
-                      let bClass = 'badge-green'
-                      if (s.total > 120) bClass = 'badge-red'
-                      else if (s.total > 60) bClass = 'badge-orange'
-                      else if (s.total > 0) bClass = 'badge-amber'
-                      
-                      return (
-                        <tr key={idx}>
-                          <td style={{color:'var(--muted)'}}>{idx + 1}</td>
-                          <td>{s.name}</td>
-                          <td style={{textAlign:'right'}}>
-                            <span className={`badge ${bClass}`}>{s.total} min</span>
-                          </td>
-                        </tr>
-                      )
-                    })
+                    retardStats.map((s, idx) => (
+                      <tr key={idx}>
+                        <td style={{fontWeight:800, color:'var(--muted)'}}>{idx + 1}</td>
+                        <td style={{fontWeight:700}}>{s.name}</td>
+                        <td style={{textAlign:'right', fontWeight:800, color: s.total > 120 ? 'var(--red)' : 'inherit'}}>
+                          {s.total} min
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
             </div>
             
-            <div className="print-footer" style={{marginTop:60, display:'flex', justifyContent:'flex-end'}}>
-              <div style={{textAlign:'center', width:250}}>
-                <p style={{fontWeight:700, marginBottom:60}}>Le Conseiller Vie Scolaire</p>
-                <div style={{borderBottom:'1px solid #000', width:'100%'}}></div>
-                <p style={{fontSize:10, color:'#666', marginTop:10}}>Fait à Bamako, le {new Date().toLocaleDateString('fr-FR')}</p>
-              </div>
+            <div className="print-footer" style={{marginTop:40, textAlign:'right', fontSize:12}}>
+              <p>Signature du CVS : _________________________</p>
+              <p style={{fontSize:10, color:'#999', marginTop:20}}>Document généré le {new Date().toLocaleDateString('fr-FR')}</p>
             </div>
           </div>
         )}
