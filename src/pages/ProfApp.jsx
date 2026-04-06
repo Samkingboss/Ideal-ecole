@@ -139,7 +139,7 @@ export default function ProfApp({ user, onLogout }) {
       
       // Load checkpoints by this prof
       const { data: cp } = await supabase.from('checkpoints')
-        .select('*, progressions(*, eleves(prenom,nom), objectifs(nom, matieres(nom)))')
+        .select('*, progressions(*, eleves(prenom,nom))')
         .eq('prof_id', user.id)
         .order('date_checkpoint', { ascending: false })
       setCheckpoints(cp || [])
