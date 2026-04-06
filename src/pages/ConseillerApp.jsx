@@ -343,25 +343,14 @@ export default function ConseillerApp({ user, onLogout }) {
                       )}
                     </div>
                   </div>
-                  <div style={{display:'flex', gap:8}}>
-                    <button 
-                      className="btn-sm" 
-                      style={{background:'#25D366', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 12px', fontSize:11, fontWeight:700}} 
-                      onClick={()=>generateCartography(el, false)} 
-                      disabled={!el.parent_phone}
-                      title="Envoyer au parent (Privé)"
-                    >
-                      📱 Parent
-                    </button>
-                    <button 
-                      className={`btn-sm ${!el.parent_phone ? 'disabled' : ''}`}
-                      style={{background:'#34B7F1', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 12px', fontSize:11, fontWeight:700}} 
-                      onClick={()=>generateCartography(el, true)}
-                      title="Partager dans le groupe de l'élève"
-                    >
-                      👥 Groupe
-                    </button>
-                  </div>
+                  <button 
+                    className="btn-sm" 
+                    style={{background:'#34B7F1', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 20px', fontSize:12, fontWeight:700}} 
+                    onClick={()=>generateCartography(el, true)}
+                    title="Partager dans le groupe de l'élève"
+                  >
+                    Envoyer 👥
+                  </button>
                 </div>
               ))
             )}
