@@ -293,8 +293,9 @@ export default function ConseillerApp({ user, onLogout }) {
                       const now = new Date()
                       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0)
                       const diff = Math.max(0, Math.floor((now - start) / 60000))
-                      markPresence(el.id, 'retard', diff)
-                    }}>R {p.minutes_retard ? `(${p.minutes_retard}')` : ''}</button>
+                      const ms = prompt('Minutes de retard ?', diff)
+                      if (ms !== null) markPresence(el.id, 'retard', parseInt(ms, 10) || 0)
+                    }}>R {p.statut==='retard' ? `(${p.minutes_retard || 0}')` : ''}</button>
                   </div>
                 </div>
               )
