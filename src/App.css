@@ -143,6 +143,13 @@ input[type=range] { accent-color:var(--accent); width:80px; }
 .banner-dark { background:var(--dark); }
 .banner-accent { background:linear-gradient(135deg,#0d2a3b,#1AAFE0); }
 
+/* ── BADGES for Bilan Retards ── */
+.badge { font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; }
+.badge-green { background: #d1fae5; color: #065f46; }
+.badge-amber { background: #fef3c7; color: #92400e; }
+.badge-orange { background: #ffedd5; color: #9a3412; }
+.badge-red { background: #fee2e2; color: #991b1b; }
+
 /* ── TABLES ── */
 .table { width: 100%; border-collapse: collapse; }
 .table th { background: #f8fafc; text-align: left; padding: 12px; font-size: 10px; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--border); }
@@ -157,6 +164,6 @@ input[type=range] { accent-color:var(--accent); width:80px; }
   body { background: #fff !important; color: #000 !important; }
   .print-header { display: block !important; }
   .printable-bilan { width: 100% !important; }
-  .table th { background: #eee !important; color: #000 !important; border: 1px solid #ddd !important; }
+  .table th { background: #eee !important; color: #000 !important; border: 1px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .table td { border: 1px solid #eee !important; }
 }

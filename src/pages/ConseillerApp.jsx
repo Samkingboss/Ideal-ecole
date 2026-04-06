@@ -410,58 +410,74 @@ export default function ConseillerApp({ user, onLogout }) {
         )}
 
         {tab === 'retards' && (
-          <div className="printable-bilan">
+          <div className="printable-bilan" style={{fontFamily: "'Inter', sans-serif"}}>
             <div className="section-head no-print">
-              <div className="section-title">Bilan des Retards</div>
-              <div style={{display:'flex', gap:10}}>
-                <select className="form-input" style={{width:'auto'}} value={selectedTrimester} onChange={e=>setSelectedTrimester(e.target.value)}>
-                  {Object.entries(TRIMESTRES).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
-                <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                </select>
-                <button className="btn btn-primary" onClick={() => window.print()}>Imprimer 🖨️</button>
-              </div>
+              <div className="section-title" style={{fontWeight:900}}>Bilan Retards</div>
+            </div>
+            
+            <div className="no-print" style={{display:'flex', gap:8, marginBottom:20}}>
+              <select className="form-input" style={{flex:1}} value={selectedTrimester} onChange={e=>setSelectedTrimester(e.target.value)}>
+                {Object.entries(TRIMESTRES).map(([key, val]) => (
+                  <option key={key} value={key}>{val.label}</option>
+                ))}
+              </select>
+              <select className="form-input" style={{flex:1}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              </select>
             </div>
 
-            <div className="print-header" style={{textAlign:'center', marginBottom:30}}>
-              <h2 style={{margin:0}}>ÉCOLE IDÉAL</h2>
-              <h3 style={{margin:5, color:'var(--muted)'}}>Bilan Trimesriel des Retards</h3>
-              <p>Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong></p>
+            <div className="no-print" style={{marginBottom:25}}>
+              <button className="btn btn-primary" onClick={() => window.print()} style={{width:'100%', background:'linear-gradient(135deg, #1AAFE0, #0d2a3b)'}}>
+                🖨️ Imprimer le rapport
+              </button>
             </div>
 
-            <div className="card" style={{padding:0, overflow:'hidden'}}>
+            <div className="print-header" style={{textAlign:'center', marginBottom:40}}>
+              <h2 style={{fontSize:28, fontWeight:900, letterSpacing:'-1px', margin:0}}>ÉCOLE IDÉAL</h2>
+              <div style={{fontSize:12, textTransform:'uppercase', letterSpacing:2, color:'var(--muted)', marginTop:5, marginBottom:15}}>Rapport d'Assiduité Trimestriel</div>
+              <p style={{margin:0, fontSize:15}}>Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong></p>
+            </div>
+
+            <div className="card" style={{padding:0, overflow:'hidden', borderRadius:16, border:'1px solid var(--border)'}}>
               <table className="table">
                 <thead>
                   <tr>
                     <th style={{width:50}}>#</th>
                     <th>Élève</th>
-                    <th style={{textAlign:'right'}}>Total Retard (min)</th>
+                    <th style={{textAlign:'right'}}>Situation</th>
                   </tr>
                 </thead>
                 <tbody>
                   {retardStats.length === 0 ? (
-                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Aucun retard enregistré pour cette période.</td></tr>
+                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Aucun retard enregistré. ✅</td></tr>
                   ) : (
-                    retardStats.map((s, idx) => (
-                      <tr key={idx}>
-                        <td style={{fontWeight:800, color:'var(--muted)'}}>{idx + 1}</td>
-                        <td style={{fontWeight:700}}>{s.name}</td>
-                        <td style={{textAlign:'right', fontWeight:800, color: s.total > 120 ? 'var(--red)' : 'inherit'}}>
-                          {s.total} min
-                        </td>
-                      </tr>
-                    ))
+                    retardStats.map((s, idx) => {
+                      let bClass = 'badge-green'
+                      if (s.total > 120) bClass = 'badge-red'
+                      else if (s.total > 60) bClass = 'badge-orange'
+                      else if (s.total > 0) bClass = 'badge-amber'
+                      
+                      return (
+                        <tr key={idx}>
+                          <td style={{fontWeight:700, color:'var(--muted)'}}>{idx + 1}</td>
+                          <td style={{fontWeight:700}}>{s.name}</td>
+                          <td style={{textAlign:'right'}}>
+                            <span className={`badge ${bClass}`}>{s.total} min</span>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
             </div>
             
-            <div className="print-footer" style={{marginTop:40, textAlign:'right', fontSize:12}}>
-              <p>Signature du CVS : _________________________</p>
-              <p style={{fontSize:10, color:'#999', marginTop:20}}>Document généré le {new Date().toLocaleDateString('fr-FR')}</p>
+            <div className="print-footer" style={{marginTop:50, display:'flex', justifyContent:'flex-end'}}>
+              <div style={{textAlign:'center', width:250}}>
+                <p style={{fontWeight:700, marginBottom:60}}>Le Conseiller Vie Scolaire</p>
+                <div style={{borderBottom:'1px solid #000', width:'100%'}}></div>
+                <p style={{fontSize:10, color:'#666', marginTop:10}}>Fait à Bamako, le {new Date().toLocaleDateString('fr-FR')}</p>
+              </div>
             </div>
           </div>
         )}
