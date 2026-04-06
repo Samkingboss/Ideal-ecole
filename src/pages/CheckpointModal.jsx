@@ -31,7 +31,7 @@ export default function CheckpointModal({ classEleves, programmeData, selectedCl
     const progressions = []
     Object.entries(entries).forEach(([eleveId, objs]) => {
       Object.entries(objs).forEach(([objId, pct]) => {
-        if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, competence_id: objId, pourcentage: pct })
+        if (pct > 0) progressions.push({ checkpoint_id: cpData.id, eleve_id: eleveId, objectif_id: objId, pourcentage: pct })
       })
     })
     if (progressions.length > 0) {
