@@ -1,0 +1,218 @@
+.bulletin-container {
+  width: 210mm;
+  /* Retrait du min-height fixe pour permettre au contenu de s'étendre si nécessaire,
+     mais le format de base reste A4 */
+  min-height: 297mm;
+  padding: 15mm;
+  margin: 0 auto 20px auto;
+  background-color: #fff;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  color: #14213D;
+  box-sizing: border-box;
+}
+
+/* En-tête */
+.bulletin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #FCA311;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.school-info h1 {
+  color: #14213D;
+  font-size: 24px;
+  margin: 0 0 5px 0;
+}
+.school-info p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.student-info {
+  text-align: right;
+}
+.student-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #14213D;
+  margin: 0 0 5px 0;
+}
+.student-class {
+  background-color: #FCA311;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  display: inline-block;
+  margin-bottom: 5px;
+}
+
+/* Global Synthesis Section */
+.global-synthesis {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 25px;
+  border-left: 5px solid #14213D;
+}
+
+.moyennes-globales {
+  display: flex;
+  gap: 20px;
+}
+
+.moyenne-badge {
+  text-align: center;
+  background: #fff;
+  padding: 10px 15px;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
+}
+
+.moyenne-badge.current {
+  border: 2px solid #FCA311;
+  background: #fffdf9;
+}
+
+.badge-label {
+  display: block;
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 5px;
+}
+
+.badge-value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #14213D;
+}
+
+.chart-global {
+  width: 350px;
+  height: 120px;
+}
+
+/* Tableaux par programme */
+.programme-section {
+  margin-bottom: 30px;
+}
+
+.programme-title {
+  background-color: #14213D;
+  color: #fff;
+  padding: 8px 15px;
+  font-size: 16px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.malien .programme-title {
+  background-color: #FCA311; /* Orange Ideal */
+}
+
+.international .programme-title {
+  background-color: #00A6FB; /* Cyan/Blue */
+}
+
+.bulletin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 15px;
+}
+
+.bulletin-table th {
+  background-color: #f1f3f5;
+  color: #333;
+  padding: 10px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  font-weight: 600;
+}
+
+.bulletin-table th:first-child {
+  text-align: left;
+}
+
+.bulletin-table td {
+  padding: 8px 10px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+}
+
+.bulletin-table td.subject-name {
+  text-align: left;
+  font-weight: 500;
+}
+
+.bulletin-table td.current-term {
+  background-color: #f8fbff;
+  font-weight: bold;
+}
+
+.malien .bulletin-table td.current-term {
+  background-color: #fffdf9;
+}
+
+.evolution {
+  font-weight: bold;
+}
+.evolution.up { color: #2b9348; }
+.evolution.down { color: #d00000; }
+.evolution.stable { color: #888; }
+
+.table-footer td {
+  background-color: #f1f3f5;
+  font-weight: bold;
+}
+
+/* Footer Signatures */
+.bulletin-footer {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 2px solid #eee;
+}
+
+.signature-box {
+  text-align: center;
+}
+
+.signature-title {
+  font-weight: bold;
+  margin-bottom: 50px; /* Space for signature */
+}
+
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .bulletin-container, .bulletin-container * {
+    visibility: visible;
+  }
+  .bulletin-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 15mm;
+    box-shadow: none;
+    width: 210mm;
+    min-height: 297mm;
+  }
+  .print-hide {
+    display: none !important;
+  }
+}
