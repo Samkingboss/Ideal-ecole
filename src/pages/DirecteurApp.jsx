@@ -3,12 +3,15 @@ import { supabase } from '../lib/supabase'
 import PerformancesDirecteur from './PerformancesDirecteur'
 import AgendaCalendrier from './AgendaCalendrier'
 
-const TABS = [
-  { id:'dashboard', icon:'📊', label:'Tableau de bord' },
-  { id:'profs', icon:'👥', label:'Equipe' },
-  { id:'eleves', icon:'🎒', label:'Eleves' },
+const BOTTOM_TABS = [
+  { id:'dashboard', icon:'📊', label:'Bord' },
   { id:'agenda', icon:'📅', label:'Agenda' },
-  { id:'perfs', icon:'⭐', label:'Performances' },
+  { id:'perfs', icon:'⭐', label:'Perfs' },
+]
+
+const TOP_TABS = [
+  { id:'profs', icon:'👥', label:'Équipe' },
+  { id:'eleves', icon:'🎒', label:'Élèves' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
 ]
@@ -227,12 +230,23 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
       </div>
 
+      <div className="top-nav-secondary">
+        {TOP_TABS.map(t => (
+          <button 
+            key={t.id} 
+            className={`top-nav-item ${tab===t.id?'active':''}`} 
+            onClick={()=>setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="page-content">
         {msg && <div className="error-msg" style={{background:'rgba(141,198,63,.1)',borderColor:'var(--green)',color:'var(--green)',marginBottom:'1rem'}} onClick={()=>setMsg('')}>{msg}</div>}
 
         {tab === 'dashboard' && (
           <>
-            <div className="section-head"><div className="section-title">Tableau de bord</div></div>
             <div className="section-head"><div className="section-title">Tableau de bord</div></div>
             <div className="kpi-grid">
               <div className="kpi-card kpi-accent"><div className="kpi-value">{stats.profs}</div><div className="kpi-label">Enseignants</div></div>
@@ -476,7 +490,7 @@ export default function DirecteurApp({ user, onLogout }) {
       </div>
 
       <div className="bottom-nav" role="tablist">
-        {TABS.map(t => (
+        {BOTTOM_TABS.map(t => (
           <button 
             key={t.id} 
             className={`nav-item ${tab===t.id?'active':''}`} 
