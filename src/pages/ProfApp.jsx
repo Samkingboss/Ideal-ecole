@@ -76,17 +76,15 @@ export default function ProfApp({ user, onLogout }) {
 
   const loadProgramme = async () => {
     if (!selectedClasse || !user) return
-    const { data: mats } = await supabase.from('matieres').select('*').eq('prof_id', user.id).eq('classe_id', selectedClasse.id).order('nom')
+    // Charger les matières de la classe
+    const { data: mats } = await supabase.from('matieres').select('*').eq('classe_id', selectedClasse.id).order('nom')
     if (!mats || mats.length === 0) { setProgrammeData([]); return }
+    
     const result = []
     for (const mat of mats) {
-      const { data: objs } = await supabase.from('objectifs_v2').select('*').eq('matiere_id', mat.id).order('nom')
-      const objsWithComps = []
-      for (const obj of (objs || [])) {
-        const { data: comps } = await supabase.from('competences').select('*').eq('objectif_id', obj.id).order('nom')
-        objsWithComps.push({ ...obj, competences: comps || [] })
-      }
-      result.push({ ...mat, objectifs: objsWithComps })
+      // Charger les objectifs liés à la matière (utiliser 'objectifs' et non 'objectifs_v2')
+      const { data: objs } = await supabase.from('objectifs').select('*').eq('matiere_id', mat.id).order('nom')
+      result.push({ ...mat, objectifs: objs || [] })
     }
     setProgrammeData(result)
   }
