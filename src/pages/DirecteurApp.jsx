@@ -245,55 +245,174 @@ export default function DirecteurApp({ user, onLogout }) {
       <div className="page-content">
         {msg && <div className="error-msg" style={{background:'rgba(141,198,63,.1)',borderColor:'var(--green)',color:'var(--green)',marginBottom:'1rem'}} onClick={()=>setMsg('')}>{msg}</div>}
 
-        {tab === 'dashboard' && (
-          <>
-            <div className="section-head"><div className="section-title">Tableau de bord</div></div>
-            <div className="kpi-grid">
-              <div className="kpi-card kpi-accent"><div className="kpi-value">{stats.profs}</div><div className="kpi-label">Enseignants</div></div>
-              <div className="kpi-card kpi-green"><div className="kpi-value">{stats.eleves}</div><div className="kpi-label">Eleves</div></div>
-              <div className="kpi-card kpi-amber"><div className="kpi-value">{stats.checkpoints}</div><div className="kpi-label">Check-points</div></div>
-              <div className="kpi-card kpi-pink"><div className="kpi-value">{classes.length}</div><div className="kpi-label">Classes</div></div>
-            </div>
+        {tab === 'dashboard' && (() => {
+          // Calculs pour le dashboard
+          const avgParClasse = syntheseData.map(cl => {
+            const avg = cl.stats.length
+              ? Math.round(cl.stats.reduce((s, m) => s + m.avg, 0) / cl.stats.length)
+              : 0
+            return { classe: cl.classe, avg }
+          }).sort((a, b) => b.avg - a.avg)
 
-            {/* Alerts / Notifications for Discipline */}
-            {disciplines.some(d => (d.gravite === 'grave' || d.gravite === 'blâme' || d.gravite === 'exclusion') && d.statut === 'signalé') && (
-              <div className="card" style={{borderLeft:'4px solid var(--red)', marginBottom:20}}>
-                <div className="card-header" style={{background:'rgba(255,0,0,0.05)', color:'var(--red)', fontWeight:900, fontSize:12, padding:'8px 16px'}}>
-                  ⚠️ ALERTES DISCIPLINE (GRAVE)
+          const cpParClasse = classes.map(cl => {
+            const elevesCl = eleves.filter(e => e.classe_id === cl.id)
+            const cpCl = checkpoints.filter(cp => elevesCl.some(e => e.id === cp.eleve_id))
+            const total = elevesCl.length * 3
+            const fait = cpCl.filter(cp => cp.statut === 'validé' || cp.note !== null).length
+            return { classe: cl.nom, pct: total > 0 ? Math.round(fait / total * 100) : 0, fait, total: elevesCl.length }
+          })
+
+          const evAVenir = evenements
+            .filter(e => new Date(e.date_event) >= new Date())
+            .slice(0, 3)
+
+          const disciplinesGraves = disciplines.filter(d =>
+            (d.gravite === 'grave' || d.gravite === 'exclusion') && d.statut === 'signalé'
+          )
+
+          return (
+            <>
+              {/* KPI Cards */}
+              <div className="kpi-grid" style={{marginBottom: 16}}>
+                <div className="kpi-card kpi-accent">
+                  <div className="kpi-value">{stats.profs}</div>
+                  <div className="kpi-label">Enseignants</div>
                 </div>
-                <div style={{padding:'1rem'}}>
-                  {disciplines.filter(d => (d.gravite === 'grave' || d.gravite === 'blâme' || d.gravite === 'exclusion') && d.statut === 'signalé').map(d => (
-                    <div key={d.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--border)'}}>
-                      <div>
-                        <div style={{fontSize:13, fontWeight:800}}>{d.eleves?.prenom} {d.eleves?.nom} ({d.eleves?.classes?.nom})</div>
-                        <div style={{fontSize:11, color:'var(--muted)'}}>Motif: <span style={{color:'var(--text)'}}>{d.motif}</span></div>
-                        <div style={{fontSize:10, color:'var(--muted)', marginTop:4}}>Signale par: {d.users?.prenom} {d.users?.nom}</div>
+                <div className="kpi-card kpi-green">
+                  <div className="kpi-value">{stats.eleves}</div>
+                  <div className="kpi-label">Élèves</div>
+                </div>
+                <div className="kpi-card kpi-amber">
+                  <div className="kpi-value">{classes.length}</div>
+                  <div className="kpi-label">Classes</div>
+                </div>
+                <div className="kpi-card kpi-pink">
+                  <div className="kpi-value">{preparations.length}</div>
+                  <div className="kpi-label">Préparations</div>
+                </div>
+              </div>
+
+              {/* Alerte discipline */}
+              {disciplinesGraves.length > 0 && (
+                <div className="card" style={{borderLeft:'4px solid var(--red)', marginBottom:16}}>
+                  <div className="card-header" style={{background:'rgba(255,0,0,0.07)', color:'var(--red)', fontWeight:900, fontSize:12}}>
+                    ⚠️ {disciplinesGraves.length} ALERTE{disciplinesGraves.length > 1 ? 'S' : ''} DISCIPLINE GRAVE
+                  </div>
+                  <div style={{padding:'0.75rem 1rem'}}>
+                    {disciplinesGraves.slice(0, 3).map(d => (
+                      <div key={d.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
+                        <div>
+                          <div style={{fontSize:13, fontWeight:800}}>{d.eleves?.prenom} {d.eleves?.nom} <span style={{color:'var(--muted)', fontWeight:400}}>({d.eleves?.classes?.nom})</span></div>
+                          <div style={{fontSize:11, color:'var(--muted)', marginTop:2}}>{d.motif}</div>
+                        </div>
+                        <span className="chip chip-red" style={{fontSize:9}}>{d.gravite}</span>
                       </div>
-                      <div className="chip chip-red" style={{fontSize:9}}>{d.gravite}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Performance par classe */}
+              {avgParClasse.length > 0 && (
+                <div className="card" style={{marginBottom:16}}>
+                  <div className="card-header">📊 Performance par classe</div>
+                  <div className="card-body" style={{padding:'1rem'}}>
+                    {avgParClasse.map((cl, i) => (
+                      <div key={cl.classe} style={{marginBottom: i < avgParClasse.length - 1 ? 14 : 0}}>
+                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5}}>
+                          <span style={{fontSize:13, fontWeight:700}}>{cl.classe}</span>
+                          <span style={{
+                            fontSize:12, fontWeight:800,
+                            color: cl.avg >= 70 ? 'var(--green)' : cl.avg >= 40 ? 'var(--amber, #f59e0b)' : 'var(--red)'
+                          }}>{cl.avg}%</span>
+                        </div>
+                        <div style={{height:8, background:'var(--border)', borderRadius:99, overflow:'hidden'}}>
+                          <div style={{
+                            height:'100%', borderRadius:99,
+                            width: `${cl.avg}%`,
+                            background: cl.avg >= 70
+                              ? 'linear-gradient(90deg, #10b981, #34d399)'
+                              : cl.avg >= 40
+                              ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+                              : 'linear-gradient(90deg, #ef4444, #f87171)',
+                            transition: 'width 0.6s ease'
+                          }} />
+                        </div>
+                      </div>
+                    ))}
+                    {avgParClasse.length === 0 && (
+                      <div style={{color:'var(--muted)', fontSize:12, textAlign:'center', padding:'1rem'}}>
+                        Aucune donnée de progression disponible.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Check-points + Événements côte à côte */}
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16}}>
+                {/* Check-points par classe */}
+                <div className="card">
+                  <div className="card-header">✅ Check-points par classe</div>
+                  <div className="card-body" style={{padding:'1rem'}}>
+                    {cpParClasse.map(cl => (
+                      <div key={cl.classe} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid var(--border)'}}>
+                        <span style={{fontSize:12, fontWeight:600}}>{cl.classe}</span>
+                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                          <span style={{fontSize:11, color:'var(--muted)'}}>{cl.total} élèves</span>
+                          <span style={{
+                            fontSize:12, fontWeight:800, minWidth:36, textAlign:'right',
+                            color: cl.pct >= 70 ? 'var(--green)' : cl.pct >= 40 ? '#f59e0b' : 'var(--red)'
+                          }}>{cl.pct}%</span>
+                        </div>
+                      </div>
+                    ))}
+                    {cpParClasse.length === 0 && (
+                      <div style={{color:'var(--muted)', fontSize:12, textAlign:'center', padding:'1rem'}}>Aucun check-point</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Événements à venir */}
+                <div className="card">
+                  <div className="card-header">📅 Prochains événements</div>
+                  <div className="card-body" style={{padding:'1rem'}}>
+                    {evAVenir.length === 0 ? (
+                      <div style={{color:'var(--muted)', fontSize:12, textAlign:'center', padding:'1rem'}}>Aucun événement prévu</div>
+                    ) : evAVenir.map(ev => (
+                      <div key={ev.id} style={{padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
+                        <div style={{fontSize:12, fontWeight:700}}>{ev.titre}</div>
+                        <div style={{fontSize:11, color:'var(--accent)', marginTop:2}}>
+                          📅 {new Date(ev.date_event).toLocaleDateString('fr-FR', {weekday:'short', day:'numeric', month:'short'})}
+                        </div>
+                        {ev.description && <div style={{fontSize:10, color:'var(--muted)', marginTop:2}}>{ev.description}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Préparations récentes */}
+              <div className="card">
+                <div className="card-header">📝 Préparations récentes</div>
+                <div className="card-body" style={{padding:'0'}}>
+                  {(preparations || []).length === 0 ? (
+                    <div className="empty-state"><div className="empty-icon">📝</div><p>Aucune préparation de cours déposée.</p></div>
+                  ) : preparations.slice(0, 5).map(pre => (
+                    <div key={pre.id} className="user-row">
+                      <div className="avatar av-amber">{(pre.users?.prenom?.[0]||'')+(pre.users?.nom?.[0]||'')}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600,fontSize:13}}>{pre.users?.prenom} {pre.users?.nom}</div>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>Déposé le {new Date(pre.heure_depot).toLocaleDateString('fr-FR')} · {pre.classes?.nom}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-            
-            <div className="card">
-              <div className="card-header">Activités récentes (Préparations)</div>
-              <div className="card-body" style={{padding:'0'}}>
-                {(preparations || []).length === 0 ? (
-                  <div className="empty-state"><div className="empty-icon">📝</div><p>Aucune préparation de cours déposée.</p></div>
-                ) : preparations.slice(0, 5).map(pre => (
-                  <div key={pre.id} className="user-row">
-                    <div className="avatar av-amber">{(pre.users?.prenom?.[0]||'')+(pre.users?.nom?.[0]||'')}</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:600,fontSize:13}}>{pre.users?.prenom} {pre.users?.nom}</div>
-                      <div style={{fontSize:11,color:'var(--muted)'}}>Déposé le {new Date(pre.heure_depot).toLocaleDateString()} pour {pre.classes?.nom}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+            </>
+          )
+        })()}
+
 
         {tab === 'profs' && (
           <>
