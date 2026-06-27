@@ -999,9 +999,9 @@ export default function ProfApp({ user, onLogout }) {
                             const niveauG = lbR(moyR) + (psR ? '' : ' ('+moyR+'%)');
                             const tendance = moyR >= 75 ? 'est en excellente progression' : moyR >= 50 ? 'progresse bien' : 'necessite un soutien supplementaire';
                             const detailD = Object.entries(byDiscR).map(([disc, items]) => { const avg = Math.round(items.reduce((a,b)=>a+b.pct,0)/items.length); return '- ' + disc + ' : ' + lbR(avg) + (psR ? '' : ' ('+avg+'%)'); }).join(nl);
-                            corps = 'Rapport de progression de ' + prenom + ' en date du ' + dateF + '.' + nl + nl + 'Niveau global : ' + niveauG + nl + 'Votre enfant ' + tendance + ' cette periode.' + nl + nl + 'Resultats par domaine :' + nl + detailD + (msgDetails.precision ? nl + nl + msgDetails.precision : '') + nl + nl + 'Nous restons disponibles pour echanger avec vous.';
+                            corps = 'Rapport de progression de ' + prenom + ' en date du ' + dateF + '.' + nl + nl + 'Niveau global : ' + niveauG + nl + 'Votre enfant ' + tendance + ' ce trimestre.' + nl + nl + 'Resultats par domaine :' + nl + detailD + (msgDetails.precision ? nl + nl + msgDetails.precision : '') + nl + nl + 'Nous restons disponibles pour echanger avec vous.';
                           } else {
-                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' pour cette periode.' + (msgDetails.precision ? ' ' + msgDetails.precision : '') + ' N hesitez pas a nous contacter.';
+                            corps = 'Nous souhaitons vous informer de la progression de votre enfant ' + prenom + ' pour ce trimestre.' + (msgDetails.precision ? ' ' + msgDetails.precision : '') + ' N hesitez pas a nous contacter.';
                           }
                         } else if(msgType==='absence'){
                           const ta = msgDetails.type_abs==='retard'?'un retard':msgDetails.type_abs==='depart'?'un depart anticipe':'une absence';
