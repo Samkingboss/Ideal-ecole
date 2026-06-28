@@ -231,7 +231,7 @@ async function load() {
 
     const { data: ins, error } = await _supa
         .from('inscriptions')
-        .select('*, responsable1:responsables!responsable1_id(*), responsable2:responsables!responsable2_id(*)')
+        .select('*')
         .eq('matricule', matricule)
         .single();
 
@@ -240,13 +240,27 @@ async function load() {
         return;
     }
 
+    // Charger le responsable séparément
+    let r1 = {};
+    if (ins.responsable1_id) {
+        const { data: resp } = await _supa.from('responsables').select('*').eq('id', ins.responsable1_id).single();
+        if (resp) r1 = resp;
+    }
+    ins.responsable1 = r1;
+
     document.getElementById('state').style.display = 'none';
     document.getElementById('fiche').style.display = 'block';
 
-    // Photo
+    // Photo — URL publique Supabase Storage
     const photoZone = document.getElementById('photo-zone');
     if (ins.photo_url) {
-        photoZone.innerHTML = `<img src="${ins.photo_url}" alt="Photo élève">`;
+        const img = new Image();
+        img.alt = 'Photo élève';
+        img.style.cssText = 'width:72px;height:72px;border-radius:10px;object-fit:cover;border:3px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.25);';
+        img.onerror = () => { photoZone.innerHTML = `<div class="photo-placeholder">👤</div>`; };
+        img.src = ins.photo_url;
+        photoZone.innerHTML = '';
+        photoZone.appendChild(img);
     } else {
         photoZone.innerHTML = `<div class="photo-placeholder">👤</div>`;
     }
