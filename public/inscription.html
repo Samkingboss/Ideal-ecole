@@ -1226,43 +1226,32 @@
         const nomParent = `${r1.prenom || ''} ${r1.nom || ''}`.trim();
 
         // ── Helpers ──────────────────────────────────────────
-        // Barre de section premium
         const section = (titre, color, yy) => {
-            const colors = { bleu: BLEU, orange: ORANGE, vert: VERT, magenta: MAGENTA, gris: [61, 74, 92] };
-            const col = colors[color] || BLEU;
-            // Fond clair de la section
-            const bgColors = { bleu: BLEU_L, orange: [255, 248, 232], vert: VERT_L, magenta: [255, 235, 248], gris: [245, 247, 250] };
-            doc.setFillColor(...(bgColors[color] || BLEU_L));
-            doc.rect(ML, yy, W - ML - MR, 8, 'F');
-            // Barre gauche colorée
+            const cols   = { bleu: BLEU, orange: ORANGE, vert: VERT, magenta: MAGENTA, gris: [61,74,92] };
+            const bgCols = { bleu: BLEU_L, orange:[255,248,232], vert: VERT_L, magenta:[255,235,248], gris:[245,247,250] };
+            const col = cols[color] || BLEU;
+            doc.setFillColor(...(bgCols[color] || BLEU_L));
+            doc.rect(ML, yy, W - ML - MR, 7, 'F');
             doc.setFillColor(...col);
-            doc.rect(ML, yy, 3.5, 8, 'F');
+            doc.rect(ML, yy, 3, 7, 'F');
             doc.setTextColor(...col);
-            doc.setFontSize(7.5);
+            doc.setFontSize(7);
             doc.setFont('helvetica', 'bold');
-            doc.text(titre.toUpperCase(), ML + 7, yy + 5.4);
-            return yy + 12;
+            doc.text(titre.toUpperCase(), ML + 6, yy + 4.8);
+            return yy + 10;
         };
 
-        // Ligne de données sur 2 ou 3 colonnes
         const row = (fields, yy, shade) => {
-            if (shade) {
-                doc.setFillColor(...GRIS_F);
-                doc.rect(ML, yy - 1, W - ML - MR, 10, 'F');
-            }
+            if (shade) { doc.setFillColor(...GRIS_F); doc.rect(ML, yy - 1, W - ML - MR, 10, 'F'); }
             const colW = (W - ML - MR) / fields.length;
             fields.forEach(([label, val], i) => {
                 const x = ML + i * colW + 2;
-                doc.setTextColor(...GRIS_T);
-                doc.setFontSize(6);
-                doc.setFont('helvetica', 'normal');
-                doc.text(label, x, yy + 2.5);
-                doc.setTextColor(...NOIR_T);
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'bold');
-                doc.text(String(val || '—'), x, yy + 7.5, { maxWidth: colW - 5 });
+                doc.setTextColor(...GRIS_T); doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+                doc.text(label, x, yy + 2);
+                doc.setTextColor(...NOIR_T); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+                doc.text(String(val || '—'), x, yy + 7, { maxWidth: colW - 4 });
             });
-            return yy + 12;
+            return yy + 11;
         };
 
         // ── FOND GÉNÉRAL ─────────────────────────────────────
@@ -1330,123 +1319,103 @@
 
         // ── IDENTITÉ ─────────────────────────────────────────
         let y = 56;
-        y = section('Identité de l\'élève', 'bleu', y);
-        y = row([['NOM DE FAMILLE', (data.nom || '').toUpperCase()], ['PRÉNOMS', data.prenom], ['SEXE', data.sexe === 'M' ? 'Garçon' : 'Fille']], y, false);
-        y = row([['DATE DE NAISSANCE', data.date_naissance], ['LIEU DE NAISSANCE', data.lieu_naissance], ['NATIONALITÉ', data.nationalite]], y, true);
-        y = row([['LANGUE À LA MAISON', data.langue_maison], ['ADRESSE', data.adresse]], y, false);
-        y += 2;
+        y = section("Identite de l'eleve", 'bleu', y);
+        y = row([['NOM DE FAMILLE',(data.nom||'').toUpperCase()],['PRENOMS',data.prenom],['SEXE',data.sexe==='M'?'Garcon':'Fille']], y, false);
+        y = row([['DATE DE NAISSANCE',data.date_naissance],['LIEU DE NAISSANCE',data.lieu_naissance],['NATIONALITE',data.nationalite]], y, true);
+        y = row([['LANGUE MAISON',data.langue_maison],['ADRESSE',data.adresse]], y, false);
+        y += 1;
 
         // ── SCOLARITÉ ────────────────────────────────────────
-        y = section('Scolarité', 'orange', y);
-        y = row([['CLASSE DEMANDÉE', data.classe_demandee], ['ANCIENNE ÉCOLE', data.ancienne_ecole || 'Première inscription'], ['CLASSE PRÉCÉDENTE', data.classe_precedente || '—']], y, false);
-        y += 2;
+        y = section('Scolarite', 'orange', y);
+        y = row([['CLASSE DEMANDEE',data.classe_demandee],['ANCIENNE ECOLE',data.ancienne_ecole||'Premiere inscription'],['CLASSE PRECEDENTE',data.classe_precedente||'—']], y, false);
+        y += 1;
 
         // ── RESPONSABLE LÉGAL ────────────────────────────────
-        y = section('Responsable légal', 'gris', y);
-        y = row([['NOM & PRÉNOMS', `${r1.nom || ''} ${r1.prenom || ''}`], ['LIEN DE PARENTÉ', r1.lien_parente], ['SITUATION', r1.situation_matrimoniale || '—']], y, false);
-        y = row([['TÉLÉPHONE', r1.tel1], ['WHATSAPP', r1.whatsapp], ['EMAIL', r1.email]], y, true);
-        y = row([['ADRESSE', r1.adresse], ['PROFESSION', r1.profession]], y, false);
-        y += 2;
+        y = section('Responsable legal', 'gris', y);
+        y = row([['NOM & PRENOMS',`${r1.nom||''} ${r1.prenom||''}`],['PARENTE',r1.lien_parente],['SITUATION',r1.situation_matrimoniale||'—']], y, false);
+        y = row([['TELEPHONE',r1.tel1],['WHATSAPP',r1.whatsapp],['EMAIL',r1.email]], y, true);
+        y = row([['ADRESSE',r1.adresse],['PROFESSION',r1.profession]], y, false);
+        y += 1;
 
         // ── CANTINE ──────────────────────────────────────────
-        y = section('Services scolaires — Cantine', 'vert', y);
-        const cantineCol = data.cantine ? VERT : [200, 60, 60];
-        const cantineBg  = data.cantine ? VERT_L : ROUGE_L;
-        doc.setFillColor(...cantineBg);
-        doc.rect(ML, y, W - ML - MR, 10, 'F');
+        y = section('Services scolaires - Cantine', 'vert', y);
+        const cantineCol = data.cantine ? VERT : [200,60,60];
+        doc.setFillColor(...(data.cantine ? VERT_L : ROUGE_L));
+        doc.rect(ML, y, W-ML-MR, 9, 'F');
         doc.setFillColor(...cantineCol);
-        doc.roundedRect(ML + 2, y + 1.5, 35, 7, 2, 2, 'F');
-        doc.setTextColor(...BLANC);
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.cantine ? '✓  INSCRIT À LA CANTINE' : '✗  PAS DE CANTINE', ML + 19.5, y + 6.5, { align: 'center' });
+        doc.roundedRect(ML+2, y+1, 42, 7, 2, 2, 'F');
+        doc.setTextColor(...BLANC); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+        doc.text(data.cantine ? 'CANTINE : OUI' : 'CANTINE : NON', ML+23, y+5.8, {align:'center'});
         if (data.cantine && (data.allergies || data.restrictions)) {
-            doc.setTextColor(...GRIS_T);
-            doc.setFontSize(7);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Allergies : ${data.allergies || 'Aucune'}   ·   Restrictions alimentaires : ${data.restrictions || 'Aucune'}`, ML + 40, y + 6.5);
+            doc.setTextColor(...GRIS_T); doc.setFontSize(6); doc.setFont('helvetica','normal');
+            doc.text(`Allergies: ${data.allergies||'Aucune'}  Restrictions: ${data.restrictions||'Aucune'}`, ML+47, y+5.8);
         }
-        y += 14;
+        y += 13;
 
         // ── DROIT À L'IMAGE ──────────────────────────────────
-        y = section('Droit à l\'image — Autorisation parentale', 'magenta', y);
-        const droitCol = data.droit_image ? VERT : [200, 60, 60];
+        y = section("Droit a l'image - Autorisation parentale", 'magenta', y);
+        const droitCol = data.droit_image ? VERT : [200,60,60];
         const droitBg  = data.droit_image ? VERT_L : ROUGE_L;
         const droitTexte = data.droit_image
-            ? `Je soussigné(e), ${nomParent || 'le(la) responsable légal(e)'}, autorise expressément l'École Internationale Bilingue IDEAL à photographier et/ou filmer mon enfant ${nomComplet} dans le cadre des activités scolaires et périscolaires, et à utiliser ces images à des fins pédagogiques et de communication (site web, brochures, page Facebook officielle). Autorisation accordée à titre gratuit pour toute la durée de la scolarité.`
-            : `Je soussigné(e), ${nomParent || 'le(la) responsable légal(e)'}, n'autorise PAS l'École Internationale Bilingue IDEAL à utiliser l'image de mon enfant ${nomComplet} sur quelque support que ce soit (site web, brochures, réseaux sociaux). Aucune photo ou vidéo de l'enfant ne pourra être diffusée publiquement.`;
-        const droitLines = doc.splitTextToSize(droitTexte, W - ML - MR - 6);
-        const droitH = droitLines.length * 4 + 12;
-        doc.setFillColor(...droitBg);
-        doc.rect(ML, y, W - ML - MR, droitH, 'F');
-        doc.setFillColor(...droitCol);
-        doc.rect(ML, y, 3.5, droitH, 'F');
-        doc.setTextColor(...droitCol);
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.droit_image ? '✓  AUTORISATION ACCORDÉE' : '✗  AUTORISATION REFUSÉE', ML + 7, y + 5.5);
-        doc.setTextColor(...GRIS_T);
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text(droitLines, ML + 7, y + 10);
-        y += droitH + 4;
+            ? `Je soussigne(e), ${nomParent||'le(la) responsable legal(e)'}, autorise expressement l'Ecole Internationale Bilingue IDEAL a photographier et/ou filmer mon enfant ${nomComplet} dans le cadre des activites scolaires et periscolaires, et a utiliser ces images a des fins pedagogiques et de communication (site web, brochures, page Facebook officielle). Autorisation accordee a titre gratuit pour toute la duree de la scolarite.`
+            : `Je soussigne(e), ${nomParent||'le(la) responsable legal(e)'}, n'autorise PAS l'Ecole Internationale Bilingue IDEAL a utiliser l'image de mon enfant ${nomComplet} sur quelque support que ce soit. Aucune photo ou video de l'enfant ne pourra etre diffusee publiquement.`;
+        const droitLines = doc.splitTextToSize(droitTexte, W-ML-MR-8);
+        const droitH = droitLines.length * 3.8 + 10;
+        doc.setFillColor(...droitBg); doc.rect(ML, y, W-ML-MR, droitH, 'F');
+        doc.setFillColor(...droitCol); doc.rect(ML, y, 3, droitH, 'F');
+        doc.setTextColor(...droitCol); doc.setFontSize(7); doc.setFont('helvetica','bold');
+        doc.text(data.droit_image ? 'AUTORISATION ACCORDEE' : 'AUTORISATION REFUSEE', ML+6, y+5);
+        doc.setTextColor(...GRIS_T); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+        doc.text(droitLines, ML+6, y+9.5);
+        y += droitH + 3;
 
-        // ── SIGNATURE & CACHET ───────────────────────────────
+        // ── SIGNATURE & CACHET + QR (même ligne) ─────────────
         y = section('Certification et signature', 'bleu', y);
-        doc.setTextColor(...GRIS_T);
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'italic');
-        doc.text('Je soussigné(e) certifie l\'exactitude des informations ci-dessus et accepte le règlement intérieur de l\'établissement IDEAL.', ML + 2, y, { maxWidth: W - ML - MR - 4 });
-        y += 8;
+        doc.setTextColor(...GRIS_T); doc.setFontSize(6); doc.setFont('helvetica','italic');
+        doc.text("Je soussigne(e) certifie l'exactitude des informations ci-dessus et accepte le reglement interieur de l'etablissement IDEAL.", ML+2, y, {maxWidth: W-ML-MR-4});
+        y += 7;
 
-        const sigW = (W - ML - MR - 6) / 2;
-        // Zone signature parent
-        doc.setFillColor(...BLEU_L);
-        doc.setDrawColor(...BLEU);
-        doc.setLineWidth(0.6);
-        doc.roundedRect(ML, y, sigW, 26, 2, 2, 'FD');
-        if (signaturePad && !signaturePad.isEmpty()) {
-            doc.addImage(signaturePad.toDataURL('image/png'), 'PNG', ML + 1, y + 1, sigW - 2, 22);
-        }
-        doc.setTextColor(...GRIS_T);
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Signature du responsable légal', ML + sigW / 2, y + 29, { align: 'center' });
-
-        // Zone cachet direction
-        doc.setFillColor(...GRIS_F);
-        doc.setDrawColor(...GRIS_L);
-        doc.roundedRect(ML + sigW + 6, y, sigW, 26, 2, 2, 'FD');
-        doc.setTextColor(...GRIS_T);
-        doc.setFontSize(7);
-        doc.text(`Bamako, le ${dateGen}`, ML + sigW + 6 + sigW / 2, y + 8, { align: 'center' });
-        doc.setFontSize(6);
-        doc.text('Cachet et signature de la Direction', ML + sigW + 6 + sigW / 2, y + 29, { align: 'center' });
-        y += 34;
-
-        // ── QR CODE ──────────────────────────────────────────
+        // QR d'abord (généré en arrière-plan)
         const qrTmpDiv = document.createElement('div');
         qrTmpDiv.style.cssText = 'position:absolute;left:-9999px;top:0;';
         document.body.appendChild(qrTmpDiv);
         await new Promise(resolve => {
             const qrUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`;
-            new QRCode(qrTmpDiv, { text: qrUrl, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+            new QRCode(qrTmpDiv, { text: qrUrl, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.M });
             setTimeout(resolve, 400);
         });
+
+        const QR_SZ = 24;
+        const sigTot = W - ML - MR;
+        const sigW = (sigTot - QR_SZ - 8) / 2;
+
+        // Signature parent
+        doc.setFillColor(...BLEU_L); doc.setDrawColor(...BLEU); doc.setLineWidth(0.5);
+        doc.roundedRect(ML, y, sigW, 22, 2, 2, 'FD');
+        if (signaturePad && !signaturePad.isEmpty()) {
+            doc.addImage(signaturePad.toDataURL('image/png'), 'PNG', ML+1, y+1, sigW-2, 20);
+        }
+        doc.setTextColor(...GRIS_T); doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+        doc.text('Signature du responsable legal', ML+sigW/2, y+25, {align:'center'});
+
+        // Cachet direction
+        doc.setFillColor(...GRIS_F); doc.setDrawColor(...GRIS_L);
+        doc.roundedRect(ML+sigW+4, y, sigW, 22, 2, 2, 'FD');
+        doc.setTextColor(...GRIS_T); doc.setFontSize(6.5);
+        doc.text(`Bamako, le ${dateGen}`, ML+sigW+4+sigW/2, y+7, {align:'center'});
+        doc.setFontSize(5.5);
+        doc.text('Cachet et signature de la Direction', ML+sigW+4+sigW/2, y+25, {align:'center'});
+
+        // QR à droite
         const qrEl = qrTmpDiv.querySelector('canvas') || qrTmpDiv.querySelector('img');
         if (qrEl) {
-            const qrDataUrl2 = qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src;
-            const qrSize = 22;
-            // QR en bas à droite
-            doc.setFillColor(...BLANC);
-            doc.setDrawColor(...GRIS_L);
-            doc.setLineWidth(0.3);
-            doc.roundedRect(W - MR - qrSize - 1, y, qrSize + 2, qrSize + 2, 1, 1, 'FD');
-            doc.addImage(qrDataUrl2, 'PNG', W - MR - qrSize, y + 1, qrSize, qrSize);
-            doc.setTextColor(...GRIS_T);
-            doc.setFontSize(5.5);
-            doc.text('Scanner pour consulter', W - MR - qrSize / 2 - 1, y + qrSize + 5.5, { align: 'center' });
-            doc.text('la fiche en ligne', W - MR - qrSize / 2 - 1, y + qrSize + 9, { align: 'center' });
+            const qrDU = qrEl.tagName==='CANVAS' ? qrEl.toDataURL() : qrEl.src;
+            const qrX = ML+sigW+4+sigW+4;
+            doc.setFillColor(...BLANC); doc.setDrawColor(...GRIS_L); doc.setLineWidth(0.3);
+            doc.roundedRect(qrX-1, y-1, QR_SZ+2, QR_SZ+2, 1, 1, 'FD');
+            doc.addImage(qrDU, 'PNG', qrX, y, QR_SZ, QR_SZ);
+            doc.setTextColor(...GRIS_T); doc.setFontSize(5);
+            doc.text('Fiche en ligne', qrX+QR_SZ/2, y+QR_SZ+4, {align:'center'});
         }
         document.body.removeChild(qrTmpDiv);
 
