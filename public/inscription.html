@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IDEAL - Inscriptions</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Cropper.js for photo cropping -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <!-- Signature Pad -->
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- jsPDF and html2canvas for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --accent: #3b82f6; /* Blue */
+            --accent-hover: #2563eb;
+            --green: #10b981;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --border: #334155;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .logo-img { height: 40px; }
+        .logo-text { font-weight: 900; font-size: 1.25rem; letter-spacing: -0.02em; }
+        .logo-sub { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            width: 100%;
+            flex: 1;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: var(--surface); }
+
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .kpi-card {
+            background: linear-gradient(145deg, var(--surface), #151e2f);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-value { font-size: 2.5rem; font-weight: 900; line-height: 1; margin-bottom: 0.5rem; }
+        .kpi-label { color: var(--muted); font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Wizard Steps */
+        .wizard-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .wizard-header::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+        .step-indicator {
+            background: var(--bg);
+            border: 2px solid var(--border);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            color: var(--muted);
+            transition: all 0.3s;
+        }
+        .step-indicator.active {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+        .step-indicator.completed {
+            border-color: var(--green);
+            background: var(--green);
+            color: white;
+        }
+
+        /* Forms */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        label { font-size: 0.875rem; font-weight: 600; color: var(--muted); }
+        input, select, textarea {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+        .wizard-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Screens */
+        #home-screen, #wizard-screen, #dashboard-screen {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .home-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .action-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .action-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 25px rgba(59, 130, 246, 0.1); }
+        .action-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .action-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+        .action-desc { color: var(--muted); font-size: 0.875rem; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-container">
+        <div style="width:40px;height:40px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:white;">IDEAL</div>
+        <div>
+            <div class="logo-text">IDEAL Inscriptions</div>
+            <div class="logo-sub">Plateforme Numérique Officielle</div>
+        </div>
+    </div>
+    <div>
+        <button class="btn btn-outline" onclick="showScreen('home-screen')">Accueil</button>
+    </div>
+</header>
+
+<div class="container">
+    
+    <!-- ÉCRAN D'ACCUEIL -->
+    <div id="home-screen">
+        <div style="text-align: center; max-width: 600px; margin: 0 auto;">
+            <h1 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem;">Bienvenue sur la plateforme d'inscription</h1>
+            <p style="color: var(--muted); font-size: 1.1rem;">Gérez facilement les inscriptions, réinscriptions et dossiers numériques des élèves de l'école IDEAL.</p>
+        </div>
+
+        <div class="home-actions">
+            <div class="action-card" onclick="startWizard('nouvelle')">
+                <div class="action-icon">📝</div>
+                <div class="action-title">Nouvelle Inscription</div>
+                <div class="action-desc">Créer un nouveau dossier élève complet (responsables, documents, cantine...).</div>
+            </div>
+            <div class="action-card" onclick="startReinscription()">
+                <div class="action-icon">🔄</div>
+                <div class="action-title">Réinscription</div>
+                <div class="action-desc">Rechercher un élève existant pour le réinscrire pour la nouvelle année.</div>
+            </div>
+            <div class="action-card" onclick="showScreen('dashboard-screen')">
+                <div class="action-icon">📊</div>
+                <div class="action-title">Tableau de bord</div>
+                <div class="action-desc">Consulter les statistiques d'inscription et les dossiers en cours.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIZARD D'INSCRIPTION -->
+    <div id="wizard-screen" class="hidden">
+        <div class="card">
+            <div class="wizard-header">
+                <div class="step-indicator active" id="ind-1">1</div>
+                <div class="step-indicator" id="ind-2">2</div>
+                <div class="step-indicator" id="ind-3">3</div>
+                <div class="step-indicator" id="ind-4">4</div>
+                <div class="step-indicator" id="ind-5">5</div>
+                <div class="step-indicator" id="ind-6">6</div>
+                <div class="step-indicator" id="ind-7">7</div>
+                <div class="step-indicator" id="ind-8">8</div>
+                <div class="step-indicator" id="ind-9">9</div>
+            </div>
+
+            <!-- Étape 1 : Responsable 1 -->
+            <div id="step-1" class="wizard-step">
+                <h2 style="margin-bottom: 1.5rem;">Responsable Légal 1</h2>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nom</label><input type="text" id="r1-nom" required></div>
+                    <div class="form-group"><label>Prénoms</label><input type="text" id="r1-prenoms" required></div>
+                    <div class="form-group">
+                        <label>Lien de parenté</label>
+                        <select id="r1-lien">
+                            <option value="pere">Père</option>
+                            <option value="mere">Mère</option>
+                            <option value="tuteur">Tuteur légal</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Téléphone principal</label><input type="tel" id="r1-tel1" required></div>
+                    <div class="form-group"><label>Numéro WhatsApp</label><input type="tel" id="r1-whatsapp"></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="r1-email"></div>
+                    <div class="form-group" style="grid-column: 1 / -1;"><label>Adresse complète</label><input type="text" id="r1-adresse"></div>
+                    <div class="form-group"><label>Profession</label><input type="text" id="r1-profession"></div>
+                    <div class="form-group"><label>Employeur</label><input type="text" id="r1-employeur"></div>
+                </div>
+            </div>
+
+            <!-- Étape 2 : Responsable 2 -->
+            <div id="step-2" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Responsable Légal 2 (Optionnel)</h2>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nom</label><input type="text" id="r2-nom"></div>
+                    <div class="form-group"><label>Prénoms</label><input type="text" id="r2-prenoms"></div>
+                    <div class="form-group">
+                        <label>Lien de parenté</label>
+                        <select id="r2-lien">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="pere">Père</option>
+                            <option value="mere">Mère</option>
+                            <option value="tuteur">Tuteur légal</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Téléphone principal</label><input type="tel" id="r2-tel1"></div>
+                    <div class="form-group"><label>Numéro WhatsApp</label><input type="tel" id="r2-whatsapp"></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="r2-email"></div>
+                    <div class="form-group" style="grid-column: 1 / -1;"><label>Adresse complète</label><input type="text" id="r2-adresse"></div>
+                    <div class="form-group"><label>Profession</label><input type="text" id="r2-profession"></div>
+                    <div class="form-group"><label>Employeur</label><input type="text" id="r2-employeur"></div>
+                </div>
+            </div>
+
+            <!-- Étape 3 : Informations Élève -->
+            <div id="step-3" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Informations de l'élève</h2>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nom</label><input type="text" id="el-nom" required></div>
+                    <div class="form-group"><label>Prénoms</label><input type="text" id="el-prenoms" required></div>
+                    <div class="form-group">
+                        <label>Sexe</label>
+                        <select id="el-sexe" required>
+                            <option value="M">Garçon</option>
+                            <option value="F">Fille</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Date de naissance</label><input type="date" id="el-date-naissance" required></div>
+                    <div class="form-group"><label>Lieu de naissance</label><input type="text" id="el-lieu-naissance" required></div>
+                    <div class="form-group"><label>Nationalité</label><input type="text" id="el-nationalite" value="Malienne" required></div>
+                    <div class="form-group"><label>Langue(s) parlée(s) à la maison</label><input type="text" id="el-langue" required></div>
+                    <div class="form-group"><label>Ancienne école (si applicable)</label><input type="text" id="el-ancienne-ecole"></div>
+                    <div class="form-group"><label>Classe précédente</label><input type="text" id="el-classe-prec"></div>
+                    <div class="form-group">
+                        <label>Classe demandée</label>
+                        <select id="el-classe-demandee" required>
+                            <option value="">-- Sélectionner --</option>
+                            <optgroup label="Maternelle">
+                                <option value="TPS">TPS</option>
+                                <option value="PS">PS</option>
+                                <option value="MS">MS</option>
+                                <option value="GS">GS</option>
+                            </optgroup>
+                            <optgroup label="Primaire">
+                                <option value="CP">CP</option>
+                                <option value="CE1">CE1</option>
+                                <option value="CE2">CE2</option>
+                                <option value="CM1">CM1</option>
+                                <option value="CM2">CM2</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;"><label>Adresse de l'élève</label><input type="text" id="el-adresse" required></div>
+                </div>
+            </div>
+
+            <!-- Étape 4 : Photo -->
+            <div id="step-4" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Photo de l'élève</h2>
+                <div style="display: flex; flex-direction: column; gap: 1.5rem; align-items: center;">
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn btn-outline" id="btn-camera" onclick="startCamera()"><span style="font-size:1.2rem;">📷</span> Prendre une photo</button>
+                        <button class="btn btn-outline" onclick="document.getElementById('photo-upload').click()"><span style="font-size:1.2rem;">📁</span> Importer</button>
+                        <input type="file" id="photo-upload" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
+                    </div>
+
+                    <!-- Camera Feed -->
+                    <div id="camera-container" class="hidden" style="width:100%; max-width:400px; border-radius:12px; overflow:hidden; border:2px solid var(--border); position:relative;">
+                        <video id="video-feed" autoplay playsinline style="width:100%; display:block;"></video>
+                        <button class="btn" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:10;" onclick="capturePhoto()">Capturer</button>
+                    </div>
+
+                    <!-- Cropper -->
+                    <div id="cropper-container" class="hidden" style="width:100%; max-width:400px; height:400px;">
+                        <img id="image-to-crop" src="" style="max-width:100%;">
+                    </div>
+                    
+                    <button id="btn-crop" class="btn hidden" onclick="cropImage()">Valider la photo</button>
+
+                    <!-- Result -->
+                    <div id="photo-result" class="hidden" style="text-align: center;">
+                        <img id="final-photo" src="" style="width:150px; height:150px; object-fit:cover; border-radius:50%; border:4px solid var(--accent); box-shadow: var(--shadow);">
+                        <div style="margin-top: 1rem;">
+                            <button class="btn btn-outline" onclick="resetPhoto()">Recommencer</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- More steps to be implemented later... -->
+            <div id="step-placeholder" class="wizard-step hidden">
+                <h2>Prochaine étape en construction...</h2>
+            </div>
+
+            <div class="wizard-actions">
+                <button class="btn btn-outline" id="btn-prev" onclick="prevStep()" disabled>Précédent</button>
+                <button class="btn" id="btn-next" onclick="nextStep()">Suivant</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLEAU DE BORD -->
+    <div id="dashboard-screen" class="hidden">
+        <h2 style="font-size: 2rem; font-weight: 800;">Tableau de bord des inscriptions</h2>
+        <div class="dashboard-grid">
+            <div class="kpi-card">
+                <div class="kpi-value" style="color: var(--accent);">0</div>
+                <div class="kpi-label">Inscriptions totales</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value" style="color: var(--green);">0</div>
+                <div class="kpi-label">Réinscriptions</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value" style="color: var(--amber);">0</div>
+                <div class="kpi-label">Cantine</div>
+            </div>
+        </div>
+        <div class="card" style="margin-top: 1.5rem;">
+            <h3>Derniers dossiers</h3>
+            <div style="padding: 2rem; text-align: center; color: var(--muted);">Aucun dossier enregistré pour le moment.</div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Supabase config
+    const SUPABASE_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
+    // We will inject the anon key securely or prompt for it
+    // const SUPABASE_KEY = 'YOUR_ANON_KEY'; 
+    // const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentStep = 1;
+    const totalSteps = 9;
+
+    let cropper = null;
+    let stream = null;
+    let finalPhotoDataUrl = null;
+
+    function showScreen(screenId) {
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('wizard-screen').classList.add('hidden');
+        document.getElementById('dashboard-screen').classList.add('hidden');
+        document.getElementById(screenId).classList.remove('hidden');
+    }
+
+    function startWizard(type) {
+        currentStep = 1;
+        updateWizardUI();
+        showScreen('wizard-screen');
+    }
+
+    function startReinscription() {
+        alert("La fonction de recherche pour réinscription arrive bientôt !");
+    }
+
+    function updateWizardUI() {
+        // Update indicators
+        for (let i = 1; i <= totalSteps; i++) {
+            const ind = document.getElementById(`ind-${i}`);
+            if (ind) {
+                if (i < currentStep) {
+                    ind.className = 'step-indicator completed';
+                    ind.innerHTML = '✓';
+                } else if (i === currentStep) {
+                    ind.className = 'step-indicator active';
+                    ind.innerHTML = i;
+                } else {
+                    ind.className = 'step-indicator';
+                    ind.innerHTML = i;
+                }
+            }
+        }
+
+        // Show/hide steps
+        document.querySelectorAll('.wizard-step').forEach(el => el.classList.add('hidden'));
+        const stepEl = document.getElementById(`step-${currentStep}`);
+        if (stepEl) {
+            stepEl.classList.remove('hidden');
+        } else {
+            document.getElementById('step-placeholder').classList.remove('hidden');
+        }
+
+        // Action when arriving on step 4
+        if(currentStep === 4 && !finalPhotoDataUrl && !stream) {
+            // Optional auto start camera
+        } else if (currentStep !== 4 && stream) {
+            stopCamera();
+        }
+
+        // Buttons
+        document.getElementById('btn-prev').disabled = currentStep === 1;
+        if (currentStep === totalSteps) {
+            document.getElementById('btn-next').innerText = "Valider l'inscription";
+        } else {
+            document.getElementById('btn-next').innerText = "Suivant";
+        }
+    }
+
+    function validateStep(step) {
+        if(step === 1) {
+            if(!document.getElementById('r1-nom').value || !document.getElementById('r1-prenoms').value || !document.getElementById('r1-tel1').value) {
+                alert("Veuillez remplir les champs obligatoires du Responsable 1 (Nom, Prénoms, Téléphone).");
+                return false;
+            }
+        }
+        if(step === 3) {
+            if(!document.getElementById('el-nom').value || !document.getElementById('el-prenoms').value || !document.getElementById('el-date-naissance').value || !document.getElementById('el-classe-demandee').value) {
+                alert("Veuillez remplir les champs obligatoires de l'élève.");
+                return false;
+            }
+        }
+        if(step === 4) {
+            if(!finalPhotoDataUrl) {
+                if(confirm("Vous n'avez pas ajouté de photo. Voulez-vous continuer sans photo ?")) {
+                    return true;
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function nextStep() {
+        if(!validateStep(currentStep)) return;
+        
+        if (currentStep < totalSteps) {
+            currentStep++;
+            updateWizardUI();
+        } else {
+            alert("Génération du dossier en cours...");
+        }
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateWizardUI();
+        }
+    }
+
+    // --- PHOTO CAPTURE & CROP LOGIC ---
+    async function startCamera() {
+        resetPhotoUI();
+        const video = document.getElementById('video-feed');
+        const container = document.getElementById('camera-container');
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            video.srcObject = stream;
+            container.classList.remove('hidden');
+        } catch (err) {
+            alert("Erreur d'accès à la caméra: " + err.message);
+        }
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        document.getElementById('camera-container').classList.add('hidden');
+    }
+
+    function capturePhoto() {
+        const video = document.getElementById('video-feed');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        stopCamera();
+        initCropper(canvas.toDataURL('image/jpeg'));
+    }
+
+    function handlePhotoUpload(e) {
+        if (e.target.files && e.target.files[0]) {
+            resetPhotoUI();
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                initCropper(event.target.result);
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    }
+
+    function initCropper(imageSrc) {
+        const container = document.getElementById('cropper-container');
+        const img = document.getElementById('image-to-crop');
+        img.src = imageSrc;
+        container.classList.remove('hidden');
+        document.getElementById('btn-crop').classList.remove('hidden');
+
+        if (cropper) {
+            cropper.destroy();
+        }
+        cropper = new Cropper(img, {
+            aspectRatio: 1, // Square photo for portrait
+            viewMode: 1,
+            autoCropArea: 0.8
+        });
+    }
+
+    function cropImage() {
+        if (!cropper) return;
+        const canvas = cropper.getCroppedCanvas({
+            width: 300,
+            height: 300
+        });
+        finalPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Cleanup cropper
+        cropper.destroy();
+        cropper = null;
+        document.getElementById('cropper-container').classList.add('hidden');
+        document.getElementById('btn-crop').classList.add('hidden');
+        
+        // Show result
+        const resultDiv = document.getElementById('photo-result');
+        document.getElementById('final-photo').src = finalPhotoDataUrl;
+        resultDiv.classList.remove('hidden');
+    }
+
+    function resetPhotoUI() {
+        stopCamera();
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        document.getElementById('cropper-container').classList.add('hidden');
+        document.getElementById('btn-crop').classList.add('hidden');
+        document.getElementById('photo-result').classList.add('hidden');
+    }
+
+    function resetPhoto() {
+        finalPhotoDataUrl = null;
+        resetPhotoUI();
+    }
+
+</script>
+</body>
+</html>
