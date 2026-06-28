@@ -237,7 +237,23 @@ window.addEventListener('load', async () => {
         const matricule = params.get('matricule');
 
         if (!matricule) {
-            showErr("Matricule absent de l'URL. Scannez à nouveau le QR code.");
+            document.getElementById('state').innerHTML = `
+                <div class="icon">🔍</div>
+                <h2>Rechercher une fiche</h2>
+                <p style="margin-bottom:1rem;color:#64748b;">Entrez le matricule de l'élève :</p>
+                <div style="display:flex;gap:.5rem;max-width:320px;margin:0 auto;">
+                    <input id="mat-input" type="text" placeholder="IDEAL-2027-001"
+                        style="flex:1;padding:.65rem 1rem;border:1.5px solid #e2e8f0;border-radius:8px;font-size:1rem;outline:none;"
+                        onkeydown="if(event.key==='Enter')goFiche()">
+                    <button onclick="goFiche()"
+                        style="background:#00a8e0;color:#fff;border:none;padding:.65rem 1.2rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:1rem;">
+                        Voir
+                    </button>
+                </div>`;
+            window.goFiche = () => {
+                const v = document.getElementById('mat-input').value.trim();
+                if (v) window.location.href = 'fiche.html?matricule=' + encodeURIComponent(v);
+            };
             return;
         }
 
