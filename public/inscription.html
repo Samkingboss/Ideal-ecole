@@ -891,115 +891,242 @@
     }
 
     // =============================================
-    // GÉNÉRATION PDF
+    // GÉNÉRATION PDF — FICHE D'INSCRIPTION COMPLÈTE
     // =============================================
     async function downloadPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
         const data = lastSavedData;
         const matricule = lastSavedMatricule;
+        const r1 = data.responsable1;
 
-        // Couleurs
-        const bleu = [59, 130, 246];
-        const noir = [15, 23, 42];
-        const gris = [100, 116, 139];
+        // Palette
+        const BLEU   = [30, 80, 180];
+        const BLEU_C = [220, 232, 255];
+        const NOIR   = [20, 20, 40];
+        const GRIS   = [110, 120, 140];
+        const BLANC  = [255, 255, 255];
+        const VERT   = [16, 140, 90];
+        const dateGen = new Date().toLocaleDateString('fr-FR');
 
-        // En-tête
-        doc.setFillColor(...bleu);
-        doc.rect(0, 0, 210, 35, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
+        const W = 210, M = 12; // largeur page, marge
+
+        // ── EN-TÊTE ──────────────────────────────────────
+        doc.setFillColor(...BLEU);
+        doc.rect(0, 0, W, 28, 'F');
+
+        // Bande décorative fine
+        doc.setFillColor(...VERT);
+        doc.rect(0, 28, W, 2, 'F');
+
+        // Logo IDEAL (carré bleu clair avec texte)
+        doc.setFillColor(...BLEU_C);
+        doc.roundedRect(M, 5, 18, 18, 2, 2, 'F');
+        doc.setTextColor(...BLEU);
+        doc.setFontSize(7);
         doc.setFont('helvetica', 'bold');
-        doc.text('ÉCOLE IDEAL — FICHE D\'INSCRIPTION', 105, 14, { align: 'center' });
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Année scolaire ${data.annee_scolaire}`, 105, 22, { align: 'center' });
-        doc.text(`Matricule : ${matricule}`, 105, 29, { align: 'center' });
+        doc.text('IDEAL', M + 9, 16, { align: 'center' });
 
-        // QR Code (canvas temporaire)
+        // Titre principal
+        doc.setTextColor(...BLANC);
+        doc.setFontSize(15);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ÉCOLE IDEAL', 105, 11, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('FICHE D\'INSCRIPTION OFFICIELLE', 105, 17, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text(`Année scolaire ${data.annee_scolaire || ''}   •   Bamako, Mali`, 105, 23, { align: 'center' });
+
+        // ── BANDEAU MATRICULE ─────────────────────────────
+        doc.setFillColor(...BLEU_C);
+        doc.rect(0, 30, W, 10, 'F');
+        doc.setTextColor(...BLEU);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Matricule : ${matricule}`, 105, 37, { align: 'center' });
+
+        // ── PHOTO + QR CODE ───────────────────────────────
+        let y = 44;
+
+        // Cadre photo
+        doc.setDrawColor(...BLEU);
+        doc.setLineWidth(0.5);
+        doc.rect(M, y, 36, 42);
+        if (finalPhotoDataUrl) {
+            doc.addImage(finalPhotoDataUrl, 'JPEG', M + 0.5, y + 0.5, 35, 41);
+        } else {
+            doc.setTextColor(...GRIS);
+            doc.setFontSize(7);
+            doc.text('PHOTO', M + 18, y + 22, { align: 'center' });
+        }
+        doc.setTextColor(...GRIS);
+        doc.setFontSize(6.5);
+        doc.text('Photo d\'identité', M + 18, y + 46, { align: 'center' });
+
+        // QR Code
         const qrTmpDiv = document.createElement('div');
+        qrTmpDiv.style.cssText = 'position:absolute;left:-9999px;';
         document.body.appendChild(qrTmpDiv);
         await new Promise(resolve => {
-            new QRCode(qrTmpDiv, { text: matricule, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.M });
-            setTimeout(resolve, 300);
+            new QRCode(qrTmpDiv, { text: matricule, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+            setTimeout(resolve, 400);
         });
-        const qrImg = qrTmpDiv.querySelector('img') || qrTmpDiv.querySelector('canvas');
-        if (qrImg) {
-            const qrDataUrl = qrImg.tagName === 'CANVAS' ? qrImg.toDataURL() : qrImg.src;
-            doc.addImage(qrDataUrl, 'PNG', 160, 40, 35, 35);
+        const qrEl = qrTmpDiv.querySelector('canvas') || qrTmpDiv.querySelector('img');
+        if (qrEl) {
+            const qrDataUrl = qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src;
+            doc.setDrawColor(...BLEU);
+            doc.rect(W - M - 36, y, 36, 36);
+            doc.addImage(qrDataUrl, 'PNG', W - M - 35.5, y + 0.5, 35, 35);
         }
         document.body.removeChild(qrTmpDiv);
+        doc.setTextColor(...GRIS);
+        doc.setFontSize(6.5);
+        doc.text('Scanner pour vérifier', W - M - 18, y + 39, { align: 'center' });
 
-        // Photo
-        if (finalPhotoDataUrl) {
-            doc.addImage(finalPhotoDataUrl, 'JPEG', 15, 40, 35, 35);
-        }
+        // ── INFOS ÉLÈVE ───────────────────────────────────
+        const infoX = M + 40; // départ colonne après photo
+        const infoW = W - M - 40 - M - 40; // largeur zone centrale
 
-        // Section Élève
-        let y = 82;
-        const addSection = (titre) => {
-            doc.setFillColor(240, 244, 255);
-            doc.rect(10, y - 5, 190, 8, 'F');
-            doc.setTextColor(...bleu);
-            doc.setFontSize(10);
+        const sectionTitle = (titre, yy) => {
+            doc.setFillColor(...BLEU);
+            doc.rect(M, yy, W - 2 * M, 6, 'F');
+            doc.setTextColor(...BLANC);
+            doc.setFontSize(8.5);
             doc.setFont('helvetica', 'bold');
-            doc.text(titre.toUpperCase(), 14, y);
-            y += 7;
+            doc.text(titre, M + 3, yy + 4.2);
+            return yy + 8;
         };
-        const addField = (label, val) => {
-            if (!val) return;
-            doc.setTextColor(...gris);
-            doc.setFontSize(9);
+
+        const field = (label, val, x, yy, w) => {
+            if (!val) val = '—';
+            doc.setTextColor(...GRIS);
+            doc.setFontSize(7.5);
             doc.setFont('helvetica', 'normal');
-            doc.text(label + ' :', 14, y);
-            doc.setTextColor(...noir);
+            doc.text(label, x, yy);
+            doc.setTextColor(...NOIR);
             doc.setFont('helvetica', 'bold');
-            doc.text(String(val), 70, y);
-            y += 6;
+            doc.setFontSize(8.5);
+            doc.text(String(val), x, yy + 4.5, { maxWidth: w || 80 });
+            return yy + 10;
         };
 
-        addSection('Informations de l\'élève');
-        addField('Nom & Prénoms', `${data.nom} ${data.prenoms}`);
-        addField('Sexe', data.sexe === 'M' ? 'Garçon' : 'Fille');
-        addField('Date de naissance', data.date_naissance);
-        addField('Lieu de naissance', data.lieu_naissance);
-        addField('Nationalité', data.nationalite);
-        addField('Classe demandée', data.classe_demandee);
-        addField('Adresse', data.adresse);
-        y += 3;
+        // Nom & prénom + classe (à droite de la photo)
+        let iy = y + 2;
+        doc.setTextColor(...NOIR);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${data.nom || ''} ${data.prenom || ''}`, infoX, iy + 6);
 
-        addSection('Responsable Légal 1');
-        const r1 = data.responsable1;
-        addField('Nom & Prénoms', `${r1.nom} ${r1.prenom}`);
-        addField('Lien de parenté', r1.lien_parente);
-        addField('Téléphone', r1.tel1);
-        addField('WhatsApp', r1.whatsapp);
-        addField('Email', r1.email);
-        y += 3;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...BLEU);
+        doc.text(`Classe : ${data.classe_demandee || '—'}`, infoX, iy + 13);
 
-        addSection('Services');
-        addField('Cantine', data.cantine ? 'Oui' : 'Non');
-        if (data.allergies) addField('Allergies', data.allergies);
-        if (data.restrictions) addField('Restrictions', data.restrictions);
-        addField('Droit à l\'image', data.droit_image ? 'Autorisé' : 'Refusé');
-        y += 3;
+        doc.setTextColor(...GRIS);
+        doc.setFontSize(8);
+        doc.text(`${data.sexe === 'M' ? 'Garçon' : 'Fille'}   •   Né(e) le ${data.date_naissance || '—'}   •   ${data.lieu_naissance || ''}`, infoX, iy + 20);
+        doc.text(`Nationalité : ${data.nationalite || '—'}   •   Langue : ${data.langue_maison || '—'}`, infoX, iy + 27);
+        doc.text(`Adresse : ${data.adresse || '—'}`, infoX, iy + 34);
 
-        // Signature
-        if (signaturePad && !signaturePad.isEmpty()) {
-            addSection('Signature du responsable');
-            doc.addImage(signaturePad.toDataURL(), 'PNG', 14, y, 60, 25);
-            y += 30;
+        y = y + 50;
+
+        // ── SECTION : SCOLARITÉ PRÉCÉDENTE ────────────────
+        if (data.ancienne_ecole || data.classe_precedente) {
+            y = sectionTitle('SCOLARITÉ PRÉCÉDENTE', y);
+            const row1y = y;
+            field('Ancienne école', data.ancienne_ecole, M + 3, row1y, 80);
+            field('Classe précédente', data.classe_precedente, M + 100, row1y, 70);
+            y = row1y + 12;
         }
 
-        // Pied de page
-        doc.setFillColor(...bleu);
-        doc.rect(0, 282, 210, 15, 'F');
-        doc.setTextColor(255, 255, 255);
+        // ── SECTION : RESPONSABLE LÉGAL 1 ─────────────────
+        y = sectionTitle('RESPONSABLE LÉGAL 1', y);
+        let ry = y;
+        field('Nom & Prénoms', `${r1.nom || ''} ${r1.prenom || ''}`, M + 3, ry, 90);
+        field('Lien de parenté', r1.lien_parente, M + 110, ry, 70);
+        ry += 12;
+        field('Téléphone', r1.tel1, M + 3, ry, 55);
+        field('WhatsApp', r1.whatsapp, M + 65, ry, 55);
+        field('Email', r1.email, M + 120, ry, 65);
+        ry += 12;
+        field('Adresse', r1.adresse, M + 3, ry, 90);
+        field('Profession', r1.profession, M + 110, ry, 70);
+        y = ry + 12;
+
+        // ── SECTION : SERVICES ────────────────────────────
+        y = sectionTitle('SERVICES', y);
+        const cantineLabel = data.cantine ? 'OUI' : 'NON';
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...GRIS);
+        doc.text('Cantine scolaire :', M + 3, y + 4);
+        doc.setTextColor(data.cantine ? VERT[0] : NOIR[0], data.cantine ? VERT[1] : NOIR[1], data.cantine ? VERT[2] : NOIR[2]);
+        doc.text(cantineLabel, M + 38, y + 4);
+
+        if (data.cantine) {
+            doc.setTextColor(...GRIS);
+            doc.text('Allergies :', M + 60, y + 4);
+            doc.setTextColor(...NOIR);
+            doc.text(data.allergies || 'Aucune', M + 80, y + 4, { maxWidth: 50 });
+            doc.setTextColor(...GRIS);
+            doc.text('Restrictions :', M + 135, y + 4);
+            doc.setTextColor(...NOIR);
+            doc.text(data.restrictions || 'Aucune', M + 160, y + 4, { maxWidth: 35 });
+        }
+
+        doc.setTextColor(...GRIS);
+        doc.text('Droit à l\'image :', M + 3, y + 10);
+        doc.setTextColor(...NOIR);
+        doc.text(data.droit_image ? 'Autorisé' : 'Refusé', M + 38, y + 10);
+        y += 18;
+
+        // ── SECTION : SIGNATURE ───────────────────────────
+        y = sectionTitle('CERTIFICATION ET SIGNATURE DU RESPONSABLE', y);
+        doc.setTextColor(...GRIS);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(
+            'Je soussigné(e), certifie l\'exactitude des informations fournies ci-dessus et accepte le règlement intérieur de l\'établissement IDEAL.',
+            M + 3, y + 5, { maxWidth: W - 2 * M - 6 }
+        );
+        y += 10;
+
+        // Cadre signature gauche
+        doc.setDrawColor(...BLEU);
+        doc.setLineWidth(0.4);
+        doc.rect(M + 3, y, 80, 28);
+        if (signaturePad && !signaturePad.isEmpty()) {
+            doc.addImage(signaturePad.toDataURL('image/png'), 'PNG', M + 4, y + 1, 78, 26);
+        }
+        doc.setTextColor(...GRIS);
+        doc.setFontSize(7);
+        doc.text('Signature du responsable légal', M + 43, y + 31, { align: 'center' });
+
+        // Date & lieu à droite
+        doc.setTextColor(...NOIR);
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')} — École IDEAL, Bamako, Mali`, 105, 291, { align: 'center' });
+        doc.text(`Fait à Bamako, le ${dateGen}`, M + 110, y + 10);
+        doc.line(M + 110, y + 20, W - M - 3, y + 20);
+        doc.setTextColor(...GRIS);
+        doc.setFontSize(7);
+        doc.text('Cachet et signature de la direction', M + 143, y + 24, { align: 'center' });
 
-        doc.save(`Inscription_${matricule}.pdf`);
+        y += 38;
+
+        // ── PIED DE PAGE ──────────────────────────────────
+        doc.setFillColor(...BLEU);
+        doc.rect(0, 282, W, 15, 'F');
+        doc.setFillColor(...VERT);
+        doc.rect(0, 280, W, 2, 'F');
+        doc.setTextColor(...BLANC);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`École IDEAL — Bamako, Mali   •   Matricule : ${matricule}   •   Document généré le ${dateGen}`, 105, 288, { align: 'center' });
+        doc.text('Ce document est officiel et doit être conservé par la famille.', 105, 293, { align: 'center' });
+
+        doc.save(`Fiche_Inscription_${matricule}.pdf`);
     }
 
     // =============================================
