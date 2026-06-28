@@ -285,7 +285,6 @@
                 <div class="step-indicator" id="ind-6">6</div>
                 <div class="step-indicator" id="ind-7">7</div>
                 <div class="step-indicator" id="ind-8">8</div>
-                <div class="step-indicator" id="ind-9">9</div>
             </div>
 
             <!-- Étape 1 : Responsable 1 -->
@@ -473,26 +472,8 @@
                 </div>
             </div>
 
-            <!-- Étape 7 : Transport -->
+            <!-- Étape 7 : Droit à l'image -->
             <div id="step-7" class="wizard-step hidden">
-                <h2 style="margin-bottom: 1.5rem;">Transport Scolaire</h2>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Utilisera-t-il le transport scolaire ?</label>
-                        <select id="transport-inscrit" onchange="toggleTransportDetails()">
-                            <option value="non">Non</option>
-                            <option value="oui">Oui</option>
-                        </select>
-                    </div>
-                    <div id="transport-details" class="hidden form-group" style="grid-column: 1 / -1;">
-                        <label>Point de ramassage souhaité</label>
-                        <input type="text" id="transport-point" placeholder="Ex: ACI 2000, près de...">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Étape 8 : Droit à l'image -->
-            <div id="step-8" class="wizard-step hidden">
                 <h2 style="margin-bottom: 1.5rem;">Droit à l'image</h2>
                 <div class="card" style="background: rgba(59, 130, 246, 0.05); border-color: var(--accent);">
                     <p style="margin-bottom: 1rem; line-height: 1.5;">J'autorise l'école IDEAL à utiliser l'image de mon enfant (photos, vidéos) prises dans le cadre des activités scolaires, pour ses supports de communication (site web, brochures, page Facebook officielle).</p>
@@ -503,8 +484,8 @@
                 </div>
             </div>
 
-            <!-- Étape 9 : Signature -->
-            <div id="step-9" class="wizard-step hidden">
+            <!-- Étape 8 : Signature -->
+            <div id="step-8" class="wizard-step hidden">
                 <h2 style="margin-bottom: 1.5rem;">Signature du Responsable</h2>
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
                     <p style="color: var(--muted); text-align: center;">Je certifie l'exactitude des informations fournies et accepte le règlement intérieur de l'établissement.</p>
@@ -595,7 +576,7 @@
     // ÉTAT GLOBAL
     // =============================================
     let currentStep = 1;
-    const totalSteps = 9;
+    const totalSteps = 8;
     let cropper = null;
     let stream = null;
     let finalPhotoDataUrl = null;
@@ -749,9 +730,9 @@
             // 1. Insérer Responsable 1
             const r1Data = {
                 nom: document.getElementById('r1-nom').value.trim(),
-                prenoms: document.getElementById('r1-prenoms').value.trim(),
+                prenom: document.getElementById('r1-prenoms').value.trim(),
                 lien_parente: document.getElementById('r1-lien').value,
-                telephone_principal: document.getElementById('r1-tel1').value.trim(),
+                tel1: document.getElementById('r1-tel1').value.trim(),
                 whatsapp: document.getElementById('r1-whatsapp').value.trim() || null,
                 email: document.getElementById('r1-email').value.trim() || null,
                 adresse: document.getElementById('r1-adresse').value.trim() || null,
@@ -768,9 +749,9 @@
             if (r2Nom && r2Prenoms) {
                 const r2Data = {
                     nom: r2Nom,
-                    prenoms: r2Prenoms,
+                    prenom: r2Prenoms,
                     lien_parente: document.getElementById('r2-lien').value || null,
-                    telephone_principal: document.getElementById('r2-tel1').value.trim() || null,
+                    tel1: document.getElementById('r2-tel1').value.trim() || null,
                     whatsapp: document.getElementById('r2-whatsapp').value.trim() || null,
                     email: document.getElementById('r2-email').value.trim() || null,
                     adresse: document.getElementById('r2-adresse').value.trim() || null,
@@ -839,21 +820,20 @@
                 responsable1_id: r1.id,
                 responsable2_id: r2Id,
                 nom: document.getElementById('el-nom').value.trim(),
-                prenoms: document.getElementById('el-prenoms').value.trim(),
+                prenom: document.getElementById('el-prenoms').value.trim(),
                 sexe: document.getElementById('el-sexe').value,
                 date_naissance: document.getElementById('el-date-naissance').value,
                 lieu_naissance: document.getElementById('el-lieu-naissance').value.trim() || null,
                 nationalite: document.getElementById('el-nationalite').value.trim() || null,
-                langue: document.getElementById('el-langue').value.trim() || null,
+                langue_maison: document.getElementById('el-langue').value.trim() || null,
                 ancienne_ecole: document.getElementById('el-ancienne-ecole').value.trim() || null,
                 classe_precedente: document.getElementById('el-classe-prec').value.trim() || null,
                 classe_demandee: document.getElementById('el-classe-demandee').value,
                 adresse: document.getElementById('el-adresse').value.trim() || null,
-                cantine_inscrit: document.getElementById('cantine-inscrit').value === 'oui',
+                cantine: document.getElementById('cantine-inscrit').value === 'oui',
                 cantine_allergies: document.getElementById('cantine-allergies').value.trim() || null,
                 cantine_restrictions: document.getElementById('cantine-restrictions').value.trim() || null,
-                transport_inscrit: document.getElementById('transport-inscrit').value === 'oui',
-                transport_point: document.getElementById('transport-point').value.trim() || null,
+                transport: false,
                 droit_image: document.getElementById('droit-image').value === 'oui',
                 photo_url: photoUrl,
                 signature_url: signatureUrl,
@@ -862,7 +842,7 @@
                 doc_bulletin_url: docUrls['bulletin'] || null,
                 doc_transfert_url: docUrls['transfert'] || null,
                 annee_scolaire: `${new Date().getFullYear()}-${annee}`,
-                type_inscription: 'nouvelle',
+                type_inscription: window._inscriptionType || 'nouvelle',
             };
             const { error: inscErr } = await _supa.from('inscriptions').insert(inscData);
             if (inscErr) throw new Error("Erreur inscription: " + inscErr.message);
@@ -978,18 +958,17 @@
 
         addSection('Responsable Légal 1');
         const r1 = data.responsable1;
-        addField('Nom & Prénoms', `${r1.nom} ${r1.prenoms}`);
+        addField('Nom & Prénoms', `${r1.nom} ${r1.prenom}`);
         addField('Lien de parenté', r1.lien_parente);
-        addField('Téléphone', r1.telephone_principal);
+        addField('Téléphone', r1.tel1);
         addField('WhatsApp', r1.whatsapp);
         addField('Email', r1.email);
         y += 3;
 
         addSection('Services');
-        addField('Cantine', data.cantine_inscrit ? 'Oui' : 'Non');
+        addField('Cantine', data.cantine ? 'Oui' : 'Non');
         if (data.cantine_allergies) addField('Allergies', data.cantine_allergies);
-        addField('Transport', data.transport_inscrit ? 'Oui' : 'Non');
-        if (data.transport_point) addField('Point de ramassage', data.transport_point);
+        if (data.cantine_restrictions) addField('Restrictions', data.cantine_restrictions);
         addField('Droit à l\'image', data.droit_image ? 'Autorisé' : 'Refusé');
         y += 3;
 
@@ -1024,7 +1003,7 @@
         document.getElementById('kpi-reinscriptions').textContent = reinsc ?? 0;
 
         // Cantine
-        const { count: cantine } = await _supa.from('inscriptions').select('*', { count: 'exact', head: true }).eq('cantine_inscrit', true);
+        const { count: cantine } = await _supa.from('inscriptions').select('*', { count: 'exact', head: true }).eq('cantine', true);
         document.getElementById('kpi-cantine').textContent = cantine ?? 0;
 
         // Derniers dossiers
@@ -1114,12 +1093,12 @@
         setTimeout(() => {
             const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
             set('el-nom', eleve.nom);
-            set('el-prenoms', eleve.prenoms);
+            set('el-prenoms', eleve.prenom);
             set('el-sexe', eleve.sexe);
             set('el-date-naissance', eleve.date_naissance);
             set('el-lieu-naissance', eleve.lieu_naissance);
             set('el-nationalite', eleve.nationalite);
-            set('el-langue', eleve.langue);
+            set('el-langue', eleve.langue_maison);
             set('el-ancienne-ecole', 'École IDEAL');
             set('el-classe-prec', eleve.classe_demandee);
             set('el-adresse', eleve.adresse);
@@ -1128,9 +1107,9 @@
             const r1 = eleve.responsable1;
             if (r1) {
                 set('r1-nom', r1.nom);
-                set('r1-prenoms', r1.prenoms);
+                set('r1-prenoms', r1.prenom);
                 set('r1-lien', r1.lien_parente);
-                set('r1-tel1', r1.telephone_principal);
+                set('r1-tel1', r1.tel1);
                 set('r1-whatsapp', r1.whatsapp);
                 set('r1-email', r1.email);
                 set('r1-adresse', r1.adresse);
@@ -1138,17 +1117,12 @@
                 set('r1-situation', r1.situation_matrimoniale);
             }
 
-            // Cantine & transport
-            if (eleve.cantine_inscrit) {
+            // Cantine
+            if (eleve.cantine) {
                 set('cantine-inscrit', 'oui');
                 document.getElementById('cantine-details').classList.remove('hidden');
                 set('cantine-allergies', eleve.cantine_allergies);
                 set('cantine-restrictions', eleve.cantine_restrictions);
-            }
-            if (eleve.transport_inscrit) {
-                set('transport-inscrit', 'oui');
-                document.getElementById('transport-details').classList.remove('hidden');
-                set('transport-point', eleve.transport_point);
             }
         }, 100);
 
@@ -1254,10 +1228,6 @@
         document.getElementById('cantine-details').classList.toggle('hidden', val !== 'oui');
     }
 
-    function toggleTransportDetails() {
-        const val = document.getElementById('transport-inscrit').value;
-        document.getElementById('transport-details').classList.toggle('hidden', val !== 'oui');
-    }
 
 </script>
 </body>
