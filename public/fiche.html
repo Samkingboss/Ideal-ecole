@@ -221,11 +221,16 @@ function set(id, val) {
 }
 
 async function load() {
+    const showError = (msg) => {
+        document.getElementById('state').innerHTML = `<div class="icon">❌</div><h2>Erreur</h2><p>${msg}</p>`;
+    };
+
+    try {
     const params = new URLSearchParams(window.location.search);
     const matricule = params.get('matricule');
 
     if (!matricule) {
-        document.getElementById('state').innerHTML = `<div class="icon">❌</div><h2>Matricule manquant</h2><p>L'URL ne contient pas de matricule valide.</p>`;
+        showError("L'URL ne contient pas de matricule valide.");
         return;
     }
 
@@ -307,6 +312,10 @@ async function load() {
         document.getElementById('allergies-zone').style.display = 'block';
         set('f-allergies', ins.allergies || 'Aucune');
         set('f-restrictions', ins.restrictions || 'Aucune');
+    }
+
+    } catch(e) {
+        document.getElementById('state').innerHTML = `<div class="icon">❌</div><h2>Erreur technique</h2><p>${e.message}</p>`;
     }
 }
 
