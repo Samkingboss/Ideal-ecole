@@ -1161,8 +1161,9 @@
         const qrBox = document.createElement('div');
         qrBox.style.cssText = 'background:white; padding:.85rem; border-radius:14px; box-shadow:0 0 30px rgba(134,59,255,.3);';
         qrWrapper.appendChild(qrBox);
+        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`;
         new QRCode(qrBox, {
-            text: matricule,
+            text: ficheUrl,
             width: 160,
             height: 160,
             correctLevel: QRCode.CorrectLevel.M
@@ -1182,18 +1183,20 @@
         const r1 = data.responsable1 || {};
 
         // ════════════════════════════════════════════
-        // PALETTE PREMIUM — Marine / Or / Blanc cassé
+        // PALETTE — Charte Graphique IDEAL
+        // Couleurs extraites du logo officiel
         // ════════════════════════════════════════════
-        const MARINE   = [10,  40,  90];   // bleu marine profond
-        const MARINE2  = [20,  60, 130];   // marine clair (dégradé simulé)
-        const OR       = [191, 155, 48];   // or/doré
-        const OR_C     = [255, 245, 210];  // or très clair
+        const MARINE   = [0,  168, 224];   // bleu IDEAL (figure personnage)
+        const MARINE2  = [0,  130, 184];   // bleu foncé
+        const OR       = [245, 166,  35];  // orange logo
+        const OR_C     = [255, 243, 220];  // orange très clair
         const BLANC    = [255, 255, 255];
-        const CREME    = [250, 248, 243];  // fond crème
-        const GRIS_C   = [230, 234, 240];  // gris clair pour alternance
-        const GRIS_T   = [120, 130, 150];  // gris texte
-        const NOIR_T   = [25,  30,  50];   // quasi-noir pour valeurs
-        const VERT_D   = [22, 130, 80];    // vert doux
+        const CREME    = [245, 250, 255];  // fond bleu très clair
+        const GRIS_C   = [232, 242, 250];  // gris-bleu clair alternance
+        const GRIS_T   = [100, 116, 139];  // gris texte
+        const NOIR_T   = [26,  35,  50];   // quasi-noir pour valeurs
+        const VERT_D   = [123, 193,  66];  // vert logo IDEAL
+        const MAGENTA  = [233,  30, 140];  // magenta/étoile logo
 
         const W = 210, H = 297, M = 11;
         const dateGen = new Date().toLocaleDateString('fr-FR');
@@ -1328,7 +1331,8 @@
         qrTmpDiv.style.cssText = 'position:absolute;left:-9999px;top:0;';
         document.body.appendChild(qrTmpDiv);
         await new Promise(resolve => {
-            new QRCode(qrTmpDiv, { text: matricule, width: 140, height: 140, correctLevel: QRCode.CorrectLevel.M });
+            const qrUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`;
+            new QRCode(qrTmpDiv, { text: qrUrl, width: 140, height: 140, correctLevel: QRCode.CorrectLevel.M });
             setTimeout(resolve, 400);
         });
         const qrEl = qrTmpDiv.querySelector('canvas') || qrTmpDiv.querySelector('img');

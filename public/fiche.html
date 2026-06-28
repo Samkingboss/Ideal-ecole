@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche d'inscription — IDEAL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        :root {
+            --blue:    #00a8e0;
+            --blue-d:  #007ab5;
+            --blue-l:  #e6f6fd;
+            --orange:  #f5a623;
+            --green:   #7bc142;
+            --magenta: #e91e8c;
+            --grey:    #3d4a5c;
+            --muted:   #64748b;
+            --border:  #e2e8f0;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f4f8; color:#1a2332; min-height:100vh; }
+
+        header {
+            background:#fff;
+            border-bottom: 3px solid transparent;
+            border-image: linear-gradient(90deg, var(--blue), var(--orange), var(--green), var(--magenta)) 1;
+            padding: .85rem 1.5rem;
+            display:flex; align-items:center; gap:1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+        header img { height:42px; }
+        .header-text .t1 { font-weight:800; font-size:.95rem; color:var(--grey); }
+        .header-text .t2 { font-size:.68rem; color:var(--muted); }
+
+        .container { max-width:720px; margin:2rem auto; padding:0 1rem 4rem; }
+
+        /* Loading / Error */
+        .state-box {
+            background:#fff; border-radius:16px; padding:3rem;
+            text-align:center; box-shadow:0 4px 20px rgba(0,0,0,.08);
+        }
+        .state-box .icon { font-size:3rem; margin-bottom:1rem; }
+        .state-box h2 { font-size:1.3rem; font-weight:800; margin-bottom:.5rem; }
+        .state-box p  { color:var(--muted); font-size:.9rem; }
+
+        /* Carte principale */
+        .fiche-card {
+            background:#fff; border-radius:20px;
+            box-shadow:0 4px 24px rgba(0,168,224,.12);
+            overflow:hidden;
+        }
+
+        /* Bandeau haut */
+        .fiche-header {
+            background: linear-gradient(135deg, var(--blue) 0%, var(--blue-d) 100%);
+            padding:2rem 2rem 1.5rem;
+            color:#fff; position:relative; overflow:hidden;
+        }
+        .fiche-header::after {
+            content:''; position:absolute;
+            top:-40px; right:-40px;
+            width:160px; height:160px; border-radius:50%;
+            background:rgba(255,255,255,.08);
+        }
+        .matricule-pill {
+            display:inline-block;
+            background:rgba(255,255,255,.2);
+            border:1px solid rgba(255,255,255,.35);
+            border-radius:99px; padding:.25rem .9rem;
+            font-size:.72rem; font-weight:700; letter-spacing:.08em;
+            margin-bottom:.75rem;
+        }
+        .fiche-header h1 { font-size:1.7rem; font-weight:900; line-height:1.2; }
+        .fiche-header .classe-badge {
+            display:inline-block; margin-top:.5rem;
+            background:rgba(255,255,255,.25); border-radius:6px;
+            padding:.2rem .7rem; font-size:.8rem; font-weight:700;
+        }
+        .fiche-header .annee { font-size:.78rem; opacity:.75; margin-top:.35rem; }
+
+        /* Photo */
+        .photo-zone {
+            position:absolute; top:1.5rem; right:2rem; z-index:2;
+        }
+        .photo-zone img {
+            width:72px; height:72px; border-radius:10px;
+            object-fit:cover; border:3px solid rgba(255,255,255,.5);
+            box-shadow:0 4px 16px rgba(0,0,0,.25);
+        }
+        .photo-placeholder {
+            width:72px; height:72px; border-radius:10px;
+            background:rgba(255,255,255,.2); border:3px solid rgba(255,255,255,.35);
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.8rem;
+        }
+
+        /* Sections */
+        .fiche-body { padding:1.5rem 2rem 2rem; }
+
+        .section { margin-bottom:1.5rem; }
+        .section-title {
+            display:flex; align-items:center; gap:.5rem;
+            font-size:.72rem; font-weight:800; text-transform:uppercase;
+            letter-spacing:.08em; color:#fff;
+            background:var(--blue); border-radius:8px;
+            padding:.4rem .85rem; margin-bottom:.9rem;
+        }
+        .section-title.orange { background:var(--orange); }
+        .section-title.green  { background:var(--green); }
+
+        .info-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
+            gap:.75rem;
+        }
+        .info-item {}
+        .info-label { font-size:.68rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem; }
+        .info-value { font-size:.92rem; font-weight:700; color:#1a2332; }
+
+        /* Badges services */
+        .badges { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.5rem; }
+        .badge {
+            padding:.35rem .9rem; border-radius:99px;
+            font-size:.75rem; font-weight:800;
+        }
+        .badge-yes { background:#e8f7ed; color:#2d7a3a; border:1.5px solid #7bc142; }
+        .badge-no  { background:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5; }
+
+        /* Pied */
+        .fiche-footer {
+            border-top:1px solid var(--border);
+            padding:1rem 2rem;
+            text-align:center;
+            font-size:.72rem; color:var(--muted);
+        }
+        .fiche-footer strong { color:var(--blue); }
+    </style>
+</head>
+<body>
+<header>
+    <img src="logo-ideal.svg" alt="Logo IDEAL">
+    <div class="header-text">
+        <div class="t1">Fiche d'Inscription</div>
+        <div class="t2">École Internationale Bilingue · Bamako</div>
+    </div>
+</header>
+
+<div class="container">
+    <div id="state" class="state-box">
+        <div class="icon">⏳</div>
+        <h2>Chargement…</h2>
+        <p>Récupération des informations de l'élève.</p>
+    </div>
+
+    <div id="fiche" class="fiche-card" style="display:none;">
+        <div class="fiche-header">
+            <div class="photo-zone" id="photo-zone"></div>
+            <div class="matricule-pill" id="f-matricule"></div>
+            <h1 id="f-nom"></h1>
+            <div class="classe-badge" id="f-classe"></div>
+            <div class="annee" id="f-annee"></div>
+        </div>
+        <div class="fiche-body">
+            <div class="section">
+                <div class="section-title">👤 Identité de l'élève</div>
+                <div class="info-grid">
+                    <div class="info-item"><div class="info-label">Sexe</div><div class="info-value" id="f-sexe"></div></div>
+                    <div class="info-item"><div class="info-label">Date de naissance</div><div class="info-value" id="f-ddn"></div></div>
+                    <div class="info-item"><div class="info-label">Lieu de naissance</div><div class="info-value" id="f-lieu"></div></div>
+                    <div class="info-item"><div class="info-label">Nationalité</div><div class="info-value" id="f-nat"></div></div>
+                    <div class="info-item"><div class="info-label">Langue à la maison</div><div class="info-value" id="f-langue"></div></div>
+                    <div class="info-item"><div class="info-label">Adresse</div><div class="info-value" id="f-adresse"></div></div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title orange">🏫 Scolarité</div>
+                <div class="info-grid">
+                    <div class="info-item"><div class="info-label">Classe demandée</div><div class="info-value" id="f-classe2"></div></div>
+                    <div class="info-item"><div class="info-label">Ancienne école</div><div class="info-value" id="f-anc-ecole"></div></div>
+                    <div class="info-item"><div class="info-label">Classe précédente</div><div class="info-value" id="f-anc-classe"></div></div>
+                    <div class="info-item"><div class="info-label">Type d'inscription</div><div class="info-value" id="f-type"></div></div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title" style="background:var(--grey)">👨‍👩‍👧 Responsable légal</div>
+                <div class="info-grid">
+                    <div class="info-item"><div class="info-label">Nom & Prénoms</div><div class="info-value" id="f-r1-nom"></div></div>
+                    <div class="info-item"><div class="info-label">Lien de parenté</div><div class="info-value" id="f-r1-lien"></div></div>
+                    <div class="info-item"><div class="info-label">Téléphone</div><div class="info-value" id="f-r1-tel"></div></div>
+                    <div class="info-item"><div class="info-label">WhatsApp</div><div class="info-value" id="f-r1-wa"></div></div>
+                    <div class="info-item"><div class="info-label">Email</div><div class="info-value" id="f-r1-email"></div></div>
+                    <div class="info-item"><div class="info-label">Profession</div><div class="info-value" id="f-r1-prof"></div></div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title green">✅ Services</div>
+                <div class="badges">
+                    <span class="badge" id="badge-cantine"></span>
+                    <span class="badge" id="badge-image"></span>
+                </div>
+                <div id="allergies-zone" style="margin-top:.75rem; font-size:.83rem; color:var(--muted); display:none;">
+                    Allergies : <strong id="f-allergies"></strong> · Restrictions : <strong id="f-restrictions"></strong>
+                </div>
+            </div>
+        </div>
+        <div class="fiche-footer">
+            Document officiel · <strong>École IDEAL</strong> · Bamako, Mali · Ce document ne remplace pas le bulletin scolaire
+        </div>
+    </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
+const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function set(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val || '—';
+}
+
+async function load() {
+    const params = new URLSearchParams(window.location.search);
+    const matricule = params.get('matricule');
+
+    if (!matricule) {
+        document.getElementById('state').innerHTML = `<div class="icon">❌</div><h2>Matricule manquant</h2><p>L'URL ne contient pas de matricule valide.</p>`;
+        return;
+    }
+
+    const { data: ins, error } = await _supa
+        .from('inscriptions')
+        .select('*, responsable1:responsables!responsable1_id(*), responsable2:responsables!responsable2_id(*)')
+        .eq('matricule', matricule)
+        .single();
+
+    if (error || !ins) {
+        document.getElementById('state').innerHTML = `<div class="icon">🔍</div><h2>Fiche introuvable</h2><p>Aucune inscription trouvée pour le matricule <strong>${matricule}</strong>.</p>`;
+        return;
+    }
+
+    document.getElementById('state').style.display = 'none';
+    document.getElementById('fiche').style.display = 'block';
+
+    // Photo
+    const photoZone = document.getElementById('photo-zone');
+    if (ins.photo_url) {
+        photoZone.innerHTML = `<img src="${ins.photo_url}" alt="Photo élève">`;
+    } else {
+        photoZone.innerHTML = `<div class="photo-placeholder">👤</div>`;
+    }
+
+    // En-tête
+    set('f-matricule', ins.matricule);
+    set('f-nom', `${(ins.nom || '').toUpperCase()} ${ins.prenom || ''}`);
+    set('f-classe', ins.classe_demandee);
+    set('f-annee', `Année scolaire ${ins.annee_scolaire || ''}`);
+
+    // Identité
+    set('f-sexe', ins.sexe === 'M' ? 'Garçon' : ins.sexe === 'F' ? 'Fille' : ins.sexe);
+    set('f-ddn', ins.date_naissance);
+    set('f-lieu', ins.lieu_naissance);
+    set('f-nat', ins.nationalite);
+    set('f-langue', ins.langue_maison);
+    set('f-adresse', ins.adresse);
+
+    // Scolarité
+    set('f-classe2', ins.classe_demandee);
+    set('f-anc-ecole', ins.ancienne_ecole || 'Première inscription');
+    set('f-anc-classe', ins.classe_precedente || '—');
+    set('f-type', ins.type_inscription === 'reinscription' ? 'Réinscription' : 'Nouvelle inscription');
+
+    // Responsable 1
+    const r1 = ins.responsable1 || {};
+    set('f-r1-nom', `${r1.nom || ''} ${r1.prenom || ''}`);
+    set('f-r1-lien', r1.lien_parente);
+    set('f-r1-tel', r1.tel1);
+    set('f-r1-wa', r1.whatsapp);
+    set('f-r1-email', r1.email);
+    set('f-r1-prof', r1.profession);
+
+    // Services
+    const bc = document.getElementById('badge-cantine');
+    bc.textContent = ins.cantine ? '✓ Cantine' : '✗ Pas de cantine';
+    bc.className = `badge ${ins.cantine ? 'badge-yes' : 'badge-no'}`;
+
+    const bi = document.getElementById('badge-image');
+    bi.textContent = ins.droit_image ? '✓ Droit à l\'image' : '✗ Pas de droit image';
+    bi.className = `badge ${ins.droit_image ? 'badge-yes' : 'badge-no'}`;
+
+    if (ins.cantine && (ins.allergies || ins.restrictions)) {
+        document.getElementById('allergies-zone').style.display = 'block';
+        set('f-allergies', ins.allergies || 'Aucune');
+        set('f-restrictions', ins.restrictions || 'Aucune');
+    }
+}
+
+load();
+</script>
+</body>
+</html>
