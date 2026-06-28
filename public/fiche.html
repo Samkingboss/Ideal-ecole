@@ -213,113 +213,124 @@
 <script>
 const SUPABASE_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
-const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 function set(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val || '—';
 }
 
-async function load() {
-    const showError = (msg) => {
-        document.getElementById('state').innerHTML = `<div class="icon">❌</div><h2>Erreur</h2><p>${msg}</p>`;
-    };
-
-    try {
-    const params = new URLSearchParams(window.location.search);
-    const matricule = params.get('matricule');
-
-    if (!matricule) {
-        showError("L'URL ne contient pas de matricule valide.");
-        return;
-    }
-
-    const { data: ins, error } = await _supa
-        .from('inscriptions')
-        .select('*')
-        .eq('matricule', matricule)
-        .single();
-
-    if (error || !ins) {
-        document.getElementById('state').innerHTML = `<div class="icon">🔍</div><h2>Fiche introuvable</h2><p>Aucune inscription trouvée pour le matricule <strong>${matricule}</strong>.</p>`;
-        return;
-    }
-
-    // Charger le responsable séparément
-    let r1 = {};
-    if (ins.responsable1_id) {
-        const { data: resp } = await _supa.from('responsables').select('*').eq('id', ins.responsable1_id).single();
-        if (resp) r1 = resp;
-    }
-    ins.responsable1 = r1;
-
-    document.getElementById('state').style.display = 'none';
-    document.getElementById('fiche').style.display = 'block';
-
-    // Photo — URL publique Supabase Storage
-    const photoZone = document.getElementById('photo-zone');
-    if (ins.photo_url) {
-        const img = new Image();
-        img.alt = 'Photo élève';
-        img.style.cssText = 'width:72px;height:72px;border-radius:10px;object-fit:cover;border:3px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.25);';
-        img.onerror = () => { photoZone.innerHTML = `<div class="photo-placeholder">👤</div>`; };
-        img.src = ins.photo_url;
-        photoZone.innerHTML = '';
-        photoZone.appendChild(img);
-    } else {
-        photoZone.innerHTML = `<div class="photo-placeholder">👤</div>`;
-    }
-
-    // En-tête
-    set('f-matricule', ins.matricule);
-    set('f-nom', `${(ins.nom || '').toUpperCase()} ${ins.prenom || ''}`);
-    set('f-classe', ins.classe_demandee);
-    set('f-annee', `Année scolaire ${ins.annee_scolaire || ''}`);
-
-    // Identité
-    set('f-sexe', ins.sexe === 'M' ? 'Garçon' : ins.sexe === 'F' ? 'Fille' : ins.sexe);
-    set('f-ddn', ins.date_naissance);
-    set('f-lieu', ins.lieu_naissance);
-    set('f-nat', ins.nationalite);
-    set('f-langue', ins.langue_maison);
-    set('f-adresse', ins.adresse);
-
-    // Scolarité
-    set('f-classe2', ins.classe_demandee);
-    set('f-anc-ecole', ins.ancienne_ecole || 'Première inscription');
-    set('f-anc-classe', ins.classe_precedente || '—');
-    set('f-type', ins.type_inscription === 'reinscription' ? 'Réinscription' : 'Nouvelle inscription');
-
-    // Responsable 1
-    const r1 = ins.responsable1 || {};
-    set('f-r1-nom', `${r1.nom || ''} ${r1.prenom || ''}`);
-    set('f-r1-lien', r1.lien_parente);
-    set('f-r1-tel', r1.tel1);
-    set('f-r1-wa', r1.whatsapp);
-    set('f-r1-email', r1.email);
-    set('f-r1-prof', r1.profession);
-
-    // Services
-    const bc = document.getElementById('badge-cantine');
-    bc.textContent = ins.cantine ? '✓ Cantine' : '✗ Pas de cantine';
-    bc.className = `badge ${ins.cantine ? 'badge-yes' : 'badge-no'}`;
-
-    const bi = document.getElementById('badge-image');
-    bi.textContent = ins.droit_image ? '✓ Droit à l\'image' : '✗ Pas de droit image';
-    bi.className = `badge ${ins.droit_image ? 'badge-yes' : 'badge-no'}`;
-
-    if (ins.cantine && (ins.allergies || ins.restrictions)) {
-        document.getElementById('allergies-zone').style.display = 'block';
-        set('f-allergies', ins.allergies || 'Aucune');
-        set('f-restrictions', ins.restrictions || 'Aucune');
-    }
-
-    } catch(e) {
-        document.getElementById('state').innerHTML = `<div class="icon">❌</div><h2>Erreur technique</h2><p>${e.message}</p>`;
-    }
+function showErr(msg) {
+    document.getElementById('state').innerHTML =
+        `<div class="icon">❌</div><h2>Erreur</h2><p style="word-break:break-all;font-size:.8rem;color:#dc2626;">${msg}</p>`;
 }
 
-load();
+window.addEventListener('load', async () => {
+    try {
+        if (typeof supabase === 'undefined') {
+            showErr('Bibliothèque Supabase non chargée — vérifiez votre connexion internet.');
+            return;
+        }
+
+        const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const params = new URLSearchParams(window.location.search);
+        const matricule = params.get('matricule');
+
+        if (!matricule) {
+            showErr("Matricule absent de l'URL. Scannez à nouveau le QR code.");
+            return;
+        }
+
+        // Mise à jour du message de chargement avec le matricule détecté
+        document.querySelector('#state p').textContent = `Matricule détecté : ${matricule}`;
+
+        const { data: ins, error: err1 } = await _supa
+            .from('inscriptions')
+            .select('*')
+            .eq('matricule', matricule)
+            .single();
+
+        if (err1 || !ins) {
+            showErr(`Fiche introuvable pour ${matricule}. Erreur : ${err1?.message || 'aucune donnée'}`);
+            return;
+        }
+
+        // Responsable légal — requête séparée
+        let r1 = {};
+        if (ins.responsable1_id) {
+            const { data: resp } = await _supa
+                .from('responsables')
+                .select('*')
+                .eq('id', ins.responsable1_id)
+                .single();
+            if (resp) r1 = resp;
+        }
+
+        // Afficher la fiche
+        document.getElementById('state').style.display = 'none';
+        document.getElementById('fiche').style.display = 'block';
+
+        // Photo
+        const photoZone = document.getElementById('photo-zone');
+        if (ins.photo_url) {
+            const img = new Image();
+            img.alt = 'Photo élève';
+            img.style.cssText = 'width:72px;height:72px;border-radius:10px;object-fit:cover;border:3px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.25);';
+            img.onerror = () => { photoZone.innerHTML = '<div class="photo-placeholder">👤</div>'; };
+            img.src = ins.photo_url;
+            photoZone.innerHTML = '';
+            photoZone.appendChild(img);
+        } else {
+            photoZone.innerHTML = '<div class="photo-placeholder">👤</div>';
+        }
+
+        // En-tête
+        set('f-matricule', ins.matricule);
+        set('f-nom', `${(ins.nom || '').toUpperCase()} ${ins.prenom || ''}`);
+        set('f-classe', ins.classe_demandee);
+        set('f-annee', `Année scolaire ${ins.annee_scolaire || ''}`);
+
+        // Identité
+        set('f-sexe', ins.sexe === 'M' ? 'Garçon' : ins.sexe === 'F' ? 'Fille' : ins.sexe);
+        set('f-ddn', ins.date_naissance);
+        set('f-lieu', ins.lieu_naissance);
+        set('f-nat', ins.nationalite);
+        set('f-langue', ins.langue_maison);
+        set('f-adresse', ins.adresse);
+
+        // Scolarité
+        set('f-classe2', ins.classe_demandee);
+        set('f-anc-ecole', ins.ancienne_ecole || 'Première inscription');
+        set('f-anc-classe', ins.classe_precedente || '—');
+        set('f-type', ins.type_inscription === 'reinscription' ? 'Réinscription' : 'Nouvelle inscription');
+
+        // Responsable légal
+        set('f-r1-nom', `${r1.nom || ''} ${r1.prenom || ''}`);
+        set('f-r1-lien', r1.lien_parente);
+        set('f-r1-tel', r1.tel1);
+        set('f-r1-wa', r1.whatsapp);
+        set('f-r1-email', r1.email);
+        set('f-r1-prof', r1.profession);
+
+        // Services
+        const bc = document.getElementById('badge-cantine');
+        bc.textContent = ins.cantine ? '✓ Cantine' : '✗ Pas de cantine';
+        bc.className = `badge ${ins.cantine ? 'badge-yes' : 'badge-no'}`;
+
+        const bi = document.getElementById('badge-image');
+        bi.textContent = ins.droit_image ? "✓ Droit à l'image" : "✗ Pas de droit image";
+        bi.className = `badge ${ins.droit_image ? 'badge-yes' : 'badge-no'}`;
+
+        if (ins.cantine && (ins.allergies || ins.restrictions)) {
+            document.getElementById('allergies-zone').style.display = 'block';
+            set('f-allergies', ins.allergies || 'Aucune');
+            set('f-restrictions', ins.restrictions || 'Aucune');
+        }
+
+    } catch(e) {
+        showErr(`Erreur technique : ${e.message || String(e)}`);
+    }
+});
 </script>
 </body>
 </html>
