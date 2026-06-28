@@ -19,214 +19,430 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
+    <!-- Premium fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+
     <style>
+        /* ═══════════════════════════════════════════
+           VARIABLES — Palette IDEAL Premium
+        ═══════════════════════════════════════════ */
         :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --surface-hover: #334155;
-            --text: #f8fafc;
-            --muted: #94a3b8;
-            --accent: #3b82f6; /* Blue */
-            --accent-hover: #2563eb;
-            --green: #10b981;
-            --red: #ef4444;
-            --amber: #f59e0b;
-            --border: #334155;
-            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+            --bg:         #07091a;
+            --bg2:        #0d1030;
+            --surface:    rgba(255,255,255,0.04);
+            --surface2:   rgba(255,255,255,0.07);
+            --border:     rgba(255,255,255,0.09);
+            --border-p:   rgba(134,59,255,0.45);
+            --text:       #eef2ff;
+            --muted:      #8892b0;
+            --purple:     #863bff;
+            --purple-h:   #9d5cff;
+            --purple-d:   #5b21b6;
+            --gold:       #c9a84c;
+            --gold-l:     #f0d080;
+            --green:      #10d48a;
+            --red:        #ff4d6d;
+            --shadow-p:   0 0 40px rgba(134,59,255,0.25);
+            --shadow-card:0 8px 32px rgba(0,0,0,0.45);
+            --radius:     16px;
+            --radius-sm:  10px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        
+        /* ═══════════════════════════════════════════
+           BASE
+        ═══════════════════════════════════════════ */
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
         body {
-            background-color: var(--bg);
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
             color: var(--text);
-            display: flex;
-            flex-direction: column;
             min-height: 100vh;
             overflow-x: hidden;
         }
 
-        header {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(12px);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
+        /* Fond animé : orbes de couleur */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80vw 60vh at 10% 10%,  rgba(134,59,255,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60vw 50vh at 90% 80%,  rgba(71,191,255,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 50vw 40vh at 50% 50%,  rgba(201,168,76,0.05) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
         }
-
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .logo-img { height: 40px; }
-        .logo-text { font-weight: 900; font-size: 1.25rem; letter-spacing: -0.02em; }
-        .logo-sub { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
 
         .container {
-            max-width: 1200px;
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 2rem 1rem;
+            padding: 2rem 1.25rem;
             width: 100%;
             flex: 1;
         }
 
-        .btn {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-        .btn-outline:hover { background: var(--surface); }
-
-        .card {
-            background: var(--surface);
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            margin-bottom: 1.5rem;
-        }
-
         .hidden { display: none !important; }
 
-        /* Dashboard Grid */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-top: 1.5rem;
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(18px); }
+            to   { opacity:1; transform:translateY(0); }
         }
-        
-        .kpi-card {
-            background: linear-gradient(145deg, var(--surface), #151e2f);
-            padding: 1.5rem;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            position: relative;
-            overflow: hidden;
+        @keyframes shimmer {
+            0%,100% { opacity:.6; } 50% { opacity:1; }
         }
-        .kpi-value { font-size: 2.5rem; font-weight: 900; line-height: 1; margin-bottom: 0.5rem; }
-        .kpi-label { color: var(--muted); font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* Wizard Steps */
-        .wizard-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-            position: relative;
-        }
-        .wizard-header::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--border);
-            z-index: 0;
-        }
-        .step-indicator {
-            background: var(--bg);
-            border: 2px solid var(--border);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        /* ═══════════════════════════════════════════
+           HEADER
+        ═══════════════════════════════════════════ */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            background: rgba(7,9,26,0.75);
+            backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            padding: 0.85rem 2rem;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            position: relative;
-            z-index: 1;
-            color: var(--muted);
-            transition: all 0.3s;
+            justify-content: space-between;
         }
-        .step-indicator.active {
-            border-color: var(--accent);
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
-        }
-        .step-indicator.completed {
-            border-color: var(--green);
-            background: var(--green);
-            color: white;
+        header::after {
+            content:'';
+            position:absolute;
+            bottom:0; left:0; right:0;
+            height:1px;
+            background: linear-gradient(90deg, transparent, var(--purple), var(--gold), transparent);
+            opacity:.5;
         }
 
-        /* Forms */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
+        .logo-container { display:flex; align-items:center; gap:.9rem; }
+        .logo-svg { width:36px; height:34px; filter: drop-shadow(0 0 8px rgba(134,59,255,.6)); }
+        .logo-text  { font-weight:900; font-size:1.2rem; letter-spacing:-.02em; background:linear-gradient(135deg,#fff 30%,var(--gold-l)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .logo-sub   { font-size:.68rem; color:var(--muted); font-weight:500; letter-spacing:.08em; text-transform:uppercase; }
+
+        .header-nav { display:flex; gap:.75rem; align-items:center; }
+
+        /* ═══════════════════════════════════════════
+           BOUTONS
+        ═══════════════════════════════════════════ */
+        .btn {
+            display:inline-flex; align-items:center; gap:.5rem;
+            padding:.7rem 1.5rem;
+            border-radius:var(--radius-sm);
+            font-weight:700; font-size:.9rem;
+            cursor:pointer; border:none;
+            transition: all .2s cubic-bezier(.4,0,.2,1);
         }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+        .btn-primary {
+            background: linear-gradient(135deg, var(--purple), #5b21b6);
+            color:#fff;
+            box-shadow: 0 4px 20px rgba(134,59,255,.4);
         }
-        label { font-size: 0.875rem; font-weight: 600; color: var(--muted); }
-        input, select, textarea {
-            background: var(--bg);
+        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(134,59,255,.55); background:linear-gradient(135deg,var(--purple-h),var(--purple)); }
+        .btn-primary:disabled { opacity:.5; transform:none; cursor:not-allowed; }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold), #a07820);
+            color:#1a1000; font-weight:800;
+            box-shadow: 0 4px 20px rgba(201,168,76,.35);
+        }
+        .btn-gold:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(201,168,76,.5); }
+
+        .btn-ghost {
+            background: var(--surface2);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s;
+            backdrop-filter: blur(8px);
         }
-        input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+        .btn-ghost:hover { background:rgba(255,255,255,.1); border-color:var(--border-p); }
 
-        .wizard-actions {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
+        /* Alias pour l'existant */
+        .btn { }
+        .btn-outline { background:var(--surface2); border:1px solid var(--border); color:var(--text); }
+        .btn-outline:hover { background:rgba(255,255,255,.09); border-color:var(--border-p); }
+
+        /* ═══════════════════════════════════════════
+           CARDS
+        ═══════════════════════════════════════════ */
+        .card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-card);
+            backdrop-filter: blur(12px);
+            margin-bottom: 1.5rem;
+        }
+        .card-premium {
+            background: linear-gradient(135deg, rgba(134,59,255,.08), rgba(71,191,255,.04));
+            border-color: var(--border-p);
         }
 
-        /* Screens */
-        #home-screen, #wizard-screen, #dashboard-screen {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-            animation: fadeIn 0.3s ease-in-out;
+        /* ═══════════════════════════════════════════
+           HOME SCREEN — HERO PREMIUM
+        ═══════════════════════════════════════════ */
+        #home-screen {
+            display:flex; flex-direction:column; gap:2.5rem;
+            animation: fadeUp .5s ease both;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .hero {
+            text-align:center;
+            padding: 3rem 1rem 2rem;
+        }
+        .hero-eyebrow {
+            display:inline-flex; align-items:center; gap:.5rem;
+            background: rgba(134,59,255,.12);
+            border: 1px solid var(--border-p);
+            border-radius:99px;
+            padding:.35rem 1rem;
+            font-size:.75rem; font-weight:700; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--purple-h);
+            margin-bottom:1.5rem;
+        }
+        .hero-eyebrow span { width:6px; height:6px; background:var(--purple); border-radius:50%; animation:shimmer 2s infinite; }
+        .hero h1 {
+            font-family:'Playfair Display', serif;
+            font-size: clamp(2rem,5vw,3.2rem);
+            font-weight:800; line-height:1.15;
+            margin-bottom:1rem;
+            background: linear-gradient(135deg, #fff 0%, var(--gold-l) 50%, var(--purple-h) 100%);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+        }
+        .hero p {
+            color:var(--muted); font-size:1.05rem; max-width:520px; margin:0 auto 2rem;
+            line-height:1.7;
+        }
+        .hero-stats {
+            display:flex; justify-content:center; gap:3rem; flex-wrap:wrap;
+            margin-top:2rem; padding-top:2rem;
+            border-top:1px solid var(--border);
+        }
+        .hero-stat-value { font-size:1.75rem; font-weight:900; color:var(--gold-l); }
+        .hero-stat-label { font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-top:.25rem; }
 
         .home-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(280px,1fr));
+            gap:1.25rem;
         }
         .action-card {
-            background: var(--surface);
+            position:relative; overflow:hidden;
+            background: linear-gradient(145deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
+            border-radius: var(--radius);
+            padding: 2rem 1.75rem;
+            cursor:pointer;
+            transition: all .3s cubic-bezier(.4,0,.2,1);
         }
-        .action-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 25px rgba(59, 130, 246, 0.1); }
-        .action-icon { font-size: 3rem; margin-bottom: 1rem; }
-        .action-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }
-        .action-desc { color: var(--muted); font-size: 0.875rem; }
+        .action-card::before {
+            content:'';
+            position:absolute; inset:0;
+            background: linear-gradient(135deg, var(--purple), transparent);
+            opacity:0; transition:opacity .3s;
+        }
+        .action-card:hover { transform:translateY(-6px); border-color:var(--border-p); box-shadow: var(--shadow-p); }
+        .action-card:hover::before { opacity:.07; }
+
+        .action-card-icon {
+            width:52px; height:52px;
+            border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.5rem;
+            margin-bottom:1.25rem;
+        }
+        .icon-purple { background:rgba(134,59,255,.18); border:1px solid rgba(134,59,255,.3); }
+        .icon-gold   { background:rgba(201,168,76,.15);  border:1px solid rgba(201,168,76,.3); }
+        .icon-teal   { background:rgba(16,212,138,.12);  border:1px solid rgba(16,212,138,.25); }
+
+        .action-title { font-size:1.15rem; font-weight:800; margin-bottom:.4rem; }
+        .action-desc  { color:var(--muted); font-size:.83rem; line-height:1.6; }
+        .action-arrow {
+            position:absolute; bottom:1.5rem; right:1.5rem;
+            color:var(--purple); font-size:1.1rem; opacity:0;
+            transform:translateX(-6px); transition:all .25s;
+        }
+        .action-card:hover .action-arrow { opacity:1; transform:translateX(0); }
+
+        /* ═══════════════════════════════════════════
+           WIZARD
+        ═══════════════════════════════════════════ */
+        #wizard-screen {
+            display:flex; flex-direction:column; gap:1.5rem;
+            animation: fadeUp .4s ease both;
+        }
+
+        .wizard-card {
+            background: rgba(255,255,255,.035);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow-card);
+            backdrop-filter:blur(16px);
+        }
+
+        /* Barre de progression */
+        .wizard-progress-bar {
+            height:3px;
+            background:rgba(255,255,255,.08);
+            border-radius:99px;
+            margin-bottom:2rem;
+            overflow:hidden;
+        }
+        .wizard-progress-fill {
+            height:100%;
+            background:linear-gradient(90deg, var(--purple), var(--gold));
+            border-radius:99px;
+            transition:width .4s ease;
+        }
+
+        .wizard-header {
+            display:flex; justify-content:space-between;
+            margin-bottom:2rem; position:relative;
+            gap:.25rem;
+        }
+        .wizard-header::before {
+            content:''; position:absolute;
+            top:18px; left:0; right:0; height:2px;
+            background:linear-gradient(90deg,var(--purple-d),rgba(255,255,255,.06));
+            z-index:0;
+        }
+
+        .step-indicator {
+            width:36px; height:36px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-weight:700; font-size:.8rem;
+            position:relative; z-index:1;
+            border:2px solid rgba(255,255,255,.12);
+            background: var(--bg2);
+            color:var(--muted);
+            transition:all .3s;
+        }
+        .step-indicator.active {
+            background:linear-gradient(135deg,var(--purple),var(--purple-d));
+            border-color:var(--purple);
+            color:#fff;
+            box-shadow:0 0 0 4px rgba(134,59,255,.25), 0 4px 14px rgba(134,59,255,.4);
+            transform:scale(1.12);
+        }
+        .step-indicator.completed {
+            background:linear-gradient(135deg,var(--green),#0a9060);
+            border-color:var(--green);
+            color:#fff;
+            box-shadow:0 0 0 3px rgba(16,212,138,.2);
+        }
+
+        /* Step title */
+        .wizard-step-title {
+            font-size:1.4rem; font-weight:800; margin-bottom:.35rem;
+            background:linear-gradient(135deg,#fff,var(--gold-l));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+        }
+        .wizard-step-sub { color:var(--muted); font-size:.85rem; margin-bottom:1.75rem; }
+
+        /* ═══════════════════════════════════════════
+           FORMULAIRES
+        ═══════════════════════════════════════════ */
+        .form-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+            gap:1.25rem;
+        }
+        .form-group { display:flex; flex-direction:column; gap:.4rem; }
+
+        label {
+            font-size:.78rem; font-weight:700;
+            color:var(--muted);
+            letter-spacing:.04em; text-transform:uppercase;
+        }
+
+        input, select, textarea {
+            background: rgba(255,255,255,.04);
+            border: 1px solid rgba(255,255,255,.1);
+            color: var(--text);
+            padding: .8rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: .95rem;
+            font-family:'Inter',sans-serif;
+            outline:none;
+            transition:all .2s;
+        }
+        input::placeholder { color:rgba(255,255,255,.2); }
+        input:focus, select:focus, textarea:focus {
+            border-color:var(--purple);
+            background:rgba(134,59,255,.07);
+            box-shadow:0 0 0 3px rgba(134,59,255,.18);
+        }
+        select option { background:#131630; color:#eef2ff; }
+
+        /* File input */
+        input[type="file"] {
+            padding:.6rem .8rem;
+            font-size:.8rem;
+            cursor:pointer;
+        }
+
+        .wizard-actions {
+            display:flex; justify-content:space-between; align-items:center;
+            margin-top:2rem; padding-top:1.5rem;
+            border-top:1px solid var(--border);
+        }
+
+        /* ═══════════════════════════════════════════
+           DASHBOARD & KPI
+        ═══════════════════════════════════════════ */
+        #dashboard-screen, #reinscription-screen, #success-screen {
+            display:flex; flex-direction:column; gap:1.75rem;
+            animation: fadeUp .4s ease both;
+        }
+
+        .dashboard-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+            gap:1.25rem;
+        }
+        .kpi-card {
+            position:relative; overflow:hidden;
+            padding:1.5rem;
+            border-radius:var(--radius);
+            border:1px solid var(--border);
+            background:var(--surface2);
+        }
+        .kpi-card::after {
+            content:'';
+            position:absolute; bottom:0; left:0; right:0; height:3px;
+        }
+        .kpi-card:nth-child(1)::after { background:linear-gradient(90deg,var(--purple),transparent); }
+        .kpi-card:nth-child(2)::after { background:linear-gradient(90deg,var(--green),transparent); }
+        .kpi-card:nth-child(3)::after { background:linear-gradient(90deg,var(--gold),transparent); }
+
+        .kpi-value { font-size:2.75rem; font-weight:900; line-height:1; margin-bottom:.4rem; }
+        .kpi-label { color:var(--muted); font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; }
+
+        /* ═══════════════════════════════════════════
+           SUCCESS SCREEN
+        ═══════════════════════════════════════════ */
+        .success-badge {
+            width:80px; height:80px; border-radius:50%;
+            background:linear-gradient(135deg,var(--green),#065f46);
+            display:flex; align-items:center; justify-content:center;
+            font-size:2.2rem;
+            margin:0 auto 1.5rem;
+            box-shadow:0 0 40px rgba(16,212,138,.4);
+            animation:shimmer 2s infinite;
+        }
+        .matricule-badge {
+            display:inline-block;
+            background:linear-gradient(135deg,rgba(134,59,255,.15),rgba(201,168,76,.1));
+            border:1px solid var(--border-p);
+            border-radius:12px; padding:1rem 2rem;
+            font-size:1.8rem; font-weight:900; letter-spacing:.05em;
+            color:var(--gold-l);
+            box-shadow:0 0 30px rgba(134,59,255,.2);
+        }
 
     </style>
 </head>
@@ -234,14 +450,17 @@
 
 <header>
     <div class="logo-container">
-        <div style="width:40px;height:40px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:white;">IDEAL</div>
+        <svg class="logo-svg" viewBox="0 0 48 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/>
+        </svg>
         <div>
-            <div class="logo-text">IDEAL Inscriptions</div>
-            <div class="logo-sub">Plateforme Numérique Officielle</div>
+            <div class="logo-text">IDEAL</div>
+            <div class="logo-sub">Plateforme d'Inscriptions</div>
         </div>
     </div>
-    <div>
-        <button class="btn btn-outline" onclick="showScreen('home-screen')">Accueil</button>
+    <div class="header-nav">
+        <button class="btn btn-ghost" onclick="showScreen('dashboard-screen')" style="font-size:.82rem; padding:.55rem 1rem;">📊 Tableau de bord</button>
+        <button class="btn btn-ghost" onclick="showScreen('home-screen')" style="font-size:.82rem; padding:.55rem 1rem;">Accueil</button>
     </div>
 </header>
 
@@ -249,33 +468,63 @@
     
     <!-- ÉCRAN D'ACCUEIL -->
     <div id="home-screen">
-        <div style="text-align: center; max-width: 600px; margin: 0 auto;">
-            <h1 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem;">Bienvenue sur la plateforme d'inscription</h1>
-            <p style="color: var(--muted); font-size: 1.1rem;">Gérez facilement les inscriptions, réinscriptions et dossiers numériques des élèves de l'école IDEAL.</p>
+        <div class="hero">
+            <div class="hero-eyebrow"><span></span> Année scolaire 2026 – 2027</div>
+            <h1>Bienvenue sur la<br>Plateforme IDEAL</h1>
+            <p>Inscriptions, réinscriptions et dossiers numériques des élèves — rapides, sécurisés, professionnels.</p>
+            <button class="btn btn-primary" onclick="startWizard('nouvelle')" style="font-size:1rem; padding:.9rem 2.2rem; margin:0 auto;">
+                ✦ Commencer une inscription
+            </button>
+            <div class="hero-stats" id="hero-stats">
+                <div>
+                    <div class="hero-stat-value" id="stat-total">—</div>
+                    <div class="hero-stat-label">Élèves inscrits</div>
+                </div>
+                <div>
+                    <div class="hero-stat-value" id="stat-cantine">—</div>
+                    <div class="hero-stat-label">À la cantine</div>
+                </div>
+                <div>
+                    <div class="hero-stat-value" id="stat-reinsc">—</div>
+                    <div class="hero-stat-label">Réinscriptions</div>
+                </div>
+            </div>
         </div>
 
         <div class="home-actions">
             <div class="action-card" onclick="startWizard('nouvelle')">
-                <div class="action-icon">📝</div>
+                <div class="action-card-icon icon-purple">📝</div>
                 <div class="action-title">Nouvelle Inscription</div>
-                <div class="action-desc">Créer un nouveau dossier élève complet (responsables, documents, cantine...).</div>
+                <div class="action-desc">Créer un dossier élève complet en 8 étapes guidées — responsables, photo, documents, cantine, signature.</div>
+                <div class="action-arrow">→</div>
             </div>
             <div class="action-card" onclick="startReinscription()">
-                <div class="action-icon">🔄</div>
+                <div class="action-card-icon icon-gold">🔄</div>
                 <div class="action-title">Réinscription</div>
-                <div class="action-desc">Rechercher un élève existant pour le réinscrire pour la nouvelle année.</div>
+                <div class="action-desc">Rechercher un élève par matricule ou nom pour le réinscrire avec toutes ses informations pré-remplies.</div>
+                <div class="action-arrow">→</div>
             </div>
             <div class="action-card" onclick="showScreen('dashboard-screen')">
-                <div class="action-icon">📊</div>
+                <div class="action-card-icon icon-teal">📊</div>
                 <div class="action-title">Tableau de bord</div>
-                <div class="action-desc">Consulter les statistiques d'inscription et les dossiers en cours.</div>
+                <div class="action-desc">Statistiques en temps réel, liste des derniers dossiers enregistrés et suivi des inscriptions.</div>
+                <div class="action-arrow">→</div>
             </div>
         </div>
     </div>
 
     <!-- WIZARD D'INSCRIPTION -->
     <div id="wizard-screen" class="hidden">
-        <div class="card">
+        <div class="wizard-card">
+            <!-- Barre de progression -->
+            <div class="wizard-progress-bar">
+                <div class="wizard-progress-fill" id="progress-fill" style="width:12.5%"></div>
+            </div>
+            <!-- Titre dynamique de l'étape -->
+            <div id="wizard-step-info" style="margin-bottom:1.5rem;">
+                <div class="wizard-step-title" id="wizard-step-title">Responsable Légal 1</div>
+                <div class="wizard-step-sub" id="wizard-step-sub">Étape 1 sur 8 — Informations du parent ou tuteur légal</div>
+            </div>
             <div class="wizard-header">
                 <div class="step-indicator active" id="ind-1">1</div>
                 <div class="step-indicator" id="ind-2">2</div>
@@ -498,8 +747,8 @@
             </div>
 
             <div class="wizard-actions">
-                <button class="btn btn-outline" id="btn-prev" onclick="prevStep()" disabled>Précédent</button>
-                <button class="btn" id="btn-next" onclick="nextStep()">Suivant</button>
+                <button class="btn btn-ghost" id="btn-prev" onclick="prevStep()" disabled>← Précédent</button>
+                <button class="btn btn-primary" id="btn-next" onclick="nextStep()">Suivant →</button>
             </div>
         </div>
     </div>
@@ -547,18 +796,24 @@
 
     <!-- ÉCRAN DE SUCCÈS -->
     <div id="success-screen" class="hidden">
-        <div style="text-align:center; max-width:600px; margin:0 auto; padding:3rem 1rem;">
-            <div style="font-size:5rem; margin-bottom:1.5rem;">✅</div>
-            <h2 style="font-size:2rem; font-weight:900; margin-bottom:1rem;">Inscription enregistrée !</h2>
-            <div class="card" style="margin-bottom:1.5rem; background:rgba(16,185,129,0.05); border-color:var(--green);">
-                <div style="font-size:0.875rem; color:var(--muted); margin-bottom:0.5rem;">Matricule de l'élève</div>
-                <div id="success-matricule" style="font-size:2rem; font-weight:900; color:var(--green); letter-spacing:0.05em;"></div>
+        <div style="text-align:center; max-width:560px; margin:0 auto; padding:2rem 1rem;">
+            <div class="success-badge">✓</div>
+            <h2 style="font-size:2rem; font-weight:900; margin-bottom:.5rem; background:linear-gradient(135deg,#fff,var(--gold-l)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Inscription enregistrée !</h2>
+            <p style="color:var(--muted); margin-bottom:1.75rem;">Le dossier a été sauvegardé avec succès dans la base de données.</p>
+
+            <div style="margin-bottom:1.75rem;">
+                <div style="font-size:.75rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.6rem;">Matricule de l'élève</div>
+                <div class="matricule-badge" id="success-matricule"></div>
             </div>
-            <div id="qrcode-container" style="display:flex; justify-content:center; margin-bottom:1.5rem; background:white; padding:1rem; border-radius:12px; width:fit-content; margin:0 auto 1.5rem;"></div>
-            <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
-                <button class="btn" onclick="downloadPDF()">⬇ Télécharger le PDF</button>
-                <button class="btn btn-outline" onclick="startNewInscription()">Nouvelle inscription</button>
-                <button class="btn btn-outline" onclick="showScreen('home-screen')">Accueil</button>
+
+            <div id="qrcode-container" style="display:flex; justify-content:center; margin-bottom:1.75rem;">
+                <div style="background:white; padding:.85rem; border-radius:14px; box-shadow:0 0 30px rgba(134,59,255,.3);"></div>
+            </div>
+
+            <div style="display:flex; gap:.85rem; justify-content:center; flex-wrap:wrap;">
+                <button class="btn btn-gold" onclick="downloadPDF()">⬇ Télécharger la fiche PDF</button>
+                <button class="btn btn-ghost" onclick="startNewInscription()">+ Nouvelle inscription</button>
+                <button class="btn btn-ghost" onclick="showScreen('home-screen')">Accueil</button>
             </div>
         </div>
     </div>
@@ -574,8 +829,9 @@
     const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // =============================================
-    // ÉTAT GLOBAL
+    // ÉTAT GLOBAL — charger les stats dès le démarrage
     // =============================================
+    window.addEventListener('DOMContentLoaded', () => loadHomeStats());
     let currentStep = 1;
     const totalSteps = 8;
     let cropper = null;
@@ -591,6 +847,18 @@
     // =============================================
     const ALL_SCREENS = ['home-screen', 'wizard-screen', 'dashboard-screen', 'reinscription-screen', 'success-screen'];
 
+    // Métadonnées des étapes
+    const STEP_META = [
+        { title: 'Responsable Légal 1',    sub: 'Étape 1 sur 8 — Parent ou tuteur principal' },
+        { title: 'Responsable Légal 2',    sub: 'Étape 2 sur 8 — Second parent ou tuteur (optionnel)' },
+        { title: "Informations de l'élève", sub: "Étape 3 sur 8 — État civil et scolarité" },
+        { title: 'Photo de l\'élève',       sub: 'Étape 4 sur 8 — Photo d\'identité officielle' },
+        { title: 'Documents',              sub: 'Étape 5 sur 8 — Pièces justificatives' },
+        { title: 'Cantine scolaire',        sub: 'Étape 6 sur 8 — Service de restauration' },
+        { title: 'Droit à l\'image',        sub: 'Étape 7 sur 8 — Autorisation parentale' },
+        { title: 'Signature',              sub: 'Étape 8 sur 8 — Certification et validation' },
+    ];
+
     function showScreen(screenId) {
         ALL_SCREENS.forEach(id => {
             const el = document.getElementById(id);
@@ -600,6 +868,18 @@
         if (target) target.classList.remove('hidden');
 
         if (screenId === 'dashboard-screen') loadDashboard();
+        if (screenId === 'home-screen') loadHomeStats();
+    }
+
+    async function loadHomeStats() {
+        try {
+            const { count: total } = await _supa.from('inscriptions').select('*', { count:'exact', head:true });
+            const { count: cantine } = await _supa.from('inscriptions').select('*', { count:'exact', head:true }).eq('cantine', true);
+            const { count: reinsc } = await _supa.from('inscriptions').select('*', { count:'exact', head:true }).eq('type_inscription','reinscription');
+            document.getElementById('stat-total').textContent   = total   ?? 0;
+            document.getElementById('stat-cantine').textContent = cantine ?? 0;
+            document.getElementById('stat-reinsc').textContent  = reinsc  ?? 0;
+        } catch(e) { /* silencieux si pas connecté */ }
     }
 
     function startWizard(type, prefillData) {
@@ -677,9 +957,23 @@
             }, 100);
         }
 
+        // Barre de progression
+        const pct = (currentStep / totalSteps) * 100;
+        const fill = document.getElementById('progress-fill');
+        if (fill) fill.style.width = pct + '%';
+
+        // Titre et sous-titre dynamiques
+        const meta = STEP_META[currentStep - 1];
+        if (meta) {
+            const t = document.getElementById('wizard-step-title');
+            const s = document.getElementById('wizard-step-sub');
+            if (t) t.textContent = meta.title;
+            if (s) s.textContent = meta.sub;
+        }
+
         document.getElementById('btn-prev').disabled = currentStep === 1;
         const btnNext = document.getElementById('btn-next');
-        btnNext.innerText = currentStep === totalSteps ? "Valider l'inscription" : "Suivant";
+        btnNext.innerHTML = currentStep === totalSteps ? "✦ Valider l'inscription" : "Suivant →";
         btnNext.disabled = false;
     }
 
@@ -878,9 +1172,12 @@
     function showSuccessScreen(matricule) {
         document.getElementById('success-matricule').textContent = matricule;
 
-        const qrContainer = document.getElementById('qrcode-container');
-        qrContainer.innerHTML = '';
-        new QRCode(qrContainer, {
+        const qrWrapper = document.getElementById('qrcode-container');
+        qrWrapper.innerHTML = '';
+        const qrBox = document.createElement('div');
+        qrBox.style.cssText = 'background:white; padding:.85rem; border-radius:14px; box-shadow:0 0 30px rgba(134,59,255,.3);';
+        qrWrapper.appendChild(qrBox);
+        new QRCode(qrBox, {
             text: matricule,
             width: 160,
             height: 160,
