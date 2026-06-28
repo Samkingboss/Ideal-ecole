@@ -307,7 +307,17 @@
                     <div class="form-group"><label>Email</label><input type="email" id="r1-email"></div>
                     <div class="form-group" style="grid-column: 1 / -1;"><label>Adresse complète</label><input type="text" id="r1-adresse"></div>
                     <div class="form-group"><label>Profession</label><input type="text" id="r1-profession"></div>
-                    <div class="form-group"><label>Employeur</label><input type="text" id="r1-employeur"></div>
+                    <div class="form-group">
+                        <label>Situation matrimoniale</label>
+                        <select id="r1-situation">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="celibataire">Célibataire</option>
+                            <option value="marie">Marié(e)</option>
+                            <option value="fiance">Fiancé(e)</option>
+                            <option value="divorce">Divorcé(e)</option>
+                            <option value="veuf">Veuf/Veuve</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -331,7 +341,17 @@
                     <div class="form-group"><label>Email</label><input type="email" id="r2-email"></div>
                     <div class="form-group" style="grid-column: 1 / -1;"><label>Adresse complète</label><input type="text" id="r2-adresse"></div>
                     <div class="form-group"><label>Profession</label><input type="text" id="r2-profession"></div>
-                    <div class="form-group"><label>Employeur</label><input type="text" id="r2-employeur"></div>
+                    <div class="form-group">
+                        <label>Situation matrimoniale</label>
+                        <select id="r2-situation">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="celibataire">Célibataire</option>
+                            <option value="marie">Marié(e)</option>
+                            <option value="fiance">Fiancé(e)</option>
+                            <option value="divorce">Divorcé(e)</option>
+                            <option value="veuf">Veuf/Veuve</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -390,7 +410,10 @@
                     <!-- Camera Feed -->
                     <div id="camera-container" class="hidden" style="width:100%; max-width:400px; border-radius:12px; overflow:hidden; border:2px solid var(--border); position:relative;">
                         <video id="video-feed" autoplay playsinline style="width:100%; display:block;"></video>
-                        <button class="btn" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:10;" onclick="capturePhoto()">Capturer</button>
+                        <div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:10;">
+                            <button class="btn btn-outline" style="background:rgba(0,0,0,0.5); border:none; color:white; padding:0.5rem;" onclick="toggleCamera()">🔄 Caméra</button>
+                            <button class="btn" onclick="capturePhoto()">Capturer</button>
+                        </div>
                     </div>
 
                     <!-- Cropper -->
@@ -410,9 +433,87 @@
                 </div>
             </div>
 
-            <!-- More steps to be implemented later... -->
-            <div id="step-placeholder" class="wizard-step hidden">
-                <h2>Prochaine étape en construction...</h2>
+            <!-- Étape 5 : Documents -->
+            <div id="step-5" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Documents de l'élève</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Acte de naissance</label>
+                        <input type="file" id="doc-acte-naissance" accept="image/*,.pdf">
+                    </div>
+                    <div class="form-group">
+                        <label>Carnet de vaccination</label>
+                        <input type="file" id="doc-vaccination" accept="image/*,.pdf">
+                    </div>
+                    <div class="form-group">
+                        <label>Bulletin précédent (Prouvant le passage)</label>
+                        <input type="file" id="doc-bulletin" accept="image/*,.pdf">
+                    </div>
+                    <div class="form-group">
+                        <label>Certificat de transfert (Si changement d'école)</label>
+                        <input type="file" id="doc-transfert" accept="image/*,.pdf">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Étape 6 : Cantine -->
+            <div id="step-6" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Inscription à la Cantine</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>L'élève mangera-t-il à la cantine ?</label>
+                        <select id="cantine-inscrit" onchange="toggleCantineDetails()">
+                            <option value="non">Non</option>
+                            <option value="oui">Oui</option>
+                        </select>
+                    </div>
+                    <div id="cantine-details" class="hidden" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                        <div class="form-group"><label>Allergies alimentaires</label><textarea id="cantine-allergies" rows="2" placeholder="Ex: Arachide, Lait..."></textarea></div>
+                        <div class="form-group"><label>Restrictions alimentaires</label><textarea id="cantine-restrictions" rows="2" placeholder="Ex: Pas de porc, végétarien..."></textarea></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Étape 7 : Transport -->
+            <div id="step-7" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Transport Scolaire</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Utilisera-t-il le transport scolaire ?</label>
+                        <select id="transport-inscrit" onchange="toggleTransportDetails()">
+                            <option value="non">Non</option>
+                            <option value="oui">Oui</option>
+                        </select>
+                    </div>
+                    <div id="transport-details" class="hidden form-group" style="grid-column: 1 / -1;">
+                        <label>Point de ramassage souhaité</label>
+                        <input type="text" id="transport-point" placeholder="Ex: ACI 2000, près de...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Étape 8 : Droit à l'image -->
+            <div id="step-8" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Droit à l'image</h2>
+                <div class="card" style="background: rgba(59, 130, 246, 0.05); border-color: var(--accent);">
+                    <p style="margin-bottom: 1rem; line-height: 1.5;">J'autorise l'école IDEAL à utiliser l'image de mon enfant (photos, vidéos) prises dans le cadre des activités scolaires, pour ses supports de communication (site web, brochures, page Facebook officielle).</p>
+                    <select id="droit-image" style="width: 200px;">
+                        <option value="oui">Oui, j'autorise</option>
+                        <option value="non">Non, je refuse</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Étape 9 : Signature -->
+            <div id="step-9" class="wizard-step hidden">
+                <h2 style="margin-bottom: 1.5rem;">Signature du Responsable</h2>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                    <p style="color: var(--muted); text-align: center;">Je certifie l'exactitude des informations fournies et accepte le règlement intérieur de l'établissement.</p>
+                    <div style="background: white; border-radius: 12px; overflow: hidden; border: 2px solid var(--border);">
+                        <canvas id="signature-pad" width="400" height="200" style="touch-action: none; display: block;"></canvas>
+                    </div>
+                    <button class="btn btn-outline" onclick="signaturePad.clear()">Effacer la signature</button>
+                </div>
             </div>
 
             <div class="wizard-actions">
@@ -460,6 +561,8 @@
     let cropper = null;
     let stream = null;
     let finalPhotoDataUrl = null;
+    let currentFacingMode = 'user';
+    let signaturePad = null;
 
     function showScreen(screenId) {
         document.getElementById('home-screen').classList.add('hidden');
@@ -512,6 +615,14 @@
             stopCamera();
         }
 
+        // Action when arriving on step 9
+        if(currentStep === 9 && !signaturePad) {
+            const canvas = document.getElementById('signature-pad');
+            // Adjust canvas size for mobile devices properly
+            canvas.width = Math.min(400, window.innerWidth - 60);
+            signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+        }
+
         // Buttons
         document.getElementById('btn-prev').disabled = currentStep === 1;
         if (currentStep === totalSteps) {
@@ -542,6 +653,12 @@
                 return false;
             }
         }
+        if(step === 9) {
+            if(signaturePad && signaturePad.isEmpty()) {
+                alert("La signature du responsable légal est requise.");
+                return false;
+            }
+        }
         return true;
     }
 
@@ -569,12 +686,17 @@
         const video = document.getElementById('video-feed');
         const container = document.getElementById('camera-container');
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
             video.srcObject = stream;
             container.classList.remove('hidden');
         } catch (err) {
             alert("Erreur d'accès à la caméra: " + err.message);
         }
+    }
+
+    function toggleCamera() {
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        startCamera();
     }
 
     function stopCamera() {
@@ -658,6 +780,21 @@
     function resetPhoto() {
         finalPhotoDataUrl = null;
         resetPhotoUI();
+    }
+
+    // --- TOGGLE LOGIC FOR STEPS 6 AND 7 ---
+    function toggleCantineDetails() {
+        const val = document.getElementById('cantine-inscrit').value;
+        const details = document.getElementById('cantine-details');
+        if(val === 'oui') details.classList.remove('hidden');
+        else details.classList.add('hidden');
+    }
+
+    function toggleTransportDetails() {
+        const val = document.getElementById('transport-inscrit').value;
+        const details = document.getElementById('transport-details');
+        if(val === 'oui') details.classList.remove('hidden');
+        else details.classList.add('hidden');
     }
 
 </script>
