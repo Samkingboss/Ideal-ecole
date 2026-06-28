@@ -489,10 +489,11 @@
                 <h2 style="margin-bottom: 1.5rem;">Signature du Responsable</h2>
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
                     <p style="color: var(--muted); text-align: center;">Je certifie l'exactitude des informations fournies et accepte le règlement intérieur de l'établissement.</p>
-                    <div style="background: white; border-radius: 12px; overflow: hidden; border: 2px solid var(--border);">
-                        <canvas id="signature-pad" width="400" height="200" style="touch-action: none; display: block;"></canvas>
+                    <div id="signature-wrapper" style="background: white; border-radius: 12px; border: 2px solid var(--accent); width: 100%; max-width: 500px; touch-action: none;">
+                        <canvas id="signature-pad" style="display: block; width: 100%; height: 220px; touch-action: none; cursor: crosshair;"></canvas>
                     </div>
-                    <button class="btn btn-outline" onclick="signaturePad.clear()">Effacer la signature</button>
+                    <p style="color: var(--muted); font-size: 0.8rem;">Signez dans le cadre blanc ci-dessus avec votre doigt</p>
+                    <button class="btn btn-outline" onclick="clearSignature()">Effacer la signature</button>
                 </div>
             </div>
 
@@ -655,10 +656,25 @@
 
         if (currentStep !== 4 && stream) stopCamera();
 
-        if (currentStep === 9 && !signaturePad) {
-            const canvas = document.getElementById('signature-pad');
-            canvas.width = Math.min(400, window.innerWidth - 60);
-            signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+        if (currentStep === 8) {
+            setTimeout(() => {
+                const canvas = document.getElementById('signature-pad');
+                const wrapper = document.getElementById('signature-wrapper');
+                const ratio = window.devicePixelRatio || 1;
+                canvas.width = wrapper.offsetWidth * ratio;
+                canvas.height = 220 * ratio;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(ratio, ratio);
+                ctx.fillStyle = 'rgb(255,255,255)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (signaturePad) signaturePad.off();
+                signaturePad = new SignaturePad(canvas, {
+                    backgroundColor: 'rgb(255, 255, 255)',
+                    penColor: 'rgb(0, 0, 0)',
+                    minWidth: 1.5,
+                    maxWidth: 3,
+                });
+            }, 100);
         }
 
         document.getElementById('btn-prev').disabled = currentStep === 1;
@@ -692,7 +708,7 @@
                 return confirm("Vous n'avez pas ajouté de photo. Voulez-vous continuer sans photo ?");
             }
         }
-        if (step === 9) {
+        if (step === 8) {
             if (signaturePad && signaturePad.isEmpty()) {
                 alert("La signature du responsable légal est requise.");
                 return false;
@@ -1219,6 +1235,16 @@
     }
 
     function resetPhoto() { finalPhotoDataUrl = null; resetPhotoUI(); }
+
+    function clearSignature() {
+        if (signaturePad) {
+            signaturePad.clear();
+            const canvas = document.getElementById('signature-pad');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgb(255,255,255)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    }
 
     // =============================================
     // TOGGLE CANTINE / TRANSPORT
