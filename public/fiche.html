@@ -286,14 +286,21 @@ window.addEventListener('load', async () => {
         document.getElementById('state').style.display = 'none';
         document.getElementById('fiche').style.display = 'block';
 
-        // Photo
+        // Photo — URL signée Supabase (contourne les restrictions d'accès public)
         const photoZone = document.getElementById('photo-zone');
-        if (ins.photo_url) {
+        const photoPath = `photos/${ins.matricule}.jpg`;
+        const { data: signedData } = await _supa.storage
+            .from('inscriptions')
+            .createSignedUrl(photoPath, 3600); // valable 1 heure
+
+        const photoSrc = signedData?.signedUrl || ins.photo_url;
+
+        if (photoSrc) {
             const img = new Image();
             img.alt = 'Photo élève';
             img.style.cssText = 'width:72px;height:72px;border-radius:10px;object-fit:cover;border:3px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.25);';
             img.onerror = () => { photoZone.innerHTML = '<div class="photo-placeholder">👤</div>'; };
-            img.src = ins.photo_url;
+            img.src = photoSrc;
             photoZone.innerHTML = '';
             photoZone.appendChild(img);
         } else {
