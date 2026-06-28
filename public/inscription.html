@@ -847,8 +847,8 @@
                 classe_demandee: document.getElementById('el-classe-demandee').value,
                 adresse: document.getElementById('el-adresse').value.trim() || null,
                 cantine: document.getElementById('cantine-inscrit').value === 'oui',
-                cantine_allergies: document.getElementById('cantine-allergies').value.trim() || null,
-                cantine_restrictions: document.getElementById('cantine-restrictions').value.trim() || null,
+                allergies: document.getElementById('cantine-allergies').value.trim() || null,
+                restrictions: document.getElementById('cantine-restrictions').value.trim() || null,
                 transport: false,
                 droit_image: document.getElementById('droit-image').value === 'oui',
                 photo_url: photoUrl,
@@ -983,8 +983,8 @@
 
         addSection('Services');
         addField('Cantine', data.cantine ? 'Oui' : 'Non');
-        if (data.cantine_allergies) addField('Allergies', data.cantine_allergies);
-        if (data.cantine_restrictions) addField('Restrictions', data.cantine_restrictions);
+        if (data.allergies) addField('Allergies', data.allergies);
+        if (data.restrictions) addField('Restrictions', data.restrictions);
         addField('Droit à l\'image', data.droit_image ? 'Autorisé' : 'Refusé');
         y += 3;
 
@@ -1137,8 +1137,8 @@
             if (eleve.cantine) {
                 set('cantine-inscrit', 'oui');
                 document.getElementById('cantine-details').classList.remove('hidden');
-                set('cantine-allergies', eleve.cantine_allergies);
-                set('cantine-restrictions', eleve.cantine_restrictions);
+                set('cantine-allergies', eleve.allergies);
+                set('cantine-restrictions', eleve.restrictions);
             }
         }, 100);
 
