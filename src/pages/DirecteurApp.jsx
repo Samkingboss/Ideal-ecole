@@ -14,6 +14,7 @@ const TOP_TABS = [
   { id:'eleves', icon:'🎒', label:'Élèves' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
+  { id:'pedagogie', icon:'📚', label:'Pédagogie' },
 ]
 
 export default function DirecteurApp({ user, onLogout }) {
@@ -583,6 +584,28 @@ export default function DirecteurApp({ user, onLogout }) {
               )
             })}
           </>
+        )}
+
+        {tab === 'pedagogie' && (
+          <div>
+            <div className="section-title" style={{marginBottom:12}}>Outils pédagogiques</div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+              <a href="/pedago-archive/" style={{textDecoration:'none'}}>
+                <div style={{background:'linear-gradient(135deg,#1AAFE0,#0d6fa8)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
+                  <div style={{fontSize:28}} aria-hidden="true">🗂️</div>
+                  <div style={{fontWeight:700, marginTop:6}}>Pédago-Archive</div>
+                  <div style={{fontSize:12, opacity:.85, marginTop:2}}>Devoirs, fiches et archives pédagogiques</div>
+                </div>
+              </a>
+              <a href="/rapports.html" style={{textDecoration:'none'}}>
+                <div style={{background:'linear-gradient(135deg,#F7941D,#d97706)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
+                  <div style={{fontSize:28}} aria-hidden="true">📄</div>
+                  <div style={{fontWeight:700, marginTop:6}}>Rapports élèves</div>
+                  <div style={{fontSize:12, opacity:.85, marginTop:2}}>Rapports parents et suivi PDF des élèves</div>
+                </div>
+              </a>
+            </div>
+          </div>
         )}
 
         {tab === 'discipline' && (

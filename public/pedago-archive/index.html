@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDEAL | Pédago-Archive</title>
+    <!-- Garde d'accès : personnel pédagogique connecté -->
+    <script>
+      (function(){
+        try {
+          var u = JSON.parse(localStorage.getItem('ideal_user') || 'null');
+          var ok = u && (u.role === 'directeur' || u.role === 'professeur' || u.role === 'conseiller_vie_scolaire');
+          if (!ok) location.replace('/');
+        } catch(e) { location.replace('/'); }
+      })();
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- html2pdf.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+<a href="/" style="position:fixed; top:10px; right:10px; z-index:9999; background:#0d2a3b; color:#fff; text-decoration:none; font-family:sans-serif; font-size:13px; font-weight:700; padding:8px 14px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.25);">↩ Portail</a>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-container" id="logo-sidebar" onclick="document.getElementById('logo-upload').click()" style="cursor: pointer;" title="Cliquez pour changer le logo">
+                <input type="file" id="logo-upload" style="display: none;" accept="image/*">
+                <div class="logo-placeholder" id="sidebar-logo-content">LOGO ICI</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-section="dashboard">
+                    <i class="fas fa-th-large"></i> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-section="composer">
+                    <i class="fas fa-file-pen"></i> Nouveau Devoir
+                </a>
+                <a href="#" class="nav-item" data-section="students">
+                    <i class="fas fa-users"></i> Liste Élèves
+                </a>
+                <a href="#" class="nav-item" data-section="archive">
+                    <i class="fas fa-archive"></i> Archives
+                </a>
+            </nav>
+            <div class="sidebar-footer" style="padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                    <button class="btn" style="background: rgba(255,255,255,0.1); color: white; flex: 1; font-size: 0.7rem;" onclick="exportData()">
+                        <i class="fas fa-download"></i> Backup
+                    </button>
+                    <button class="btn" style="background: rgba(255,255,255,0.1); color: white; flex: 1; font-size: 0.7rem;" onclick="document.getElementById('import-file').click()">
+                        <i class="fas fa-upload"></i> Restore
+                    </button>
+                    <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(event)">
+                </div>
+                <p style="font-size: 0.7rem; opacity: 0.5;">v1.0 © IDEAL École</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main>
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <div class="header">
+                    <h1>Tableau de Bord</h1>
+                    <button class="btn btn-primary" onclick="switchSection('composer')">
+                        <i class="fas fa-plus"></i> Nouveau Devoir
+                    </button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Devoirs Archivés</h3>
+                        <p id="stat-total-homework">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Classes Gérées</h3>
+                        <p id="stat-total-classes">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Élèves Enregistrés</h3>
+                        <p id="stat-total-students">0</p>
+                    </div>
+                </div>
+
+                <div class="recent-activity card">
+                    <h2 style="margin-bottom: 1rem;">Activités Récentes</h2>
+                    <div id="recent-list">
+                        <p style="color: var(--text-muted); font-style: italic;">Aucun devoir récent.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Composer Section -->
+            <section id="composer" class="section">
+                <div class="header">
+                    <h1>Créer un Devoir</h1>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="printAll()">
+                            <i class="fas fa-print"></i> Publipostage (Tout)
+                        </button>
+                        <button class="btn btn-primary" id="save-homework-btn">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="composer-grid">
+                    <!-- Form Side -->
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label>Nom du Professeur</label>
+                            <input type="text" id="teacher-name" placeholder="Ex: M. Kouassi">
+                        </div>
+                        <div class="form-group">
+                            <label>Matière</label>
+                            <input type="text" id="subject" placeholder="Ex: Mathématiques">
+                        </div>
+                        <div class="form-group">
+                            <label>Classe</label>
+                            <select id="grade-select">
+                                <option value="">Choisir une classe</option>
+                                <option value="PS">PS</option>
+                                <option value="GS">GS</option>
+                                <option value="CP1">CP1</option>
+                                <option value="CP2">CP2</option>
+                                <option value="CE1">CE1</option>
+                                <option value="CE2">CE2</option>
+                                <option value="CM1">CM1</option>
+                                <option value="CM2">CM2</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Type de Devoir</label>
+                            <select id="homework-type">
+                                <option value="Devoir de Maison">Devoir de Maison</option>
+                                <option value="Évaluation">Évaluation</option>
+                                <option value="Composition">Composition</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <label>Période</label>
+                                <select id="homework-period">
+                                    <option value="1">Période 1</option>
+                                    <option value="2">Période 2</option>
+                                    <option value="3">Période 3</option>
+                                    <option value="4">Période 4</option>
+                                    <option value="5">Période 5</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Date de Remise</label>
+                                <input type="date" id="due-date">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Objectifs des exercices</label>
+                            <textarea id="homework-objectives" placeholder="Ex: Évaluer la compréhension des nombres de 1 à 10..." style="min-height: 80px;"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Contenu du Devoir</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <button class="btn btn-secondary" onclick="document.getElementById('homework-file').click()" style="font-size: 0.8rem;">
+                                    <i class="fas fa-images"></i> Ajouter Images
+                                </button>
+                                <button class="btn btn-secondary" onclick="clearHomeworkContent()" style="font-size: 0.8rem;">
+                                    <i class="fas fa-eraser"></i> Effacer
+                                </button>
+                            </div>
+                            <input type="file" id="homework-file" style="display: none;" accept="image/*" multiple>
+                            <textarea id="homework-content" placeholder="Ou saisissez le texte du devoir ici..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Live Preview Side -->
+                        <div class="a4-page" id="homework-preview">
+                            <div class="page-header" id="page-header-container">
+                                <div class="school-logo-area">
+                                    <img src="" class="school-logo-img" id="preview-logo">
+                                </div>
+                                <div class="school-info-text" id="school-text-header">
+                                    <h2>IDEAL ÉCOLE INTERNATIONALE</h2>
+                                    <p>BILINGUE - EXCELLENCE & RIGUEUR</p>
+                                </div>
+                            </div>
+
+                            <div class="meta-grid">
+                                <div class="meta-item">
+                                    <span class="meta-label">Matière</span>
+                                    <span id="preview-subject">Mathématiques</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Enseignant</span>
+                                    <span id="preview-teacher">M. Kouassi</span>
+                                </div>
+                            </div>
+                            
+                            <div class="student-box">
+                                <div>
+                                    <span class="meta-label">Nom & Prénoms</span>
+                                    <span id="preview-student-name" style="font-size: 1rem; font-weight: 700;">______________________________</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="meta-label">Classe</span>
+                                    <span id="preview-grade" style="font-size: 1rem; font-weight: 700;">____</span>
+                                </div>
+                            </div>
+
+                            <div style="text-align: center; margin-bottom: 10px;">
+                                <h3 id="preview-type" style="text-decoration: underline; color: #1a237e; font-weight: 800; text-transform: uppercase;">DEVOIR</h3>
+                            </div>
+
+                            <div class="content-wrapper">
+                                <div class="content-area" id="preview-content"></div>
+                                <div id="preview-images-list"></div>
+                            </div>
+                            
+                            <div class="pro-footer">
+                                <div id="footer-student-name"></div>
+                                <div class="center" id="footer-due-date">RENDU : __________</div>
+                                <div class="right" id="footer-page-num">Page 1/1</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Students Section -->
+            <section id="students" class="section">
+                <div class="header">
+                    <h1>Gestion des Élèves</h1>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="file" id="csv-upload" style="display: none;" accept=".csv">
+                        <button class="btn btn-secondary" onclick="document.getElementById('csv-upload').click()">
+                            <i class="fas fa-file-import"></i> Importer CSV
+                        </button>
+                        <button class="btn btn-primary" id="add-student-btn">
+                            <i class="fas fa-plus"></i> Ajouter Élève
+                        </button>
+                    </div>
+                </div>
+                <div class="card">
+                    <table class="student-table">
+                        <thead>
+                            <tr>
+                                <th>Nom & Prénoms</th>
+                                <th>Classe</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-list-body">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Archive Section -->
+            <section id="archive" class="section">
+                <div class="header">
+                    <h1>Archives des Devoirs</h1>
+                </div>
+                <div id="archive-list-container" class="stats-grid" style="grid-template-columns: 1fr;">
+                    <!-- JS will populate cards -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="student-modal" class="modal">
+        <div class="form-card" style="width: 400px;">
+            <h2 style="margin-bottom: 1rem;">Ajouter un Élève</h2>
+            <div class="form-group">
+                <label>Nom Complet</label>
+                <input type="text" id="modal-student-name">
+            </div>
+            <div class="form-group">
+                <label>Classe</label>
+                <select id="modal-student-grade">
+                    <option value="PS">PS</option>
+                    <option value="GS">GS</option>
+                    <option value="CP1">CP1</option>
+                    <option value="CP2">CP2</option>
+                    <option value="CE1">CE1</option>
+                    <option value="CE2">CE2</option>
+                    <option value="CM1">CM1</option>
+                    <option value="CM2">CM2</option>
+                </select>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 1rem;">
+                <button class="btn" onclick="closeModal()">Annuler</button>
+                <button class="btn btn-primary" id="save-student-modal">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="print-container"></div>
+    <script src="app.js"></script>
+</body>
+</html>
