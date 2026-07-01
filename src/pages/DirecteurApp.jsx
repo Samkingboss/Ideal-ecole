@@ -292,6 +292,27 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
 
+              {/* Modules administratifs */}
+              <div className="card" style={{marginBottom:16}}>
+                <h3 style={{margin:'0 0 12px 0', fontSize:15}}>Gestion administrative</h3>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+                  <a href="/inscription.html" style={{textDecoration:'none'}}>
+                    <div style={{background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
+                      <div style={{fontSize:28}} aria-hidden="true">📝</div>
+                      <div style={{fontWeight:700, marginTop:6}}>Inscriptions</div>
+                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Nouvelles &amp; réinscriptions, dossiers élèves</div>
+                    </div>
+                  </a>
+                  <a href="/comptabilite.html" style={{textDecoration:'none'}}>
+                    <div style={{background:'linear-gradient(135deg,#7bc142,#5a9a2e)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
+                      <div style={{fontSize:28}} aria-hidden="true">💰</div>
+                      <div style={{fontWeight:700, marginTop:6}}>Comptabilité</div>
+                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Frais, paiements, reçus, dépenses</div>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
               {/* Alerte discipline */}
               {disciplinesGraves.length > 0 && (
                 <div className="card" style={{borderLeft:'4px solid var(--red)', marginBottom:16}}>

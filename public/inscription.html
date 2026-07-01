@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IDEAL - Inscriptions</title>
+    <!-- Garde d'accès : réservé au personnel connecté (Direction / Secrétariat) -->
+    <script>
+      (function(){
+        try {
+          var u = JSON.parse(localStorage.getItem('ideal_user') || 'null');
+          var ok = u && (u.role === 'directeur' || u.role === 'secretaire' || u.role === 'comptable');
+          if (!ok) location.replace('/');
+        } catch(e) { location.replace('/'); }
+      })();
+    </script>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Supabase -->
@@ -443,6 +453,7 @@
     <div class="header-nav">
         <button class="btn btn-ghost" onclick="showScreen('dashboard-screen')" style="font-size:.82rem; padding:.55rem 1rem;">📊 Tableau de bord</button>
         <button class="btn btn-ghost" onclick="showScreen('home-screen')" style="font-size:.82rem; padding:.55rem 1rem;">Accueil</button>
+        <button class="btn btn-ghost" onclick="location.href='/'" style="font-size:.82rem; padding:.55rem 1rem;">↩ Portail</button>
     </div>
 </header>
 
