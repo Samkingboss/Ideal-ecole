@@ -560,3 +560,71 @@ function clearHomeworkContent() {
     document.getElementById('homework-file').value = '';
     updateLivePreview();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SYNCHRONISATION SUPABASE — source de données unique IDEAL
+// Toutes les données (élèves, devoirs, logo) sont stockées dans
+// la table app_state et partagées entre tous les appareils.
+// Les élèves de la table centrale `eleves` sont fusionnés ici.
+// ═══════════════════════════════════════════════════════════════
+(function(){
+    const SB_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
+    const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+    const KEYS = ['ideal_students', 'ideal_homeworks', 'ideal_logo'];
+    const last = {};
+
+    function parseVal(raw) { try { return JSON.parse(raw); } catch(e) { return raw; } }
+
+    // Push : détecte les changements locaux et les envoie vers Supabase
+    setInterval(() => {
+        KEYS.forEach(k => {
+            const v = localStorage.getItem(k);
+            if (v !== null && v !== last[k]) {
+                last[k] = v;
+                fetch(SB_URL + '/rest/v1/app_state', {
+                    method: 'POST',
+                    headers: { ...H, Prefer: 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ app: 'pedago', key: k, value: parseVal(v), updated_at: new Date().toISOString() })
+                }).catch(() => {});
+            }
+        });
+    }, 2500);
+
+    // Pull initial : état partagé + élèves de la table centrale
+    (async () => {
+        try {
+            const r = await fetch(SB_URL + '/rest/v1/app_state?app=eq.pedago&select=key,value', { headers: H });
+            if (r.ok) {
+                (await r.json()).forEach(({ key, value }) => {
+                    const nv = typeof value === 'string' ? value : JSON.stringify(value);
+                    last[key] = nv;
+                    localStorage.setItem(key, nv);
+                });
+            }
+            // Fusion des élèves centraux (app React / inscriptions)
+            const er = await fetch(SB_URL + '/rest/v1/eleves?actif=eq.true&select=id,prenom,nom,classes(nom)', { headers: H });
+            if (er.ok) {
+                const ce = await er.json();
+                const loc = JSON.parse(localStorage.getItem('ideal_students') || '[]');
+                let added = false;
+                ce.forEach(e => {
+                    const full = ((e.prenom || '') + ' ' + (e.nom || '')).trim();
+                    const cn = (e.classes && e.classes.nom) || '';
+                    if (full && !loc.some(s => s.sbId === e.id || (s.name || '').toLowerCase() === full.toLowerCase())) {
+                        loc.push({ id: Date.now() + Math.floor(Math.random() * 1e6), sbId: e.id, name: full, grade: cn });
+                        added = true;
+                    }
+                });
+                if (added) localStorage.setItem('ideal_students', JSON.stringify(loc));
+            }
+            // Recharger l'état en mémoire et rafraîchir l'interface
+            students = JSON.parse(localStorage.getItem('ideal_students')) || [];
+            homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
+            if (typeof renderStudentList === 'function') renderStudentList();
+            if (typeof renderArchive === 'function') renderArchive();
+            if (typeof updateStats === 'function') updateStats();
+            if (typeof loadSavedLogo === 'function') loadSavedLogo();
+        } catch(e) { console.warn('Sync Supabase indisponible:', e); }
+    })();
+})();

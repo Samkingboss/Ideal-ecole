@@ -695,9 +695,50 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   </div>
 </div>
 <script>
-// ── STORAGE ───────────────────────────────────────────────────
+// ── STORAGE (synchronisé Supabase — source unique) ───────────
+const SB_URL='https://jircuneixzwsmtktxrkh.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
+const SB_H={apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'};
 function load(k,d){try{const v=localStorage.getItem('ea3_'+k);return v?JSON.parse(v):d;}catch(e){return d;}}
-function save(k,v){try{localStorage.setItem('ea3_'+k,JSON.stringify(v));}catch(e){}}
+let _syncT={};
+function save(k,v){
+  try{localStorage.setItem('ea3_'+k,JSON.stringify(v));}catch(e){}
+  clearTimeout(_syncT[k]);
+  _syncT[k]=setTimeout(()=>{
+    fetch(SB_URL+'/rest/v1/app_state',{method:'POST',headers:{...SB_H,Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({app:'rapports',key:k,value:v,updated_at:new Date().toISOString()})}).catch(()=>{});
+  },800);
+}
+// Au démarrage : récupérer l'état depuis Supabase + fusionner les élèves centraux
+(async function _sbPull(){
+  try{
+    let changed=false;
+    const r=await fetch(SB_URL+'/rest/v1/app_state?app=eq.rapports&select=key,value',{headers:SB_H});
+    if(r.ok){
+      (await r.json()).forEach(({key,value})=>{
+        const nv=JSON.stringify(value);
+        if(localStorage.getItem('ea3_'+key)!==nv){localStorage.setItem('ea3_'+key,nv);changed=true;}
+      });
+    }
+    // Élèves de la table centrale (app React / inscriptions)
+    const er=await fetch(SB_URL+'/rest/v1/eleves?actif=eq.true&select=id,prenom,nom,classe_id,classes(nom)',{headers:SB_H});
+    if(er.ok){
+      const ce=await er.json();
+      if(ce.length){
+        const local=JSON.parse(localStorage.getItem('ea3_eleves')||'[]');
+        const merged=[...local];
+        ce.forEach(e=>{
+          const cn=(e.classes&&e.classes.nom)||'';
+          const dup=local.some(l=>l.sbId===e.id||((l.prenom||'').toLowerCase()===(e.prenom||'').toLowerCase()&&(l.nom||'').toLowerCase()===(e.nom||'').toLowerCase()));
+          if(!dup) merged.push({id:Date.now()+Math.floor(Math.random()*1e6),sbId:e.id,prenom:e.prenom,nom:e.nom,classe:cn,
+            niveau:/section|ps|gs|ms|matern/i.test(cn)?'maternelle':'primaire',teacherId:null});
+        });
+        if(merged.length!==local.length){localStorage.setItem('ea3_eleves',JSON.stringify(merged));changed=true;}
+      }
+    }
+    if(changed&&!sessionStorage.getItem('ea3_synced')){sessionStorage.setItem('ea3_synced','1');location.reload();}
+  }catch(e){}
+})();
 
 // ── LANGUE ────────────────────────────────────────────────────
 let currentLang = load('lang','') || '';
