@@ -1,10 +1,39 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+
+// Événement d'installation PWA capté au plus tôt (avant le montage React)
+let _installEvt = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    _installEvt = e
+    window.dispatchEvent(new Event('pwa-installable'))
+  })
+}
 
 export default function LoginPage({ onLogin }) {
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [canInstall, setCanInstall] = useState(!!_installEvt)
+
+  useEffect(() => {
+    const onInstallable = () => setCanInstall(true)
+    window.addEventListener('pwa-installable', onInstallable)
+    return () => window.removeEventListener('pwa-installable', onInstallable)
+  }, [])
+
+  const handleInstall = async () => {
+    if (_installEvt) {
+      _installEvt.prompt()
+      const { outcome } = await _installEvt.userChoice
+      if (outcome === 'accepted') { _installEvt = null; setCanInstall(false) }
+    } else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      alert("Pour installer sur iPhone/iPad :\n\n1. Bouton Partager (carré avec flèche) dans Safari\n2. « Sur l'écran d'accueil »\n3. « Ajouter »")
+    } else {
+      alert("Ouvrez le menu du navigateur (⋮ ou ☰) puis « Installer l'application » ou « Ajouter à l'écran d'accueil ».")
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -61,6 +90,12 @@ export default function LoginPage({ onLogin }) {
         <p style={{fontSize:'12px',color:'var(--muted)',textAlign:'center',marginTop:'1rem'}}>
           Contactez la direction pour obtenir votre code d'accès
         </p>
+        {!window.matchMedia('(display-mode: standalone)').matches && (
+          <button type="button" onClick={handleInstall}
+            style={{width:'100%', marginTop:'0.75rem', background:'none', border:'1.5px dashed var(--border, #d0e8f0)', borderRadius:12, padding:'10px', color:'var(--muted)', fontSize:'13px', fontWeight:600, cursor:'pointer'}}>
+            📲 Installer l'application sur ce téléphone
+          </button>
+        )}
       </div>
     </div>
   )

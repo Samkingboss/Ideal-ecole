@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fiche d'inscription — IDEAL</title>
-    <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
@@ -356,54 +354,6 @@ window.addEventListener('load', async () => {
         showErr(`Erreur technique : ${e.message || String(e)}`);
     }
 });
-</script>
-<!-- ═══════ INSTALLATION DE L'APPLICATION IDEAL ═══════ -->
-<div id="install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:linear-gradient(135deg,#00a8e0,#007ab5); color:#fff; padding:14px 16px; box-shadow:0 -4px 20px rgba(0,0,0,.2); font-family:'Inter',sans-serif;">
-    <div style="display:flex; align-items:center; gap:12px; max-width:720px; margin:0 auto;">
-        <img src="/icons/icon-192.png" alt="IDEAL" style="width:44px; height:44px; border-radius:10px; background:#fff; padding:3px;">
-        <div style="flex:1; min-width:0;">
-            <div style="font-weight:800; font-size:.95rem;">Application IDEAL</div>
-            <div style="font-size:.75rem; opacity:.9;">Gardez l'école dans votre poche — suivi de votre enfant</div>
-        </div>
-        <button id="install-btn" style="background:#fff; color:#007ab5; border:none; border-radius:10px; padding:10px 18px; font-weight:800; font-size:.9rem; cursor:pointer; white-space:nowrap;">📲 Installer</button>
-        <button onclick="document.getElementById('install-banner').style.display='none'" style="background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer; padding:4px;" aria-label="Fermer">×</button>
-    </div>
-</div>
-
-<script>
-// Service worker (nécessaire à l'installation)
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
-}
-
-// Installation en un appui (Android/Chrome)
-let _installEvt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    _installEvt = e;
-    // Ne pas afficher si déjà installée (mode standalone)
-    if (!window.matchMedia('(display-mode: standalone)').matches) {
-        document.getElementById('install-banner').style.display = 'block';
-    }
-});
-document.getElementById('install-btn').addEventListener('click', async () => {
-    if (_installEvt) {
-        _installEvt.prompt();
-        const { outcome } = await _installEvt.userChoice;
-        if (outcome === 'accepted') document.getElementById('install-banner').style.display = 'none';
-        _installEvt = null;
-    } else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        alert("Pour installer sur iPhone/iPad :\n\n1. Appuyez sur le bouton Partager (carré avec flèche) en bas de Safari\n2. Choisissez « Sur l'écran d'accueil »\n3. Appuyez sur « Ajouter »");
-    } else {
-        alert("Pour installer :\n\nOuvrez le menu de votre navigateur (⋮ ou ☰) puis choisissez « Installer l'application » ou « Ajouter à l'écran d'accueil ».");
-    }
-});
-// iPhone/iPad : pas d'événement d'installation — on affiche quand même le bandeau avec les instructions
-if (/iPhone|iPad|iPod/i.test(navigator.userAgent) && !navigator.standalone) {
-    window.addEventListener('load', () => {
-        document.getElementById('install-banner').style.display = 'block';
-    });
-}
 </script>
 </body>
 </html>
