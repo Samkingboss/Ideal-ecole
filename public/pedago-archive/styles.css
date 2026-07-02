@@ -506,12 +506,11 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
     .stats-grid, .dashboard-grid, .cards-grid { grid-template-columns: 1fr 1fr !important; gap: .75rem; }
     .composer-grid { grid-template-columns: 1fr !important; gap: 1rem; }
 
-    /* Bouton Portail : discret en haut à droite sous l'encoche */
-    body > a[href="/"] {
-        top: calc(6px + env(safe-area-inset-top)) !important;
-        font-size: 11px !important;
-        padding: 6px 10px !important;
-        opacity: .92;
+    /* Bouton Portail : légèrement réduit sur mobile */
+    .portal-back {
+        width: 38px !important;
+        height: 38px !important;
+        opacity: .94;
     }
 }
 
