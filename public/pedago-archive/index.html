@@ -252,17 +252,11 @@
             <!-- Students Section -->
             <section id="students" class="section">
                 <div class="header">
-                    <h1>Gestion des Élèves</h1>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="file" id="csv-upload" style="display: none;" accept=".csv">
-                        <button class="btn btn-secondary" onclick="document.getElementById('csv-upload').click()">
-                            <i class="fas fa-file-import"></i> Importer CSV
-                        </button>
-                        <button class="btn btn-primary" id="add-student-btn">
-                            <i class="fas fa-plus"></i> Ajouter Élève
-                        </button>
-                    </div>
+                    <h1>Mes Élèves</h1>
                 </div>
+                <p style="color: var(--text-muted); font-size: .85rem; margin: -.5rem 0 1rem;">
+                    <i class="fas fa-circle-info"></i> Les élèves inscrits apparaissent automatiquement, regroupés par classe. Vous voyez uniquement les classes qui vous sont affectées.
+                </p>
                 <div id="student-groups">
                     <!-- JS : élèves groupés par classe -->
                 </div>
@@ -278,34 +272,6 @@
                 </div>
             </section>
         </main>
-    </div>
-
-    <!-- Modals -->
-    <div id="student-modal" class="modal">
-        <div class="form-card" style="width: 400px;">
-            <h2 style="margin-bottom: 1rem;">Ajouter un Élève</h2>
-            <div class="form-group">
-                <label>Nom Complet</label>
-                <input type="text" id="modal-student-name">
-            </div>
-            <div class="form-group">
-                <label>Classe</label>
-                <select id="modal-student-grade">
-                    <option value="PS">PS</option>
-                    <option value="GS">GS</option>
-                    <option value="CP1">CP1</option>
-                    <option value="CP2">CP2</option>
-                    <option value="CE1">CE1</option>
-                    <option value="CE2">CE2</option>
-                    <option value="CM1">CM1</option>
-                    <option value="CM2">CM2</option>
-                </select>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 1rem;">
-                <button class="btn" onclick="closeModal()">Annuler</button>
-                <button class="btn btn-primary" id="save-student-modal">Ajouter</button>
-            </div>
-        </div>
     </div>
 
     <div id="print-container"></div>

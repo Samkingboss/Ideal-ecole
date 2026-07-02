@@ -589,3 +589,9 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
     /* Tableau élèves historique masqué (remplacé par les groupes) — sécurité */
     .student-table thead { display: none; }
 }
+
+/* Numéro d'ordre de l'élève dans la liste */
+.student-row .s-num {
+    min-width: 22px; text-align: center; font-size: .78rem; font-weight: 700;
+    color: var(--text-muted);
+}

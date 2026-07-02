@@ -169,17 +169,14 @@ function renderStudentList() {
                     <i class="fas fa-graduation-cap"></i> ${g}
                     <span class="count">${list.length} élève${list.length > 1 ? 's' : ''}</span>
                 </div>`;
-            list.forEach(s => {
+            list.forEach((s, idx) => {
                 const initials = (s.name || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-                const fromCentral = s.sbId || s.inscriptionId;
                 const row = document.createElement('div');
                 row.className = 'student-row';
                 row.innerHTML = `
                     <div class="avatar">${initials}</div>
+                    <div class="s-num">${idx + 1}</div>
                     <div class="s-name">${s.name}</div>
-                    ${fromCentral
-                        ? '<span class="s-src" title="Synchronisé depuis les inscriptions">✓ Inscrit</span>'
-                        : `<button class="btn-del" onclick="deleteStudent(${s.id})" aria-label="Supprimer"><i class="fas fa-trash"></i></button>`}
                 `;
                 div.appendChild(row);
             });
@@ -593,20 +590,23 @@ function clearHomeworkContent() {
 
 // ═══════════════════════════════════════════════════════════════
 // SYNCHRONISATION SUPABASE — source de données unique IDEAL
-// Toutes les données (élèves, devoirs, logo) sont stockées dans
-// la table app_state et partagées entre tous les appareils.
-// Les élèves de la table centrale `eleves` sont fusionnés ici.
+//
+// • Élèves : proviennent UNIQUEMENT de la base centrale (tables
+//   `eleves` + `inscriptions`). Un prof ne voit que les élèves des
+//   classes qui lui sont affectées (table `prof_classes`). La
+//   direction et les conseillers voient toutes les classes.
+// • Devoirs et logo : partagés via la table `app_state`.
 // ═══════════════════════════════════════════════════════════════
 (function(){
     const SB_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
     const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
-    const KEYS = ['ideal_students', 'ideal_homeworks', 'ideal_logo'];
+    const KEYS = ['ideal_homeworks', 'ideal_logo']; // les élèves ne sont plus stockés localement
     const last = {};
 
     function parseVal(raw) { try { return JSON.parse(raw); } catch(e) { return raw; } }
 
-    // Push : détecte les changements locaux et les envoie vers Supabase
+    // Push : devoirs et logo vers app_state
     setInterval(() => {
         KEYS.forEach(k => {
             const v = localStorage.getItem(k);
@@ -621,42 +621,73 @@ function clearHomeworkContent() {
         });
     }, 2500);
 
-    // Pull initial : état partagé + élèves de la table centrale
     (async () => {
         try {
+            // 1) Devoirs + logo partagés
             const r = await fetch(SB_URL + '/rest/v1/app_state?app=eq.pedago&select=key,value', { headers: H });
             if (r.ok) {
                 (await r.json()).forEach(({ key, value }) => {
+                    if (!KEYS.includes(key)) return;
                     const nv = typeof value === 'string' ? value : JSON.stringify(value);
                     last[key] = nv;
                     localStorage.setItem(key, nv);
                 });
             }
-            // Fusion des élèves centraux : table eleves (app React) + table inscriptions
-            const loc = JSON.parse(localStorage.getItem('ideal_students') || '[]');
-            let added = false;
-            const pushIfNew = (full, cn, key) => {
-                if (!full) return;
-                if (!loc.some(s => s.sbId === key || s.inscriptionId === key || (s.name || '').toLowerCase() === full.toLowerCase())) {
-                    loc.push({ id: Date.now() + Math.floor(Math.random() * 1e6), ...key.startsWith('ins:') ? { inscriptionId: key } : { sbId: key }, name: full, grade: cn });
-                    added = true;
+
+            // 2) Périmètre de classes selon le rôle de l'utilisateur connecté
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch(e) {}
+            const role = user && user.role;
+            let allowedClassIds = null;   // null = toutes (direction / conseiller)
+            let allowedClassNames = null; // null = toutes
+
+            if (role === 'professeur' && user.id) {
+                allowedClassIds = new Set();
+                allowedClassNames = new Set();
+                const pc = await fetch(SB_URL + '/rest/v1/prof_classes?user_id=eq.' + encodeURIComponent(user.id) + '&select=classe_id,classes(id,nom)', { headers: H });
+                if (pc.ok) {
+                    (await pc.json()).forEach(row => {
+                        if (row.classe_id != null) allowedClassIds.add(String(row.classe_id));
+                        const nm = row.classes && row.classes.nom;
+                        if (nm) allowedClassNames.add(nm.toLowerCase());
+                    });
                 }
+            }
+
+            const inScope = (classeId, classeNom) => {
+                if (!allowedClassIds) return true; // direction / conseiller : tout
+                if (classeId != null && allowedClassIds.has(String(classeId))) return true;
+                if (classeNom && allowedClassNames.has(String(classeNom).toLowerCase())) return true;
+                return false;
             };
-            const er = await fetch(SB_URL + '/rest/v1/eleves?actif=eq.true&select=id,prenom,nom,classes(nom)', { headers: H });
+
+            // 3) Reconstruire la liste des élèves depuis la base centrale
+            const list = [];
+            const seen = new Set();
+            const add = (full, cn, key) => {
+                if (!full) return;
+                const dedup = (full.toLowerCase() + '|' + (cn || '').toLowerCase());
+                if (seen.has(dedup)) return;
+                seen.add(dedup);
+                list.push({ id: Date.now() + Math.floor(Math.random() * 1e6), centralKey: key, name: full, grade: cn });
+            };
+
+            const er = await fetch(SB_URL + '/rest/v1/eleves?actif=eq.true&select=id,prenom,nom,classe_id,classes(nom)', { headers: H });
             if (er.ok) {
                 (await er.json()).forEach(e => {
-                    pushIfNew(((e.prenom || '') + ' ' + (e.nom || '')).trim(), (e.classes && e.classes.nom) || '', String(e.id));
+                    const cn = (e.classes && e.classes.nom) || '';
+                    if (inScope(e.classe_id, cn)) add(((e.prenom || '') + ' ' + (e.nom || '')).trim(), cn, 'el:' + e.id);
                 });
             }
             const ir = await fetch(SB_URL + '/rest/v1/inscriptions?select=matricule,prenom,nom,classe_demandee', { headers: H });
             if (ir.ok) {
                 (await ir.json()).forEach(e => {
-                    pushIfNew(((e.prenom || '') + ' ' + (e.nom || '')).trim(), e.classe_demandee || '', 'ins:' + e.matricule);
+                    const cn = e.classe_demandee || '';
+                    if (inScope(null, cn)) add(((e.prenom || '') + ' ' + (e.nom || '')).trim(), cn, 'ins:' + e.matricule);
                 });
             }
-            if (added) localStorage.setItem('ideal_students', JSON.stringify(loc));
-            // Recharger l'état en mémoire et rafraîchir l'interface
-            students = JSON.parse(localStorage.getItem('ideal_students')) || [];
+
+            students = list;
             homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
             if (typeof renderStudentList === 'function') renderStudentList();
             if (typeof renderArchive === 'function') renderArchive();
