@@ -134,24 +134,57 @@ function addStudent() {
     updateStats();
 }
 
-function renderStudentList() {
-    const body = document.getElementById('student-list-body');
-    if (!body) return;
-    body.innerHTML = '';
+// Ordre officiel des classes IDEAL
+const CLASS_ORDER = ['Petite Section','PS','Moyenne Section','MS','Grande Section','GS','CP1','CP2','CE1','CE2','CM1','CM2'];
+function classRank(g) {
+    const i = CLASS_ORDER.findIndex(c => c.toLowerCase() === String(g || '').toLowerCase());
+    return i === -1 ? 99 : i;
+}
 
+function renderStudentList() {
+    const wrap = document.getElementById('student-groups');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    if (!students.length) {
+        wrap.innerHTML = '<p style="color: var(--text-muted); font-style: italic; padding: 1rem;">Aucun élève. Les élèves inscrits apparaissent ici automatiquement.</p>';
+        return;
+    }
+
+    // Grouper par classe, dans l'ordre officiel
+    const groups = {};
     students.forEach(s => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${s.name}</td>
-            <td>${s.grade}</td>
-            <td>
-                <button class="btn" style="color: red;" onclick="deleteStudent(${s.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `;
-        body.appendChild(tr);
+        const g = s.grade || 'Sans classe';
+        (groups[g] = groups[g] || []).push(s);
     });
+
+    Object.keys(groups)
+        .sort((a, b) => classRank(a) - classRank(b) || a.localeCompare(b))
+        .forEach(g => {
+            const list = groups[g].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            const div = document.createElement('div');
+            div.className = 'class-group';
+            div.innerHTML = `
+                <div class="class-group-header">
+                    <i class="fas fa-graduation-cap"></i> ${g}
+                    <span class="count">${list.length} élève${list.length > 1 ? 's' : ''}</span>
+                </div>`;
+            list.forEach(s => {
+                const initials = (s.name || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                const fromCentral = s.sbId || s.inscriptionId;
+                const row = document.createElement('div');
+                row.className = 'student-row';
+                row.innerHTML = `
+                    <div class="avatar">${initials}</div>
+                    <div class="s-name">${s.name}</div>
+                    ${fromCentral
+                        ? '<span class="s-src" title="Synchronisé depuis les inscriptions">✓ Inscrit</span>'
+                        : `<button class="btn-del" onclick="deleteStudent(${s.id})" aria-label="Supprimer"><i class="fas fa-trash"></i></button>`}
+                `;
+                div.appendChild(row);
+            });
+            wrap.appendChild(div);
+        });
 }
 
 function deleteStudent(id) {
@@ -224,26 +257,23 @@ function renderArchive() {
         if (homeworks.length === 0) {
             container.innerHTML = '<p>Aucun devoir archivé.</p>';
         } else {
+            const typeIcons = { 'Devoir de Maison': 'fa-book', 'Évaluation': 'fa-clipboard-check', 'Composition': 'fa-file-signature' };
             homeworks.forEach(h => {
                 const card = document.createElement('div');
-                card.className = 'card animate-fade';
-                card.style.display = 'flex';
-                card.style.justifyContent = 'space-between';
-                card.style.alignItems = 'center';
-                card.style.marginBottom = '10px';
-                
+                card.className = 'archive-card animate-fade';
                 card.innerHTML = `
-                    <div>
-                        <strong style="color: var(--primary);">${h.subject}</strong> - ${h.grade} 
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">(${h.date})</span>
+                    <div class="a-icon"><i class="fas ${typeIcons[h.type] || 'fa-book'}"></i></div>
+                    <div class="a-main">
+                        <div class="a-title">${h.subject || 'Sans matière'}</div>
+                        <div class="a-meta">
+                            <span class="chip chip-classe">${h.grade || '—'}</span>
+                            <span class="chip chip-type">${h.type || 'Devoir'}</span>
+                            <span class="chip chip-date">${h.date || ''}</span>
+                        </div>
                     </div>
-                    <div>
-                        <button class="btn btn-secondary" onclick="loadHomework(${h.id})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn" style="color: red;" onclick="deleteHomework(${h.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <div class="a-actions">
+                        <button class="edit" onclick="loadHomework(${h.id})" aria-label="Modifier"><i class="fas fa-edit"></i></button>
+                        <button class="del" onclick="deleteHomework(${h.id})" aria-label="Supprimer"><i class="fas fa-trash"></i></button>
                     </div>
                 `;
                 container.appendChild(card);
@@ -602,22 +632,29 @@ function clearHomeworkContent() {
                     localStorage.setItem(key, nv);
                 });
             }
-            // Fusion des élèves centraux (app React / inscriptions)
+            // Fusion des élèves centraux : table eleves (app React) + table inscriptions
+            const loc = JSON.parse(localStorage.getItem('ideal_students') || '[]');
+            let added = false;
+            const pushIfNew = (full, cn, key) => {
+                if (!full) return;
+                if (!loc.some(s => s.sbId === key || s.inscriptionId === key || (s.name || '').toLowerCase() === full.toLowerCase())) {
+                    loc.push({ id: Date.now() + Math.floor(Math.random() * 1e6), ...key.startsWith('ins:') ? { inscriptionId: key } : { sbId: key }, name: full, grade: cn });
+                    added = true;
+                }
+            };
             const er = await fetch(SB_URL + '/rest/v1/eleves?actif=eq.true&select=id,prenom,nom,classes(nom)', { headers: H });
             if (er.ok) {
-                const ce = await er.json();
-                const loc = JSON.parse(localStorage.getItem('ideal_students') || '[]');
-                let added = false;
-                ce.forEach(e => {
-                    const full = ((e.prenom || '') + ' ' + (e.nom || '')).trim();
-                    const cn = (e.classes && e.classes.nom) || '';
-                    if (full && !loc.some(s => s.sbId === e.id || (s.name || '').toLowerCase() === full.toLowerCase())) {
-                        loc.push({ id: Date.now() + Math.floor(Math.random() * 1e6), sbId: e.id, name: full, grade: cn });
-                        added = true;
-                    }
+                (await er.json()).forEach(e => {
+                    pushIfNew(((e.prenom || '') + ' ' + (e.nom || '')).trim(), (e.classes && e.classes.nom) || '', String(e.id));
                 });
-                if (added) localStorage.setItem('ideal_students', JSON.stringify(loc));
             }
+            const ir = await fetch(SB_URL + '/rest/v1/inscriptions?select=matricule,prenom,nom,classe_demandee', { headers: H });
+            if (ir.ok) {
+                (await ir.json()).forEach(e => {
+                    pushIfNew(((e.prenom || '') + ' ' + (e.nom || '')).trim(), e.classe_demandee || '', 'ins:' + e.matricule);
+                });
+            }
+            if (added) localStorage.setItem('ideal_students', JSON.stringify(loc));
             // Recharger l'état en mémoire et rafraîchir l'interface
             students = JSON.parse(localStorage.getItem('ideal_students')) || [];
             homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
