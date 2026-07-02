@@ -202,3 +202,20 @@ input[type=range] { accent-color:var(--accent); width:80px; }
   .table th { background: #eee !important; color: #000 !important; border: 1px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .table td { border: 1px solid #eee !important; }
 }
+
+/* ═══════ RESSENTI APPLICATION NATIVE (PWA) ═══════ */
+/* Fond sombre derrière la zone de statut et lors du rebond de défilement */
+html { background: var(--dark, #0d2a3b); overscroll-behavior: none; }
+body { overscroll-behavior-y: none; }
+
+/* Pas de sélection de texte ni de menu contextuel long-press sur l'interface */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
+
+/* Zones sûres iPhone : encoche en haut, barre home en bas */
+.topbar { padding-top: calc(.8rem + env(safe-area-inset-top)); }
+.bottom-nav { padding-bottom: calc(.8rem + env(safe-area-inset-bottom)); }
+.login-page { padding-top: env(safe-area-inset-top); }
+
+/* Défilement fluide type app */
+* { -webkit-overflow-scrolling: touch; }
