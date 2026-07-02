@@ -2,7 +2,10 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000051">
     <title>IDEAL | Pédago-Archive</title>
     <!-- Garde d'accès : personnel pédagogique connecté -->
     <script>
@@ -27,7 +30,7 @@
         <aside class="sidebar">
             <div class="logo-container" id="logo-sidebar" onclick="document.getElementById('logo-upload').click()" style="cursor: pointer;" title="Cliquez pour changer le logo">
                 <input type="file" id="logo-upload" style="display: none;" accept="image/*">
-                <div class="logo-placeholder" id="sidebar-logo-content">LOGO ICI</div>
+                <div class="logo-placeholder" id="sidebar-logo-content"><img src="/logo-ideal.svg" alt="IDEAL" style="max-height:70px; max-width:100%;"></div>
             </div>
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-section="dashboard">

@@ -436,3 +436,81 @@ textarea {
         box-sizing: border-box;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MODE APPLICATION MOBILE (téléphones et petites tablettes)
+   Le menu latéral devient une barre de navigation en bas
+   ═══════════════════════════════════════════════════════════ */
+
+/* Ressenti app native (toutes tailles) */
+html { background: var(--primary-dark); overscroll-behavior: none; }
+body { overscroll-behavior-y: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
+
+@media (max-width: 820px) {
+    .app-container {
+        display: block;
+        min-height: 100vh;
+    }
+
+    /* Sidebar → barre de navigation fixe en bas */
+    .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        height: auto;
+        z-index: 500;
+        padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom));
+        flex-direction: row;
+        align-items: center;
+        gap: 0;
+        box-shadow: 0 -4px 16px rgba(0,0,0,.25);
+    }
+
+    /* Logo et pied (Backup/Restore) masqués sur mobile */
+    .sidebar .logo-container,
+    .sidebar .sidebar-footer { display: none; }
+
+    .nav-menu {
+        display: flex;
+        flex-grow: 1;
+        justify-content: space-around;
+        align-items: stretch;
+    }
+
+    .nav-item {
+        flex-direction: column;
+        gap: 3px;
+        padding: .45rem .3rem;
+        margin-bottom: 0;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-align: center;
+        border-radius: 10px;
+        flex: 1;
+        justify-content: center;
+    }
+    .nav-item i { font-size: 17px; }
+
+    /* Contenu principal : pleine largeur + espace pour la barre basse et l'encoche */
+    main {
+        padding: calc(.8rem + env(safe-area-inset-top)) 1rem calc(90px + env(safe-area-inset-bottom));
+    }
+
+    .header { flex-wrap: wrap; gap: .6rem; }
+    .header h1 { font-size: 1.25rem; }
+
+    /* Cartes et grilles sur une colonne */
+    .stats-grid, .dashboard-grid, .cards-grid { grid-template-columns: 1fr 1fr !important; gap: .75rem; }
+    .composer-grid { grid-template-columns: 1fr !important; gap: 1rem; }
+
+    /* Bouton Portail : discret en haut à droite sous l'encoche */
+    body > a[href="/"] {
+        top: calc(6px + env(safe-area-inset-top)) !important;
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+        opacity: .92;
+    }
+}
