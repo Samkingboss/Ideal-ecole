@@ -8,6 +8,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Plateforme de gestion globale IDEAL Ecole. Outil administratif, gestion des programmes et notes." />
     <title>IDEAL EcoleApp</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>

@@ -1,0 +1,44 @@
+{
+  "name": "IDEAL ÉcoleApp — École Internationale Bilingue",
+  "short_name": "IDEAL",
+  "description": "Plateforme de gestion de l'École Internationale Bilingue IDEAL, Bamako : inscriptions, comptabilité, pédagogie, rapports.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0d2a3b",
+  "background_color": "#f0f7fa",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouvelle inscription",
+      "url": "/inscription.html",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Comptabilité",
+      "url": "/comptabilite.html",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
