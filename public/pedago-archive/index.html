@@ -251,12 +251,16 @@
 
             <!-- Students Section -->
             <section id="students" class="section">
-                <div class="header">
-                    <h1>Mes Élèves</h1>
+                <div class="students-topbar">
+                    <div class="students-title-row">
+                        <h1>Mes Élèves</h1>
+                        <span class="students-total" id="students-total">0</span>
+                    </div>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="student-search" placeholder="Rechercher un élève…" oninput="filterStudents(this.value)">
+                    </div>
                 </div>
-                <p style="color: var(--text-muted); font-size: .85rem; margin: -.5rem 0 1rem;">
-                    <i class="fas fa-circle-info"></i> Les élèves inscrits apparaissent automatiquement, regroupés par classe. Vous voyez uniquement les classes qui vous sont affectées.
-                </p>
                 <div id="student-groups">
                     <!-- JS : élèves groupés par classe -->
                 </div>

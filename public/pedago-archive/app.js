@@ -141,13 +141,30 @@ function classRank(g) {
     return i === -1 ? 99 : i;
 }
 
+// Palette d'accents par rang de classe (couleurs IDEAL)
+const CLASS_COLORS = ['#8DC63F','#00B5B8','#F7941D','#1AAFE0','#EC008C','#ED1C24','#7E57C2','#00897B','#5C6BC0','#26A69A','#66BB6A','#EF5350'];
+let _studentFilter = '';
+
+function filterStudents(q) {
+    _studentFilter = (q || '').toLowerCase().trim();
+    renderStudentList();
+}
+
 function renderStudentList() {
     const wrap = document.getElementById('student-groups');
     if (!wrap) return;
     wrap.innerHTML = '';
 
+    const totalEl = document.getElementById('students-total');
+    if (totalEl) totalEl.textContent = students.length;
+
     if (!students.length) {
-        wrap.innerHTML = '<p style="color: var(--text-muted); font-style: italic; padding: 1rem;">Aucun élève. Les élèves inscrits apparaissent ici automatiquement.</p>';
+        wrap.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-user-graduate"></i>
+                <p>Aucun élève pour le moment.</p>
+                <span>Les élèves inscrits dans vos classes apparaîtront ici automatiquement.</span>
+            </div>`;
         return;
     }
 
@@ -158,30 +175,58 @@ function renderStudentList() {
         (groups[g] = groups[g] || []).push(s);
     });
 
-    Object.keys(groups)
-        .sort((a, b) => classRank(a) - classRank(b) || a.localeCompare(b))
-        .forEach(g => {
-            const list = groups[g].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            const div = document.createElement('div');
-            div.className = 'class-group';
-            div.innerHTML = `
-                <div class="class-group-header">
-                    <i class="fas fa-graduation-cap"></i> ${g}
-                    <span class="count">${list.length} élève${list.length > 1 ? 's' : ''}</span>
-                </div>`;
-            list.forEach((s, idx) => {
-                const initials = (s.name || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-                const row = document.createElement('div');
-                row.className = 'student-row';
-                row.innerHTML = `
-                    <div class="avatar">${initials}</div>
-                    <div class="s-num">${idx + 1}</div>
-                    <div class="s-name">${s.name}</div>
-                `;
-                div.appendChild(row);
-            });
-            wrap.appendChild(div);
+    const orderedClasses = Object.keys(groups).sort((a, b) => classRank(a) - classRank(b) || a.localeCompare(b));
+    let anyVisible = false;
+
+    orderedClasses.forEach(g => {
+        let list = groups[g].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        if (_studentFilter) list = list.filter(s => (s.name || '').toLowerCase().includes(_studentFilter));
+        if (!list.length) return;
+        anyVisible = true;
+
+        const color = CLASS_COLORS[classRank(g) % CLASS_COLORS.length] || 'var(--primary)';
+        const collapsed = _studentFilter ? false : (localStorage.getItem('pedago_collapsed_' + g) === '1');
+
+        const div = document.createElement('div');
+        div.className = 'class-group' + (collapsed ? ' collapsed' : '');
+        div.style.setProperty('--class-color', color);
+
+        const header = document.createElement('button');
+        header.type = 'button';
+        header.className = 'class-group-header';
+        header.innerHTML = `
+            <span class="cg-dot"></span>
+            <span class="cg-name">${g}</span>
+            <span class="count">${list.length}</span>
+            <i class="fas fa-chevron-down cg-chevron"></i>`;
+        header.onclick = () => {
+            const now = !div.classList.contains('collapsed');
+            div.classList.toggle('collapsed', now);
+            localStorage.setItem('pedago_collapsed_' + g, now ? '1' : '0');
+        };
+        div.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'class-group-body';
+        list.forEach((s, idx) => {
+            const initials = (s.name || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+            const row = document.createElement('div');
+            row.className = 'student-row';
+            row.innerHTML = `
+                <div class="s-num">${idx + 1}</div>
+                <div class="avatar">${initials}</div>
+                <div class="s-name">${s.name}</div>
+                <i class="fas fa-chevron-right s-go"></i>
+            `;
+            body.appendChild(row);
         });
+        div.appendChild(body);
+        wrap.appendChild(div);
+    });
+
+    if (!anyVisible) {
+        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><p>Aucun élève trouvé</p><span>pour « ${_studentFilter} »</span></div>`;
+    }
 }
 
 function deleteStudent(id) {
