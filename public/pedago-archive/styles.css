@@ -655,3 +655,46 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
 .empty-state i { font-size: 2.5rem; opacity: .3; margin-bottom: 1rem; display: block; }
 .empty-state p { font-weight: 700; font-size: 1.05rem; color: var(--text-main); margin-bottom: .3rem; }
 .empty-state span { font-size: .85rem; }
+
+/* ═══════════════ TABLEAU DE BORD — accueil app ═══════════════ */
+.dash-hero {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+    border-radius: 18px; padding: 1.4rem 1.3rem; margin-bottom: 1.1rem;
+    color: #fff; box-shadow: var(--shadow-md);
+}
+.dash-hello { font-size: 1.35rem; font-weight: 800; }
+.dash-date { font-size: .82rem; opacity: .8; margin-top: .2rem; text-transform: capitalize; }
+
+.stats-grid { margin-bottom: 1.1rem; }
+.stat-tile {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.1rem 1rem; box-shadow: var(--shadow-sm);
+    position: relative; overflow: hidden;
+}
+.stat-tile .tile-icon {
+    width: 40px; height: 40px; border-radius: 11px; margin-bottom: .6rem;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff;
+}
+.stat-tile .tile-value { font-size: 1.9rem; font-weight: 900; line-height: 1; color: var(--primary-dark); }
+.stat-tile .tile-label { font-size: .78rem; color: var(--text-muted); font-weight: 600; margin-top: .25rem; }
+.tile-blue .tile-icon   { background: linear-gradient(135deg,#1AAFE0,#0d7fb0); }
+.tile-green .tile-icon  { background: linear-gradient(135deg,#8DC63F,#5a9a2e); }
+.tile-orange .tile-icon { background: linear-gradient(135deg,#F7941D,#d97706); }
+
+.quick-actions { display: flex; gap: .7rem; margin-bottom: 1.4rem; }
+.quick-btn {
+    flex: 1; border: none; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: .85rem; border-radius: 13px; font-weight: 700; font-size: .9rem;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: #fff;
+    box-shadow: 0 4px 14px rgba(26,35,126,.28); transition: transform .12s ease;
+}
+.quick-btn:active { transform: scale(.96); }
+.quick-btn.ghost {
+    background: var(--bg-card); color: var(--primary); border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+}
+.dash-section-title { font-size: .95rem; font-weight: 800; color: var(--primary-dark); margin-bottom: .7rem; }
+.recent-activity {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: .5rem 1rem; box-shadow: var(--shadow-sm);
+}

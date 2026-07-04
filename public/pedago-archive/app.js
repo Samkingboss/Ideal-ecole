@@ -7,9 +7,23 @@ let currentHomeworkImages = [];
 const sections = document.querySelectorAll('.section');
 const navItems = document.querySelectorAll('.nav-item');
 
+// Salutation personnalisée selon l'utilisateur connecté et l'heure
+function renderGreeting() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch(e) {}
+    const h = new Date().getHours();
+    const salut = h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir');
+    const prenom = user && (user.prenom || (user.nom ? '' : '')) || '';
+    const helloEl = document.getElementById('dash-hello');
+    if (helloEl) helloEl.textContent = prenom ? `${salut}, ${prenom} 👋` : `${salut} 👋`;
+    const dateEl = document.getElementById('dash-date');
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     console.log('IDEAL Pédago-Archive v3.0 Initialized');
+    renderGreeting();
     updateStats();
     renderStudentList();
     renderArchive();

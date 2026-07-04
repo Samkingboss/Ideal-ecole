@@ -81,30 +81,42 @@
         <main>
             <!-- Dashboard Section -->
             <section id="dashboard" class="section active">
-                <div class="header">
-                    <h1>Tableau de Bord</h1>
-                    <button class="btn btn-primary" onclick="switchSection('composer')">
-                        <i class="fas fa-plus"></i> Nouveau Devoir
-                    </button>
-                </div>
-                
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>Devoirs Archivés</h3>
-                        <p id="stat-total-homework">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Classes Gérées</h3>
-                        <p id="stat-total-classes">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Élèves Enregistrés</h3>
-                        <p id="stat-total-students">0</p>
+                <div class="dash-hero">
+                    <div class="dash-greeting">
+                        <div class="dash-hello" id="dash-hello">Bonjour</div>
+                        <div class="dash-date" id="dash-date"></div>
                     </div>
                 </div>
 
-                <div class="recent-activity card">
-                    <h2 style="margin-bottom: 1rem;">Activités Récentes</h2>
+                <div class="stats-grid">
+                    <div class="stat-tile tile-blue">
+                        <div class="tile-icon"><i class="fas fa-folder-open"></i></div>
+                        <div class="tile-value" id="stat-total-homework">0</div>
+                        <div class="tile-label">Devoirs archivés</div>
+                    </div>
+                    <div class="stat-tile tile-green">
+                        <div class="tile-icon"><i class="fas fa-chalkboard"></i></div>
+                        <div class="tile-value" id="stat-total-classes">0</div>
+                        <div class="tile-label">Classes</div>
+                    </div>
+                    <div class="stat-tile tile-orange">
+                        <div class="tile-icon"><i class="fas fa-user-graduate"></i></div>
+                        <div class="tile-value" id="stat-total-students">0</div>
+                        <div class="tile-label">Élèves</div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="switchSection('composer')">
+                        <i class="fas fa-file-pen"></i> Nouveau devoir
+                    </button>
+                    <button class="quick-btn ghost" onclick="switchSection('students')">
+                        <i class="fas fa-users"></i> Mes élèves
+                    </button>
+                </div>
+
+                <div class="dash-section-title">Activité récente</div>
+                <div class="recent-activity">
                     <div id="recent-list">
                         <p style="color: var(--text-muted); font-style: italic;">Aucun devoir récent.</p>
                     </div>
