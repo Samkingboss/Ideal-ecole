@@ -457,7 +457,7 @@ export default function ProfApp({ user, onLogout }) {
 
   return (
     <div className="app-shell">
-      <div className="topbar" style={{height:'auto', minHeight:68, padding:'10px 16px', display:'flex', flexDirection:'column', gap:10}}>
+      <div className="topbar" style={{height:'auto', minHeight:68, padding:'10px 16px', paddingTop:'calc(10px + env(safe-area-inset-top))', display:'flex', flexDirection:'column', gap:10}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', width:'100%'}}>
           <div className="topbar-brand">
             <div>
