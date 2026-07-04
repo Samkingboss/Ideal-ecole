@@ -20,10 +20,30 @@ function renderGreeting() {
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+// Nom de l'enseignant connecté (pré-rempli automatiquement)
+function currentTeacherName() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch(e) {}
+    if (!user) return '';
+    const nom = [user.prenom, user.nom].filter(Boolean).join(' ').trim();
+    return nom || user.nom_complet || '';
+}
+function fillTeacherFromUser() {
+    const el = document.getElementById('teacher-name');
+    if (!el) return;
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch(e) {}
+    const name = currentTeacherName();
+    if (name) { el.value = name; if (typeof updateLivePreview === 'function') updateLivePreview(); }
+    // Un professeur ne peut pas changer le nom ; la direction/conseiller oui
+    if (user && user.role === 'professeur') { el.readOnly = true; el.classList.add('locked-field'); }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     console.log('IDEAL Pédago-Archive v3.0 Initialized');
     renderGreeting();
+    fillTeacherFromUser();
     updateStats();
     renderStudentList();
     renderArchive();
@@ -297,11 +317,59 @@ function saveHomework() {
 
     homeworks.unshift(newHomework);
     localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
-    
-    alert('Devoir enregistré !');
+
     updateStats();
     renderArchive();
-    switchSection('archive');
+    showHomeworkPreview(); // aperçu + impression
+}
+
+// Aperçu du devoir créé, avec impression
+function showHomeworkPreview() {
+    const preview = document.getElementById('homework-preview');
+    const cls = document.getElementById('grade-select').value || '';
+    const nbEleves = students.filter(s => s.grade === cls).length;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'preview-overlay';
+    overlay.innerHTML = `
+        <div class="preview-sheet">
+            <div class="preview-head">
+                <div class="preview-ok"><i class="fas fa-check-circle"></i> Devoir enregistré</div>
+                <button class="preview-close" aria-label="Fermer"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="preview-scroll" id="preview-scroll"></div>
+            <div class="preview-actions">
+                <button class="btn-print-one"><i class="fas fa-print"></i> Imprimer ce modèle</button>
+                <button class="btn-print-all"><i class="fas fa-users"></i> Imprimer pour la classe${nbEleves ? ` (${nbEleves})` : ''}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    // Cloner l'aperçu A4 (visible en lecture seule)
+    const clone = preview.cloneNode(true);
+    clone.style.display = 'flex';
+    clone.removeAttribute('id');
+    overlay.querySelector('#preview-scroll').appendChild(clone);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.preview-close').onclick = close;
+    overlay.onclick = (e) => { if (e.target === overlay) close(); };
+    // Imprimer un seul modèle (sans nom d'élève)
+    overlay.querySelector('.btn-print-one').onclick = () => { close(); printSingle(); };
+    // Publipostage pour toute la classe
+    overlay.querySelector('.btn-print-all').onclick = () => { close(); printAll(); };
+}
+
+// Impression d'un seul exemplaire (le modèle affiché)
+function printSingle() {
+    const preview = document.getElementById('homework-preview');
+    const printContainer = document.getElementById('print-container');
+    printContainer.innerHTML = '';
+    const page = preview.cloneNode(true);
+    page.style.display = 'block';
+    page.removeAttribute('id');
+    printContainer.appendChild(page);
+    window.print();
 }
 
 function renderArchive() {
