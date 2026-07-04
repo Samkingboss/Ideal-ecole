@@ -281,6 +281,7 @@ function loadHomework(id) {
         document.getElementById('due-date').value = h.dueDate || '';
         document.getElementById('homework-period').value = h.period || '1';
         document.getElementById('homework-objectives').value = h.objectives || '';
+        document.getElementById('homework-bareme').value = h.bareme || '';
         currentHomeworkImages = h.images || [];
         updateLivePreview();
         switchSection('composer');
@@ -296,6 +297,7 @@ function saveHomework() {
     const dueDate = document.getElementById('due-date').value;
     const period = document.getElementById('homework-period').value;
     const objectives = document.getElementById('homework-objectives').value;
+    const bareme = document.getElementById('homework-bareme').value;
 
     if (!subject || !grade || (!content && currentHomeworkImages.length === 0)) {
         return alert('Remplissez tous les champs !');
@@ -311,6 +313,7 @@ function saveHomework() {
         dueDate,
         period,
         objectives,
+        bareme,
         images: currentHomeworkImages,
         date: new Date().toLocaleDateString('fr-FR')
     };
@@ -323,11 +326,10 @@ function saveHomework() {
     showHomeworkPreview(); // aperçu + impression
 }
 
-// Aperçu du devoir créé, avec impression
+// Aperçu du devoir créé (pages réelles), avec impression
 function showHomeworkPreview() {
-    const preview = document.getElementById('homework-preview');
-    const cls = document.getElementById('grade-select').value || '';
-    const nbEleves = students.filter(s => s.grade === cls).length;
+    const d = getHomeworkData();
+    const nbEleves = students.filter(s => s.grade === d.grade).length;
 
     const overlay = document.createElement('div');
     overlay.className = 'preview-overlay';
@@ -345,31 +347,15 @@ function showHomeworkPreview() {
         </div>`;
     document.body.appendChild(overlay);
 
-    // Cloner l'aperçu A4 (visible en lecture seule)
-    const clone = preview.cloneNode(true);
-    clone.style.display = 'flex';
-    clone.removeAttribute('id');
-    overlay.querySelector('#preview-scroll').appendChild(clone);
+    // Afficher les pages réelles du devoir (modèle sans nom)
+    const scroll = overlay.querySelector('#preview-scroll');
+    buildHomeworkPages(d, '').forEach(pg => { pg.style.display = 'flex'; scroll.appendChild(pg); });
 
     const close = () => overlay.remove();
     overlay.querySelector('.preview-close').onclick = close;
     overlay.onclick = (e) => { if (e.target === overlay) close(); };
-    // Imprimer un seul modèle (sans nom d'élève)
     overlay.querySelector('.btn-print-one').onclick = () => { close(); printSingle(); };
-    // Publipostage pour toute la classe
     overlay.querySelector('.btn-print-all').onclick = () => { close(); printAll(); };
-}
-
-// Impression d'un seul exemplaire (le modèle affiché)
-function printSingle() {
-    const preview = document.getElementById('homework-preview');
-    const printContainer = document.getElementById('print-container');
-    printContainer.innerHTML = '';
-    const page = preview.cloneNode(true);
-    page.style.display = 'block';
-    page.removeAttribute('id');
-    printContainer.appendChild(page);
-    window.print();
 }
 
 function renderArchive() {
@@ -442,138 +428,166 @@ function updateStats() {
     }
 }
 
-function printAll() {
-    const grade = document.getElementById('grade-select').value;
-    const subject = document.getElementById('subject').value;
-    const teacher = document.getElementById('teacher-name').value;
-    const period = document.getElementById('homework-period').value;
-    const objectives = document.getElementById('homework-objectives').value || 'Non spécifiés';
-    const type = document.getElementById('homework-type').value;
-    const content = document.getElementById('homework-content').value;
-    const dueDateRaw = document.getElementById('due-date').value;
-    const dueDate = dueDateRaw ? new Date(dueDateRaw).toLocaleDateString('fr-FR') : '__________';
+// Récupère les données du formulaire de devoir
+function getHomeworkData() {
+    const dueRaw = document.getElementById('due-date').value;
+    return {
+        grade: document.getElementById('grade-select').value,
+        subject: document.getElementById('subject').value,
+        teacher: document.getElementById('teacher-name').value,
+        period: document.getElementById('homework-period').value,
+        objectives: document.getElementById('homework-objectives').value.trim(),
+        bareme: document.getElementById('homework-bareme').value.trim(),
+        type: document.getElementById('homework-type').value,
+        content: document.getElementById('homework-content').value,
+        dueDate: dueRaw ? new Date(dueRaw).toLocaleDateString('fr-FR') : '__________',
+        images: currentHomeworkImages.slice()
+    };
+}
 
-    if (!grade || (!content && currentHomeworkImages.length === 0)) {
-        return alert('Veuillez sélectionner une classe et fournir le contenu.');
-    }
+function idealLogoSrc() {
+    return localStorage.getItem('ideal_logo') || '/logo-ideal.svg';
+}
 
-    const classStudents = students.filter(s => s.grade === grade);
-    if (classStudents.length === 0) {
-        if (!confirm('Aucun élève en ' + grade + '. Imprimer version vierge ?')) return;
-        classStudents.push({ name: '________________________________________' });
-    }
+// Bandeau d'en-tête commun (logo + école)
+function schoolHeaderHTML(small) {
+    const h = small ? 34 : 74;
+    return `
+        <div style="display:flex; align-items:center; gap:12px; ${small ? '' : 'justify-content:center; text-align:center; flex-direction:column;'}">
+            <img src="${idealLogoSrc()}" style="height:${h}px; width:auto;" onerror="this.style.display='none'">
+            ${small ? `<div style="line-height:1.1;">
+                    <div style="font-weight:800; color:#0d2a3b; font-size:11pt;">IDEAL</div>
+                    <div style="font-size:7pt; color:#c5a028; font-weight:700; letter-spacing:1px;">ÉCOLE INTERNATIONALE BILINGUE</div>
+                 </div>`
+              : `<div>
+                    <div style="font-weight:800; color:#0d2a3b; font-size:15pt;">IDEAL ÉCOLE INTERNATIONALE</div>
+                    <div style="font-size:8pt; color:#c5a028; font-weight:700; letter-spacing:2px;">BILINGUE — EXCELLENCE & RIGUEUR</div>
+                 </div>`}
+        </div>`;
+}
 
-    const printContainer = document.getElementById('print-container');
-    printContainer.innerHTML = '';
-    const logoBase64 = localStorage.getItem('ideal_logo');
+// Construit toutes les pages d'un devoir pour un élève (nom vide = modèle)
+function buildHomeworkPages(d, studentName) {
+    const pages = [];
+    const nameDisplay = studentName || '________________________________';
 
-    for (let s = 0; s < classStudents.length; s++) {
-        const student = classStudents[s];
-        
-        // 1. GENERATE COVER PAGE (STRICT IMAGE 1 STYLE)
-        const coverPage = document.createElement('div');
-        coverPage.className = 'a4-page cover-page';
-        coverPage.style.display = 'block';
-        coverPage.style.textAlign = 'center';
-        
-        coverPage.innerHTML = `
-            <div style="padding-top: 5mm; margin-bottom: 25mm;">
-                ${logoBase64 ? `<img src="${logoBase64}" style="max-height: 100px; display: block; margin: 0 auto 15px auto;">` : ''}
-                <h1 style="color: #1a237e; font-size: 1.8rem; margin: 0; font-weight: 700;">IDEAL ÉCOLE INTERNATIONALE</h1>
-                <p style="color: #c5a028; font-weight: 700; letter-spacing: 2px; margin: 5px 0 0 0; font-size: 0.8rem;">BILINGUE - EXCELLENCE & RIGUEUR</p>
+    // ── PAGE DE GARDE ──────────────────────────────────────
+    const cover = document.createElement('div');
+    cover.className = 'a4-page hw-page';
+    cover.style.display = 'flex';
+    cover.style.flexDirection = 'column';
+    cover.innerHTML = `
+        <div style="border-bottom:3px solid #0d2a3b; padding-bottom:14px; margin-bottom:20px;">
+            ${schoolHeaderHTML(false)}
+        </div>
+
+        <div style="background:#0d2a3b; color:#fff; text-align:center; padding:10px; border-radius:8px; margin-bottom:18px;">
+            <div style="font-size:15pt; font-weight:800; letter-spacing:1px;">${(d.type||'DEVOIR').toUpperCase()}</div>
+            <div style="font-size:10pt; opacity:.85;">${d.subject ? d.subject.toUpperCase() : ''}</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; font-size:11pt; margin-bottom:20px;">
+            <div><strong>Classe :</strong> ${d.grade || ''}</div>
+            <div><strong>Période :</strong> ${d.period || ''}</div>
+            <div><strong>Enseignant :</strong> ${d.teacher || ''}</div>
+            <div><strong>Date de rendu :</strong> ${d.dueDate}</div>
+        </div>
+
+        ${d.objectives ? `
+        <div style="margin-bottom:16px;">
+            <div style="font-weight:800; color:#0d2a3b; font-size:11pt; border-left:4px solid #1AAFE0; padding-left:8px; margin-bottom:6px;">OBJECTIFS PÉDAGOGIQUES</div>
+            <div style="font-size:11pt; line-height:1.5; white-space:pre-wrap;">${d.objectives}</div>
+        </div>` : ''}
+
+        <div style="margin-bottom:20px;">
+            <div style="font-weight:800; color:#0d2a3b; font-size:11pt; border-left:4px solid #F7941D; padding-left:8px; margin-bottom:6px;">BARÈME DE CORRECTION</div>
+            <div style="border:1.5px solid #0d2a3b; border-radius:8px; padding:12px 14px; font-size:11pt; line-height:1.6; white-space:pre-wrap; min-height:60px;">${d.bareme || 'Barème communiqué lors de la correction.'}</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1.6fr; gap:14px; margin-bottom:22px;">
+            <div style="border:1.5px solid #0d2a3b; border-radius:8px; text-align:center; padding:10px;">
+                <div style="font-size:8pt; font-weight:700; color:#666;">NOTE</div>
+                <div style="font-size:20pt; font-weight:800; padding-top:12px; color:#0d2a3b;">...... / 20</div>
             </div>
-            
-            <div style="border: 2px solid #1a237e; padding: 20px; margin-bottom: 25px; background: #fff; width: 100%; box-sizing: border-box;">
-                <h2 style="text-align: center; text-decoration: underline; margin-bottom: 20px; font-size: 1.3rem; color: #1a237e;">${type.toUpperCase()}</h2>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; font-size: 1rem; color: #000;">
-                    <div><strong>MATIÈRE :</strong> ${subject.toUpperCase()}</div>
-                    <div><strong>CLASSE :</strong> ${grade}</div>
-                    <div><strong>PÉRIODE :</strong> ${period}</div>
-                    <div><strong>EFFECTIF :</strong> ${classStudents.length} élèves</div>
-                    <div><strong>ENSEIGNANT :</strong> ${teacher}</div>
-                    <div><strong>DATE DE RENDU :</strong> ${dueDate}</div>
+            <div style="border:1.5px solid #0d2a3b; border-radius:8px; padding:10px;">
+                <div style="font-size:8pt; font-weight:700; color:#666; margin-bottom:14px;">APPRÉCIATION DE L'ENSEIGNANT</div>
+                <div style="border-bottom:1px solid #cbd5e1; margin-bottom:16px;"></div>
+                <div style="border-bottom:1px solid #cbd5e1;"></div>
+            </div>
+        </div>
+
+        <div style="margin-top:auto; border:2px dashed #0d2a3b; border-radius:10px; padding:18px; text-align:center;">
+            <div style="font-size:8pt; color:#666; margin-bottom:6px;">NOM ET PRÉNOMS DE L'ÉLÈVE</div>
+            <div style="font-size:17pt; font-weight:800; color:#0d2a3b;">${nameDisplay}</div>
+        </div>
+    `;
+    pages.push(cover);
+
+    // ── PAGES DU DEVOIR ────────────────────────────────────
+    const nbPages = Math.max(1, d.images.length);
+    for (let p = 0; p < nbPages; p++) {
+        const page = document.createElement('div');
+        page.className = 'a4-page hw-page';
+        page.style.display = 'flex';
+        page.style.flexDirection = 'column';
+        page.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #0d2a3b; padding-bottom:8px; margin-bottom:14px;">
+                ${schoolHeaderHTML(true)}
+                <div style="text-align:right; font-size:9pt; color:#475569;">
+                    <div style="font-weight:700;">${(d.subject||'').toUpperCase()} — ${d.grade||''}</div>
+                    <div>${d.type||''}</div>
                 </div>
             </div>
-            
-            <div style="text-align: left; margin-bottom: 25px; padding: 0 10px;">
-                <h3 style="font-size: 1rem; text-decoration: underline; margin-bottom: 10px; color: #1a237e;">OBJECTIFS PÉDAGOGIQUES :</h3>
-                <p style="font-size: 1rem; line-height: 1.4; margin: 0; color: #000;">${objectives}</p>
-            </div>
-
-            <!-- CLEAN GRADING SECTION -->
-            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 30px; width: 100%; box-sizing: border-box;">
-                <div style="border: 1.5px solid #1a237e; padding: 10px; text-align: center;">
-                    <div style="font-size: 0.7rem; font-weight: 700; margin-bottom: 5px; color: #666; background: #f8fafc;">NOTE / RÉSULTAT</div>
-                    <div style="font-size: 1.5rem; font-weight: 400; padding: 10px 0;">.......... / ..........</div>
-                </div>
-                <div style="border: 1.5px solid #1a237e; padding: 10px; text-align: left;">
-                    <div style="font-size: 0.7rem; font-weight: 700; margin-bottom: 5px; color: #666; background: #f8fafc;">OBSERVATIONS / APPRÉCIATION</div>
-                    <div style="border-bottom: 1px solid #ddd; margin-top: 15px; height: 1px;"></div>
-                    <div style="border-bottom: 1px solid #ddd; margin-top: 20px; height: 1px;"></div>
-                </div>
-            </div>
-            
-            <div style="border: 2px dashed #1a237e; padding: 25px; margin-top: auto; text-align: center;">
-                <span style="font-size: 0.7rem; color: #666; display: block; margin-bottom: 10px;">NOM et Prénoms</span>
-                <div style="font-size: 1.8rem; font-weight: 800; color: #1a237e;">${student.name}</div>
+            <div class="hw-body" style="flex:1; overflow:hidden;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:2px solid #0d2a3b; padding-top:8px; margin-top:12px; font-size:9pt; font-weight:700; color:#0d2a3b;">
+                <span>ÉLÈVE : ${(studentName || '____________________').toUpperCase()}</span>
+                <span>Page ${p + 1} / ${nbPages}</span>
             </div>
         `;
-        printContainer.appendChild(coverPage);
-
-        // 2. GENERATE EXERCISE PAGES
-        const totalExPages = Math.max(1, currentHomeworkImages.length);
-        for (let p = 0; p < totalExPages; p++) {
-            const exPage = document.createElement('div');
-            exPage.className = 'a4-page';
-            exPage.style.display = 'block';
-            exPage.style.padding = '10mm';
-            
-            exPage.innerHTML = `
-                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px; margin-bottom: 10px; font-size: 0.8rem; color: #94a3b8;">
-                    <span>${subject.toUpperCase()} - ${grade}</span>
-                    <span>${type}</span>
-                </div>
-                <div id="ex-content-${s}-${p}" style="width: 100%; height: 260mm; overflow: hidden;">
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; border-top: 2px solid #1a237e; padding-top: 8px; margin-top: auto; color: #1a237e;">
-                    <span>ÉLÈVE : ${student.name.toUpperCase()}</span>
-                    <span>PAGE ${p + 1} / ${totalExPages}</span>
-                </div>
-            `;
-            
-            const exTarget = exPage.querySelector(`#ex-content-${s}-${p}`);
-            if (p === 0 && content) {
-                const textDiv = document.createElement('div');
-                textDiv.style.width = '100%';
-                textDiv.style.fontSize = '12pt';
-                textDiv.style.marginBottom = '15px';
-                textDiv.innerText = content;
-                exTarget.appendChild(textDiv);
-            }
-            
-            if (currentHomeworkImages[p]) {
-                const img = document.createElement('img');
-                img.src = currentHomeworkImages[p];
-                img.style.width = '100%';
-                img.style.height = 'auto';
-                img.style.maxHeight = (p === 0 && content) ? '200mm' : '255mm';
-                img.style.objectFit = 'contain';
-                img.style.display = 'block';
-                exTarget.appendChild(img);
-            }
-            
-            printContainer.appendChild(exPage);
+        const body = page.querySelector('.hw-body');
+        if (p === 0 && d.content) {
+            const txt = document.createElement('div');
+            txt.style.cssText = 'font-size:12pt; line-height:1.6; white-space:pre-wrap; margin-bottom:12px;';
+            txt.innerText = d.content;
+            body.appendChild(txt);
         }
-
-        // 3. RECTO-VERSO SUPPORT
-        if ((1 + totalExPages) % 2 !== 0) {
-            const blankPage = document.createElement('div');
-            blankPage.className = 'a4-page';
-            blankPage.style.background = '#fff';
-            printContainer.appendChild(blankPage);
+        if (d.images[p]) {
+            const img = document.createElement('img');
+            img.src = d.images[p];
+            img.style.cssText = `width:100%; height:auto; max-height:${(p === 0 && d.content) ? '215mm' : '250mm'}; object-fit:contain; display:block;`;
+            body.appendChild(img);
         }
+        pages.push(page);
     }
+    return pages;
+}
 
+// Publipostage : un exemplaire nominatif par élève de la classe
+function printAll() {
+    const d = getHomeworkData();
+    if (!d.grade || (!d.content && d.images.length === 0)) {
+        return alert('Veuillez sélectionner une classe et fournir le contenu.');
+    }
+    let classStudents = students.filter(s => s.grade === d.grade);
+    if (classStudents.length === 0) {
+        if (!confirm('Aucun élève en ' + d.grade + '. Imprimer une version vierge ?')) return;
+        classStudents = [{ name: '' }];
+    }
+    const pc = document.getElementById('print-container');
+    pc.innerHTML = '';
+    classStudents.forEach(st => buildHomeworkPages(d, st.name).forEach(pg => pc.appendChild(pg)));
+    window.print();
+}
+
+// Impression d'un seul exemplaire modèle (sans nom d'élève)
+function printSingle() {
+    const d = getHomeworkData();
+    if (!d.grade || (!d.content && d.images.length === 0)) {
+        return alert('Veuillez sélectionner une classe et fournir le contenu.');
+    }
+    const pc = document.getElementById('print-container');
+    pc.innerHTML = '';
+    buildHomeworkPages(d, '').forEach(pg => pc.appendChild(pg));
     window.print();
 }
 
