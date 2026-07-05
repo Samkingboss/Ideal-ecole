@@ -2,7 +2,12 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d2a3b">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>IDEAL – Rapports élèves</title>
 <!-- Garde d'accès : personnel pédagogique connecté -->
 <script>
@@ -18,8 +23,10 @@
 <style>
 :root{--bg:#f0f7fa;--card:#fff;--dark:#0d2a3b;--accent:#1AAFE0;--accent2:#8DC63F;--green:#8DC63F;--amber:#F7941D;--purple:#EC008C;--red:#ED1C24;--text:#0d2a3b;--muted:#6b7280;--border:#d0e8f0;--radius:18px;--teal:#00B5B8}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:430px;margin:0 auto;overflow-x:hidden;padding-bottom:80px}
-.topbar{background:var(--dark);padding:1rem 1.2rem .8rem;position:sticky;top:0;z-index:100}
+html{overscroll-behavior:none;background:var(--dark)}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:430px;margin:0 auto;overflow-x:hidden;padding-bottom:calc(80px + env(safe-area-inset-bottom));overscroll-behavior-y:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text}
+.topbar{background:var(--dark);padding:calc(1rem + env(safe-area-inset-top)) 1.2rem .8rem;position:sticky;top:0;z-index:100}
 .topbar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;gap:8px}
 .tab-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .tab-nav::-webkit-scrollbar{display:none}
@@ -227,7 +234,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-primary{width:100%;background:#0d2a3b;color:#fff;border:none;border-radius:14px;padding:1rem;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;margin-top:.5rem}
 .btn-cancel{width:100%;background:transparent;color:var(--muted);border:1.5px solid var(--border);border-radius:14px;padding:.85rem;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-top:8px}
 .cat-info-box{border-radius:12px;padding:.7rem 1rem;margin-top:.5rem;font-size:12px}
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:.6rem 0 1rem;z-index:100}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom));z-index:100}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--muted);cursor:pointer;padding:4px 8px;transition:color .2s}
 .nav-item.active{color:#1AAFE0}
 .nav-icon{font-size:20px}
