@@ -98,6 +98,10 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
 .field textarea{min-height:80px;resize:vertical;line-height:1.5}
 .field textarea:focus,.field select:focus,.field input:focus{border-color:var(--blue)}
 .hint{font-size:.72rem;color:var(--muted);margin-top:.3rem}
+.grp-title{font-size:.9rem;font-weight:800;color:var(--dark);margin:1.3rem 0 .7rem;
+  padding-bottom:.4rem;border-bottom:2px solid var(--border)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.two .field{margin-bottom:1rem}
 
 /* Compétences */
 .comp{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:.7rem .85rem;margin-bottom:.6rem}
@@ -176,6 +180,25 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
 .bar-acquis{width:100%;background:var(--green)} .cl.acquis{background:var(--green-bg);color:var(--green)}
 .bar-encours{width:60%;background:var(--amber)} .cl.encours{background:var(--amber-bg);color:var(--amber)}
 .bar-renforcer{width:30%;background:var(--red)} .cl.renforcer{background:var(--red-bg);color:var(--red)}
+/* Tuiles de statistiques hebdo */
+.rep-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px}
+.rep-tile{border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;background:#fafcfe}
+.rep-tile .tv{font-size:1.5rem;font-weight:900;line-height:1}
+.rep-tile .tu{font-size:.6rem;color:var(--muted);font-weight:700}
+.rep-tile .tl{font-size:.68rem;color:var(--muted);font-weight:700;margin-top:5px;text-transform:uppercase;letter-spacing:.3px}
+.tile-ok .tv{color:var(--green)} .tile-warn .tv{color:var(--amber)} .tile-bad .tv{color:var(--red)}
+.rep-badge{display:inline-block;font-size:.8rem;font-weight:800;padding:.35rem .8rem;border-radius:99px}
+.rb-g{background:var(--green-bg);color:var(--green)} .rb-a{background:var(--amber-bg);color:var(--amber)}
+.rb-r{background:var(--red-bg);color:var(--red)} .rb-n{background:var(--bg);color:var(--muted)}
+.rep-note{background:#eaf6fc;border:1px solid #c5e6f4;border-radius:10px;padding:10px 14px;
+  font-size:.9rem;color:#12466b;margin-top:8px}
+.rep-note strong{font-weight:800}
+.win-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.win{border-radius:12px;padding:12px 14px}
+.win .wl{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.win .wv{font-size:1.05rem;font-weight:800}
+.win-top{background:var(--green-bg);border:1px solid #bfe6c9} .win-top .wl,.win-top .wv{color:var(--green)}
+.win-low{background:var(--amber-bg);border:1px solid #f6dcb4} .win-low .wl,.win-low .wv{color:var(--amber)}
 .rep-foot{border-top:2px solid #eef2f5;margin:0 30px;padding:16px 0 22px 8px;
   display:flex;justify-content:space-between;align-items:flex-end;font-size:.8rem;color:var(--muted)}
 .rep-foot .sig{font-weight:800;color:var(--dark);font-size:.9rem}
@@ -202,7 +225,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
   </button>
   <div style="flex:1">
     <h1 id="tb-title">Rapports élèves</h1>
-    <div class="sub" id="tb-sub">Bulletins de suivi à partager aux parents</div>
+    <div class="sub" id="tb-sub">Rapports hebdomadaires · transmis via IDEAL</div>
   </div>
 </div>
 
@@ -224,39 +247,59 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
     </div>
 
     <div class="field">
-      <label>Période</label>
-      <select id="ed-period">
-        <option>1er Trimestre</option><option>2e Trimestre</option><option>3e Trimestre</option>
-        <option>Période 1</option><option>Période 2</option><option>Période 3</option>
-        <option>Période 4</option><option>Période 5</option>
+      <label>Semaine du</label>
+      <input type="date" id="ed-week">
+    </div>
+
+    <div class="grp-title">⏱️ Assiduité & ponctualité</div>
+    <div class="two">
+      <div class="field"><label>Retard le matin (8h) — min</label>
+        <input type="number" id="ed-retard-matin" min="0" placeholder="0"></div>
+      <div class="field"><label>Retard au départ (16h) — min</label>
+        <input type="number" id="ed-retard-soir" min="0" placeholder="0"></div>
+    </div>
+
+    <div class="grp-title">📚 Travail & devoirs</div>
+    <div class="field">
+      <label>Devoirs de maison de la semaine</label>
+      <select id="ed-devoirs">
+        <option value="tous">✅ Tous traités</option>
+        <option value="partiel">🟠 En partie traités</option>
+        <option value="non">🔴 Non traités</option>
+        <option value="aucun">— Aucun devoir cette semaine</option>
       </select>
     </div>
+    <div class="field">
+      <label>Devoir de maison à venir</label>
+      <input type="text" id="ed-devoir-venir" placeholder="Ex : Lecture p.12 pour lundi (facultatif)">
+    </div>
 
+    <div class="grp-title">⚖️ Comportement</div>
+    <div class="field">
+      <label>Nombre de punitions cette semaine</label>
+      <input type="number" id="ed-punitions" min="0" placeholder="0">
+    </div>
+    <div class="field">
+      <label>Incidents survenus</label>
+      <textarea id="ed-incidents" placeholder="Décrire les incidents éventuels (laisser vide si aucun)…"></textarea>
+    </div>
+
+    <div class="grp-title">🏆 Les victoires de la semaine</div>
+    <div class="two">
+      <div class="field"><label>Meilleure note</label>
+        <input type="text" id="ed-meilleure" placeholder="Ex : 18/20 en Maths"></div>
+      <div class="field"><label>Note la plus faible</label>
+        <input type="text" id="ed-faible" placeholder="Ex : 9/20 en Dictée"></div>
+    </div>
+
+    <div class="grp-title">💬 Bilan de l'enseignant</div>
     <div class="field">
       <label>Appréciation générale</label>
-      <textarea id="ed-general" placeholder="Situation globale de l'élève ce trimestre…"></textarea>
+      <textarea id="ed-general" placeholder="Bilan global de la semaine…"></textarea>
     </div>
-
-    <div class="field">
-      <label>Compétences évaluées</label>
-      <div id="ed-comps"></div>
-      <button class="add-comp" onclick="addComp()">+ Ajouter une compétence</button>
-      <div class="hint">Acquis · En cours · À renforcer</div>
-    </div>
-
-    <div class="field">
-      <label>Points forts</label>
-      <textarea id="ed-forts" placeholder="Ce que l'élève réussit bien…"></textarea>
-    </div>
-
-    <div class="field">
-      <label>Points à améliorer</label>
-      <textarea id="ed-ameliorer" placeholder="Ce sur quoi l'élève doit progresser (soyez précis)…"></textarea>
-    </div>
-
     <div class="field">
       <label>Conseils pour la maison</label>
-      <textarea id="ed-maison" placeholder="Comment les parents peuvent aider à la maison…"></textarea>
+      <textarea id="ed-maison" placeholder="Comment les parents peuvent accompagner à la maison…"></textarea>
     </div>
 
     <div class="sticky-actions">
@@ -425,10 +468,14 @@ function showScreen(id,title,sub){
 }
 document.getElementById('btn-back').onclick=()=>{
   if(document.getElementById('screen-report').classList.contains('active')){openEditor(CURRENT.key);}
-  else{showScreen('screen-list','Rapports élèves','Bulletins de suivi à partager aux parents');renderList();}
+  else{showScreen('screen-list','Rapports élèves','Rapports hebdomadaires · transmis via IDEAL');renderList();}
 };
 
 // ══════════════════ ÉDITEUR ══════════════════
+function frWeek(iso){
+  if(!iso)return new Date().toLocaleDateString('fr-FR');
+  return new Date(iso+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+}
 function openEditor(key){
   CURRENT=STUDENTS.find(s=>s.key===key);
   if(!CURRENT)return;
@@ -436,81 +483,70 @@ function openEditor(key){
   document.getElementById('ed-name').textContent=CURRENT.name;
   document.getElementById('ed-class').textContent=CURRENT.classe;
   const r=REPORTS[key]||{};
-  document.getElementById('ed-period').value=r.period||'1er Trimestre';
-  document.getElementById('ed-general').value=r.general||'';
-  document.getElementById('ed-forts').value=r.forts||'';
-  document.getElementById('ed-ameliorer').value=r.ameliorer||'';
-  document.getElementById('ed-maison').value=r.maison||'';
-  const comps=(r.comps&&r.comps.length)?r.comps:[{label:'Lecture / Langage',level:''},{label:'Écriture',level:''},{label:'Mathématiques',level:''},{label:'Comportement',level:''}];
-  document.getElementById('ed-comps').innerHTML='';
-  comps.forEach(c=>addComp(c.label,c.level));
-  showScreen('screen-edit','Composer le rapport',CURRENT.name);
+  const g=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  g('ed-week', r.week || new Date().toISOString().slice(0,10));
+  g('ed-retard-matin', r.retardMatin!=null?r.retardMatin:'');
+  g('ed-retard-soir', r.retardSoir!=null?r.retardSoir:'');
+  g('ed-devoirs', r.devoirs||'tous');
+  g('ed-devoir-venir', r.devoirVenir||'');
+  g('ed-punitions', r.punitions!=null?r.punitions:'');
+  g('ed-incidents', r.incidents||'');
+  g('ed-meilleure', r.meilleure||'');
+  g('ed-faible', r.faible||'');
+  g('ed-general', r.general||'');
+  g('ed-maison', r.maison||'');
+  showScreen('screen-edit','Rapport hebdomadaire',CURRENT.name);
 }
 
-function addComp(label,level){
-  const box=document.getElementById('ed-comps');
-  const div=document.createElement('div');div.className='comp';
-  div.innerHTML=`
-    <div class="comp-top">
-      <input type="text" value="${esc(label||'')}" placeholder="Compétence (ex: Lecture)">
-      <button class="rm" onclick="this.closest('.comp').remove()">✕</button>
-    </div>
-    <div class="levels">
-      <button type="button" class="lvl acquis${level==='acquis'?' on':''}" data-l="acquis" onclick="pickLevel(this)">Acquis</button>
-      <button type="button" class="lvl encours${level==='encours'?' on':''}" data-l="encours" onclick="pickLevel(this)">En cours</button>
-      <button type="button" class="lvl renforcer${level==='renforcer'?' on':''}" data-l="renforcer" onclick="pickLevel(this)">À renforcer</button>
-    </div>`;
-  box.appendChild(div);
-}
-function pickLevel(btn){
-  btn.parentElement.querySelectorAll('.lvl').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-}
 function collectReport(){
-  const comps=[];
-  document.querySelectorAll('#ed-comps .comp').forEach(c=>{
-    const label=c.querySelector('input').value.trim();
-    const on=c.querySelector('.lvl.on');
-    if(label)comps.push({label,level:on?on.dataset.l:''});
-  });
+  const v=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  const num=id=>{const x=parseInt(v(id),10);return isNaN(x)?0:x;};
   return {
-    studentName:CURRENT.name,classe:CURRENT.classe,
-    period:document.getElementById('ed-period').value,
-    general:document.getElementById('ed-general').value.trim(),
-    comps,
-    forts:document.getElementById('ed-forts').value.trim(),
-    ameliorer:document.getElementById('ed-ameliorer').value.trim(),
-    maison:document.getElementById('ed-maison').value.trim(),
+    studentName:CURRENT.name, classe:CURRENT.classe,
+    week:v('ed-week'),
+    retardMatin:num('ed-retard-matin'), retardSoir:num('ed-retard-soir'),
+    devoirs:v('ed-devoirs'), devoirVenir:v('ed-devoir-venir'),
+    punitions:num('ed-punitions'), incidents:v('ed-incidents'),
+    meilleure:v('ed-meilleure'), faible:v('ed-faible'),
+    general:v('ed-general'), maison:v('ed-maison'),
     teacher:[user&&user.prenom,user&&user.nom].filter(Boolean).join(' '),
     date:new Date().toLocaleDateString('fr-FR')
   };
 }
 
 // ══════════════════ RAPPORT (aperçu) ══════════════════
-const LVL_TXT={acquis:'Acquis',encours:'En cours',renforcer:'À renforcer'};
+const DEVOIRS_BADGE={
+  tous:['rb-g','Tous les devoirs traités'], partiel:['rb-a','Devoirs en partie traités'],
+  non:['rb-r','Devoirs non traités'], aucun:['rb-n','Aucun devoir cette semaine']
+};
 function openReport(){
   const r=collectReport();
   REPORTS[CURRENT.key]=r;
-  saveReport(CURRENT.key,r); // sauvegarde Supabase
+  saveReport(CURRENT.key,r);
   renderReport(r);
-  showScreen('screen-report','Rapport de '+CURRENT.name.split(' ')[0],'');
+  showScreen('screen-report','Rapport · '+CURRENT.name.split(' ')[0],'');
 }
 function renderReport(r){
-  const ic={b:'📋',g:'💪',a:'🎯',r:'🏠'};
-  const comps=r.comps.length?`<div class="rep-comps">${r.comps.map(c=>{
-    const lv=c.level||'encours';
-    return `<div class="rep-comp"><span class="cn">${esc(c.label)}</span>
-      <span class="bar"><span class="bar-${lv}"></span></span>
-      <span class="cl ${lv}">${LVL_TXT[c.level]||'—'}</span></div>`;}).join('')}</div>`:'';
-  const sec=(cls,icon,title,txt)=>txt?`<div class="rep-sec">
-    <div class="h ${cls}"><span class="ic">${icon}</span>${title}</div>
-    <div class="rep-card card-${cls}">${esc(txt)}</div></div>`:'';
+  const tile=(val,unit,label)=>{
+    const cls=val===0?'tile-ok':(val<=10?'tile-warn':'tile-bad');
+    return `<div class="rep-tile ${cls}"><div class="tv">${val}<span class="tu"> ${unit}</span></div><div class="tl">${label}</div></div>`;
+  };
+  const punCls=r.punitions===0?'tile-ok':(r.punitions<=1?'tile-warn':'tile-bad');
+  const db=DEVOIRS_BADGE[r.devoirs]||DEVOIRS_BADGE.tous;
+  const sec=(cls,icon,title,inner)=>`<div class="rep-sec"><div class="h ${cls}"><span class="ic">${icon}</span>${title}</div>${inner}</div>`;
+  const card=(cls,txt)=>`<div class="rep-card card-${cls}">${esc(txt)}</div>`;
+
+  const wins=(r.meilleure||r.faible)?`<div class="win-grid">
+      ${r.meilleure?`<div class="win win-top"><div class="wl">🏅 Meilleure note</div><div class="wv">${esc(r.meilleure)}</div></div>`:''}
+      ${r.faible?`<div class="win win-low"><div class="wl">📉 Note la plus faible</div><div class="wv">${esc(r.faible)}</div></div>`:''}
+    </div>`:'<div class="rep-card">Notes non renseignées cette semaine.</div>';
+
   document.getElementById('report').innerHTML=`
     <div class="rep-side"></div>
     <div class="rep-head">
-      <div class="rep-period">${esc(r.period)}</div>
+      <div class="rep-period">Semaine du ${esc(frWeek(r.week))}</div>
       <div class="rep-logo"><img src="/logo-ideal.png" crossorigin="anonymous" onerror="this.parentElement.style.display='none'"></div>
-      <div class="rep-title">Rapport de suivi</div>
+      <div class="rep-title">Rapport hebdomadaire</div>
       <div class="rep-school">École Internationale Bilingue IDEAL · Bamako</div>
     </div>
     <div class="rep-body">
@@ -518,15 +554,28 @@ function renderReport(r){
         <div><div class="lab">Élève</div><div class="val">${esc(r.studentName)}</div></div>
         <div><div class="lab">Classe</div><div class="val">${esc(r.classe)}</div></div>
       </div>
-      ${sec('b','📋','Appréciation générale',r.general)}
-      ${comps?`<div class="rep-sec"><div class="h b"><span class="ic">📊</span>Compétences évaluées</div><div class="rep-card" style="background:#fafcfe">${comps}</div></div>`:''}
-      ${sec('g','💪','Points forts',r.forts)}
-      ${sec('a','🎯','Points à améliorer',r.ameliorer)}
-      ${sec('r','🏠','Conseils pour la maison',r.maison)}
+
+      ${sec('b','⏱️','Assiduité & ponctualité',`<div class="rep-tiles">
+        ${tile(r.retardMatin,'min','Retard matin (8h)')}
+        ${tile(r.retardSoir,'min','Retard départ (16h)')}
+        <div class="rep-tile ${punCls}"><div class="tv">${r.punitions}</div><div class="tl">Punitions</div></div>
+      </div>`)}
+
+      ${sec('g','📚','Travail & devoirs',`
+        <div><span class="rep-badge ${db[0]}">${db[1]}</span></div>
+        ${r.devoirVenir?`<div class="rep-note"><strong>📌 Devoir à venir :</strong> ${esc(r.devoirVenir)}</div>`:''}`)}
+
+      ${sec('a','⚖️','Comportement',
+        r.incidents?card('a',r.incidents):`<div class="rep-card card-g">Aucun incident signalé cette semaine. 👍</div>`)}
+
+      ${sec('r','🏆','Les victoires de la semaine',wins)}
+
+      ${r.general?sec('b','💬','Appréciation de l\'enseignant',card('b',r.general)):''}
+      ${r.maison?sec('r','🏠','Conseils pour la maison',card('r',r.maison)):''}
     </div>
     <div class="rep-foot">
       <div><div style="font-size:.66rem;text-transform:uppercase;letter-spacing:1px">Enseignant</div>
-        <div class="sig">${esc(r.teacher||'—')}</div><div>${esc(r.date)}</div></div>
+        <div class="sig">${esc(r.teacher||'—')}</div><div>Édité le ${esc(r.date)}</div></div>
       <div class="stamp">IDEAL</div>
     </div>`;
 }
@@ -540,15 +589,9 @@ function saveReport(key,r){
 }
 
 // ══════════════════ EXPORT PNG ══════════════════
-// Numéro WhatsApp d'IDEAL (destinataire des rapports). Configurable une fois.
-function getIdealNumber(){
-  let n=localStorage.getItem('ideal_wa_number');
-  if(!n){
-    n=prompt("Numéro WhatsApp d'IDEAL (destinataire des rapports) :\nEx : 22376000000");
-    if(n){n=n.replace(/\D/g,'');if(n.length===8)n='223'+n;localStorage.setItem('ideal_wa_number',n);}
-  }
-  return n||'';
-}
+// Numéro WhatsApp officiel d'IDEAL (destinataire des rapports)
+const IDEAL_WA='22390190007';
+function getIdealNumber(){ return IDEAL_WA; }
 async function reportToBlob(){
   const el=document.getElementById('report');
   const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:el.scrollWidth});
