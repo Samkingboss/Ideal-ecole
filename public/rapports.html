@@ -21,6 +21,7 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:wght@600;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --bg:#f0f5f9; --card:#fff; --dark:#0d2a3b; --blue:#1AAFE0; --blue-d:#0d7fb0;
@@ -130,45 +131,62 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
 .empty p{font-weight:700;color:var(--text);font-size:1.05rem;margin-bottom:.3rem}
 .empty span{font-size:.85rem}
 
-/* ═══ RAPPORT (aperçu + impression) ═══ */
-.report-scroll{background:#c9d6e0;padding:1rem;min-height:100vh}
-.report{background:#fff;max-width:800px;margin:0 auto;border-radius:6px;overflow:hidden;
-  box-shadow:0 8px 30px rgba(0,0,0,.15)}
-.rep-head{background:linear-gradient(135deg,var(--dark),#12466b);color:#fff;padding:22px 24px;
-  display:flex;align-items:center;gap:16px}
-.rep-head img{height:56px;width:auto}
-.rep-head .rt{font-family:'Fraunces',serif;font-size:1.5rem;font-weight:900;line-height:1.1}
-.rep-head .rs{font-size:.75rem;opacity:.8;letter-spacing:1px}
-.rep-strip{display:flex}
-.rep-strip>div{height:6px;flex:1}
-.rep-body{padding:22px 24px}
-.rep-stu{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
-  border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:18px}
-.rep-stu .lab{font-size:.65rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.rep-stu .val{font-size:1rem;font-weight:800;color:var(--dark)}
-.rep-sec{margin-bottom:16px}
-.rep-sec .h{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
-  padding-left:9px;margin-bottom:8px}
-.rep-sec .h.b{border-left:4px solid var(--blue);color:var(--blue-d)}
-.rep-sec .h.g{border-left:4px solid var(--green);color:var(--green)}
-.rep-sec .h.a{border-left:4px solid var(--amber);color:var(--amber)}
-.rep-sec .txt{font-size:.92rem;line-height:1.6;white-space:pre-wrap;color:#1f3345}
-.rep-comps{display:flex;flex-direction:column;gap:7px}
-.rep-comp{display:flex;align-items:center;gap:10px}
-.rep-comp .cn{flex:1;font-size:.9rem;font-weight:600}
-.rep-comp .cl{font-size:.7rem;font-weight:800;padding:.2rem .6rem;border-radius:99px}
-.cl.acquis{background:var(--green-bg);color:var(--green)}
-.cl.encours{background:var(--amber-bg);color:var(--amber)}
-.cl.renforcer{background:var(--red-bg);color:var(--red)}
-.rep-foot{border-top:1px solid var(--border);padding:14px 24px;display:flex;justify-content:space-between;
-  font-size:.78rem;color:var(--muted)}
+/* ═══ RAPPORT (aperçu + export PNG) — design premium ═══ */
+.report-scroll{background:#c9d6e0;padding:1rem;min-height:100vh;overflow-x:auto}
+.report{background:#fff;width:760px;max-width:100%;margin:0 auto;position:relative;
+  box-shadow:0 12px 40px rgba(0,0,0,.2)}
+/* Ruban décoratif latéral */
+.rep-side{position:absolute;left:0;top:0;bottom:0;width:8px;
+  background:linear-gradient(#8DC63F,#00B5B8,#F7941D,#1AAFE0,#EC008C,#ED1C24)}
+.rep-head{background:linear-gradient(120deg,#0b2942,#0d4f79 55%,#1591c4);color:#fff;
+  padding:26px 30px 22px 38px;position:relative;overflow:hidden}
+.rep-head::after{content:'';position:absolute;right:-50px;top:-50px;width:180px;height:180px;
+  border-radius:50%;background:rgba(255,255,255,.06)}
+.rep-logo{background:#fff;border-radius:12px;padding:8px 12px;display:inline-block;margin-bottom:14px}
+.rep-logo img{height:40px;width:auto;display:block}
+.rep-title{font-family:'Fraunces',serif;font-size:2rem;font-weight:900;line-height:1;letter-spacing:-.5px}
+.rep-school{font-size:.72rem;opacity:.85;letter-spacing:2px;margin-top:6px;text-transform:uppercase}
+.rep-period{position:absolute;right:30px;top:26px;background:#F7941D;color:#fff;
+  padding:8px 16px;border-radius:99px;font-weight:800;font-size:.82rem;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.rep-body{padding:24px 30px 24px 38px}
+.rep-stu{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--border);
+  border-radius:14px;overflow:hidden;margin-bottom:22px}
+.rep-stu>div{background:#fff;padding:14px 18px}
+.rep-stu .lab{font-size:.62rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.rep-stu .val{font-size:1.15rem;font-weight:800;color:var(--dark);margin-top:2px}
+.rep-sec{margin-bottom:18px}
+.rep-sec .h{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;
+  margin-bottom:9px;display:flex;align-items:center;gap:8px}
+.rep-sec .h .ic{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:12px;color:#fff}
+.rep-card{border-radius:12px;padding:14px 16px;font-size:.95rem;line-height:1.6;
+  white-space:pre-wrap;color:#233;border:1px solid var(--border)}
+.h.b .ic{background:var(--blue)} .h.g .ic{background:var(--green)}
+.h.a .ic{background:var(--amber)} .h.r .ic{background:#12466b}
+.h.b{color:var(--blue-d)} .h.g{color:var(--green)} .h.a{color:var(--amber)} .h.r{color:#12466b}
+.card-g{background:var(--green-bg);border-color:#bfe6c9}
+.card-a{background:var(--amber-bg);border-color:#f6dcb4}
+.card-b{background:#eaf6fc;border-color:#c5e6f4}
+.rep-comps{display:flex;flex-direction:column;gap:10px}
+.rep-comp{display:flex;align-items:center;gap:12px}
+.rep-comp .cn{width:150px;font-size:.9rem;font-weight:700;color:var(--dark);flex-shrink:0}
+.rep-comp .bar{flex:1;height:9px;border-radius:99px;background:#edf1f4;overflow:hidden}
+.rep-comp .bar span{display:block;height:100%;border-radius:99px}
+.rep-comp .cl{font-size:.68rem;font-weight:800;padding:.22rem .6rem;border-radius:99px;flex-shrink:0;width:82px;text-align:center}
+.bar-acquis{width:100%;background:var(--green)} .cl.acquis{background:var(--green-bg);color:var(--green)}
+.bar-encours{width:60%;background:var(--amber)} .cl.encours{background:var(--amber-bg);color:var(--amber)}
+.bar-renforcer{width:30%;background:var(--red)} .cl.renforcer{background:var(--red-bg);color:var(--red)}
+.rep-foot{border-top:2px solid #eef2f5;margin:0 30px;padding:16px 0 22px 8px;
+  display:flex;justify-content:space-between;align-items:flex-end;font-size:.8rem;color:var(--muted)}
+.rep-foot .sig{font-weight:800;color:var(--dark);font-size:.9rem}
+.rep-foot .stamp{font-family:'Fraunces',serif;font-weight:900;color:#0d4f79;font-size:1.1rem;opacity:.85}
 
 @media print{
   html,body{background:#fff;max-width:none}
   .topbar,.sticky-actions,.no-print{display:none !important}
   .report-scroll{padding:0;background:#fff}
-  .report{box-shadow:none;max-width:none;border-radius:0}
-  @page{margin:12mm}
+  .report{box-shadow:none;width:100%;max-width:none}
+  @page{margin:10mm}
 }
 </style>
 </head>
@@ -251,11 +269,13 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
 <section class="screen" id="screen-report">
   <div class="report-scroll">
     <div class="report" id="report"></div>
-    <div class="sticky-actions no-print" style="max-width:800px;margin:0 auto">
+    <div class="sticky-actions no-print" style="max-width:760px;margin:0 auto">
+      <button class="btn btn-green" onclick="sendToIdeal()" id="send-btn">📤 Envoyer à IDEAL (image)</button>
       <div class="btn-row">
-        <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimer / PDF</button>
-        <button class="btn btn-green" onclick="shareWhatsApp()">Partager WhatsApp</button>
+        <button class="btn btn-ghost" onclick="downloadPng()">⬇️ Enregistrer l'image</button>
+        <button class="btn btn-ghost" onclick="window.print()">🖨️ Imprimer</button>
       </div>
+      <div class="hint" style="text-align:center;margin-top:.5rem">Le rapport est envoyé au numéro d'IDEAL, qui le transmet ensuite au parent.</div>
     </div>
   </div>
 </section>
@@ -476,30 +496,39 @@ function openReport(){
   showScreen('screen-report','Rapport de '+CURRENT.name.split(' ')[0],'');
 }
 function renderReport(r){
-  const strip=['#8DC63F','#F7941D','#EC008C','#ED1C24','#1AAFE0'].map(c=>`<div style="background:${c}"></div>`).join('');
-  const comps=r.comps.length?`<div class="rep-comps">${r.comps.map(c=>`
-    <div class="rep-comp"><span class="cn">${esc(c.label)}</span>
-    <span class="cl ${c.level||'encours'}">${LVL_TXT[c.level]||'—'}</span></div>`).join('')}</div>`:'';
-  const sec=(cls,title,txt)=>txt?`<div class="rep-sec"><div class="h ${cls}">${title}</div><div class="txt">${esc(txt)}</div></div>`:'';
+  const ic={b:'📋',g:'💪',a:'🎯',r:'🏠'};
+  const comps=r.comps.length?`<div class="rep-comps">${r.comps.map(c=>{
+    const lv=c.level||'encours';
+    return `<div class="rep-comp"><span class="cn">${esc(c.label)}</span>
+      <span class="bar"><span class="bar-${lv}"></span></span>
+      <span class="cl ${lv}">${LVL_TXT[c.level]||'—'}</span></div>`;}).join('')}</div>`:'';
+  const sec=(cls,icon,title,txt)=>txt?`<div class="rep-sec">
+    <div class="h ${cls}"><span class="ic">${icon}</span>${title}</div>
+    <div class="rep-card card-${cls}">${esc(txt)}</div></div>`:'';
   document.getElementById('report').innerHTML=`
+    <div class="rep-side"></div>
     <div class="rep-head">
-      <img src="/logo-ideal.svg" onerror="this.style.display='none'">
-      <div><div class="rt">Rapport de suivi</div><div class="rs">ÉCOLE INTERNATIONALE BILINGUE IDEAL</div></div>
+      <div class="rep-period">${esc(r.period)}</div>
+      <div class="rep-logo"><img src="/logo-ideal.png" crossorigin="anonymous" onerror="this.parentElement.style.display='none'"></div>
+      <div class="rep-title">Rapport de suivi</div>
+      <div class="rep-school">École Internationale Bilingue IDEAL · Bamako</div>
     </div>
-    <div class="rep-strip">${strip}</div>
     <div class="rep-body">
       <div class="rep-stu">
         <div><div class="lab">Élève</div><div class="val">${esc(r.studentName)}</div></div>
         <div><div class="lab">Classe</div><div class="val">${esc(r.classe)}</div></div>
-        <div><div class="lab">Période</div><div class="val">${esc(r.period)}</div></div>
       </div>
-      ${sec('b','Appréciation générale',r.general)}
-      ${comps?`<div class="rep-sec"><div class="h b">Compétences</div>${comps}</div>`:''}
-      ${sec('g','Points forts',r.forts)}
-      ${sec('a','Points à améliorer',r.ameliorer)}
-      ${sec('b','Conseils pour la maison',r.maison)}
+      ${sec('b','📋','Appréciation générale',r.general)}
+      ${comps?`<div class="rep-sec"><div class="h b"><span class="ic">📊</span>Compétences évaluées</div><div class="rep-card" style="background:#fafcfe">${comps}</div></div>`:''}
+      ${sec('g','💪','Points forts',r.forts)}
+      ${sec('a','🎯','Points à améliorer',r.ameliorer)}
+      ${sec('r','🏠','Conseils pour la maison',r.maison)}
     </div>
-    <div class="rep-foot"><span>Enseignant : ${esc(r.teacher||'—')}</span><span>${esc(r.date)}</span></div>`;
+    <div class="rep-foot">
+      <div><div style="font-size:.66rem;text-transform:uppercase;letter-spacing:1px">Enseignant</div>
+        <div class="sig">${esc(r.teacher||'—')}</div><div>${esc(r.date)}</div></div>
+      <div class="stamp">IDEAL</div>
+    </div>`;
 }
 
 // ══════════════════ SAUVEGARDE SUPABASE ══════════════════
@@ -510,26 +539,55 @@ function saveReport(key,r){
   }).catch(()=>{});
 }
 
-// ══════════════════ PARTAGE WHATSAPP ══════════════════
-function normNum(raw){
-  if(!raw)return null;let n=String(raw).replace(/\D/g,'');
-  if(n.startsWith('00'))n=n.slice(2);if(n.length===8)n='223'+n;
-  return n.length>=10?n:null;
+// ══════════════════ EXPORT PNG ══════════════════
+// Numéro WhatsApp d'IDEAL (destinataire des rapports). Configurable une fois.
+function getIdealNumber(){
+  let n=localStorage.getItem('ideal_wa_number');
+  if(!n){
+    n=prompt("Numéro WhatsApp d'IDEAL (destinataire des rapports) :\nEx : 22376000000");
+    if(n){n=n.replace(/\D/g,'');if(n.length===8)n='223'+n;localStorage.setItem('ideal_wa_number',n);}
+  }
+  return n||'';
 }
-function shareWhatsApp(){
-  const r=REPORTS[CURRENT.key];if(!r)return;
-  const L={acquis:'✅',encours:'🟠',renforcer:'🔴'};
-  let msg=`*École IDEAL — Rapport de suivi*\n`;
-  msg+=`👤 ${r.studentName}  |  Classe : ${r.classe}\n📅 ${r.period}\n\n`;
-  if(r.general)msg+=`📝 *Appréciation générale*\n${r.general}\n\n`;
-  if(r.comps.length){msg+=`📊 *Compétences*\n`;r.comps.forEach(c=>{msg+=`${L[c.level]||'•'} ${c.label} — ${LVL_TXT[c.level]||'—'}\n`;});msg+='\n';}
-  if(r.forts)msg+=`💪 *Points forts*\n${r.forts}\n\n`;
-  if(r.ameliorer)msg+=`🎯 *Points à améliorer*\n${r.ameliorer}\n\n`;
-  if(r.maison)msg+=`🏠 *Conseils pour la maison*\n${r.maison}\n\n`;
-  msg+=`_Enseignant : ${r.teacher||''} · ${r.date}_`;
-  const num=normNum(CURRENT.whatsapp);
-  const url=(num?`https://wa.me/${num}`:`https://wa.me/`)+`?text=${encodeURIComponent(msg)}`;
-  window.open(url,'_blank');
+async function reportToBlob(){
+  const el=document.getElementById('report');
+  const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:el.scrollWidth});
+  return new Promise(res=>canvas.toBlob(res,'image/png',0.95));
+}
+function reportFileName(){
+  const r=REPORTS[CURRENT.key];
+  return 'Rapport_'+(r.studentName||'eleve').replace(/\s+/g,'_')+'_'+(r.period||'').replace(/\s+/g,'')+'.png';
+}
+async function downloadPng(){
+  const btn=event&&event.target;if(btn)btn.textContent='⏳ Génération…';
+  try{
+    const blob=await reportToBlob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=reportFileName();a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  }catch(e){alert('Erreur lors de la génération de l\'image.');}
+  if(btn)btn.textContent='⬇️ Enregistrer l\'image';
+}
+async function sendToIdeal(){
+  const btn=document.getElementById('send-btn');
+  btn.textContent='⏳ Génération de l\'image…';
+  let blob;
+  try{ blob=await reportToBlob(); }
+  catch(e){ btn.textContent='📤 Envoyer à IDEAL (image)'; return alert('Erreur lors de la génération.'); }
+  const r=REPORTS[CURRENT.key];
+  const file=new File([blob],reportFileName(),{type:'image/png'});
+  const legende=`École IDEAL — Rapport de suivi de ${r.studentName} (${r.classe}, ${r.period}). À transmettre au parent.`;
+  btn.textContent='📤 Envoyer à IDEAL (image)';
+
+  // 1) Partage natif avec le fichier image (mobile) → choisir le contact IDEAL
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],text:legende}); return; }catch(e){ if(e.name==='AbortError')return; }
+  }
+  // 2) Repli : télécharger l'image + ouvrir WhatsApp sur le numéro d'IDEAL
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=reportFileName();a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  const num=getIdealNumber();
+  const url=(num?`https://wa.me/${num}`:'https://wa.me/')+`?text=${encodeURIComponent(legende+'\n(joindre l\'image téléchargée)')}`;
+  setTimeout(()=>window.open(url,'_blank'),600);
 }
 
 // ══════════════════ INIT ══════════════════
