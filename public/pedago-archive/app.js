@@ -358,31 +358,53 @@ function showHomeworkPreview() {
     overlay.querySelector('.btn-print-all').onclick = () => { close(); printAll(); };
 }
 
+let _archiveFilter = '';
+function filterArchive(q) {
+    _archiveFilter = (q || '').toLowerCase().trim();
+    renderArchive();
+}
+
 function renderArchive() {
     const container = document.getElementById('archive-list-container');
     const recentList = document.getElementById('recent-list');
-    
+    const totalEl = document.getElementById('archive-total');
+    if (totalEl) totalEl.textContent = homeworks.length;
+
     if (container) {
         container.innerHTML = '';
+        let list = homeworks;
+        if (_archiveFilter) {
+            list = homeworks.filter(h =>
+                [h.subject, h.grade, h.type].filter(Boolean).join(' ').toLowerCase().includes(_archiveFilter)
+            );
+        }
         if (homeworks.length === 0) {
-            container.innerHTML = '<p>Aucun devoir archivé.</p>';
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-folder-open"></i>
+                    <p>Aucun devoir archivé</p>
+                    <span>Créez un devoir : il apparaîtra ici automatiquement.</span>
+                </div>`;
+        } else if (list.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><p>Aucun résultat</p><span>pour « ${_archiveFilter} »</span></div>`;
         } else {
             const typeIcons = { 'Devoir de Maison': 'fa-book', 'Évaluation': 'fa-clipboard-check', 'Composition': 'fa-file-signature' };
-            homeworks.forEach(h => {
+            const typeClass = { 'Devoir de Maison': 'ico-blue', 'Évaluation': 'ico-orange', 'Composition': 'ico-purple' };
+            list.forEach(h => {
                 const card = document.createElement('div');
                 card.className = 'archive-card animate-fade';
                 card.innerHTML = `
-                    <div class="a-icon"><i class="fas ${typeIcons[h.type] || 'fa-book'}"></i></div>
-                    <div class="a-main">
+                    <div class="a-icon ${typeClass[h.type] || 'ico-blue'}"><i class="fas ${typeIcons[h.type] || 'fa-book'}"></i></div>
+                    <div class="a-main" onclick="loadHomework(${h.id})">
                         <div class="a-title">${h.subject || 'Sans matière'}</div>
                         <div class="a-meta">
                             <span class="chip chip-classe">${h.grade || '—'}</span>
                             <span class="chip chip-type">${h.type || 'Devoir'}</span>
-                            <span class="chip chip-date">${h.date || ''}</span>
+                            <span class="chip chip-date"><i class="far fa-calendar"></i> ${h.date || ''}</span>
                         </div>
                     </div>
                     <div class="a-actions">
-                        <button class="edit" onclick="loadHomework(${h.id})" aria-label="Modifier"><i class="fas fa-edit"></i></button>
+                        <button class="edit" onclick="loadHomework(${h.id})" aria-label="Modifier"><i class="fas fa-pen"></i></button>
                         <button class="del" onclick="deleteHomework(${h.id})" aria-label="Supprimer"><i class="fas fa-trash"></i></button>
                     </div>
                 `;

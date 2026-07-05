@@ -284,11 +284,18 @@
 
             <!-- Archive Section -->
             <section id="archive" class="section">
-                <div class="header">
-                    <h1>Archives des Devoirs</h1>
+                <div class="students-topbar">
+                    <div class="students-title-row">
+                        <h1>Archives</h1>
+                        <span class="students-total" id="archive-total">0</span>
+                    </div>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="archive-search" placeholder="Rechercher un devoir…" oninput="filterArchive(this.value)">
+                    </div>
                 </div>
-                <div id="archive-list-container" class="stats-grid" style="grid-template-columns: 1fr;">
-                    <!-- JS will populate cards -->
+                <div id="archive-list-container">
+                    <!-- JS : cartes devoirs -->
                 </div>
             </section>
         </main>
