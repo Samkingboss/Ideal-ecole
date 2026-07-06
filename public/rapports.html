@@ -346,9 +346,15 @@ try{user=JSON.parse(localStorage.getItem('ideal_user')||'null');}catch(e){}
 
 // Logo préchargé en base64 (rendu fiable dans l'image générée)
 let LOGO_DATA=null;
-fetch('/logo-ideal.png').then(r=>r.blob()).then(b=>{
-  const fr=new FileReader();fr.onload=()=>{LOGO_DATA=fr.result;};fr.readAsDataURL(b);
-}).catch(()=>{});
+async function ensureLogo(){
+  if(LOGO_DATA)return LOGO_DATA;
+  try{
+    const r=await fetch('/logo-ideal.png');const b=await r.blob();
+    LOGO_DATA=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(b);});
+  }catch(e){LOGO_DATA=null;}
+  return LOGO_DATA;
+}
+ensureLogo();
 
 // Plage de la semaine (lundi → vendredi) au format "Du jj/mm/aaaa au jj/mm/aaaa"
 function weekRange(iso){
@@ -628,9 +634,11 @@ async function reportToBlob(){
   const stage=document.getElementById('report-stage');
   const prev=stage?stage.style.transform:'';
   if(stage){stage.style.transform='none';stage.style.height='auto';}
-  // s'assurer que le logo ET les polices sont chargés avant la capture (netteté)
+  // Forcer le logo en base64 (sinon html2canvas ne capture pas l'image externe)
+  const logo=await ensureLogo();
   const img=el.querySelector('.rep-logo img');
-  if(img && !img.complete){ await new Promise(r=>{img.onload=img.onerror=r;}); }
+  if(img && logo){ img.src=logo; await new Promise(r=>{img.onload=img.onerror=r;}); }
+  else if(img && !img.complete){ await new Promise(r=>{img.onload=img.onerror=r;}); }
   if(document.fonts && document.fonts.ready){ try{ await document.fonts.ready; }catch(e){} }
   const dpr=Math.max(3, window.devicePixelRatio||1);
   const canvas=await html2canvas(el,{scale:dpr,backgroundColor:'#ffffff',useCORS:true,logging:false,
@@ -640,7 +648,7 @@ async function reportToBlob(){
 }
 function reportFileName(){
   const r=REPORTS[CURRENT.key];
-  return 'Rapport_'+(r.studentName||'eleve').replace(/\s+/g,'_')+'_'+(r.period||'').replace(/\s+/g,'')+'.png';
+  return 'Rapport_'+(r.studentName||'eleve').replace(/\s+/g,'_')+'_'+(r.week||'').replace(/\s+/g,'')+'.png';
 }
 async function downloadPng(){
   const btn=event&&event.target;if(btn)btn.textContent='⏳ Génération…';
@@ -659,7 +667,7 @@ async function sendToIdeal(){
   catch(e){ btn.textContent='📤 Envoyer à IDEAL (image)'; return alert('Erreur lors de la génération.'); }
   const r=REPORTS[CURRENT.key];
   const file=new File([blob],reportFileName(),{type:'image/png'});
-  const legende=`École IDEAL — Rapport de suivi de ${r.studentName} (${r.classe}, ${r.period}). À transmettre au parent.`;
+  const legende=`École IDEAL — Rapport hebdomadaire de ${r.studentName} (${r.classe}, ${weekRange(r.week)}). À transmettre au parent.`;
   btn.textContent='📤 Envoyer à IDEAL (image)';
 
   // 1) Partage natif avec le fichier image (mobile) → choisir le contact IDEAL
