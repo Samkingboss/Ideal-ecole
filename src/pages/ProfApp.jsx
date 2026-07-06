@@ -196,6 +196,74 @@ export default function ProfApp({ user, onLogout }) {
     return eleves.filter(e => e.classe_id === selectedClasse?.id)
   }
 
+  // ─── Présence du jour & liste de classe imprimable ───
+  const [presMode, setPresMode] = useState(false)
+  const [presData, setPresData] = useState({})
+  const todayPres = new Date().toISOString().slice(0, 10)
+  const loadPresence = async () => {
+    const ids = getClasseEleves().map(e => e.id)
+    if (!ids.length) { setPresData({}); return }
+    const { data } = await supabase.from('presences_eleves').select('*').eq('date_jour', todayPres).in('eleve_id', ids)
+    const m = {}; (data || []).forEach(p => { m[p.eleve_id] = p }); setPresData(m)
+  }
+  const setPresence = async (eleveId, statut) => {
+    const minutes = statut === 'retard' ? (presData[eleveId]?.minutes_retard || 10) : 0
+    const { data } = await supabase.from('presences_eleves').upsert(
+      { eleve_id: eleveId, date_jour: todayPres, statut, minutes_retard: minutes },
+      { onConflict: 'eleve_id, date_jour' }).select().single()
+    if (data) setPresData(prev => ({ ...prev, [eleveId]: data }))
+  }
+  const openPresence = () => { setPresMode(true); loadPresence() }
+  const printClassList = () => {
+    const els = getClasseEleves(); const cls = selectedClasse?.nom || ''
+    if (!els.length) return alert('Aucun élève dans cette classe.')
+    const rows = els.map((e, i) => `<tr><td>${i + 1}</td><td>${(e.nom || '').toUpperCase()} ${e.prenom || ''}</td><td></td><td></td></tr>`).join('')
+    const w = window.open('', '_blank')
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Liste ${cls}</title>
+      <style>body{font-family:Arial,sans-serif;padding:24px;color:#0d2a3b}
+      .h{display:flex;align-items:center;gap:16px;border-bottom:3px solid #0d2a3b;padding-bottom:12px;margin-bottom:16px}
+      .h img{height:56px} h1{font-size:20px;margin:0} .sub{font-size:12px;color:#666}
+      table{width:100%;border-collapse:collapse;font-size:13px} th,td{border:1px solid #bbb;padding:9px 10px;text-align:left}
+      th{background:#0d2a3b;color:#fff} td:first-child,th:first-child{width:34px;text-align:center}
+      @media print{@page{margin:12mm}}</style></head><body>
+      <div class="h"><img src="/logo-ideal.png"><div><h1>Liste de la classe — ${cls}</h1>
+      <div class="sub">École Internationale Bilingue IDEAL · Effectif : ${els.length} élèves · ${new Date().toLocaleDateString('fr-FR')}</div></div></div>
+      <table><thead><tr><th>N°</th><th>Nom & Prénoms</th><th>Présence</th><th>Observations</th></tr></thead><tbody>${rows}</tbody></table>
+      <script>window.onload=()=>window.print()</script></body></html>`)
+    w.document.close()
+  }
+  const renderClasseTools = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+      <a href="/pedago-archive/" style={{ textDecoration: 'none' }}><div style={{ background: 'linear-gradient(135deg,#1AAFE0,#0d7fb0)', color: '#fff', borderRadius: 12, padding: '13px 14px', fontWeight: 700, fontSize: 13 }}>🗂️ Devoirs</div></a>
+      <a href="/rapports.html" style={{ textDecoration: 'none' }}><div style={{ background: 'linear-gradient(135deg,#F7941D,#d97706)', color: '#fff', borderRadius: 12, padding: '13px 14px', fontWeight: 700, fontSize: 13 }}>📄 Rapports hebdo</div></a>
+      <button onClick={printClassList} style={{ background: '#0d2a3b', color: '#fff', border: 'none', borderRadius: 12, padding: '13px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🖨️ Liste imprimable</button>
+      <button onClick={() => presMode ? setPresMode(false) : openPresence()} style={{ background: presMode ? '#8DC63F' : '#00B5B8', color: '#fff', border: 'none', borderRadius: 12, padding: '13px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{presMode ? '✓ Fermer présence' : '📋 Présence du jour'}</button>
+    </div>
+  )
+  const renderPresence = () => {
+    const els = getClasseEleves()
+    const B = (id, v, lb, c) => { const st = presData[id]?.statut; return (
+      <button onClick={() => setPresence(id, v)} style={{ flex: 1, border: 'none', borderRadius: 8, padding: '7px 0', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: st === v ? c : 'var(--bg)', color: st === v ? '#fff' : 'var(--muted)' }}>{lb}</button>) }
+    const nbP = els.filter(e => presData[e.id]?.statut === 'present').length
+    const nbR = els.filter(e => presData[e.id]?.statut === 'retard').length
+    const nbA = els.filter(e => presData[e.id]?.statut === 'absent').length
+    return (
+      <div style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ background: '#0d2a3b', color: '#fff', padding: '9px 14px', fontSize: 11, fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+          <span>PRÉSENCE — {new Date().toLocaleDateString('fr-FR')}</span>
+          <span>✅ {nbP} · 🟠 {nbR} · 🔴 {nbA}</span>
+        </div>
+        {els.length === 0 && <div style={{ padding: '1rem', fontSize: 13, color: 'var(--muted)' }}>Aucun élève dans cette classe.</div>}
+        {els.map(e => (
+          <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{e.prenom} {e.nom}</div>
+            <div style={{ display: 'flex', gap: 4, width: 195 }}>{B(e.id, 'present', 'Présent', '#3aa657')}{B(e.id, 'retard', 'Retard', '#e8850c')}{B(e.id, 'absent', 'Absent', '#e0453a')}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
 
   const analyzeWithGemini = async (base64Data, mimeType) => {
     const GEMINI_API_KEY = "";
@@ -743,7 +811,9 @@ export default function ProfApp({ user, onLogout }) {
           </>
         )}
 
-        {tab === 'classe' && (<><div className='section-head'><div className='section-title'>Stats de la classe</div></div>{(()=>{const cps=checkpoints.filter(cp=>{const matchNew=cp.classe_id===selectedClasse?.id;const p=planifications.find(pl=>pl.id===cp.planification_id);const matchOld=p&&p.classe_id===selectedClasse?.id;return matchNew||matchOld;}).sort((a,b)=>b.date_checkpoint.localeCompare(a.date_checkpoint));const gm=(id)=>{for(const cp of cps){const pr=cp.progressions.filter(p=>p.eleve_id===id);if(pr.length){const v=pr.map(p=>p.pourcentage);return Math.round(v.reduce((a,b)=>a+b,0)/v.length);}}return null;};const ps=selectedClasse?.nom==='Petite Section'||selectedClasse?.nom==='Grande Section';const lb=(p)=>ps?(p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut'):p+'%';const gc=(p)=>p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)';const el2=classEleves.map(e=>({...e,moy:gm(e.id)})).sort((a,b)=>(b.moy||0)-(a.moy||0));const mc=el2.filter(e=>e.moy!==null).length?Math.round(el2.filter(e=>e.moy!==null).reduce((a,e)=>a+(e.moy||0),0)/el2.filter(e=>e.moy!==null).length):0;return(<><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:16,fontWeight:900,color:gc(mc)}}>{lb(mc)}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{el2.filter(e=>e.moy!==null&&e.moy>=75).length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div></div></div><div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}><div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase'}}>Classement</div>{el2.map((e,i)=>{const m=e.moy;const c2=m!==null?gc(m):'var(--muted)';return(<div key={e.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:18}}>{i+1}</div><div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#fff',flexShrink:0}}>{(e.prenom[0]||'')+(e.nom[0]||'')}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div>{m!==null&&<div style={{background:'var(--bg)',borderRadius:20,height:4,marginTop:4}}><div style={{height:'100%',width:m+'%',background:c2,borderRadius:20}}></div></div>}</div><div style={{fontSize:13,fontWeight:900,color:c2}}>{m!==null?lb(m):'—'}</div></div>);})}</div></>);})()}</>)}        {tab === 'discipline' && (
+        {tab === 'classe' && renderClasseTools()}
+        {tab === 'classe' && presMode && renderPresence()}
+        {tab === 'classe' && !presMode && (<><div className='section-head'><div className='section-title'>Stats de la classe</div></div>{(()=>{const cps=checkpoints.filter(cp=>{const matchNew=cp.classe_id===selectedClasse?.id;const p=planifications.find(pl=>pl.id===cp.planification_id);const matchOld=p&&p.classe_id===selectedClasse?.id;return matchNew||matchOld;}).sort((a,b)=>b.date_checkpoint.localeCompare(a.date_checkpoint));const gm=(id)=>{for(const cp of cps){const pr=cp.progressions.filter(p=>p.eleve_id===id);if(pr.length){const v=pr.map(p=>p.pourcentage);return Math.round(v.reduce((a,b)=>a+b,0)/v.length);}}return null;};const ps=selectedClasse?.nom==='Petite Section'||selectedClasse?.nom==='Grande Section';const lb=(p)=>ps?(p>=87?'Bien acquis':p>=62?'Acquis':p>=37?'En cours':'Debut'):p+'%';const gc=(p)=>p>=75?'var(--green)':p>=50?'var(--amber)':'var(--red)';const el2=classEleves.map(e=>({...e,moy:gm(e.id)})).sort((a,b)=>(b.moy||0)-(a.moy||0));const mc=el2.filter(e=>e.moy!==null).length?Math.round(el2.filter(e=>e.moy!==null).reduce((a,e)=>a+(e.moy||0),0)/el2.filter(e=>e.moy!==null).length):0;return(<><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:'1rem'}}><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--accent)'}}>{classEleves.length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Eleves</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:16,fontWeight:900,color:gc(mc)}}>{lb(mc)}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Moy. classe</div></div><div style={{background:'var(--card)',borderRadius:12,border:'1px solid var(--border)',padding:'.8rem',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{el2.filter(e=>e.moy!==null&&e.moy>=75).length}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>En reussite</div></div></div><div style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}><div style={{background:'#0d2a3b',color:'#fff',padding:'8px 14px',fontSize:11,fontWeight:700,textTransform:'uppercase'}}>Classement</div>{el2.map((e,i)=>{const m=e.moy;const c2=m!==null?gc(m):'var(--muted)';return(<div key={e.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:'1px solid var(--border)'}}><div style={{fontSize:13,fontWeight:900,color:'var(--muted)',width:18}}>{i+1}</div><div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#0d2a3b,#1AAFE0)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#fff',flexShrink:0}}>{(e.prenom[0]||'')+(e.nom[0]||'')}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div>{m!==null&&<div style={{background:'var(--bg)',borderRadius:20,height:4,marginTop:4}}><div style={{height:'100%',width:m+'%',background:c2,borderRadius:20}}></div></div>}</div><div style={{fontSize:13,fontWeight:900,color:c2}}>{m!==null?lb(m):'—'}</div></div>);})}</div></>);})()}</>)}        {tab === 'discipline' && (
           <div className="section">
             <div className="section-head">
               <div className="section-title">⚖️ Discipline — Signaler un incident</div>

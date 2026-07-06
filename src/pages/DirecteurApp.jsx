@@ -600,8 +600,8 @@ export default function DirecteurApp({ user, onLogout }) {
               <a href="/rapports.html" style={{textDecoration:'none'}}>
                 <div style={{background:'linear-gradient(135deg,#F7941D,#d97706)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
                   <div style={{fontSize:28}} aria-hidden="true">📄</div>
-                  <div style={{fontWeight:700, marginTop:6}}>Rapports élèves</div>
-                  <div style={{fontSize:12, opacity:.85, marginTop:2}}>Rapports parents et suivi PDF des élèves</div>
+                  <div style={{fontWeight:700, marginTop:6}}>Rapports hebdomadaires élèves</div>
+                  <div style={{fontSize:12, opacity:.85, marginTop:2}}>Bulletin de suivi hebdomadaire à transmettre aux parents</div>
                 </div>
               </a>
             </div>
