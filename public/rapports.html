@@ -611,11 +611,13 @@ async function reportToBlob(){
   const stage=document.getElementById('report-stage');
   const prev=stage?stage.style.transform:'';
   if(stage){stage.style.transform='none';stage.style.height='auto';}
-  // s'assurer que le logo est chargé avant la capture
+  // s'assurer que le logo ET les polices sont chargés avant la capture (netteté)
   const img=el.querySelector('.rep-logo img');
   if(img && !img.complete){ await new Promise(r=>{img.onload=img.onerror=r;}); }
-  const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,
-    width:760,windowWidth:760});
+  if(document.fonts && document.fonts.ready){ try{ await document.fonts.ready; }catch(e){} }
+  const dpr=Math.max(3, window.devicePixelRatio||1);
+  const canvas=await html2canvas(el,{scale:dpr,backgroundColor:'#ffffff',useCORS:true,logging:false,
+    width:760,windowWidth:760,imageTimeout:0});
   if(stage){stage.style.transform=prev;fitReport();}
   return new Promise(res=>canvas.toBlob(res,'image/png',0.95));
 }
