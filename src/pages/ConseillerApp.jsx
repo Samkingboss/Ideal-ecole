@@ -158,6 +158,20 @@ export default function ConseillerApp({ user, onLogout }) {
     }
   }
 
+  // Absence : motif OBLIGATOIRE, 480 min de cours manqués (journée de 8h)
+  const markAbsent = async (eleveId) => {
+    const motif = prompt("Motif de l'absence (obligatoire) :\nEx : Maladie, Voyage, Rendez-vous, Non justifiée…")
+    if (motif === null) return
+    if (!motif.trim()) { alert("Le motif de l'absence est obligatoire."); return }
+    const today = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase.from('presences_eleves').upsert({
+      eleve_id: eleveId, date_jour: today, statut: 'absent',
+      heure_arrivee: null, heure_depart: null, retard_matin: 0, retard_soir: 0,
+      minutes_retard: 480, justification: motif.trim()
+    }, { onConflict: 'eleve_id, date_jour' }).select().single()
+    if (data) setPresences(prev => ({ ...prev, [eleveId]: data }))
+  }
+
   // Pointage par heures : la plateforme calcule les retards automatiquement
   const savePointage = async (eleveId, patch) => {
     const today = new Date().toISOString().slice(0, 10)
@@ -419,8 +433,14 @@ export default function ConseillerApp({ user, onLogout }) {
                       </label>
                     </div>
                   )}
+                  {absent && (
+                    <div style={{fontSize:12, color:'var(--red)', fontWeight:600, marginBottom:8}}>
+                      🔴 <b>480 min</b> de cours manqués (journée de 8h)<br/>
+                      <span style={{color:'var(--muted)', fontWeight:400}}>Motif : {p.justification || '—'}</span>
+                    </div>
+                  )}
                   <button className="btn-sm" style={{width:'100%', background:absent?'var(--red)':'#eee', color:absent?'#fff':'#333'}}
-                    onClick={()=> absent ? savePointage(el.id,{statut:'present',heure_arrivee:'',heure_depart:''}) : savePointage(el.id,{statut:'absent',heure_arrivee:'',heure_depart:''})}>
+                    onClick={()=> absent ? savePointage(el.id,{statut:'present',heure_arrivee:'',heure_depart:''}) : markAbsent(el.id)}>
                     {absent ? '↩ Annuler l\'absence' : '✕ Marquer absent'}
                   </button>
                 </div>

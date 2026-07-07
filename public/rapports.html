@@ -260,6 +260,20 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
         <input type="number" id="ed-retard-soir" min="0" placeholder="0"></div>
     </div>
 
+    <div class="field">
+      <label>Motif des retards / de l'absence</label>
+      <select id="ed-motif-type">
+        <option value="ras">— Aucun / RAS</option>
+        <option value="maladie">🤒 Maladie</option>
+        <option value="logistique">⏰ Retard logistique (dépôt tardif)</option>
+        <option value="autre">Sans motif / autre</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Précision (facultatif)</label>
+      <input type="text" id="ed-motif" placeholder="Ex : fièvre, embouteillage…">
+    </div>
+
     <div class="grp-title">📚 Travail & devoirs</div>
     <div class="field">
       <label>Devoirs de maison de la semaine</label>
@@ -510,6 +524,8 @@ function openEditor(key){
   g('ed-week', r.week || new Date().toISOString().slice(0,10));
   g('ed-retard-matin', r.retardMatin!=null?r.retardMatin:'');
   g('ed-retard-soir', r.retardSoir!=null?r.retardSoir:'');
+  g('ed-motif-type', r.motifType||'ras');
+  g('ed-motif', r.motif||'');
   g('ed-devoirs', r.devoirs||'tous');
   g('ed-devoir-venir', r.devoirVenir||'');
   g('ed-punitions', r.punitions!=null?r.punitions:'');
@@ -528,6 +544,7 @@ function collectReport(){
     studentName:CURRENT.name, classe:CURRENT.classe,
     week:v('ed-week'),
     retardMatin:num('ed-retard-matin'), retardSoir:num('ed-retard-soir'),
+    motifType:v('ed-motif-type'), motif:v('ed-motif'),
     devoirs:v('ed-devoirs'), devoirVenir:v('ed-devoir-venir'),
     punitions:num('ed-punitions'), incidents:v('ed-incidents'),
     meilleure:v('ed-meilleure'), faible:v('ed-faible'),
@@ -563,6 +580,22 @@ function fitReport(){
   stage.style.width='760px';
 }
 window.addEventListener('resize',()=>{if(document.getElementById('screen-report').classList.contains('active'))fitReport();});
+// Message conditionnel selon le motif des retards / absence
+function motifBloc(r){
+  const prenom=(r.studentName||'').split(' ')[0];
+  const detail=r.motif?`<div style="font-size:.85rem;color:#5a6b7a;margin-top:3px">Motif indiqué : ${esc(r.motif)}</div>`:'';
+  let msg='', bg='#eaf6fc', bd='#c5e6f4', col='#12466b';
+  if(r.motifType==='maladie'){
+    msg=`🤒 L'École IDEAL souhaite un prompt et bon rétablissement à ${esc(prenom)}.`;
+    bg='#eaf6fc';bd='#c5e6f4';col='#12466b';
+  } else if(r.motifType==='logistique'||r.motifType==='autre'){
+    msg=`⏰ L'École IDEAL invite les parents à veiller à déposer et récupérer l'enfant aux horaires (8h00 – 16h00), dans l'intérêt de sa scolarité.`;
+    bg='#fdf1e3';bd='#f6dcb4';col='#8a5a12';
+  } else if(!r.motif){ return ''; }
+  if(!msg && !detail) return '';
+  return `<div style="margin-top:10px;background:${bg};border:1px solid ${bd};border-radius:10px;padding:11px 14px">
+    ${msg?`<div style="font-size:.95rem;font-weight:600;color:${col}">${msg}</div>`:''}${detail}</div>`;
+}
 function renderReport(r){
   const tile=(val,unit,label)=>{
     const cls=val===0?'tile-ok':(val<=10?'tile-warn':'tile-bad');
@@ -596,7 +629,7 @@ function renderReport(r){
         ${tile(r.retardMatin,'min','Retard matin (8h)')}
         ${tile(r.retardSoir,'min','Retard départ (16h)')}
         <div class="rep-tile ${punCls}"><div class="tv">${r.punitions}</div><div class="tl">Punitions</div></div>
-      </div>`)}
+      </div>${motifBloc(r)}`)}
 
       ${sec('g','📚','Travail & devoirs',`
         <div><span class="rep-badge ${db[0]}">${db[1]}</span></div>
