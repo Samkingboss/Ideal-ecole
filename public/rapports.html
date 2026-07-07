@@ -249,7 +249,8 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
 
     <div class="field">
       <label>Semaine du</label>
-      <input type="date" id="ed-week">
+      <input type="date" id="ed-week" onchange="reloadPointage()">
+      <div id="pointage-badge" class="hint" style="color:#0d7fb0"></div>
     </div>
 
     <div class="grp-title">⏱️ Assiduité & ponctualité</div>
@@ -318,7 +319,10 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
     </div>
 
     <div class="sticky-actions">
-      <button class="btn btn-primary" onclick="openReport()"><span>Voir le rapport</span></button>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="saveOnly()">💾 Enregistrer</button>
+        <button class="btn btn-primary" onclick="openReport()">Voir le rapport</button>
+      </div>
     </div>
   </div>
 </section>
@@ -369,6 +373,40 @@ async function ensureLogo(){
   return LOGO_DATA;
 }
 ensureLogo();
+
+// Bornes ISO (lundi → vendredi) de la semaine
+function weekBoundsISO(iso){
+  const d=iso?new Date(iso+'T00:00:00'):new Date();
+  const day=d.getDay();
+  const lundi=new Date(d);lundi.setDate(d.getDate()-((day+6)%7));
+  const vendredi=new Date(lundi);vendredi.setDate(lundi.getDate()+4);
+  const f=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  return {monday:f(lundi),friday:f(vendredi)};
+}
+// Pré-remplit retards/absences depuis le pointage (table presences_eleves) pour la semaine
+async function loadPointageForCurrent(){
+  const badge=document.getElementById('pointage-badge');
+  if(!CURRENT || !CURRENT.key.startsWith('el:')){ if(badge)badge.textContent=''; return; }
+  const eleveId=CURRENT.key.slice(3);
+  const {monday,friday}=weekBoundsISO(document.getElementById('ed-week').value);
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/presences_eleves?eleve_id=eq.'+encodeURIComponent(eleveId)+'&date_jour=gte.'+monday+'&date_jour=lte.'+friday+'&select=*',{headers:H});
+    if(!r.ok)return;
+    const rows=await r.json();
+    if(!rows.length){ if(badge)badge.textContent='Aucun pointage enregistré cette semaine.'; return; }
+    let rm=0,rs=0,abs=0;const motifs=[];
+    rows.forEach(p=>{rm+=p.retard_matin||0;rs+=p.retard_soir||0;if(p.statut==='absent'){abs++;if(p.justification)motifs.push(p.justification);}});
+    document.getElementById('ed-retard-matin').value=rm;
+    document.getElementById('ed-retard-soir').value=rs;
+    if(abs>0){
+      const mt=motifs.join(' ; ');
+      if(!document.getElementById('ed-motif').value) document.getElementById('ed-motif').value=mt||(abs+' absence(s)');
+      if(document.getElementById('ed-motif-type').value==='ras') document.getElementById('ed-motif-type').value=/malad/i.test(mt)?'maladie':'autre';
+    }
+    if(badge)badge.textContent='⏱️ Pré-rempli depuis le pointage ('+rows.length+' j) : matin '+rm+' min · départ '+rs+' min'+(abs?' · '+abs+' absence(s)':'');
+  }catch(e){}
+}
+window.reloadPointage=loadPointageForCurrent;
 
 // Plage de la semaine (lundi → vendredi) au format "Du jj/mm/aaaa au jj/mm/aaaa"
 function weekRange(iso){
@@ -535,6 +573,7 @@ function openEditor(key){
   g('ed-general', r.general||'');
   g('ed-maison', r.maison||'');
   showScreen('screen-edit','Rapport hebdomadaire',CURRENT.name);
+  loadPointageForCurrent(); // remonte les retards/absences du pointage
 }
 
 function collectReport(){
@@ -559,6 +598,21 @@ const DEVOIRS_BADGE={
   tous:['rb-g','Tous les devoirs traités'], partiel:['rb-a','Devoirs en partie traités'],
   non:['rb-r','Devoirs non traités'], aucun:['rb-n','Aucun devoir cette semaine']
 };
+function toast(msg){
+  let t=document.getElementById('_toast');
+  if(!t){t=document.createElement('div');t.id='_toast';
+    t.style.cssText='position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#0d2a3b;color:#fff;padding:10px 18px;border-radius:99px;font-weight:700;font-size:.9rem;z-index:5000;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;transition:opacity .2s';
+    document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._h);t._h=setTimeout(()=>{t.style.opacity='0';},1600);
+}
+function saveOnly(){
+  const r=collectReport();
+  REPORTS[CURRENT.key]=r;
+  saveReport(CURRENT.key,r);
+  const b=document.querySelector('.st-row[onclick*="'+CURRENT.key+'"]');
+  toast('Rapport enregistré ✓');
+}
 function openReport(){
   const r=collectReport();
   REPORTS[CURRENT.key]=r;
