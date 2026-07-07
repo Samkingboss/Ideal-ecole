@@ -527,7 +527,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
 
         {tab === 'agenda' && (
-          <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} />
+          <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} anniversaires={eleves} />
         )}
 
 

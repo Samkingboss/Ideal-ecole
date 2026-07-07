@@ -1,5 +1,21 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import AgendaCalendrier from './AgendaCalendrier'
+
+// Horaires officiels : arrivée 08h00, départ 16h00
+const timeToMin = t => { if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m }
+const retardMatin = ha => { const v = timeToMin(ha); return v == null ? 0 : Math.max(0, v - 480) }  // 8h00
+const retardSoir  = hd => { const v = timeToMin(hd); return v == null ? 0 : Math.max(0, v - 960) }  // 16h00
+
+// Jours restants avant le prochain anniversaire (récurrent)
+const joursAvantAnniv = (dn) => {
+  if (!dn) return null
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const [ , mm, jj] = dn.split('-').map(Number)
+  let next = new Date(now.getFullYear(), mm - 1, jj)
+  if (next < now) next = new Date(now.getFullYear() + 1, mm - 1, jj)
+  return Math.round((next - now) / 86400000)
+}
 
 export default function ConseillerApp({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard')
@@ -142,6 +158,25 @@ export default function ConseillerApp({ user, onLogout }) {
     }
   }
 
+  // Pointage par heures : la plateforme calcule les retards automatiquement
+  const savePointage = async (eleveId, patch) => {
+    const today = new Date().toISOString().slice(0, 10)
+    const cur = presences[eleveId] || {}
+    const heure_arrivee = patch.heure_arrivee !== undefined ? patch.heure_arrivee : (cur.heure_arrivee || '')
+    const heure_depart  = patch.heure_depart  !== undefined ? patch.heure_depart  : (cur.heure_depart  || '')
+    const rm = retardMatin(heure_arrivee), rs = retardSoir(heure_depart)
+    let statut = patch.statut
+    if (!statut) statut = heure_arrivee ? (rm > 0 ? 'retard' : 'present') : (cur.statut || 'present')
+    const row = {
+      eleve_id: eleveId, date_jour: today, statut,
+      heure_arrivee: heure_arrivee || null, heure_depart: heure_depart || null,
+      retard_matin: rm, retard_soir: rs, minutes_retard: rm + rs
+    }
+    const { data, error } = await supabase.from('presences_eleves').upsert(row, { onConflict: 'eleve_id, date_jour' }).select().single()
+    if (!error && data) setPresences(prev => ({ ...prev, [eleveId]: data }))
+    else if (error) alert('Erreur : ' + error.message)
+  }
+
   const generateCartography = (eleve, toGroup = false) => {
     try {
       const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -264,9 +299,13 @@ export default function ConseillerApp({ user, onLogout }) {
           <div className="nav-icon" aria-hidden="true">⏰</div>
           <span>Pointage</span>
         </button>
-        <button className={`nav-item ${tab==='bilans'?'active':''}`} onClick={()=>setTab('bilans')} aria-label="Envoi des bilans quotidiens">
-          <div className="nav-icon" aria-hidden="true">📱</div>
-          <span>Bilans</span>
+        <button className={`nav-item ${tab==='agenda'?'active':''}`} onClick={()=>setTab('agenda')} aria-label="Agenda et anniversaires">
+          <div className="nav-icon" aria-hidden="true">📅</div>
+          <span>Agenda</span>
+        </button>
+        <button className={`nav-item ${tab==='rapports'?'active':''}`} onClick={()=>setTab('rapports')} aria-label="Rapports hebdomadaires">
+          <div className="nav-icon" aria-hidden="true">📄</div>
+          <span>Rapports</span>
         </button>
         <button className={`nav-item ${tab==='retards'?'active':''}`} onClick={()=>setTab('retards')} aria-label="Bilan des retards trimestriels">
           <div className="nav-icon" aria-hidden="true">📊</div>
@@ -278,6 +317,23 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'dashboard' && (
           <>
             <div className="section-head"><div className="section-title">Tableau de Bord</div></div>
+            {(() => {
+              const proch = eleves
+                .map(e => ({ e, j: joursAvantAnniv(e.date_naissance) }))
+                .filter(x => x.j !== null && x.j <= 5)
+                .sort((a, b) => a.j - b.j)
+              if (!proch.length) return null
+              return (
+                <div style={{background:'linear-gradient(135deg,#EC008C,#b8005f)', color:'#fff', borderRadius:14, padding:'14px 16px', marginBottom:16}}>
+                  <div style={{fontWeight:800, fontSize:14, marginBottom:6}}>🎂 Anniversaires à venir (5 jours)</div>
+                  {proch.map(({e, j}) => (
+                    <div key={e.id} style={{fontSize:12, opacity:.95, marginTop:3}}>
+                      {e.prenom} {e.nom} — {j === 0 ? "aujourd'hui 🎉" : j === 1 ? 'demain' : `dans ${j} jours`}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
               <div className="kpi-card kpi-accent">
                 <div className="kpi-value">{eleves.length}</div>
@@ -328,84 +384,94 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'pointage' && (
           <>
             <div className="section-head">
-              <div className="section-title">Pointage & Retards</div>
+              <div className="section-title">Pointage (arrivée / départ)</div>
               <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
               </select>
             </div>
+            <div style={{fontSize:11, color:'var(--muted)', margin:'-6px 0 12px'}}>
+              Horaires : arrivée <b>08h00</b> · départ <b>16h00</b>. Les minutes de retard sont calculées automatiquement.
+            </div>
             {eleves.filter(e => e.classe_id === selectedClass).map(el => {
               const p = presences[el.id] || {}
+              const rm = p.retard_matin ?? retardMatin(p.heure_arrivee)
+              const rs = p.retard_soir ?? retardSoir(p.heure_depart)
+              const absent = p.statut === 'absent'
               return (
                 <div key={el.id} className="card" style={{marginBottom:10, padding:12}}>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
                     <div style={{fontWeight:700}}>{el.prenom} {el.nom}</div>
-                    <div className={`chip ${p.statut==='present'?'chip-green':p.statut==='absent'?'chip-red':p.statut==='retard'?'chip-amber':''}`}>{p.statut || 'Non pointé'}</div>
+                    <div className={`chip ${absent?'chip-red':(rm>0||rs>0)?'chip-amber':p.heure_arrivee?'chip-green':''}`}>
+                      {absent ? 'Absent' : (rm>0||rs>0) ? `Retard ${rm+rs}'` : p.heure_arrivee ? 'À l\'heure' : 'Non pointé'}
+                    </div>
                   </div>
-                  <div style={{display:'flex', gap:6}}>
-                    <button className="btn-sm" style={{flex:1, background:p.statut==='present'?'var(--green)':'#eee', color:p.statut==='present'?'#fff':'#333'}} onClick={()=>markPresence(el.id,'present')}>P</button>
-                    <button className="btn-sm" style={{flex:1, background:p.statut==='absent'?'var(--red)':'#eee', color:p.statut==='absent'?'#fff':'#333'}} onClick={()=>{
-                      const motif = prompt('Motif de l\'absence ? (Laisser vide si non justifiée)')
-                      markPresence(el.id, 'absent', 0, motif)
-                    }}>A</button>
-                    <button className="btn-sm" style={{flex:1, background:p.statut==='retard'?'var(--amber)':'#eee', color:p.statut==='retard'?'#fff':'#333'}} onClick={()=>{
-                      const now = new Date()
-                      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0)
-                      const diff = Math.max(0, Math.floor((now - start) / 60000))
-                      const ms = prompt('Minutes de retard ?', diff)
-                      if (ms !== null) markPresence(el.id, 'retard', parseInt(ms, 10) || 0)
-                    }}>R {p.statut==='retard' ? `(${p.minutes_retard || 0}')` : ''}</button>
-                  </div>
+                  {!absent && (
+                    <div style={{display:'flex', gap:10, marginBottom:8}}>
+                      <label style={{flex:1, fontSize:11, color:'var(--muted)'}}>Arrivée (8h)
+                        <input type="time" className="form-input" style={{marginTop:3}} value={p.heure_arrivee||''}
+                          onChange={e=>savePointage(el.id,{heure_arrivee:e.target.value})}/>
+                        {rm>0 && <span style={{color:'var(--red)', fontWeight:700}}>+{rm} min</span>}
+                      </label>
+                      <label style={{flex:1, fontSize:11, color:'var(--muted)'}}>Départ (16h)
+                        <input type="time" className="form-input" style={{marginTop:3}} value={p.heure_depart||''}
+                          onChange={e=>savePointage(el.id,{heure_depart:e.target.value})}/>
+                        {rs>0 && <span style={{color:'var(--red)', fontWeight:700}}>+{rs} min</span>}
+                      </label>
+                    </div>
+                  )}
+                  <button className="btn-sm" style={{width:'100%', background:absent?'var(--red)':'#eee', color:absent?'#fff':'#333'}}
+                    onClick={()=> absent ? savePointage(el.id,{statut:'present',heure_arrivee:'',heure_depart:''}) : savePointage(el.id,{statut:'absent',heure_arrivee:'',heure_depart:''})}>
+                    {absent ? '↩ Annuler l\'absence' : '✕ Marquer absent'}
+                  </button>
                 </div>
               )
             })}
           </>
         )}
 
-        {tab === 'bilans' && (
+        {tab === 'agenda' && (
+          <AgendaCalendrier checkpoints={checkpoints} anniversaires={eleves} />
+        )}
+
+        {tab === 'rapports' && (
           <>
-            <div className="section-head">
-              <div className="section-title">Bilans (Informations du jour)</div>
+            <div className="section-head"><div className="section-title">Rapports hebdomadaires</div></div>
+            <a href="/rapports.html" style={{textDecoration:'none'}}>
+              <div style={{background:'linear-gradient(135deg,#F7941D,#d97706)', color:'#fff', borderRadius:16, padding:'18px 18px', marginBottom:16}}>
+                <div style={{fontSize:26}}>📄</div>
+                <div style={{fontWeight:800, fontSize:16, marginTop:6}}>Composer les rapports</div>
+                <div style={{fontSize:12, opacity:.9, marginTop:2}}>Bulletin hebdomadaire de chaque élève, transmis via IDEAL — le même outil que la direction.</div>
+              </div>
+            </a>
+
+            <div className="section-head"><div className="section-title">Regard sur les élèves</div>
               <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
               </select>
             </div>
-            
-            <div style={{fontSize:11, color:'var(--muted)', marginBottom:15, padding:'0 5px'}}>
-              Note: Seuls les élèves ayant eu un événement (Retard, Absence, Discipline ou Note) s'affichent ici.
-            </div>
-
-            {eleves.filter(e => e.classe_id === selectedClass && hasDailyInfo(e)).length === 0 ? (
-              <div className="card" style={{padding:'2rem', textAlign:'center', color:'var(--muted)', borderRadius:16, border:'1px dashed var(--border)'}}>
-                Aucun élève à bilan pour cette classe aujourd'hui. ✅
-              </div>
-            ) : (
-              eleves.filter(e => e.classe_id === selectedClass && hasDailyInfo(e)).map(el => (
-                <div key={el.id} className="card" style={{marginBottom:10, padding:12, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:800}}>{el.prenom} {el.nom}</div>
-                    <div style={{display:'flex', gap:6, marginTop:4}}>
-                      {presences[el.id]?.statut !== 'present' && presences[el.id] && (
-                        <span style={{fontSize:8, background:'rgba(237,28,36,0.1)', color:'var(--red)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS PRESENCE</span>
-                      )}
-                      {disciplines.some(d => d.eleve_id === el.id) && (
-                        <span style={{fontSize:8, background:'rgba(247,148,29,0.1)', color:'var(--amber)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS DISCIPLINE</span>
-                      )}
-                      {checkpoints.some(cp => cp.progressions?.some(p => p.eleve_id === el.id)) && (
-                        <span style={{fontSize:8, background:'rgba(141,198,63,0.1)', color:'var(--green)', padding:'2px 4px', borderRadius:4, fontWeight:700}}>INFOS NOTES</span>
-                      )}
+            {eleves.filter(e => e.classe_id === selectedClass).map(el => {
+              const p = presences[el.id] || {}
+              const jr = joursAvantAnniv(el.date_naissance)
+              const nbDisc = disciplines.filter(d => d.eleve_id === el.id).length
+              return (
+                <div key={el.id} className="card" style={{marginBottom:8, padding:12}}>
+                  <div style={{display:'flex', alignItems:'center', gap:10}}>
+                    <div className="avatar av-blue">{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800, fontSize:14}}>{el.prenom} {el.nom}</div>
+                      <div style={{fontSize:11, color:'var(--muted)'}}>{classes.find(c=>c.id===el.classe_id)?.nom} · {el.parent_phone||'—'}</div>
                     </div>
+                    {el.date_naissance && <span style={{fontSize:10, fontWeight:700, color:'#EC008C'}}>🎂 {jr===0?"aujourd'hui":`J-${jr}`}</span>}
                   </div>
-                  <button 
-                    className="btn-sm" 
-                    style={{background:'#34B7F1', color:'#fff', border:'none', borderRadius:10, height:38, padding:'0 20px', fontSize:12, fontWeight:700}} 
-                    onClick={()=>generateCartography(el, true)}
-                    title="Partager dans le groupe de l'élève"
-                  >
-                    Envoyer 👥
-                  </button>
+                  <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'wrap'}}>
+                    <span className={`chip ${p.statut==='absent'?'chip-red':(p.retard_matin>0||p.retard_soir>0)?'chip-amber':p.heure_arrivee?'chip-green':''}`} style={{fontSize:10}}>
+                      {p.statut==='absent'?'Absent':(p.minutes_retard>0)?`Retard ${p.minutes_retard}'`:p.heure_arrivee?'Présent':'Non pointé'}
+                    </span>
+                    {nbDisc>0 && <span className="chip chip-amber" style={{fontSize:10}}>{nbDisc} incident(s)</span>}
+                  </div>
                 </div>
-              ))
-            )}
+              )
+            })}
           </>
         )}
 

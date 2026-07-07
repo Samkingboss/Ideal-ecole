@@ -564,7 +564,7 @@ export default function ProfApp({ user, onLogout }) {
 
       <div className="page-content">
         {tab === 'agenda' && (
-          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} />
+          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} anniversaires={eleves} />
         )}
 
         {/* Filters */}

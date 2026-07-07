@@ -37,7 +37,15 @@ const isFerie = d => JOURS_FERIES.find(f => f.date === d)
 const isVacance = d => VACANCES.find(v => d >= v.debut && d <= v.fin)
 const getPeriode = d => PERIODES.find(p => d >= p.debut && d <= p.fin)
 
-export default function AgendaCalendrier({ checkpoints }) {
+export default function AgendaCalendrier({ checkpoints, anniversaires = [] }) {
+  // Anniversaires récurrents (clé MM-JJ)
+  const annivMap = {}
+  ;(anniversaires || []).forEach(a => {
+    if (!a.date_naissance) return
+    const mmjj = a.date_naissance.slice(5, 10)
+    ;(annivMap[mmjj] = annivMap[mmjj] || []).push(((a.prenom || '') + ' ' + (a.nom || '')).trim())
+  })
+  const getAnnivs = ds => annivMap[ds.slice(5, 10)] || []
   const today = new Date()
   const todayISO0 = toStr(today.getFullYear(), today.getMonth(), today.getDate())
   // Avant la rentree, on ouvre le calendrier sur le mois du prochain evenement
@@ -102,13 +110,15 @@ export default function AgendaCalendrier({ checkpoints }) {
             const isToday = ds === todayStr
             const hasCp = cpDates.includes(ds)
             const ev = isEvent(ds)
+            const annivs = getAnnivs(ds)
             const bg = ev ? 'rgba(126,87,194,.12)' : vac ? 'rgba(237,28,36,.08)' : per ? per.color+'18' : 'var(--card)'
             const col = ferie ? '#EC008C' : vac ? '#ED1C24' : 'var(--text)'
             return (
-              <div key={d} onClick={()=>setSelected({ds,ferie,vac,per,hasCp,ev})}
+              <div key={d} onClick={()=>setSelected({ds,ferie,vac,per,hasCp,ev,annivs})}
                 style={{background:bg,padding:'6px 4px',textAlign:'center',cursor:'pointer',border:isToday?'2px solid var(--accent)':ev?'2px solid #7E57C2':'2px solid transparent',borderRadius:4}}>
                 <div style={{fontSize:12,fontWeight:isToday||ev?900:400,color:col}}>{d}</div>
                 {ev && <div style={{fontSize:9,lineHeight:1,marginTop:1}}>{ev.icon}</div>}
+                {annivs.length>0 && <div style={{fontSize:9,lineHeight:1,marginTop:1}}>🎂</div>}
                 {hasCp && <div style={{width:5,height:5,borderRadius:'50%',background:'#F7941D',margin:'2px auto 0'}}></div>}
                 {ferie && !ev && <div style={{width:5,height:5,borderRadius:'50%',background:'#EC008C',margin:'2px auto 0'}}></div>}
               </div>
@@ -122,11 +132,12 @@ export default function AgendaCalendrier({ checkpoints }) {
             {new Date(selected.ds+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
           </div>
           {selected.ev && <div style={{fontSize:13,color:'#7E57C2',fontWeight:700,marginBottom:4}}>{selected.ev.icon} {selected.ev.label}</div>}
+          {selected.annivs && selected.annivs.length>0 && <div style={{fontSize:12,color:'#EC008C',fontWeight:700,marginBottom:4}}>🎂 Anniversaire : {selected.annivs.join(', ')}</div>}
           {selected.ferie && <div style={{fontSize:12,color:'#EC008C',fontWeight:600,marginBottom:4}}>Jour ferie : {selected.ferie.label}</div>}
           {selected.vac && <div style={{fontSize:12,color:'#ED1C24',fontWeight:600,marginBottom:4}}>{selected.vac.label}</div>}
           {selected.per && <div style={{fontSize:12,color:selected.per.color,fontWeight:600,marginBottom:4}}>{selected.per.label}</div>}
           {selected.hasCp && <div style={{fontSize:12,color:'#F7941D',fontWeight:600}}>Check-point enregistre ce jour</div>}
-          {!selected.ev && !selected.ferie && !selected.vac && !selected.per && !selected.hasCp && (
+          {!selected.ev && !(selected.annivs&&selected.annivs.length) && !selected.ferie && !selected.vac && !selected.per && !selected.hasCp && (
             <div style={{fontSize:12,color:'var(--muted)'}}>Hors annee scolaire</div>
           )}
         </div>
