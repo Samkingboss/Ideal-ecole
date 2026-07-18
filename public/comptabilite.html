@@ -802,7 +802,7 @@
       <div class="sec-h">
         <div>
           <div class="sec-title">Détail des Salaires</div>
-          <div class="sec-sub">✏️ Modifiez chaque salaire — le total se met à jour automatiquement</div>
+          <div class="sec-sub">✏️ Modifiez chaque salaire — le total se met à jour automatiquement. La <b>liste des postes</b> se gère dans le portail directeur (Équipe → 💼 Postes & salaires) et se synchronise ici.</div>
         </div>
       </div>
       <div class="card" style="overflow:hidden;">
@@ -4184,6 +4184,12 @@ function syncSalaires() {
   const display = document.getElementById('tot-chg-display');
   if (display) display.textContent = fc(charges.reduce((s,c)=>s+c.montant,0));
   recalculate();
+
+  // Resynchroniser le référentiel partagé (portail directeur) après modification des montants
+  if (typeof savePostesCloud === 'function') {
+    clearTimeout(_postesDebounce);
+    _postesDebounce = setTimeout(savePostesCloud, 2000);
+  }
 }
 
 function renderSalairesTable() {
@@ -6531,6 +6537,32 @@ const _SUPA_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
 const _SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
 const _supa = window.supabase.createClient(_SUPA_URL, _SUPA_KEY);
 
+// ─── Référentiel Postes & salaires partagé avec le portail directeur (app_state rh/postes) ───
+let _postesDebounce = null;
+function _posteSlug(label) {
+  return (label || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'poste-' + Date.now();
+}
+async function loadPostesCloud() {
+  try {
+    const { data, error } = await _supa.from('app_state').select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle();
+    if (error) { console.error('⚠️ Postes cloud:', error.message); return; }
+    if (data && Array.isArray(data.value) && data.value.length) {
+      SALAIRES_DETAIL = data.value.map(p => ({ id: p.id, poste: p.label, mensuel: parseInt(p.mensuel) || 0, commentaire: p.commentaire || '' }));
+      console.log('☁️ Référentiel postes chargé (' + SALAIRES_DETAIL.length + ' postes)');
+    } else {
+      await savePostesCloud(); // Premier lancement : on seede le référentiel depuis la liste locale
+    }
+  } catch (e) { console.error('⚠️ Postes cloud:', e); }
+}
+async function savePostesCloud() {
+  const value = SALAIRES_DETAIL.map(s => ({ id: s.id || _posteSlug(s.poste), label: s.poste, mensuel: parseInt(s.mensuel) || 0, commentaire: s.commentaire || '' }));
+  try {
+    const { error } = await _supa.from('app_state').upsert(
+      { app: 'rh', key: 'postes', value, updated_at: new Date().toISOString() }, { onConflict: 'app,key' });
+    if (error) console.error('⚠️ Sync postes:', error.message);
+  } catch (e) { console.error('⚠️ Sync postes:', e); }
+}
+
 let _supaDebounce = null;
 async function saveToSupabase(state) {
   try {
@@ -6771,9 +6803,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   } else {
     autoLoad(); // Fallback localStorage
   }
+  // Le référentiel Postes & salaires du portail directeur fait foi sur la liste des postes
+  await loadPostesCloud();
   renderChargesTable();
   renderCantineChargesTable();
   renderSalairesTable();
+  syncSalaires();                 // aligne la charge « salaires » sur le référentiel chargé
+  clearTimeout(_postesDebounce);  // pas d'écho cloud au simple chargement
   recalculate();
 
   // ─── Module Comptabilité ───

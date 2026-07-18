@@ -17,6 +17,31 @@ const TOP_TABS = [
   { id:'pedagogie', icon:'📚', label:'Pédagogie' },
 ]
 
+// Référentiel par défaut des postes (seed si app_state rh/postes est vide).
+// Doit rester aligné avec SALAIRES_DETAIL de public/comptabilite.html.
+const DEFAULT_POSTES = [
+  { id:'directeur',              label:'Directeur',                       mensuel:400000, commentaire:'Direction générale' },
+  { id:'resp-administratif',     label:'Responsable administratif',       mensuel:150000, commentaire:'Secrétariat et suivi' },
+  { id:'conseillere-vie-scol',   label:'Conseillère de vie scolaire',     mensuel:75000,  commentaire:'' },
+  { id:'surveillant',            label:'Surveillant(e)',                  mensuel:75000,  commentaire:'Sécurité et discipline' },
+  { id:'menageres',              label:'Ménagères (× 3)',                 mensuel:150000, commentaire:'50 000 FCFA × 3' },
+  { id:'gardien',                label:'Gardien',                         mensuel:30000,  commentaire:'Sécurité nocturne' },
+  { id:'maitresse-fr-mat',       label:'Maîtresse Français (Maternelle)', mensuel:125000, commentaire:'' },
+  { id:'maitresse-en-mat',       label:'Maîtresse Anglais (Maternelle)',  mensuel:125000, commentaire:'' },
+  { id:'assistante-fr-mat',      label:'Assistante Français (Mater.)',    mensuel:75000,  commentaire:'' },
+  { id:'assistante-en-mat',      label:'Assistante Anglais (Mater.)',     mensuel:75000,  commentaire:'' },
+  { id:'maitre-fr-cp',           label:'Maître Français (CP1-CP2)',       mensuel:125000, commentaire:'Cours bilingue CP' },
+  { id:'maitre-en-cp',           label:'Maître Anglais (CP1-CP2)',        mensuel:125000, commentaire:'Cours bilingue CP' },
+  { id:'maitre-fr-ce',           label:'Maître Français (CE1-CE2)',       mensuel:125000, commentaire:'Cours bilingue CE' },
+  { id:'maitre-en-ce',           label:'Maître Anglais (CE1-CE2)',        mensuel:125000, commentaire:'Cours bilingue CE' },
+  { id:'maitre-fr-cm',           label:'Maître Français (CM1-CM2)',       mensuel:125000, commentaire:'Cours bilingue CM' },
+  { id:'maitre-en-cm',           label:'Maître Anglais (CM1-CM2)',        mensuel:125000, commentaire:'Cours bilingue CM' },
+  { id:'remun-associe',          label:'Rémunération Associé',            mensuel:250000, commentaire:'Retour sur investissement – Associé' },
+  { id:'remun-directeur',        label:'Rémunération Directeur',          mensuel:100000, commentaire:'Retour sur investissement – Directeur' },
+]
+
+const fmtFCFA = n => (parseInt(n, 10) || 0).toLocaleString('fr-FR') + ' FCFA'
+
 export default function DirecteurApp({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard')
   const [stats, setStats] = useState({ profs:0, eleves:0, checkpoints:0 })
@@ -40,6 +65,8 @@ export default function DirecteurApp({ user, onLogout }) {
   const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
   const [activeEleveClass, setActiveEleveClass] = useState(null)
   const [disciplines, setDisciplines] = useState([])
+  const [postes, setPostes] = useState(DEFAULT_POSTES)
+  const [posteDraft, setPosteDraft] = useState([])
 
   useEffect(() => { loadData() }, [])
 
@@ -106,9 +133,35 @@ export default function DirecteurApp({ user, onLogout }) {
         analysis.push({ classe: c.nom, stats: matStats })
       })
       setSyntheseData(analysis)
+
+      // Référentiel Postes & salaires (partagé avec la comptabilité via app_state rh/postes)
+      const { data: rhPostes } = await supabase.from('app_state')
+        .select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle()
+      if (Array.isArray(rhPostes?.value) && rhPostes.value.length > 0) setPostes(rhPostes.value)
     } catch (e) {
       console.error('Error loading data:', e)
     }
+  }
+
+  const savePostes = async () => {
+    const cleaned = posteDraft
+      .filter(p => (p.label || '').trim())
+      .map(p => ({
+        id: p.id || (p.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'poste-' + Date.now()),
+        label: p.label.trim(),
+        mensuel: parseInt(p.mensuel, 10) || 0,
+        commentaire: (p.commentaire || '').trim()
+      }))
+    setLoading(true)
+    const { error } = await supabase.from('app_state').upsert(
+      { app: 'rh', key: 'postes', value: cleaned, updated_at: new Date().toISOString() },
+      { onConflict: 'app,key' }
+    )
+    setLoading(false)
+    if (error) { setMsg('Erreur: ' + error.message); return }
+    setPostes(cleaned)
+    setShowModal(null)
+    setMsg('Postes & salaires enregistrés — la comptabilité est synchronisée.')
   }
 
   const generateCode = () => {
@@ -440,7 +493,10 @@ export default function DirecteurApp({ user, onLogout }) {
           <>
             <div className="section-head">
               <div className="section-title">Equipe</div>
-              <button className="btn-sm" onClick={()=>{setNewProf({prenom:'',nom:'',role:'professeur',langue:'fr',code_acces:'', plafond_salaire: 180000, classe_ids: []});setShowModal('prof')}}>+ Ajouter</button>
+              <div style={{display:'flex', gap:8}}>
+                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft(postes.map(p=>({...p})));setShowModal('postes')}}>💼 Postes & salaires</button>
+                <button className="btn-sm" onClick={()=>{setNewProf({prenom:'',nom:'',role:'professeur',langue:'fr',code_acces:'', plafond_salaire: 180000, classe_ids: []});setShowModal('prof')}}>+ Ajouter</button>
+              </div>
             </div>
             {profs.length === 0 ? (
               <div className="empty-state"><div className="empty-icon">👥</div><p>Aucun membre. Ajoutez des professeurs et surveillants.</p></div>
@@ -680,19 +736,22 @@ export default function DirecteurApp({ user, onLogout }) {
                 <option value="professeur">Professeur / Enseignant</option>
                 <option value="surveillant">Surveillant</option>
                 <option value="conseiller_vie_scolaire">Conseiller Vie Scolaire</option>
+                <option value="comptable">Comptable</option>
               </select>
             </div>
 
-            {newProf.role === 'professeur' && (
-              <div className="form-group">
-                <label className="form-label">Catégorie de paie (Mensuel)</label>
-                <select className="form-select" value={newProf.plafond_salaire || 180000} onChange={e=>setNewProf({...newProf, plafond_salaire: parseInt(e.target.value, 10)})}>
-                  <option value="180000">Professeur du primaire (180.000 FCFA)</option>
-                  <option value="150000">Maîtresse (150.000 FCFA)</option>
-                  <option value="80000">Assistante (80.000 FCFA)</option>
-                </select>
-              </div>
-            )}
+            <div className="form-group">
+              <label className="form-label">Poste / Catégorie de paie</label>
+              <select className="form-select" value={newProf.poste_id || postes.find(p => p.mensuel === newProf.plafond_salaire)?.id || ''}
+                onChange={e => {
+                  const p = postes.find(x => x.id === e.target.value)
+                  setNewProf({ ...newProf, poste_id: e.target.value, plafond_salaire: p ? p.mensuel : newProf.plafond_salaire })
+                }}>
+                <option value="">— Choisir un poste —</option>
+                {postes.map(p => <option key={p.id} value={p.id}>{p.label} ({fmtFCFA(p.mensuel)}/mois)</option>)}
+              </select>
+              <div style={{fontSize:10, color:'var(--muted)', marginTop:4}}>Liste modifiable via « 💼 Postes & salaires » (onglet Équipe) — synchronisée avec la comptabilité.</div>
+            </div>
 
             {newProf.role === 'professeur' && (
               <>
@@ -731,6 +790,40 @@ export default function DirecteurApp({ user, onLogout }) {
               <input className="form-input code-input" value={newProf.code_acces} onChange={e=>setNewProf({...newProf,code_acces:e.target.value.toUpperCase()})} placeholder="Auto-genere" maxLength={12} />
             </div>
             <button className="btn btn-primary" onClick={saveProf} disabled={loading}>{loading?'...':'Creer le compte'}</button>
+            <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'postes' && (
+        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
+          <div className="modal" style={{maxHeight:'85vh', overflowY:'auto'}}>
+            <div className="modal-handle"></div>
+            <div className="modal-title">💼 Postes & salaires</div>
+            <div style={{fontSize:11, color:'var(--muted)', marginBottom:12}}>
+              Référentiel unique des postes de l'école. Les montants alimentent la masse salariale de la comptabilité et le formulaire d'ajout de membre.
+            </div>
+            {posteDraft.map((p, i) => (
+              <div key={i} style={{display:'flex', gap:6, alignItems:'center', marginBottom:8}}>
+                <div style={{flex:1}}>
+                  <input className="form-input" style={{marginBottom:4}} placeholder="Intitulé du poste" value={p.label}
+                    onChange={e=>{const d=[...posteDraft]; d[i]={...d[i], label:e.target.value}; setPosteDraft(d)}} />
+                  <input className="form-input" style={{fontSize:11}} placeholder="Commentaire (optionnel)" value={p.commentaire || ''}
+                    onChange={e=>{const d=[...posteDraft]; d[i]={...d[i], commentaire:e.target.value}; setPosteDraft(d)}} />
+                </div>
+                <input className="form-input" type="number" min="0" step="5000" style={{width:110, textAlign:'right'}} placeholder="FCFA/mois" value={p.mensuel}
+                  onChange={e=>{const d=[...posteDraft]; d[i]={...d[i], mensuel:e.target.value}; setPosteDraft(d)}} />
+                <button aria-label="Supprimer ce poste" className="btn-sm" style={{background:'rgba(237,28,36,.1)', border:'1px solid var(--red)', color:'var(--red)', padding:'6px 8px'}}
+                  onClick={()=>{if(confirm(`Supprimer le poste « ${p.label || 'sans nom'} » ?`)) setPosteDraft(posteDraft.filter((_,j)=>j!==i))}}>🗑️</button>
+              </div>
+            ))}
+            <button className="btn-sm" style={{background:'var(--bg)', border:'1px dashed var(--border)', color:'var(--text)', width:'100%', marginBottom:12}}
+              onClick={()=>setPosteDraft([...posteDraft, { id:'', label:'', mensuel:0, commentaire:'' }])}>+ Ajouter un poste</button>
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:13, fontWeight:700, padding:'10px 0', borderTop:'1px solid var(--border)', marginBottom:10}}>
+              <span>Masse salariale mensuelle</span>
+              <span style={{color:'var(--accent)'}}>{fmtFCFA(posteDraft.reduce((s,p)=>s+(parseInt(p.mensuel,10)||0),0))}</span>
+            </div>
+            <button className="btn btn-primary" onClick={savePostes} disabled={loading}>{loading?'...':'Enregistrer le référentiel'}</button>
             <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
           </div>
         </div>

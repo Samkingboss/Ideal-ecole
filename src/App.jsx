@@ -25,7 +25,8 @@ export default function App() {
         'directeur': 'Direction',
         'professeur': 'Espace Enseignant',
         'surveillant': 'Surveillance',
-        'conseiller_vie_scolaire': 'Vie Scolaire'
+        'conseiller_vie_scolaire': 'Vie Scolaire',
+        'comptable': 'Comptabilité'
       }
       document.title = `${roleMap[user.role] || 'Portail'} - IDEAL EcoleApp`
     }
@@ -49,6 +50,16 @@ export default function App() {
   )
 
   if (!user) return <LoginPage onLogin={handleLogin} />
+  if (user.role === 'comptable') {
+    window.location.replace('/comptabilite.html')
+    return (
+      <div className="splash">
+        <div className="splash-icon">📒</div>
+        <div className="splash-title">IDEAL</div>
+        <div className="splash-sub">Ouverture de la comptabilité…</div>
+      </div>
+    )
+  }
   if (user.role === 'directeur') return <DirecteurApp user={user} onLogout={handleLogout} />
   if (user.role === 'professeur') return <ProfApp user={user} onLogout={handleLogout} />
   if (user.role === 'surveillant') return <SurveillantApp user={user} onLogout={handleLogout} />
