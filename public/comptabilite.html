@@ -21,6 +21,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -686,10 +687,15 @@
   <button class="tab-btn" onclick="showTab('recettes',this)">💵 Effectifs & Recettes</button>
   <button class="tab-btn" onclick="showTab('charges',this)">📋 Charges</button>
   <button class="tab-btn" onclick="showTab('eleves',this)">🎓 Gestion Élèves</button>
+  <button class="tab-btn" onclick="showTab('recouvrement',this)">📲 Recouvrement WhatsApp</button>
   <button class="tab-btn" onclick="showTab('pilotage',this)">🚀 Pilotage & Alertes</button>
   <button class="tab-btn" onclick="showTab('tresorerie',this)">📅 Trésorerie Mensuelle</button>
   <button class="tab-btn" onclick="showTab('compta',this)">📒 Comptabilité</button>
 </nav>
+
+<!-- Scène hors écran pour générer la carte-image WhatsApp (principe du rapport hebdomadaire).
+     Au niveau racine, hors des tab-pane : elle doit rester rendue quel que soit l'onglet actif. -->
+<div id="rq-card-stage" style="position:fixed; left:-9999px; top:0; width:720px;"></div>
 
 <!-- ════════════════ TAB: DASHBOARD ════════════════ -->
 <section class="tab-pane active" id="tab-dashboard">
@@ -983,6 +989,7 @@
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
           <input type="text" id="new-el-nom" class="inp" placeholder="Nom">
           <input type="text" id="new-el-prenom" class="inp" placeholder="Prénom">
+          <input type="text" id="new-el-tel" class="inp" placeholder="📱 WhatsApp du parent (ex: 76 12 34 56)" style="grid-column: 1 / -1;">
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; margin-bottom:1.5rem;">
           <select id="new-el-classe" class="inp">
@@ -1530,6 +1537,111 @@
     </div>
   </div>
 
+</section>
+
+<!-- ════════════ TAB: RECOUVREMENT QUOTIDIEN & WHATSAPP ════════════ -->
+<section class="tab-pane" id="tab-recouvrement">
+  <div class="sec-h" style="border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <div class="sec-title">📲 Recouvrement quotidien & WhatsApp</div>
+      <div class="sec-sub">Le solde de chaque élève est découpé en petit « effort du jour », recalculé automatiquement chaque jour. Un clic ouvre WhatsApp avec le message prêt à envoyer au parent.</div>
+    </div>
+    <div style="background: rgba(255,255,255,0.05); padding: 0.8rem 1rem; border-radius: 8px;">
+      <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:0.3rem;">Période :</label>
+      <select class="inp" id="rq-periode" onchange="renderRecouvrement()" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
+        <option value="rentree">Trimestre 1 — Oct→Déc</option>
+        <option value="t2">Trimestre 2 — Jan→Avr</option>
+        <option value="t3">Trimestre 3 — Avr→Juin</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-head"><h3>📅 Échéances de paiement</h3></div>
+      <div class="card-body">
+        <div style="display:grid; grid-template-columns: auto 1fr 1fr; gap:0.6rem 0.8rem; align-items:center; font-size:0.85rem;">
+          <div></div>
+          <div style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Début</div>
+          <div style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Date limite</div>
+          <b>Trim. 1</b>
+          <input type="date" class="inp" id="rq-cfg-rentree-debut" onchange="updateRecouvConfig('rentree','debut',this.value)" style="background:var(--bg); border:1px solid var(--border);">
+          <input type="date" class="inp" id="rq-cfg-rentree-limite" onchange="updateRecouvConfig('rentree','limite',this.value)" style="background:var(--bg); border:1px solid var(--border);">
+          <b>Trim. 2</b>
+          <input type="date" class="inp" id="rq-cfg-t2-debut" onchange="updateRecouvConfig('t2','debut',this.value)" style="background:var(--bg); border:1px solid var(--border);">
+          <input type="date" class="inp" id="rq-cfg-t2-limite" onchange="updateRecouvConfig('t2','limite',this.value)" style="background:var(--bg); border:1px solid var(--border);">
+          <b>Trim. 3</b>
+          <input type="date" class="inp" id="rq-cfg-t3-debut" onchange="updateRecouvConfig('t3','debut',this.value)" style="background:var(--bg); border:1px solid var(--border);">
+          <input type="date" class="inp" id="rq-cfg-t3-limite" onchange="updateRecouvConfig('t3','limite',this.value)" style="background:var(--bg); border:1px solid var(--border);">
+        </div>
+        <div class="p-note" style="margin-top:0.8rem;">💧 <b>Effort du jour</b> = solde restant ÷ jours restants avant la date limite (arrondi aux 100 FCFA supérieurs). Il baisse quand le parent verse, il monte quand il attend.</div>
+      </div>
+    </div>
+    <div class="card" style="border-left: 4px solid #25D366;">
+      <div class="card-head"><h3>📊 Radar du recouvrement</h3></div>
+      <div class="card-body">
+        <div id="rq-stats" style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-head" style="cursor:pointer;" onclick="rqToggleInfog()">
+      <h3>🎨 Infographie « comprendre en 5 secondes » — à projeter aux parents <span id="rq-infog-arrow">▸</span></h3>
+    </div>
+    <div class="card-body" id="rq-infog-body" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:1.2rem;">
+        <div style="background:rgba(59,130,246,0.12); border:1px solid #3b82f6; border-radius:12px; padding:14px 18px; text-align:center; min-width:120px;">
+          <div style="font-size:1.5rem; font-weight:800; color:#60a5fa;" id="rq-eq-total">250 000</div>
+          <div style="font-size:0.72rem; color:var(--text-dim); margin-top:2px;">🏫 le trimestre</div>
+        </div>
+        <div style="font-size:1.4rem; color:var(--text-muted);">=</div>
+        <div style="background:rgba(16,185,129,0.12); border:1px solid var(--green); border-radius:12px; padding:14px 18px; text-align:center; min-width:100px;">
+          <div style="font-size:1.5rem; font-weight:800; color:var(--green);" id="rq-eq-daily">5 000</div>
+          <div style="font-size:0.72rem; color:var(--text-dim); margin-top:2px;">🪙 chaque jour</div>
+        </div>
+        <div style="font-size:1.4rem; color:var(--text-muted);">×</div>
+        <div style="background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:12px; padding:14px 18px; text-align:center; min-width:90px;">
+          <div style="font-size:1.5rem; font-weight:800;" id="rq-eq-days">50</div>
+          <div style="font-size:0.72rem; color:var(--text-dim); margin-top:2px;">📅 jours</div>
+        </div>
+      </div>
+      <div style="font-size:0.85rem; color:var(--text-dim); margin-bottom:0.4rem;">⏳ Et si le parent attend avant de commencer ?</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:0.9rem;">
+        <input type="range" id="rq-wait" min="0" max="45" value="0" step="1" style="flex:1;" oninput="rqUpdateInfog()">
+        <span id="rq-wait-out" style="font-size:0.85rem; font-weight:700; min-width:70px; text-align:right;">0 jour</span>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:0.6rem;">
+        <span style="font-size:0.85rem; color:var(--text-dim);">Il faudra alors verser</span>
+        <span id="rq-infog-daily" style="font-size:2rem; font-weight:800; color:var(--green);">5 000</span>
+        <span style="font-size:0.85rem; color:var(--text-dim);">FCFA par jour</span>
+      </div>
+      <div style="height:12px; background:rgba(255,255,255,0.06); border-radius:6px; overflow:hidden; margin-bottom:0.9rem;">
+        <div id="rq-infog-bar" style="width:10%; height:100%; background:var(--green); border-radius:6px; transition:width 0.2s, background 0.2s;"></div>
+      </div>
+      <div id="rq-infog-grid" style="display:grid; grid-template-columns:repeat(25, 1fr); gap:3px; margin-bottom:0.9rem;"></div>
+      <div id="rq-infog-msg" style="background:rgba(16,185,129,0.12); border-radius:8px; padding:0.7rem 0.9rem; font-size:0.85rem; color:var(--green);">✅ En commençant aujourd'hui, l'effort reste tout petit.</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:0.8rem; margin-top:1rem;">
+        <div style="background:rgba(16,185,129,0.1); border:1px solid var(--green); border-radius:10px; padding:0.8rem 1rem;">
+          <div style="font-weight:700; color:var(--green); margin-bottom:2px;">💧 Goutte à goutte</div>
+          <div style="font-size:0.8rem; color:var(--text-dim);">Un petit versement par jour, et à la date limite tout est soldé sans y penser.</div>
+        </div>
+        <div style="background:rgba(239,68,68,0.1); border:1px solid var(--red); border-radius:10px; padding:0.8rem 1rem;">
+          <div style="font-weight:700; color:var(--red); margin-bottom:2px;">⛈️ Tout à la fin</div>
+          <div style="font-size:0.8rem; color:var(--text-dim);">Attendre, c'est devoir trouver toute la somme d'un seul coup.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-head"><h3>📋 Suivi par élève — effort du jour</h3></div>
+    <div class="card-body">
+      <input type="text" class="inp" id="rq-search" placeholder="🔎 Rechercher : nom, prénom ou classe…" oninput="renderRecouvrement()" style="background:var(--bg); border:1px solid var(--border); max-width:300px; margin-bottom:0.8rem;">
+      <div style="overflow-x:auto;"><table class="tbl" id="rq-table"></table></div>
+      <div class="p-note" style="margin-top:0.8rem;">💡 Saisissez le numéro WhatsApp du parent directement dans la colonne 📱 (8 chiffres maliens — le +223 est ajouté automatiquement). Le bouton <b>📲 Rappel</b> ouvre WhatsApp avec le message tout prêt : il ne reste qu'à appuyer sur Envoyer.</div>
+    </div>
+  </div>
 </section>
 
 <!-- ════════════════ TAB: COMPTABILITÉ SYSCOHADA ════════════════ -->
@@ -4543,6 +4655,7 @@ function processElevesDB() {
         <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:var(--orange); border-color:var(--orange);" onclick="openReductionsModal(${s.id})" title="Gérer les réductions">🎁</button>
         ${departBtn}
         ${s.history && s.history.length > 0 ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:var(--green); border-color:var(--green);" onclick="printLastReceipt(${s.id})" title="Réimprimer le dernier reçu">🖨️</button>` : ''}
+        ${s.history && s.history.length > 0 && (s.telephone||'').trim() ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendImage(${s.id}, 'recu')" title="Envoyer le dernier reçu illustré (image) au parent sur WhatsApp">📲</button>` : ''}
         ${s.history && s.history.length > 0 ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#3b82f6; border-color:#3b82f6;" onclick="openHistoryModal(${s.id})" title="Historique complet + annulation">📜</button>` : ''}
         <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:var(--text-dim); border-color:transparent;" onclick="delStudent(${s.id})">❌</button>
       </td>
@@ -4587,6 +4700,7 @@ function addStudent() {
   const classe = document.getElementById('new-el-classe').value;
   const cantine = document.getElementById('new-el-cantine').checked;
   const plan = document.getElementById('new-el-plan').value;
+  const tel = (document.getElementById('new-el-tel')?.value || '').trim();
 
   if (!nom || !prenom) return alert('Veuillez saisir le nom et le prénom.');
 
@@ -4594,11 +4708,13 @@ function addStudent() {
     id: Date.now(),
     nom, prenom, classe, cantine, plan, paye: 0, history: [], reductions: [],
     dateDepart: null, motifDepart: '',
-    famille: (nom || '').toUpperCase()
+    famille: (nom || '').toUpperCase(),
+    telephone: tel
   });
 
   document.getElementById('new-el-nom').value = '';
   document.getElementById('new-el-prenom').value = '';
+  if (document.getElementById('new-el-tel')) document.getElementById('new-el-tel').value = '';
   recalculate();
   renderElevesTab();
 }
@@ -4643,9 +4759,14 @@ function submitPayment() {
   closePaymentModal();
   recalculate();
   renderElevesTab();
-  
-  // Directly print
-  printReceipt(s, s.history[s.history.length - 1]);
+
+  // Proposer l'envoi du reçu illustré au parent sur WhatsApp (carte-image, principe rapport hebdo)
+  if ((s.telephone || '').trim() && confirm('📲 Envoyer le reçu illustré au parent sur WhatsApp ?\n\n(Le reçu papier reste imprimable via le bouton 🖨️ de la liste.)')) {
+    waSendImage(s.id, 'recu');
+  } else {
+    // Directly print
+    printReceipt(s, s.history[s.history.length - 1]);
+  }
 }
 
 function printLastReceipt(id) {
@@ -5997,6 +6118,7 @@ function recalculate() {
 function showTab(name, btn) {
   // Re-render Eleves before showing
   if (name === 'eleves') renderElevesTab();
+  if (name === 'recouvrement') renderRecouvrement();
 
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -6009,6 +6131,422 @@ function showTab(name, btn) {
     if (name === 'dashboard') { renderDonut(d); renderTrimChart(d); }
     if (name === 'tresorerie') renderMonthlyChart(m);
   }, 50);
+}
+
+// ══════════════════════════════════════════════
+// RECOUVREMENT QUOTIDIEN & WHATSAPP
+// ══════════════════════════════════════════════
+let recouvrementConfig = {
+  rentree: { debut: '2026-10-01', limite: '2026-11-20' },
+  t2:      { debut: '2027-01-05', limite: '2027-02-20' },
+  t3:      { debut: '2027-04-06', limite: '2027-05-20' }
+};
+const RQ_LABELS = { rentree: 'Trimestre 1', t2: 'Trimestre 2', t3: 'Trimestre 3' };
+const RQ_SCOL_KEY = { rentree: 't1', t2: 't2', t3: 't3' };
+
+function rqToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+
+function rqJoursRestants(periode) {
+  const cfg = recouvrementConfig[periode];
+  if (!cfg || !cfg.limite) return 0;
+  const lim = new Date(cfg.limite + 'T00:00:00');
+  return Math.max(0, Math.round((lim - rqToday()) / 86400000));
+}
+
+// Cœur du système : solde ÷ jours restants, arrondi aux 100 FCFA supérieurs
+function rqEffortDuJour(solde, periode) {
+  if (solde <= 0) return 0;
+  const j = rqJoursRestants(periode);
+  if (j <= 0) return solde; // échéance dépassée : tout le solde est exigible
+  return Math.min(solde, Math.ceil(solde / j / 100) * 100);
+}
+
+function rqNormPhone(raw) {
+  let p = (raw || '').replace(/\D/g, '');
+  if (p.startsWith('00')) p = p.slice(2);
+  if (p.length === 8) p = '223' + p; // numéro malien sans indicatif
+  return p;
+}
+
+function rqOpenWhatsApp(phone, msg) {
+  const p = rqNormPhone(phone);
+  if (!p || p.length < 8) {
+    alert('⚠️ Numéro WhatsApp du parent manquant ou invalide.\n\nSaisissez-le dans la colonne 📱 de l\'onglet Recouvrement (8 chiffres).');
+    return;
+  }
+  window.open('https://wa.me/' + p + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function rqDateFr(iso) {
+  try { return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  catch(e) { return iso || '—'; }
+}
+
+function rqSituation(s, periode) {
+  const exigible = getMontantExigible(s, periode);
+  const solde = Math.max(0, exigible - (s.paye || 0));
+  return { exigible, solde, effort: rqEffortDuJour(solde, periode), jours: rqJoursRestants(periode) };
+}
+
+function rqCurrentPeriode() { return document.getElementById('rq-periode')?.value || 'rentree'; }
+
+// Barre de progression illustrée qui s'affiche telle quelle dans WhatsApp
+function rqBarre(sit, retard) {
+  const pct = sit.exigible > 0 ? Math.max(0, Math.min(1, (sit.exigible - sit.solde) / sit.exigible)) : 1;
+  const n = Math.round(pct * 10);
+  const vide = retard ? '🟥' : '⬜';
+  return '🟩'.repeat(n) + vide.repeat(10 - n) + ' ' + Math.round(pct * 100) + '%';
+}
+
+function rqClasseLabel(s) {
+  return CLASSES.find(c => c.id === s.classe)?.label || s.classe || '';
+}
+
+function rqRappelMsg(s, periode) {
+  const sit = rqSituation(s, periode);
+  const cfg = recouvrementConfig[periode] || {};
+  const nomComplet = (s.prenom || '') + ' ' + (s.nom || '').toUpperCase();
+  const entete = `🏫 *École IDEAL*\n👦 ${nomComplet} — ${rqClasseLabel(s)}`;
+  if (sit.solde <= 0) {
+    return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100%\n🎉 *Entièrement soldé !*\nMerci pour votre ponctualité 🙏`;
+  }
+  if (sit.jours <= 0) {
+    return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n${rqBarre(sit, true)}\n⚠️ *Échéance du ${rqDateFr(cfg.limite)} dépassée*\n🔴 Solde à régulariser : *${fc(sit.solde)}*\n\nMerci de passer à l'école pour trouver ensemble une solution 🙏`;
+  }
+  return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n${rqBarre(sit, false)}\n✅ Déjà payé : ${fc(Math.max(0, sit.exigible - sit.solde))}\n🔶 Reste : ${fc(sit.solde)}\n📅 Avant le ${rqDateFr(cfg.limite)} (${sit.jours} jours)\n\n💧 *Effort du jour : ${fc(sit.effort)}*\n🪙 + 🪙 + 🪙 … un petit versement chaque jour, et tout est soldé à temps, sans pression. Merci 🙏`;
+}
+
+function waSendRappel(id) {
+  const s = studentsData.find(x => x.id === id);
+  if (!s) return;
+  rqOpenWhatsApp(s.telephone, rqRappelMsg(s, rqCurrentPeriode()));
+}
+
+function waSendRecu(id) {
+  const s = studentsData.find(x => x.id === id);
+  if (!s || !s.history || !s.history.length) return;
+  const h = s.history[s.history.length - 1];
+  const periode = rqCurrentPeriode();
+  const sit = rqSituation(s, periode);
+  const nomComplet = (s.prenom || '') + ' ' + (s.nom || '').toUpperCase();
+  let msg = `🏫 *École IDEAL* — Reçu N° ${h.receiptId}\n\n✅ *${fc(h.amount)} bien reçus*\n👦 Pour : ${nomComplet} — ${rqClasseLabel(s)}\n🗓 ${h.date}\n\n📚 ${RQ_LABELS[periode]}\n`;
+  if (sit.solde <= 0) {
+    msg += `🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100%\n🎉 *Entièrement soldé !* Bravo et merci.`;
+  } else {
+    msg += `${rqBarre(sit, sit.jours <= 0)}\n✅ Payé : ${fc(Math.max(0, sit.exigible - sit.solde))}\n🔶 Reste : ${fc(sit.solde)}`;
+    if (sit.jours > 0) msg += `\n💧 *Nouvel effort du jour : ${fc(sit.effort)}* — il baisse à chaque versement 📉`;
+  }
+  msg += `\n\nMerci pour votre confiance 🙏`;
+  rqOpenWhatsApp(s.telephone, msg);
+}
+
+// ─── Carte-image WhatsApp — même principe que le rapport hebdomadaire ───
+// Carte HTML brandée IDEAL → PNG haute définition (html2canvas) → partage natif
+function rqCardHTML(s, periode, payment) {
+  const sit = rqSituation(s, periode);
+  const cfg = recouvrementConfig[periode] || {};
+  const paye = Math.max(0, sit.exigible - sit.solde);
+  const pct = sit.exigible > 0 ? Math.round(paye / sit.exigible * 100) : 100;
+  const solded = sit.solde <= 0;
+  const retard = !solded && sit.jours <= 0;
+  const nomComplet = ((s.prenom || '') + ' ' + (s.nom || '').toUpperCase()).trim();
+  const barCol = retard ? '#ef4444' : '#10b981';
+  const fmtD = new Date().toLocaleDateString('fr-FR');
+
+  const recuBloc = payment ? `
+    <div style="background:#ecfdf5;border:2px solid #10b981;border-radius:14px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:13px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">✅ Versement bien reçu</div>
+        <div style="font-size:12px;color:#047857;margin-top:3px;">Reçu N° ${payment.receiptId} · ${payment.date}</div>
+      </div>
+      <div style="font-size:28px;font-weight:800;color:#059669;">${fc(payment.amount)}</div>
+    </div>` : '';
+
+  let statut;
+  if (solded) {
+    statut = `<div style="background:#ecfdf5;border-radius:14px;padding:18px;text-align:center;margin-top:18px;">
+      <div style="font-size:26px;">🎉</div>
+      <div style="font-size:20px;font-weight:800;color:#059669;">${RQ_LABELS[periode]} entièrement soldé !</div>
+      <div style="font-size:13px;color:#047857;margin-top:4px;">Merci pour votre ponctualité.</div></div>`;
+  } else if (retard) {
+    statut = `<div style="background:#fef2f2;border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-top:18px;text-align:center;">
+      <div style="font-size:16px;font-weight:800;color:#b91c1c;">⚠️ Échéance du ${rqDateFr(cfg.limite)} dépassée</div>
+      <div style="font-size:13px;color:#7f1d1d;margin-top:5px;">Solde à régulariser : <b>${fc(sit.solde)}</b><br>Merci de passer à l'école pour trouver ensemble une solution.</div></div>`;
+  } else {
+    statut = `
+    <div style="display:flex;align-items:stretch;justify-content:center;gap:10px;margin-top:20px;">
+      <div style="background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:12px 16px;text-align:center;min-width:140px;">
+        <div style="font-size:19px;font-weight:800;color:#c2410c;">${fc(sit.solde)}</div>
+        <div style="font-size:11px;color:#9a3412;font-weight:600;">reste à payer</div>
+      </div>
+      <div style="font-size:22px;color:#94a3b8;font-weight:700;align-self:center;">=</div>
+      <div style="background:#ecfdf5;border:2px solid #6ee7b7;border-radius:12px;padding:12px 16px;text-align:center;min-width:140px;">
+        <div style="font-size:19px;font-weight:800;color:#047857;">💧 ${fc(sit.effort)}</div>
+        <div style="font-size:11px;color:#065f46;font-weight:600;">par jour seulement</div>
+      </div>
+      <div style="font-size:22px;color:#94a3b8;font-weight:700;align-self:center;">×</div>
+      <div style="background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;padding:12px 16px;text-align:center;min-width:140px;">
+        <div style="font-size:19px;font-weight:800;color:#1d4ed8;">${sit.jours} jours</div>
+        <div style="font-size:11px;color:#1e40af;font-weight:600;">avant le ${rqDateFr(cfg.limite)}</div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:13px;color:#475569;margin-top:14px;">💧 Un petit versement chaque jour, et tout est soldé à temps — sans pression.</div>`;
+  }
+
+  return `
+  <div style="width:720px;background:#ffffff;font-family:Inter,system-ui,sans-serif;border:1px solid #e2e8f0;">
+    <div style="background:#003B9E;color:#fff;padding:18px 26px;display:flex;align-items:center;gap:14px;">
+      <img src="/logo-ideal.png" style="width:52px;height:52px;border-radius:10px;background:#fff;object-fit:contain;">
+      <div style="flex:1;">
+        <div style="font-size:20px;font-weight:800;">${payment ? 'Reçu de paiement' : 'Point scolarité'}</div>
+        <div style="font-size:12px;opacity:0.85;">École Internationale Bilingue IDEAL · Bamako</div>
+      </div>
+      <div style="text-align:right;font-size:12px;opacity:0.9;">
+        <div style="font-weight:700;">${RQ_LABELS[periode]}</div>
+        <div>édité le ${fmtD}</div>
+      </div>
+    </div>
+    <div style="padding:22px 26px;">
+      <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 18px;margin-bottom:18px;">
+        <div><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Élève</div>
+          <div style="font-size:17px;font-weight:800;color:#0f172a;">${nomComplet}</div></div>
+        <div style="text-align:right;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Classe</div>
+          <div style="font-size:17px;font-weight:800;color:#003B9E;">${rqClasseLabel(s)}</div></div>
+      </div>
+      ${recuBloc}
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
+        <span style="color:#059669;">✅ Payé : ${fc(paye)}</span>
+        <span style="color:${solded ? '#059669' : '#c2410c'};">${solded ? '' : '🔶 Reste : ' + fc(sit.solde)}</span>
+      </div>
+      <div style="height:30px;background:#e2e8f0;border-radius:15px;overflow:hidden;position:relative;">
+        <div style="width:${Math.max(pct, 6)}%;height:100%;background:${barCol};border-radius:15px;"></div>
+        <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${pct > 55 ? '#ffffff' : '#0f172a'};">${pct}% payé</div>
+      </div>
+      ${statut}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 26px;border-top:1px solid #e2e8f0;background:#f8fafc;">
+      <div style="font-size:11px;color:#64748b;">Le service comptabilité · École IDEAL — généré par la plateforme IDEAL</div>
+      <div style="background:#003B9E;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:8px;letter-spacing:1px;">IDEAL</div>
+    </div>
+  </div>`;
+}
+
+async function rqCardToBlob() {
+  const el = document.getElementById('rq-card-stage').firstElementChild;
+  const img = el.querySelector('img');
+  if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; });
+  if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
+  const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 720, windowWidth: 720 });
+  return new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+}
+
+async function waSendImage(id, type) {
+  const s = studentsData.find(x => x.id === id);
+  if (!s) return;
+  const periode = rqCurrentPeriode();
+  const payment = (type === 'recu' && s.history && s.history.length) ? s.history[s.history.length - 1] : null;
+  const stage = document.getElementById('rq-card-stage');
+  stage.innerHTML = rqCardHTML(s, periode, payment);
+  let blob;
+  try { blob = await rqCardToBlob(); }
+  catch(e) {
+    console.error('Génération carte impossible, repli sur le message texte :', e);
+    stage.innerHTML = '';
+    return payment ? waSendRecu(id) : waSendRappel(id);
+  }
+  stage.innerHTML = '';
+  const nomFichier = (payment ? 'Recu_' : 'Scolarite_') + ((s.nom || '') + '_' + (s.prenom || '')).replace(/\s+/g, '_') + '.png';
+  const file = new File([blob], nomFichier, { type: 'image/png' });
+  const legende = `🏫 École IDEAL — ${payment ? 'reçu de paiement' : 'point scolarité'} de ${(s.prenom || '')} ${(s.nom || '').toUpperCase()} (${rqClasseLabel(s)}).`;
+
+  // 1) Partage natif avec l'image (mobile) → choisir le contact du parent
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text: legende }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  // 2) Repli bureau : télécharger l'image + ouvrir WhatsApp sur le numéro du parent
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nomFichier; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  const p = rqNormPhone(s.telephone);
+  const url = (p && p.length >= 8 ? 'https://wa.me/' + p : 'https://wa.me/') + '?text=' + encodeURIComponent(legende + '\n(joindre l\'image téléchargée 🖼️)');
+  setTimeout(() => window.open(url, '_blank'), 600);
+}
+
+function updateElevePhone(id, val) {
+  const s = studentsData.find(x => x.id === id);
+  if (!s) return;
+  s.telephone = (val || '').trim();
+  autoSave();
+  if (typeof renderElevesTab === 'function') renderElevesTab();
+  renderRecouvrement();
+}
+
+function updateRecouvConfig(periode, field, value) {
+  if (!recouvrementConfig[periode]) recouvrementConfig[periode] = {};
+  recouvrementConfig[periode][field] = value;
+  autoSave();
+  renderRecouvrement();
+}
+
+// ─── Infographie interactive « comprendre en 5 secondes » ───
+let _rqCells = [];
+
+function rqInfogParams() {
+  const periode = rqCurrentPeriode();
+  const cfg = recouvrementConfig[periode] || {};
+  const total = (TARIFS.cp && TARIFS.cp.scolarite[RQ_SCOL_KEY[periode]]) || 250000;
+  let days = 50;
+  try { days = Math.round((new Date(cfg.limite + 'T00:00:00') - new Date(cfg.debut + 'T00:00:00')) / 86400000); } catch(e) {}
+  if (!isFinite(days) || days < 10) days = 50;
+  return { total, days };
+}
+
+function rqToggleInfog() {
+  const b = document.getElementById('rq-infog-body');
+  const a = document.getElementById('rq-infog-arrow');
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  a.textContent = open ? '▾' : '▸';
+  if (open) rqInitInfog();
+}
+
+function rqInitInfog() {
+  const grid = document.getElementById('rq-infog-grid');
+  if (!grid) return;
+  const { total, days } = rqInfogParams();
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = 'repeat(' + Math.min(days, 25) + ', 1fr)';
+  _rqCells = [];
+  for (let i = 0; i < days; i++) {
+    const c = document.createElement('div');
+    c.style.cssText = 'height:13px; border-radius:3px; background:rgba(16,185,129,0.35); transition:background 0.2s;';
+    grid.appendChild(c);
+    _rqCells.push(c);
+  }
+  const slider = document.getElementById('rq-wait');
+  slider.max = days - 5;
+  if (parseInt(slider.value, 10) > days - 5) slider.value = 0;
+  document.getElementById('rq-eq-total').textContent = total.toLocaleString('fr-FR');
+  document.getElementById('rq-eq-days').textContent = days;
+  document.getElementById('rq-eq-daily').textContent = (Math.ceil(total / days / 100) * 100).toLocaleString('fr-FR');
+  rqUpdateInfog();
+}
+
+function rqUpdateInfog() {
+  const slider = document.getElementById('rq-wait');
+  if (!slider || !_rqCells.length) return;
+  const { total, days } = rqInfogParams();
+  const wait = parseInt(slider.value, 10) || 0;
+  const remaining = Math.max(1, days - wait);
+  const amount = Math.ceil(total / remaining / 100) * 100;
+  const base = Math.ceil(total / days / 100) * 100;
+  const level = amount <= base * 1.3 ? 0 : (amount <= base * 2.5 ? 1 : 2);
+  const col = ['var(--green)', 'var(--orange)', 'var(--red)'][level];
+  const cellBg = ['rgba(16,185,129,0.35)', 'rgba(244,121,32,0.4)', 'rgba(239,68,68,0.45)'][level];
+  const msgBg = ['rgba(16,185,129,0.12)', 'rgba(244,121,32,0.12)', 'rgba(239,68,68,0.12)'][level];
+  document.getElementById('rq-wait-out').textContent = wait + (wait > 1 ? ' jours' : ' jour');
+  const dailyEl = document.getElementById('rq-infog-daily');
+  dailyEl.textContent = amount.toLocaleString('fr-FR');
+  dailyEl.style.color = col;
+  const bar = document.getElementById('rq-infog-bar');
+  bar.style.width = Math.min(100, Math.max(8, amount / (base * 10) * 100)) + '%';
+  bar.style.background = col;
+  _rqCells.forEach((c, i) => { c.style.background = i < wait ? 'rgba(255,255,255,0.08)' : cellBg; });
+  const msg = document.getElementById('rq-infog-msg');
+  msg.style.color = col;
+  msg.style.background = msgBg;
+  msg.textContent = level === 0
+    ? '✅ En commençant tôt, l\'effort reste tout petit.'
+    : (level === 1
+      ? '⚠️ Le montant du jour a fortement augmenté. Commencer maintenant le fera redescendre.'
+      : '🚨 Trop lourd d\'un seul coup. Le goutte à goutte protège la famille.');
+}
+
+// ─── Rendu de l'onglet Recouvrement ───
+function renderRecouvrement() {
+  const tbl = document.getElementById('rq-table');
+  if (!tbl) return;
+  const periode = rqCurrentPeriode();
+
+  // Synchroniser les inputs de configuration
+  ['rentree', 't2', 't3'].forEach(p => {
+    const cfg = recouvrementConfig[p] || {};
+    const d = document.getElementById('rq-cfg-' + p + '-debut');
+    const l = document.getElementById('rq-cfg-' + p + '-limite');
+    if (d && d.value !== (cfg.debut || '')) d.value = cfg.debut || '';
+    if (l && l.value !== (cfg.limite || '')) l.value = cfg.limite || '';
+  });
+
+  const actifs = studentsData.filter(s => !s.dateDepart);
+  const rows = actifs.map(s => Object.assign({ s }, rqSituation(s, periode)));
+
+  // Radar
+  const totalExigible = rows.reduce((a, r) => a + r.exigible, 0);
+  const totalSolde = rows.reduce((a, r) => a + r.solde, 0);
+  const nbRetard = rows.filter(r => r.solde > 0).length;
+  const jours = rqJoursRestants(periode);
+  const cfg = recouvrementConfig[periode] || {};
+  const pct = totalExigible > 0 ? Math.round((totalExigible - totalSolde) / totalExigible * 100) : 100;
+  const nbTel = actifs.filter(s => (s.telephone || '').trim()).length;
+  document.getElementById('rq-stats').innerHTML = `
+    <div><div style="font-size:0.75rem;color:var(--text-dim);">Encaissé — ${RQ_LABELS[periode]}</div>
+      <div style="font-size:1.5rem;font-weight:800;color:var(--green);">${pct}%</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);">${fm(Math.max(0, totalExigible - totalSolde))} sur ${fm(totalExigible)}</div></div>
+    <div><div style="font-size:0.75rem;color:var(--text-dim);">Reste à recouvrer</div>
+      <div style="font-size:1.5rem;font-weight:800;color:${totalSolde > 0 ? 'var(--red)' : 'var(--green)'};">${fm(totalSolde)}</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);">${nbRetard} élève(s) avec un solde</div></div>
+    <div><div style="font-size:0.75rem;color:var(--text-dim);">Jours avant l'échéance</div>
+      <div style="font-size:1.5rem;font-weight:800;color:${jours > 0 ? 'var(--text)' : 'var(--red)'};">${jours > 0 ? jours : 'Dépassée'}</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);">limite : ${cfg.limite ? rqDateFr(cfg.limite) : '—'}</div></div>
+    <div><div style="font-size:0.75rem;color:var(--text-dim);">Numéros WhatsApp saisis</div>
+      <div style="font-size:1.5rem;font-weight:800;color:${nbTel < actifs.length ? 'var(--orange)' : 'var(--green)'};">${nbTel} / ${actifs.length}</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);">colonne 📱 du tableau</div></div>`;
+
+  // Tableau
+  const q = (document.getElementById('rq-search')?.value || '').toLowerCase().trim();
+  const filtered = rows.filter(r => {
+    if (!q) return true;
+    const cls = CLASSES.find(c => c.id === r.s.classe)?.label || '';
+    return ((r.s.nom || '') + ' ' + (r.s.prenom || '') + ' ' + cls).toLowerCase().includes(q);
+  }).sort((a, b) => b.solde - a.solde);
+
+  let html = `<thead><tr>
+    <th>Élève</th><th>Classe</th><th class="r">Exigible</th><th class="r">Payé</th><th class="r">Solde</th>
+    <th class="r">💧 Effort du jour</th><th>📱 WhatsApp parent</th><th class="r">Actions</th></tr></thead><tbody>`;
+  if (!filtered.length) {
+    html += `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1rem;">Aucun élève${q ? ' pour cette recherche' : ' actif — ajoutez-les dans l\'onglet 🎓 Gestion Élèves'}.</td></tr>`;
+  }
+  filtered.forEach(r => {
+    const s = r.s;
+    const cls = CLASSES.find(c => c.id === s.classe)?.label || s.classe;
+    const solded = r.solde <= 0;
+    const effortHtml = solded
+      ? '<span style="color:var(--green); font-weight:700;">✅ Soldé</span>'
+      : (r.jours <= 0
+        ? `<span style="color:var(--red); font-weight:800;">${fc(r.solde)} (échu)</span>`
+        : `<span style="color:var(--orange); font-weight:800;">${fc(r.effort)}</span><span style="color:var(--text-muted); font-size:0.72rem;"> /jour</span>`);
+    const nomEsc = ((s.prenom || '') + ' ' + (s.nom || '')).replace(/'/g, "\\'");
+    html += `<tr${solded ? ' style="opacity:0.7;"' : ''}>
+      <td><b>${(s.nom || '').toUpperCase()}</b> ${s.prenom || ''}</td>
+      <td><span class="badge" style="background:#3b82f6">${cls}</span></td>
+      <td class="r">${fc(r.exigible)}</td>
+      <td class="r" style="color:var(--green);">${fc(s.paye || 0)}</td>
+      <td class="r" style="font-weight:700; color:${solded ? 'var(--green)' : 'var(--red)'};">${solded ? '–' : fc(r.solde)}</td>
+      <td class="r">${effortHtml}</td>
+      <td><input type="text" class="inp" value="${(s.telephone || '').replace(/"/g, '&quot;')}" placeholder="76 12 34 56" style="width:120px; background:var(--bg); border:1px solid var(--border); font-size:0.8rem;" onchange="updateElevePhone(${s.id}, this.value)"></td>
+      <td class="r" style="white-space:nowrap;">
+        <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendImage(${s.id}, 'rappel')" title="Envoyer la carte illustrée au parent (image WhatsApp, comme le rapport hebdomadaire)">🖼️ Rappel</button>
+        <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendRappel(${s.id})" title="Version texte rapide (barre 🟩🟩⬜ dans le message)">💬</button>
+        ${!solded ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="openPaymentModal(${s.id}, '${nomEsc}')">+ Encaisser</button>` : ''}
+      </td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+
+  // Infographie ouverte → la resynchroniser
+  if (document.getElementById('rq-infog-body')?.style.display !== 'none') rqInitInfog();
 }
 
 // ══════════════════════════════════════════════
@@ -6062,7 +6600,8 @@ function autoSave() {
     salaires: SALAIRES_DETAIL.map(s => ({ poste: s.poste, mensuel: s.mensuel })),
     students: studentsData,
     ecritures,
-    planComptable
+    planComptable,
+    recouvrementConfig
   };
   try {
     localStorage.setItem('ideal-prevision-state', JSON.stringify(state));
@@ -6111,6 +6650,8 @@ function autoLoad() {
       studentsData.forEach(st => {
         if (st.famille === undefined || st.famille === '') st.famille = (st.nom || '').toUpperCase();
       });
+      // Migration : assurer le champ 'telephone' (WhatsApp du parent)
+      studentsData.forEach(st => { if (st.telephone === undefined) st.telephone = ''; });
     }
     
     if (s.charges) s.charges.forEach(sc => {
@@ -6130,6 +6671,7 @@ function autoLoad() {
     });
     if (Array.isArray(s.ecritures))     ecritures = s.ecritures;
     if (Array.isArray(s.planComptable) && s.planComptable.length) planComptable = s.planComptable;
+    if (s.recouvrementConfig) recouvrementConfig = Object.assign({}, recouvrementConfig, s.recouvrementConfig);
 
     // Make sure dynamically linked salaires -> charges is still coherent
     const totAn = SALAIRES_DETAIL.reduce((s, r) => s + r.mensuel, 0) * 12;
@@ -6173,7 +6715,8 @@ function exportData() {
     salaires: SALAIRES_DETAIL.map(s => ({ poste: s.poste, mensuel: s.mensuel })),
     students: studentsData,
     ecritures,
-    planComptable
+    planComptable,
+    recouvrementConfig
   };
   const json = JSON.stringify(state, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
