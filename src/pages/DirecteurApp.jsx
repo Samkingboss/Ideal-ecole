@@ -186,8 +186,13 @@ export default function DirecteurApp({ user, onLogout }) {
         actif: true 
       }, { onConflict: 'id' }).select().single()
 
-      if (error) { 
-        setMsg('Erreur: ' + error.message) 
+      if (error) {
+        // Le modal masque la zone de message : afficher l'erreur de façon visible
+        const explication = error.message.includes('users_role_check')
+          ? "La base de données n'autorise pas encore ce rôle.\n\nExécutez le script SQL d'ajout du rôle « comptable » dans Supabase (SQL Editor) puis réessayez."
+          : error.message
+        alert('❌ Compte non enregistré.\n\n' + explication)
+        setMsg('Erreur: ' + error.message)
       } else if (userData) {
         if (newProf.role === 'professeur') {
           await supabase.from('prof_classes').delete().eq('user_id', userData.id)
