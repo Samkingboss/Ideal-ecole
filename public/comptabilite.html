@@ -989,7 +989,6 @@
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
           <input type="text" id="new-el-nom" class="inp" placeholder="Nom">
           <input type="text" id="new-el-prenom" class="inp" placeholder="Prénom">
-          <input type="text" id="new-el-tel" class="inp" placeholder="📱 WhatsApp du parent (ex: 76 12 34 56)" style="grid-column: 1 / -1;">
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; margin-bottom:1.5rem;">
           <select id="new-el-classe" class="inp">
@@ -1639,7 +1638,7 @@
     <div class="card-body">
       <input type="text" class="inp" id="rq-search" placeholder="🔎 Rechercher : nom, prénom ou classe…" oninput="renderRecouvrement()" style="background:var(--bg); border:1px solid var(--border); max-width:300px; margin-bottom:0.8rem;">
       <div style="overflow-x:auto;"><table class="tbl" id="rq-table"></table></div>
-      <div class="p-note" style="margin-top:0.8rem;">💡 Saisissez le numéro WhatsApp du parent directement dans la colonne 📱 (8 chiffres maliens — le +223 est ajouté automatiquement). Le bouton <b>📲 Rappel</b> ouvre WhatsApp avec le message tout prêt : il ne reste qu'à appuyer sur Envoyer.</div>
+      <div class="p-note" style="margin-top:0.8rem;">💡 Aucun numéro à saisir : le bouton <b>🖼️ Rappel</b> génère la carte illustrée puis ouvre WhatsApp — cherchez le parent ou le <b>groupe de la classe</b> et appuyez sur Envoyer. Le bouton <b>💬</b> fait pareil en version texte rapide.</div>
     </div>
   </div>
 </section>
@@ -4655,7 +4654,7 @@ function processElevesDB() {
         <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:var(--orange); border-color:var(--orange);" onclick="openReductionsModal(${s.id})" title="Gérer les réductions">🎁</button>
         ${departBtn}
         ${s.history && s.history.length > 0 ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:var(--green); border-color:var(--green);" onclick="printLastReceipt(${s.id})" title="Réimprimer le dernier reçu">🖨️</button>` : ''}
-        ${s.history && s.history.length > 0 && (s.telephone||'').trim() ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendImage(${s.id}, 'recu')" title="Envoyer le dernier reçu illustré (image) au parent sur WhatsApp">📲</button>` : ''}
+        ${s.history && s.history.length > 0 ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendImage(${s.id}, 'recu')" title="Envoyer le dernier reçu illustré (image) au parent sur WhatsApp">📲</button>` : ''}
         ${s.history && s.history.length > 0 ? `<button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#3b82f6; border-color:#3b82f6;" onclick="openHistoryModal(${s.id})" title="Historique complet + annulation">📜</button>` : ''}
         <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:var(--text-dim); border-color:transparent;" onclick="delStudent(${s.id})">❌</button>
       </td>
@@ -4700,7 +4699,6 @@ function addStudent() {
   const classe = document.getElementById('new-el-classe').value;
   const cantine = document.getElementById('new-el-cantine').checked;
   const plan = document.getElementById('new-el-plan').value;
-  const tel = (document.getElementById('new-el-tel')?.value || '').trim();
 
   if (!nom || !prenom) return alert('Veuillez saisir le nom et le prénom.');
 
@@ -4708,13 +4706,11 @@ function addStudent() {
     id: Date.now(),
     nom, prenom, classe, cantine, plan, paye: 0, history: [], reductions: [],
     dateDepart: null, motifDepart: '',
-    famille: (nom || '').toUpperCase(),
-    telephone: tel
+    famille: (nom || '').toUpperCase()
   });
 
   document.getElementById('new-el-nom').value = '';
   document.getElementById('new-el-prenom').value = '';
-  if (document.getElementById('new-el-tel')) document.getElementById('new-el-tel').value = '';
   recalculate();
   renderElevesTab();
 }
@@ -4761,7 +4757,7 @@ function submitPayment() {
   renderElevesTab();
 
   // Proposer l'envoi du reçu illustré au parent sur WhatsApp (carte-image, principe rapport hebdo)
-  if ((s.telephone || '').trim() && confirm('📲 Envoyer le reçu illustré au parent sur WhatsApp ?\n\n(Le reçu papier reste imprimable via le bouton 🖨️ de la liste.)')) {
+  if (confirm('📲 Envoyer le reçu illustré sur WhatsApp ?\n\nWhatsApp s\'ouvrira : cherchez le parent ou le groupe de la classe.\n(Le reçu papier reste imprimable via le bouton 🖨️ de la liste.)')) {
     waSendImage(s.id, 'recu');
   } else {
     // Directly print
@@ -6161,20 +6157,10 @@ function rqEffortDuJour(solde, periode) {
   return Math.min(solde, Math.ceil(solde / j / 100) * 100);
 }
 
-function rqNormPhone(raw) {
-  let p = (raw || '').replace(/\D/g, '');
-  if (p.startsWith('00')) p = p.slice(2);
-  if (p.length === 8) p = '223' + p; // numéro malien sans indicatif
-  return p;
-}
-
-function rqOpenWhatsApp(phone, msg) {
-  const p = rqNormPhone(phone);
-  if (!p || p.length < 8) {
-    alert('⚠️ Numéro WhatsApp du parent manquant ou invalide.\n\nSaisissez-le dans la colonne 📱 de l\'onglet Recouvrement (8 chiffres).');
-    return;
-  }
-  window.open('https://wa.me/' + p + '?text=' + encodeURIComponent(msg), '_blank');
+// Ouvre WhatsApp avec le message pré-rempli, sans destinataire :
+// le comptable cherche lui-même le contact du parent ou le groupe de la classe.
+function rqOpenWhatsApp(msg) {
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
 }
 
 function rqDateFr(iso) {
@@ -6219,7 +6205,7 @@ function rqRappelMsg(s, periode) {
 function waSendRappel(id) {
   const s = studentsData.find(x => x.id === id);
   if (!s) return;
-  rqOpenWhatsApp(s.telephone, rqRappelMsg(s, rqCurrentPeriode()));
+  rqOpenWhatsApp(rqRappelMsg(s, rqCurrentPeriode()));
 }
 
 function waSendRecu(id) {
@@ -6237,7 +6223,7 @@ function waSendRecu(id) {
     if (sit.jours > 0) msg += `\n💧 *Nouvel effort du jour : ${fc(sit.effort)}* — il baisse à chaque versement 📉`;
   }
   msg += `\n\nMerci pour votre confiance 🙏`;
-  rqOpenWhatsApp(s.telephone, msg);
+  rqOpenWhatsApp(msg);
 }
 
 // ─── Carte-image WhatsApp — même principe que le rapport hebdomadaire ───
@@ -6364,22 +6350,12 @@ async function waSendImage(id, type) {
     try { await navigator.share({ files: [file], text: legende }); return; }
     catch(e) { if (e.name === 'AbortError') return; }
   }
-  // 2) Repli bureau : télécharger l'image + ouvrir WhatsApp sur le numéro du parent
+  // 2) Repli bureau : télécharger l'image + ouvrir WhatsApp (le comptable choisit le contact ou le groupe)
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = nomFichier; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-  const p = rqNormPhone(s.telephone);
-  const url = (p && p.length >= 8 ? 'https://wa.me/' + p : 'https://wa.me/') + '?text=' + encodeURIComponent(legende + '\n(joindre l\'image téléchargée 🖼️)');
+  const url = 'https://wa.me/?text=' + encodeURIComponent(legende + '\n(joindre l\'image téléchargée 🖼️)');
   setTimeout(() => window.open(url, '_blank'), 600);
-}
-
-function updateElevePhone(id, val) {
-  const s = studentsData.find(x => x.id === id);
-  if (!s) return;
-  s.telephone = (val || '').trim();
-  autoSave();
-  if (typeof renderElevesTab === 'function') renderElevesTab();
-  renderRecouvrement();
 }
 
 function updateRecouvConfig(periode, field, value) {
@@ -6488,7 +6464,7 @@ function renderRecouvrement() {
   const jours = rqJoursRestants(periode);
   const cfg = recouvrementConfig[periode] || {};
   const pct = totalExigible > 0 ? Math.round((totalExigible - totalSolde) / totalExigible * 100) : 100;
-  const nbTel = actifs.filter(s => (s.telephone || '').trim()).length;
+  const nbSoldes = rows.filter(r => r.solde <= 0).length;
   document.getElementById('rq-stats').innerHTML = `
     <div><div style="font-size:0.75rem;color:var(--text-dim);">Encaissé — ${RQ_LABELS[periode]}</div>
       <div style="font-size:1.5rem;font-weight:800;color:var(--green);">${pct}%</div>
@@ -6499,9 +6475,9 @@ function renderRecouvrement() {
     <div><div style="font-size:0.75rem;color:var(--text-dim);">Jours avant l'échéance</div>
       <div style="font-size:1.5rem;font-weight:800;color:${jours > 0 ? 'var(--text)' : 'var(--red)'};">${jours > 0 ? jours : 'Dépassée'}</div>
       <div style="font-size:0.72rem;color:var(--text-muted);">limite : ${cfg.limite ? rqDateFr(cfg.limite) : '—'}</div></div>
-    <div><div style="font-size:0.75rem;color:var(--text-dim);">Numéros WhatsApp saisis</div>
-      <div style="font-size:1.5rem;font-weight:800;color:${nbTel < actifs.length ? 'var(--orange)' : 'var(--green)'};">${nbTel} / ${actifs.length}</div>
-      <div style="font-size:0.72rem;color:var(--text-muted);">colonne 📱 du tableau</div></div>`;
+    <div><div style="font-size:0.75rem;color:var(--text-dim);">Élèves soldés</div>
+      <div style="font-size:1.5rem;font-weight:800;color:${nbSoldes < actifs.length ? 'var(--orange)' : 'var(--green)'};">${nbSoldes} / ${actifs.length}</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);">pour ${RQ_LABELS[periode]}</div></div>`;
 
   // Tableau
   const q = (document.getElementById('rq-search')?.value || '').toLowerCase().trim();
@@ -6513,9 +6489,9 @@ function renderRecouvrement() {
 
   let html = `<thead><tr>
     <th>Élève</th><th>Classe</th><th class="r">Exigible</th><th class="r">Payé</th><th class="r">Solde</th>
-    <th class="r">💧 Effort du jour</th><th>📱 WhatsApp parent</th><th class="r">Actions</th></tr></thead><tbody>`;
+    <th class="r">💧 Effort du jour</th><th class="r">Actions</th></tr></thead><tbody>`;
   if (!filtered.length) {
-    html += `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1rem;">Aucun élève${q ? ' pour cette recherche' : ' actif — ajoutez-les dans l\'onglet 🎓 Gestion Élèves'}.</td></tr>`;
+    html += `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1rem;">Aucun élève${q ? ' pour cette recherche' : ' actif — ajoutez-les dans l\'onglet 🎓 Gestion Élèves'}.</td></tr>`;
   }
   filtered.forEach(r => {
     const s = r.s;
@@ -6534,7 +6510,6 @@ function renderRecouvrement() {
       <td class="r" style="color:var(--green);">${fc(s.paye || 0)}</td>
       <td class="r" style="font-weight:700; color:${solded ? 'var(--green)' : 'var(--red)'};">${solded ? '–' : fc(r.solde)}</td>
       <td class="r">${effortHtml}</td>
-      <td><input type="text" class="inp" value="${(s.telephone || '').replace(/"/g, '&quot;')}" placeholder="76 12 34 56" style="width:120px; background:var(--bg); border:1px solid var(--border); font-size:0.8rem;" onchange="updateElevePhone(${s.id}, this.value)"></td>
       <td class="r" style="white-space:nowrap;">
         <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendImage(${s.id}, 'rappel')" title="Envoyer la carte illustrée au parent (image WhatsApp, comme le rapport hebdomadaire)">🖼️ Rappel</button>
         <button class="btn btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; color:#25D366; border-color:#25D366;" onclick="waSendRappel(${s.id})" title="Version texte rapide (barre 🟩🟩⬜ dans le message)">💬</button>
