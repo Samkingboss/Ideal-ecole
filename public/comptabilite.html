@@ -675,6 +675,15 @@
       [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
       /* KPIs / stats : 2 colonnes max */
       #rq-stats { grid-template-columns: 1fr 1fr !important; }
+
+      /* En-tête : titre en haut, badge + actions enroulés dessous */
+      .app-header { flex-direction: column; align-items: stretch; gap: 10px; }
+      .logo-area { align-items: center; }
+      .header-title { font-size: 1rem; white-space: normal; }
+      .header-sub { font-size: .68rem; white-space: normal; }
+      .header-right { flex-wrap: wrap; justify-content: flex-start; gap: 6px; width: 100%; }
+      .header-right .badge-year { flex-basis: 100%; text-align: center; }
+      .header-right .btn { flex: 1 1 40%; justify-content: center; font-size: .72rem; padding: .45rem .5rem; white-space: nowrap; }
     }
 <body>
 
