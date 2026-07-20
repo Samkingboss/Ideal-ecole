@@ -189,7 +189,7 @@ export default function DirecteurApp({ user, onLogout }) {
       if (error) {
         // Le modal masque la zone de message : afficher l'erreur de façon visible
         const explication = error.message.includes('users_role_check')
-          ? "La base de données n'autorise pas encore ce rôle.\n\nExécutez le script SQL d'ajout du rôle « comptable » dans Supabase (SQL Editor) puis réessayez."
+          ? "La base de données n'autorise pas encore ce rôle.\n\nExécutez le script SQL de mise à jour des rôles dans Supabase (SQL Editor) puis réessayez."
           : error.message
         alert('❌ Compte non enregistré.\n\n' + explication)
         setMsg('Erreur: ' + error.message)
@@ -738,10 +738,10 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newProf.nom} onChange={e=>setNewProf({...newProf,nom:e.target.value})} /></div>
             <div className="form-group"><label className="form-label">Rôle</label>
               <select className="form-select" value={newProf.role} onChange={e=>setNewProf({...newProf,role:e.target.value})}>
-                <option value="professeur">Professeur / Enseignant</option>
+                <option value="professeur">Enseignant</option>
                 <option value="surveillant">Surveillant</option>
-                <option value="conseiller_vie_scolaire">Conseiller Vie Scolaire</option>
-                <option value="comptable">Comptable</option>
+                <option value="conseiller_vie_scolaire">Conseiller de vie scolaire</option>
+                <option value="responsable_administratif">Responsable administratif</option>
               </select>
             </div>
 

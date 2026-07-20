@@ -14,7 +14,7 @@
     (function(){
       try {
         var u = JSON.parse(localStorage.getItem('ideal_user') || 'null');
-        var ok = u && (u.role === 'directeur' || u.role === 'comptable');
+        var ok = u && (u.role === 'directeur' || u.role === 'responsable_administratif');
         if (!ok) location.replace('/');
       } catch(e) { location.replace('/'); }
     })();
