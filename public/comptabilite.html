@@ -659,9 +659,23 @@
       #rq-table td.rq-actions { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; }
       #rq-table td.rq-actions::before { display: none; }
       #rq-table td.rq-actions .btn { width: 100%; justify-content: center; padding: .6rem !important; font-size: .85rem !important; }
+
+      /* Anti-débordement global + grilles à colonnes fixes empilées */
+      * { min-width: 0; }
+      body, .tab-pane, section, .sec, .card { max-width: 100%; }
+      [style*="grid-template-columns: 340px"],
+      [style*="grid-template-columns:340px"],
+      [style*="grid-template-columns: 240px"],
+      [style*="grid-template-columns:240px"],
+      [style*="grid-template-columns: 2fr 1fr"],
+      [style*="grid-template-columns:2fr 1fr"],
+      [style*="grid-template-columns: 60px 1fr 100px 110px"],
+      [style*="grid-template-columns: repeat(4"],
+      [style*="grid-template-columns: repeat(3"],
+      [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
+      /* KPIs / stats : 2 colonnes max */
+      #rq-stats { grid-template-columns: 1fr 1fr !important; }
     }
-  </style>
-</head>
 <body>
 
 <a href="/" class="portal-back" aria-label="Retour au portail" title="Retour au portail">
@@ -6309,7 +6323,9 @@ function rqCardHTML(s, periode, payment) {
   return `
   <div style="width:720px;background:#ffffff;font-family:Inter,system-ui,sans-serif;border:1px solid #e2e8f0;">
     <div style="background:#003B9E;color:#fff;padding:18px 26px;display:flex;align-items:center;gap:14px;">
-      <img src="/logo-ideal.png" style="width:52px;height:52px;border-radius:10px;background:#fff;object-fit:contain;">
+      <span style="background:#fff;border-radius:10px;padding:7px 11px;display:inline-flex;align-items:center;">
+        <img src="${typeof LOGO_BASE64!=='undefined'?LOGO_BASE64:'/logo-ideal.png'}" style="height:38px;width:auto;display:block;">
+      </span>
       <div style="flex:1;">
         <div style="font-size:20px;font-weight:800;">${payment ? 'Reçu de paiement' : 'Point scolarité'}</div>
         <div style="font-size:12px;opacity:0.85;">École Internationale Bilingue IDEAL · Bamako</div>
