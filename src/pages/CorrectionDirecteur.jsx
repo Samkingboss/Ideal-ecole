@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { journaliserChamps } from '../lib/audit'
 
 const CRITERES = [
   { id: 'structure',  label: 'Structure et organisation', max: 4 },
@@ -28,11 +29,12 @@ export default function CorrectionDirecteur() {
   useEffect(() => { chargerPreparations() }, [])
 
   const chargerPreparations = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('preparations')
       .select('*, classes(nom)')
       .order('heure_depot', { ascending: false })
-    setPreparations(data || []); console.log('PREP:', data ? data.length : 0, 'ERR:', error ? error.message : 'ok')
+    if (error) console.warn('Chargement des préparations impossible :', error.message)
+    setPreparations(data || [])
   }
 
   const ouvrirCorrection = async (prep) => {
@@ -40,7 +42,7 @@ export default function CorrectionDirecteur() {
       .from('users').select('prenom, nom').eq('id', prep.user_id).single()
     setSelected({ ...prep, user: userData })
     setNotes({ structure: 0, objectifs: 0, contenu: 0, methodes: 0, evaluation: 0 })
-    setCommentaire(prep.commentaire_ia || '')
+    setCommentaire(prep.commentaire_directeur || prep.commentaire_ia || '')
   }
 
   const total = Object.values(notes).reduce((a, b) => a + b, 0)
@@ -48,13 +50,40 @@ export default function CorrectionDirecteur() {
   const sauvegarderCorrection = async () => {
     if (!selected) return
     setLoading(true)
-    await supabase.from('preparations').update({
-      note_ia: total,
-      commentaire_ia: commentaire,
+
+    // La note de l'IA n'est plus écrasée : elle reste consultable à côté de
+    // celle du directeur, pour que l'enseignant sache d'où vient son score.
+    const modifications = {
+      note_directeur: total,
+      commentaire_directeur: commentaire,
       status: 'valide',
-    }).eq('id', selected.id)
-    setSelected(null)
-    chargerPreparations()
+      corrige_le: new Date().toISOString(),
+    }
+    try {
+      const u = JSON.parse(localStorage.getItem('ideal_user') || 'null')
+      if (u?.id) modifications.corrige_par = u.id
+    } catch (e) { /* utilisateur inconnu : la correction reste enregistrée */ }
+
+    const { error } = await supabase.from('preparations')
+      .update(modifications).eq('id', selected.id)
+
+    if (error) {
+      alert('Correction non enregistrée : ' + error.message)
+    } else {
+      await journaliserChamps({
+        table: 'preparations',
+        ligneId: selected.id,
+        avant: {
+          note_directeur: selected.note_directeur,
+          commentaire_directeur: selected.commentaire_directeur,
+          status: selected.status,
+        },
+        apres: modifications,
+        action: 'correction de préparation',
+      })
+      setSelected(null)
+      chargerPreparations()
+    }
     setLoading(false)
   }
 

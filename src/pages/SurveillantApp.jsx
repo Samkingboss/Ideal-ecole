@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { journaliser } from '../lib/audit'
 
 const RECREES = [
   { id:'r1', label:'9h40 - Recreation matin' },
@@ -78,10 +79,26 @@ export default function SurveillantApp({ user, onLogout }) {
     return null
   }
 
+  /** Identité du saisisseur et horodatage réel — l'écart avec l'heure
+   *  déclarée reste visible, ce qui suffit à discipliner la pratique. */
+  const tracage = () => {
+    let u = null
+    try { u = JSON.parse(localStorage.getItem('ideal_user') || 'null') } catch (e) { /* inconnu */ }
+    return { saisi_par: u?.id || null, saisi_le: new Date().toISOString() }
+  }
+
   const updateArrival = async (profId, time) => {
     if (performances[profId]?.valide) return
     setSaving(true)
-    await supabase.from('performances').upsert({ prof_id: profId, date_jour: today, heure_arrivee: time }, { onConflict: 'prof_id,date_jour' })
+    const avant = performances[profId]?.heure_arrivee || null
+    await supabase.from('performances').upsert(
+      { prof_id: profId, date_jour: today, heure_arrivee: time, arrivee_reelle: new Date().toISOString(), ...tracage() },
+      { onConflict: 'prof_id,date_jour' }
+    )
+    await journaliser({
+      table: 'performances', ligneId: `${profId}:${today}`, champ: 'heure_arrivee',
+      avant, apres: time, action: 'pointage arrivée',
+    })
     setPerformances(prev => ({ ...prev, [profId]: { ...(prev[profId]||{}), heure_arrivee: time } }))
     setSaving(false)
   }
@@ -89,7 +106,15 @@ export default function SurveillantApp({ user, onLogout }) {
   const updateDepart = async (profId, time) => {
     if (performances[profId]?.valide) return
     setSaving(true)
-    await supabase.from('performances').upsert({ prof_id: profId, date_jour: today, heure_depart: time }, { onConflict: 'prof_id,date_jour' })
+    const avant = performances[profId]?.heure_depart || null
+    await supabase.from('performances').upsert(
+      { prof_id: profId, date_jour: today, heure_depart: time, ...tracage() },
+      { onConflict: 'prof_id,date_jour' }
+    )
+    await journaliser({
+      table: 'performances', ligneId: `${profId}:${today}`, champ: 'heure_depart',
+      avant, apres: time, action: 'pointage départ',
+    })
     setPerformances(prev => ({ ...prev, [profId]: { ...(prev[profId]||{}), heure_depart: time } }))
     setSaving(false)
   }

@@ -6,6 +6,7 @@ import {
   CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction,
   avantagesDe, ancienneteAnnees, pointsMaxAnnee,
 } from '../lib/points'
+import { lireJournal } from '../lib/audit'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -78,6 +79,8 @@ export default function DirecteurApp({ user, onLogout }) {
   const [personnelRH, setPersonnelRH] = useState({})
   const [sourcesPoints, setSourcesPoints] = useState({ preparations: [], checkpoints: [], performances: [], rapports: [], saisieManuelle: {} })
   const [profSelectionne, setProfSelectionne] = useState(null)
+  const [journal, setJournal] = useState([])
+  const [journalOuvert, setJournalOuvert] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -653,6 +656,40 @@ export default function DirecteurApp({ user, onLogout }) {
               <div style={{background:'rgba(26,175,224,.08)', border:'1px solid var(--border)', borderRadius:12, padding:'.8rem 1rem', fontSize:12, color:'var(--muted)', marginBottom:'1rem', lineHeight:1.5}}>
                 Coefficients par trimestre : {pointsConfig.trimestres.map(t => `${t.label} ×${t.coef}`).join(' · ')}.
                 Un point gagné au 3<sup>e</sup> trimestre vaut {(pointsConfig.trimestres[2]?.coef / (pointsConfig.trimestres[0]?.coef || 1)).toFixed(1)} fois un point du 1<sup>er</sup>.
+              </div>
+
+              <div className="card" style={{marginBottom:'1rem'}}>
+                <div className="card-header" style={{cursor:'pointer'}} onClick={async () => {
+                  const ouvrir = !journalOuvert
+                  setJournalOuvert(ouvrir)
+                  if (ouvrir && journal.length === 0) setJournal(await lireJournal({ limite: 80 }))
+                }}>
+                  {journalOuvert ? '▾' : '▸'} 🔒 Journal des modifications
+                </div>
+                {journalOuvert && (
+                  <div className="card-body">
+                    <div style={{fontSize:11, color:'var(--muted)', marginBottom:8, lineHeight:1.5}}>
+                      Toute correction de préparation et tout pointage sont consignés ici avec leur auteur.
+                      Les entrées ne peuvent être ni modifiées ni supprimées.
+                    </div>
+                    {journal.filter(e => e.table_cible !== 'AUDIT_TEST').length === 0 ? (
+                      <div style={{fontSize:12, color:'var(--muted)', fontStyle:'italic'}}>Aucune modification enregistrée pour l'instant.</div>
+                    ) : journal.filter(e => e.table_cible !== 'AUDIT_TEST').map(e => (
+                      <div key={e.id} style={{borderBottom:'1px solid var(--border)', padding:'6px 0', fontSize:11}}>
+                        <div style={{display:'flex', justifyContent:'space-between', gap:8}}>
+                          <b>{e.action}</b>
+                          <span style={{color:'var(--muted)', whiteSpace:'nowrap'}}>
+                            {new Date(e.created_at).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                          </span>
+                        </div>
+                        <div style={{color:'var(--muted)'}}>
+                          {e.champ} : <s>{e.ancienne_valeur ?? '—'}</s> → <b style={{color:'var(--text)'}}>{e.nouvelle_valeur ?? '—'}</b>
+                        </div>
+                        <div style={{color:'var(--muted)'}}>par {e.auteur_nom || 'auteur inconnu'}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {equipePoints.length === 0 ? (
