@@ -219,3 +219,66 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
 
 /* Défilement fluide type app */
 * { -webkit-overflow-scrolling: touch; }
+
+/* ══════════════════════════════════════════════════════════════
+   ADAPTATION AUX APPAREILS — téléphone / tablette / ordinateur
+   Le rendu téléphone ci-dessus reste la base ; ces paliers
+   élargissent progressivement l'interface sur les grands écrans.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── TABLETTE (≥ 768 px) ── */
+@media (min-width: 768px) {
+  .app-shell { max-width: 760px; }
+  .bottom-nav { max-width: 760px; }
+
+  .page-content { padding: 1rem 1.6rem 90px; }
+  .topbar, .top-nav-secondary { padding-left: 1.6rem; padding-right: 1.6rem; }
+
+  /* Les tuiles de chiffres passent de 2 à 4 par ligne quand la place le permet */
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+  .section-title { font-size: 22px; }
+  .nav-icon { font-size: 24px; }
+  .nav-item { font-size: 10px; }
+}
+
+/* ── ORDINATEUR (≥ 1100 px) ── */
+@media (min-width: 1100px) {
+  .app-shell { max-width: 1120px; }
+
+  .page-content { padding: 1.4rem 2rem 2rem; }
+  .topbar, .top-nav-secondary { padding-left: 2rem; padding-right: 2rem; }
+
+  /* La navigation du bas devient une barre pleine largeur ancrée au shell */
+  .bottom-nav { max-width: 1120px; justify-content: center; gap: 3rem; }
+
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+  /* Les fenêtres modales deviennent de vraies boîtes de dialogue centrées
+     au lieu de feuilles glissant du bas */
+  .modal-overlay { align-items: center; }
+  .modal {
+    max-width: 640px;
+    height: auto;
+    max-height: 85vh;
+    border-radius: 20px;
+    animation: fadeIn .2s;
+  }
+  .modal-handle { display: none; }
+
+  /* Le texte est sélectionnable au clavier/souris sur ordinateur */
+  body { -webkit-user-select: auto; user-select: auto; }
+}
+
+/* ── GRAND ÉCRAN (≥ 1500 px) ── */
+@media (min-width: 1500px) {
+  .app-shell { max-width: 1320px; }
+  .bottom-nav { max-width: 1320px; }
+}
+
+/* ── SURVOL SOURIS uniquement (évite les états collants au tactile) ── */
+@media (hover: hover) and (pointer: fine) {
+  .top-nav-item:hover { background: var(--border); }
+  .btn:hover, .btn-sm:hover { filter: brightness(1.08); }
+  .nav-item:hover { color: var(--accent); }
+}

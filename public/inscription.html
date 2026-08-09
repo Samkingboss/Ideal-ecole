@@ -127,7 +127,17 @@
         .logo-text  { font-weight:800; font-size:1rem; color:var(--grey-t); letter-spacing:-.01em; }
         .logo-sub   { font-size:.68rem; color:var(--muted); font-weight:500; }
 
-        .header-nav { display:flex; gap:.6rem; align-items:center; }
+        .header-nav { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+        /* ── Adaptation téléphone : les boutons d'en-tête passent à la ligne
+              et se resserrent au lieu d'élargir la page ── */
+        @media (max-width: 640px) {
+            .header-nav { width:100%; justify-content:center; gap:.4rem; }
+            .header-nav .btn { font-size:.74rem !important; padding:.45rem .7rem !important; }
+            .logo-sub { display:none; }
+        }
+        html, body { max-width:100%; overflow-x:hidden; }
+        select, input, textarea { max-width:100%; }
 
         /* ═══════════════════════════════════════════
            BOUTONS

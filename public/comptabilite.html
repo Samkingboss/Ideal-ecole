@@ -704,6 +704,26 @@
 }
 .portal-back:hover { box-shadow: 0 8px 24px rgba(13,42,59,.26); }
 .portal-back:active { transform: scale(.88); }
+
+/* ══ ADAPTATION AUX APPAREILS — garde-fous anti-débordement ══
+   Aucun élément ne doit pouvoir élargir la page : les tableaux larges
+   défilent dans leur propre cadre, jamais la page entière. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+/* Les listes déroulantes aux libellés longs (périodes, classes…) ne
+   s'étirent plus au-delà de leur conteneur */
+select, input[type="text"], input[type="number"], input[type="date"] { max-width: 100%; }
+
+/* Tout tableau non explicitement encadré défile de lui-même */
+table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%; }
+@media (min-width: 900px) {
+  table.tbl, table.tbl-compta { display: table; }
+}
+
+/* Confort de lecture sur grand écran : le contenu reste centré et aéré */
+@media (min-width: 1400px) {
+  .tab-pane { max-width: 1340px; margin-left: auto; margin-right: auto; }
+}
 </style>
 
 <!-- ════════════════ HEADER ════════════════ -->
@@ -781,6 +801,7 @@
     <div class="card">
       <div class="card-head"><h3>👥 Effectifs : Prévus vs Saisis</h3></div>
       <div class="card-body" style="padding-top: 0.5rem;">
+        <div style="overflow-x:auto;">
         <table class="tbl" id="tbl-effectifs-comp">
           <thead>
             <tr>
@@ -793,6 +814,7 @@
           </thead>
           <tbody></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -1017,7 +1039,7 @@
     </div>
     <div style="background: rgba(255,255,255,0.05); padding: 0.8rem 1rem; border-radius: 8px;">
       <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:0.3rem;">Période exigible actuelle :</label>
-      <select class="inp" id="crm-periode" onchange="renderElevesTab()" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
+      <select class="inp" id="crm-periode" onchange="renderElevesTab()" style="background:var(--bg); border:1px solid var(--border); font-weight:700; width:100%; max-width:100%;">
         <option value="rentree">Trimestre 1 — Oct→Déc (Inscriptions + Scolarité T1 + Cantine P1+P2)</option>
         <option value="t2">Trimestre 2 — Jan→Avr (Scolarité T2 + Cantine P3+P4)</option>
         <option value="t3">Trimestre 3 — Avr→Juin (Scolarité T3 + Cantine P5)</option>
@@ -1591,7 +1613,7 @@
     </div>
     <div style="background: rgba(255,255,255,0.05); padding: 0.8rem 1rem; border-radius: 8px;">
       <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:0.3rem;">Période :</label>
-      <select class="inp" id="rq-periode" onchange="renderRecouvrement()" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
+      <select class="inp" id="rq-periode" onchange="renderRecouvrement()" style="background:var(--bg); border:1px solid var(--border); font-weight:700; width:100%; max-width:100%;">
         <option value="rentree">Trimestre 1 — Oct→Déc</option>
         <option value="t2">Trimestre 2 — Jan→Avr</option>
         <option value="t3">Trimestre 3 — Avr→Juin</option>
