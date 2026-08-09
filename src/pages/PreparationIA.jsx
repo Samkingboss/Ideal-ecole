@@ -80,22 +80,27 @@ export default function PreparationIA({ user }) {
       const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(nomFichier)
       const { ok: dansLesDelais, retardMinutes } = verifierDelai(form.date_cours, form.heure_cours)
 
-      await supabase.from('preparations').insert({
+      // La matière n'a pas de colonne dédiée : on la consigne dans le
+      // commentaire pour ne pas la perdre. Le retard est recalculable à tout
+      // moment depuis l'heure de dépôt et l'heure du cours.
+      const { error: insertErr } = await supabase.from('preparations').insert({
         user_id: user.id,
         classe_id: form.classe_id,
-        matiere: form.matiere,
         date_cours: form.date_cours,
         heure_cours: form.heure_cours,
         url_doc: publicUrl,
         status: dansLesDelais ? 'en_attente' : 'retard',
-        retard_minutes: retardMinutes,
+        commentaire_ia: `Matière : ${form.matiere}`,
         note_ia: null,
       })
+      if (insertErr) throw new Error("Enregistrement refusé : " + insertErr.message)
 
       setVue('liste')
       setForm(f => ({ ...f, fichier: null, matiere: '' }))
       chargerDonnees()
-      alert('Préparation soumise ! Le directeur va la corriger.')
+      alert(dansLesDelais
+        ? 'Préparation enregistrée. Le directeur va la corriger.'
+        : `Préparation enregistrée avec ${retardMinutes} min de retard. Le directeur va la corriger.`)
     } catch (err) {
       setErreur('Erreur : ' + err.message)
     }

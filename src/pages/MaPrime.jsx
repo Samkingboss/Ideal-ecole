@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction, avantagesDe,
+  CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction, avantagesDe, detailIndicateur,
 } from '../lib/points'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
@@ -19,6 +19,9 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
   const [ete, setEte] = useState({ total: 0, mois: [] })
   const [av, setAv] = useState(null)
   const [chargement, setChargement] = useState(true)
+  const [donnees, setDonnees] = useState(null)
+  const [triOuvert, setTriOuvert] = useState(null)
+  const [detailOuvert, setDetailOuvert] = useState(null)
 
   useEffect(() => { charger() }, [user?.id])
 
@@ -46,6 +49,7 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
         saisieManuelle: manRes.data?.value || {},
       }
 
+      setDonnees(donnees)
       const c = calculerPoints(cfg, donnees, user.id, nomComplet)
       setCalc(c)
       setEte(montantEte(c.pourcentage, cfg))
@@ -118,26 +122,62 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
       <div className="card" style={{marginBottom:12}}>
         <div className="card-header">Mes points · {calc.total} sur {calc.max}</div>
         <div className="card-body">
+          <div style={{fontSize:11, color:'var(--muted)', marginBottom:10, fontStyle:'italic'}}>
+            Touchez un trimestre, puis un indicateur, pour voir le détail de ce qui a été compté.
+          </div>
           {calc.parTrimestre.map(t => {
             const pct = t.pondereMax > 0 ? Math.round((t.pondere / t.pondereMax) * 100) : 0
             const encours = !!triEnCours && t.id === triEnCours.id
+            const ouvert = triOuvert === t.id || (triOuvert === null && encours)
             return (
               <div key={t.id} style={{marginBottom:12}}>
-                <div style={{display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:4}}>
-                  <span>{t.label} <span style={{color:'var(--accent)'}}>×{t.coef}</span>{encours && <span style={{color:'var(--amber)', fontSize:10, marginLeft:6}}>EN COURS</span>}</span>
+                <div onClick={() => { setTriOuvert(ouvert ? 'aucun' : t.id); setDetailOuvert(null) }}
+                  style={{display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:4, cursor:'pointer'}}>
+                  <span>
+                    {ouvert ? '▾' : '▸'} {t.label} <span style={{color:'var(--accent)'}}>×{t.coef}</span>
+                    {encours && <span style={{color:'var(--amber)', fontSize:10, marginLeft:6}}>EN COURS</span>}
+                  </span>
                   <span style={{color:'var(--muted)'}}>{t.pondere} / {t.pondereMax}</span>
                 </div>
                 <div className="progress-wrap" style={{height:14}}>
                   <div className="progress-fill" style={{width:`${pct}%`, background: pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--accent)'}}></div>
                 </div>
-                {encours && (
+
+                {ouvert && (
                   <div style={{marginTop:8}}>
-                    {t.detail.map(d => (
-                      <div key={d.id} style={{display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'3px 0', color:'var(--muted)'}}>
-                        <span style={{flex:1}}>{d.label}</span>
-                        <span style={{fontWeight:700, color:'var(--text)'}}>{d.realise}/{d.cible}</span>
-                      </div>
-                    ))}
+                    {t.detail.map(d => {
+                      const cle = `${t.id}:${d.id}`
+                      const affiche = detailOuvert === cle
+                      const auto = (config.indicateurs.find(i => i.id === d.id) || {}).auto
+                      const lignes = affiche && donnees
+                        ? detailIndicateur(config, donnees, user.id, `${user.prenom || ''} ${user.nom || ''}`.trim(), t.id, d.id)
+                        : []
+                      return (
+                        <div key={d.id}>
+                          <div onClick={() => auto && setDetailOuvert(affiche ? null : cle)}
+                            style={{display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'4px 0', color:'var(--muted)', cursor: auto ? 'pointer' : 'default'}}>
+                            <span style={{flex:1}}>{auto && (affiche ? '▾ ' : '▸ ')}{d.label}</span>
+                            <span style={{fontWeight:700, color:'var(--text)'}}>{d.realise}/{d.cible}</span>
+                            <span style={{minWidth:44, textAlign:'right'}}>{d.points} pt</span>
+                          </div>
+                          {affiche && (
+                            <div style={{background:'var(--bg)', borderRadius:8, padding:'6px 8px', margin:'2px 0 8px'}}>
+                              {lignes.length === 0 ? (
+                                <div style={{fontSize:11, color:'var(--muted)', fontStyle:'italic'}}>Rien d'enregistré sur ce trimestre.</div>
+                              ) : lignes.map((l, k) => (
+                                <div key={k} style={{display:'flex', gap:6, fontSize:10, padding:'2px 0', alignItems:'flex-start'}}>
+                                  <span>{l.compte ? '✅' : '❌'}</span>
+                                  <span style={{flex:1}}>
+                                    <b>{l.date}</b> · {l.info}
+                                    <div style={{color: l.compte ? 'var(--muted)' : 'var(--red)'}}>{l.raison}</div>
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

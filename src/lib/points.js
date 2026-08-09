@@ -76,6 +76,32 @@ export function trimestreDe(dateISO, config) {
   return (config.trimestres || []).find(t => d >= t.debut && d <= t.fin) || null
 }
 
+/**
+ * Normalise une date de rapport. Les rapports historiques stockent une date
+ * française (JJ/MM/AAAA), incomparable aux bornes de trimestre ; les nouveaux
+ * portent un champ dateISO.
+ */
+export function dateRapport(rapport) {
+  if (!rapport) return null
+  if (rapport.dateISO) return String(rapport.dateISO).slice(0, 10)
+  const fr = String(rapport.date || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (fr) return `${fr[3]}-${fr[2]}-${fr[1]}`
+  const iso = String(rapport.date || '').match(/^\d{4}-\d{2}-\d{2}/)
+  return iso ? iso[0] : null
+}
+
+/**
+ * Un rapport appartient à un enseignant si son identifiant correspond.
+ * Le nom n'est utilisé qu'en repli, pour les rapports antérieurs à
+ * l'enregistrement de l'identifiant.
+ */
+export function rapportDe(rapport, userId, nomComplet) {
+  if (!rapport) return false
+  if (rapport.teacherId) return rapport.teacherId === userId
+  const t = (rapport.teacher || '').trim().toLowerCase()
+  return !!t && !!nomComplet && t === nomComplet.trim().toLowerCase()
+}
+
 /** Une préparation est « à temps » si elle est déposée avant le début du cours */
 export function preparationATemps(prep) {
   if (!prep || !prep.heure_depot || !prep.date_cours) return false
@@ -104,10 +130,9 @@ export function calculerPoints(config, donnees, userId, nomComplet) {
 
     const cps = (donnees.checkpoints || []).filter(c => c.prof_id === userId && dansTri(c.date_checkpoint)).length
 
-    const raps = (donnees.rapports || []).filter(r => {
-      const t = (r.teacher || '').trim().toLowerCase()
-      return t && nomComplet && t === nomComplet.trim().toLowerCase() && dansTri(r.date)
-    }).length
+    const raps = (donnees.rapports || []).filter(r =>
+      rapportDe(r, userId, nomComplet) && dansTri(dateRapport(r))
+    ).length
 
     const jours = (donnees.performances || []).filter(p => p.prof_id === userId && dansTri(p.date_jour))
     const limite = config.heureLimiteArrivee || '08:00'
@@ -150,6 +175,79 @@ export function calculerPoints(config, donnees, userId, nomComplet) {
     max,
     pourcentage: max > 0 ? Math.round((total / max) * 1000) / 10 : 0,
   }
+}
+
+/**
+ * Détail vérifiable d'un indicateur sur un trimestre : la liste exacte des
+ * éléments pris en compte, ceux qui ne le sont pas, et pourquoi.
+ *
+ * C'est la pièce maîtresse de la transparence : un enseignant qui peut
+ * vérifier ligne à ligne conteste rarement, et quand il conteste, la
+ * discussion porte sur un fait daté plutôt que sur une impression.
+ */
+export function detailIndicateur(config, donnees, userId, nomComplet, trimestreId, indicateurId) {
+  const tri = (config.trimestres || []).find(t => t.id === trimestreId)
+  if (!tri) return []
+  const dans = d => {
+    const t = trimestreDe(d, config)
+    return t && t.id === tri.id
+  }
+  const heure = ts => {
+    try { return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }
+    catch (e) { return String(ts || '') }
+  }
+
+  if (indicateurId === 'preparations') {
+    return (donnees.preparations || [])
+      .filter(p => p.user_id === userId && dans(p.date_cours))
+      .sort((a, b) => String(a.date_cours).localeCompare(String(b.date_cours)))
+      .map(p => {
+        const ok = preparationATemps(p)
+        return {
+          date: p.date_cours,
+          info: `déposée le ${heure(p.heure_depot)} · cours à ${String(p.heure_cours || '').slice(0, 5)}`,
+          compte: ok,
+          raison: ok ? 'déposée avant le cours' : 'déposée après le début du cours',
+        }
+      })
+  }
+
+  if (indicateurId === 'checkpoints') {
+    return (donnees.checkpoints || [])
+      .filter(c => c.prof_id === userId && dans(c.date_checkpoint))
+      .sort((a, b) => String(a.date_checkpoint).localeCompare(String(b.date_checkpoint)))
+      .map(c => ({ date: c.date_checkpoint, info: 'check-point enregistré', compte: true, raison: 'compté' }))
+  }
+
+  if (indicateurId === 'rapports') {
+    return (donnees.rapports || [])
+      .filter(r => rapportDe(r, userId, nomComplet) && dans(dateRapport(r)))
+      .map(r => ({
+        date: dateRapport(r),
+        info: `rapport de ${r.studentName || 'élève'}`,
+        compte: true,
+        raison: 'compté',
+      }))
+  }
+
+  if (indicateurId === 'ponctualite') {
+    const limite = config.heureLimiteArrivee || '08:00'
+    return (donnees.performances || [])
+      .filter(p => p.prof_id === userId && dans(p.date_jour))
+      .sort((a, b) => String(a.date_jour).localeCompare(String(b.date_jour)))
+      .map(p => {
+        const h = String(p.heure_arrivee || '').slice(0, 5)
+        const ok = !h || h <= limite
+        return {
+          date: p.date_jour,
+          info: h ? `arrivée ${h}` : 'heure non renseignée',
+          compte: ok,
+          raison: ok ? `dans les délais (limite ${limite})` : `après ${limite}`,
+        }
+      })
+  }
+
+  return []
 }
 
 /** Enveloppe d'été acquise, et sa répartition mensuelle */

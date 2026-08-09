@@ -600,7 +600,12 @@ function collectReport(){
     meilleure:v('ed-meilleure'), faible:v('ed-faible'),
     general:v('ed-general'), maison:v('ed-maison'),
     teacher:[user&&user.prenom,user&&user.nom].filter(Boolean).join(' '),
-    date:new Date().toLocaleDateString('fr-FR')
+    // Identifiant de l'auteur : c'est lui qui fait foi pour le décompte des
+    // points. Le nom en clair reste affiché sur le rapport, mais un
+    // changement de nom ou une faute de frappe ne fait plus perdre le rapport.
+    teacherId:(user&&user.id)||null,
+    date:new Date().toLocaleDateString('fr-FR'),
+    dateISO:new Date().toISOString().slice(0,10)
   };
 }
 
