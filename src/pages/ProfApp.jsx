@@ -2,6 +2,7 @@ import ProgrammeManager from './ProgrammeManager'
 import CheckpointModal from './CheckpointModal'
 import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
+import MaPrime from './MaPrime'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -23,6 +24,7 @@ const TABS = [
 
 const TOP_TABS = [
   { id:'agenda', icon:'📅', label:'Agenda' },
+  { id:'prime', icon:'🏆', label:'Ma prime' },
   { id:'messages', icon:'💬', label:'Messages' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
 ]
@@ -563,6 +565,11 @@ export default function ProfApp({ user, onLogout }) {
       </div>
 
       <div className="page-content">
+        {/* Bandeau permanent : la prime d'été reste sous les yeux, quel que soit l'onglet */}
+        {tab !== 'prime' && <MaPrime user={user} compact onOuvrir={() => setTab('prime')} />}
+
+        {tab === 'prime' && <MaPrime user={user} />}
+
         {tab === 'agenda' && (
           <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} anniversaires={eleves} />
         )}

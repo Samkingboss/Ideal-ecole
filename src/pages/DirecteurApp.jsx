@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import PerformancesDirecteur from './PerformancesDirecteur'
 import AgendaCalendrier from './AgendaCalendrier'
+import {
+  CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction,
+  avantagesDe, ancienneteAnnees, pointsMaxAnnee,
+} from '../lib/points'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -11,11 +15,14 @@ const BOTTOM_TABS = [
 
 const TOP_TABS = [
   { id:'profs', icon:'👥', label:'Équipe' },
+  { id:'points', icon:'🏆', label:'Points & prime' },
   { id:'eleves', icon:'🎒', label:'Élèves' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
   { id:'pedagogie', icon:'📚', label:'Pédagogie' },
 ]
+
+const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
 // Référentiel par défaut des postes (seed si app_state rh/postes est vide).
 // Doit rester aligné avec SALAIRES_DETAIL de public/comptabilite.html.
@@ -67,6 +74,10 @@ export default function DirecteurApp({ user, onLogout }) {
   const [disciplines, setDisciplines] = useState([])
   const [postes, setPostes] = useState(DEFAULT_POSTES)
   const [posteDraft, setPosteDraft] = useState([])
+  const [pointsConfig, setPointsConfig] = useState(CONFIG_DEFAUT)
+  const [personnelRH, setPersonnelRH] = useState({})
+  const [sourcesPoints, setSourcesPoints] = useState({ preparations: [], checkpoints: [], performances: [], rapports: [], saisieManuelle: {} })
+  const [profSelectionne, setProfSelectionne] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -138,6 +149,24 @@ export default function DirecteurApp({ user, onLogout }) {
       const { data: rhPostes } = await supabase.from('app_state')
         .select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle()
       if (Array.isArray(rhPostes?.value) && rhPostes.value.length > 0) setPostes(rhPostes.value)
+
+      // ─── Points & prime d'été ───
+      const [cfgRes, persRes, manRes, perfRes, rapRes] = await Promise.all([
+        supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'points_config').maybeSingle(),
+        supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'personnel').maybeSingle(),
+        supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'saisie_manuelle').maybeSingle(),
+        supabase.from('performances').select('prof_id, date_jour, heure_arrivee'),
+        supabase.from('app_state').select('value').eq('app', 'rapports_eleves'),
+      ])
+      if (cfgRes.data?.value) setPointsConfig({ ...CONFIG_DEFAUT, ...cfgRes.data.value })
+      if (persRes.data?.value) setPersonnelRH(persRes.data.value)
+      setSourcesPoints({
+        preparations: prep || [],
+        checkpoints: cp || [],
+        performances: perfRes.data || [],
+        rapports: (rapRes.data || []).map(r => r.value).filter(Boolean),
+        saisieManuelle: manRes.data?.value || {},
+      })
     } catch (e) {
       console.error('Error loading data:', e)
     }
@@ -163,6 +192,54 @@ export default function DirecteurApp({ user, onLogout }) {
     setShowModal(null)
     setMsg('Postes & salaires enregistrés — la comptabilité est synchronisée.')
   }
+
+  // ─── Points & prime d'été : persistance dans app_state ───
+  const sauverRH = async (key, value, message) => {
+    const { error } = await supabase.from('app_state').upsert(
+      { app: 'rh', key, value, updated_at: new Date().toISOString() },
+      { onConflict: 'app,key' }
+    )
+    if (error) { setMsg('Erreur: ' + error.message); return false }
+    if (message) setMsg(message)
+    return true
+  }
+
+  const majConfig = (patch) => {
+    const next = { ...pointsConfig, ...patch }
+    setPointsConfig(next)
+    sauverRH('points_config', next)
+  }
+
+  const majPersonnel = (userId, patch) => {
+    const next = { ...personnelRH, [userId]: { ...(personnelRH[userId] || {}), ...patch } }
+    setPersonnelRH(next)
+    sauverRH('personnel', next)
+  }
+
+  const majSaisie = (userId, triId, indId, valeur) => {
+    const sm = sourcesPoints.saisieManuelle || {}
+    const next = {
+      ...sm,
+      [userId]: {
+        ...(sm[userId] || {}),
+        [triId]: { ...((sm[userId] || {})[triId] || {}), [indId]: parseInt(valeur, 10) || 0 },
+      },
+    }
+    setSourcesPoints(s => ({ ...s, saisieManuelle: next }))
+    sauverRH('saisie_manuelle', next)
+  }
+
+  /** Enseignants avec leurs points calculés — recalculé à chaque rendu */
+  const equipePoints = profs
+    .filter(p => p.role === 'professeur')
+    .map(p => {
+      const nomComplet = `${p.prenom || ''} ${p.nom || ''}`.trim()
+      const calc = calculerPoints(pointsConfig, sourcesPoints, p.id, nomComplet)
+      const ete = montantEte(calc.pourcentage, pointsConfig)
+      const av = avantagesDe(calc.pourcentage, (personnelRH[p.id] || {}).dateEmbauche, personnelRH[p.id], pointsConfig)
+      return { prof: p, nomComplet, calc, ete, av }
+    })
+    .sort((a, b) => b.calc.total - a.calc.total)
 
   const generateCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -541,6 +618,144 @@ export default function DirecteurApp({ user, onLogout }) {
           </>
         )}
 
+        {tab === 'points' && (() => {
+          const maxAnnee = pointsMaxAnnee(pointsConfig)
+          const n = equipePoints.length
+          const moyenne = n ? equipePoints.reduce((s, e) => s + e.calc.pourcentage, 0) / n : 0
+          const coutActuel = equipePoints.reduce((s, e) => s + e.ete.total, 0)
+          const plafond = n * pointsConfig.enveloppeEte
+          return (
+            <>
+              <div className="section-head">
+                <div className="section-title">Points & prime d'été</div>
+                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>setShowModal('bareme')}>⚙️ Barème</button>
+              </div>
+
+              <div className="kpi-grid">
+                <div className="kpi-card kpi-accent">
+                  <div className="kpi-value">{Math.round(moyenne)}%</div>
+                  <div className="kpi-label">Moyenne de l'équipe</div>
+                </div>
+                <div className="kpi-card kpi-green">
+                  <div className="kpi-value" style={{fontSize:18}}>{fcfa(coutActuel)}</div>
+                  <div className="kpi-label">Prime d'été au rythme actuel</div>
+                </div>
+                <div className="kpi-card kpi-amber">
+                  <div className="kpi-value" style={{fontSize:18}}>{fcfa(plafond)}</div>
+                  <div className="kpi-label">Plafond si tous à 100 %</div>
+                </div>
+                <div className="kpi-card kpi-pink">
+                  <div className="kpi-value">{maxAnnee}</div>
+                  <div className="kpi-label">Points maximum sur l'année</div>
+                </div>
+              </div>
+
+              <div style={{background:'rgba(26,175,224,.08)', border:'1px solid var(--border)', borderRadius:12, padding:'.8rem 1rem', fontSize:12, color:'var(--muted)', marginBottom:'1rem', lineHeight:1.5}}>
+                Coefficients par trimestre : {pointsConfig.trimestres.map(t => `${t.label} ×${t.coef}`).join(' · ')}.
+                Un point gagné au 3<sup>e</sup> trimestre vaut {(pointsConfig.trimestres[2]?.coef / (pointsConfig.trimestres[0]?.coef || 1)).toFixed(1)} fois un point du 1<sup>er</sup>.
+              </div>
+
+              {equipePoints.length === 0 ? (
+                <div className="empty-state"><div className="empty-icon">🏆</div><p>Aucun enseignant enregistré.</p></div>
+              ) : equipePoints.map((e, i) => {
+                const ouvert = profSelectionne === e.prof.id
+                const ans = e.av.anciennete
+                return (
+                  <div key={e.prof.id} className="card" style={{marginBottom:10}}>
+                    <div className="user-row" style={{cursor:'pointer'}} onClick={()=>setProfSelectionne(ouvert ? null : e.prof.id)}>
+                      <div className={`avatar ${['av-blue','av-green','av-amber','av-pink'][i%4]}`}>{(e.prof.prenom?.[0]||'')+(e.prof.nom?.[0]||'')}</div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontWeight:600, fontSize:13}}>{e.nomComplet}</div>
+                        <div style={{fontSize:11, color:'var(--muted)', marginTop:2}}>
+                          {e.calc.total} / {e.calc.max} pts · {ans === null ? 'ancienneté à renseigner' : `${ans} an${ans>1?'s':''} d'ancienneté`}
+                        </div>
+                        <div className="progress-wrap" style={{marginTop:6}}>
+                          <div className="progress-fill" style={{width:`${e.calc.pourcentage}%`, background: e.calc.pourcentage>=80?'var(--green)':e.calc.pourcentage>=50?'var(--amber)':'var(--red)'}}></div>
+                        </div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontWeight:800, fontSize:15, color:'var(--green)'}}>{fcfa(e.ete.total)}</div>
+                        <div style={{fontSize:10, color:'var(--muted)'}}>{e.calc.pourcentage}%</div>
+                        {e.av.palier && <span className="chip chip-green" style={{marginTop:4, display:'inline-block'}}>{e.av.palier.label}</span>}
+                      </div>
+                    </div>
+
+                    {ouvert && (
+                      <div className="card-body" style={{borderTop:'1px solid var(--border)', paddingTop:12}}>
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12}}>
+                          {e.ete.mois.map(m => (
+                            <div key={m.mois} style={{background:'var(--bg)', borderRadius:10, padding:'8px 6px', textAlign:'center'}}>
+                              <div style={{fontSize:10, color:'var(--muted)'}}>{m.mois}</div>
+                              <div style={{fontSize:13, fontWeight:700}}>{fcfa(m.montant)}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {e.calc.parTrimestre.map(t => (
+                          <div key={t.id} style={{marginBottom:10}}>
+                            <div style={{fontSize:11, fontWeight:700, marginBottom:4}}>
+                              {t.label} <span style={{color:'var(--accent)'}}>×{t.coef}</span>
+                              <span style={{float:'right', color:'var(--muted)'}}>{t.pondere} / {t.pondereMax} pts</span>
+                            </div>
+                            {t.detail.map(d => (
+                              <div key={d.id} style={{display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'2px 0'}}>
+                                <span style={{flex:1, color:'var(--muted)'}}>{d.label}</span>
+                                {d.id === 'reunions' ? (
+                                  <input type="number" min="0" max={d.cible} defaultValue={d.realise}
+                                    onBlur={ev=>majSaisie(e.prof.id, t.id, 'reunions', ev.target.value)}
+                                    style={{width:46, padding:'2px 4px', fontSize:11, border:'1px solid var(--border)', borderRadius:6, background:'var(--bg)', color:'var(--text)'}} />
+                                ) : (
+                                  <span style={{fontWeight:600}}>{d.realise}</span>
+                                )}
+                                <span style={{color:'var(--muted)', minWidth:52, textAlign:'right'}}>/ {d.cible} → {d.points} pt</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+
+                        <div style={{borderTop:'1px solid var(--border)', paddingTop:10, marginTop:6}}>
+                          <div className="form-group" style={{marginBottom:8}}>
+                            <label className="form-label">Date d'embauche</label>
+                            <input type="date" className="form-input" defaultValue={(personnelRH[e.prof.id]||{}).dateEmbauche || ''}
+                              onBlur={ev=>majPersonnel(e.prof.id, { dateEmbauche: ev.target.value })} />
+                          </div>
+                          <div style={{display:'flex', gap:14, flexWrap:'wrap', fontSize:12, marginBottom:8}}>
+                            <label style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer'}}>
+                              <input type="checkbox" checked={!!(personnelRH[e.prof.id]||{}).declarationEtudes}
+                                onChange={ev=>majPersonnel(e.prof.id, { declarationEtudes: ev.target.checked })} />
+                              Bourse d'études déclarée
+                            </label>
+                            <label style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer'}}>
+                              <input type="checkbox" checked={!!(personnelRH[e.prof.id]||{}).incident}
+                                onChange={ev=>majPersonnel(e.prof.id, { incident: ev.target.checked })} />
+                              Incident enregistré
+                            </label>
+                          </div>
+                          {e.av.choixOuvert && (
+                            <div className="form-group" style={{marginBottom:8}}>
+                              <label className="form-label">Option choisie (5 ans et +)</label>
+                              <select className="form-select" value={(personnelRH[e.prof.id]||{}).optionChoisie || 'enfant'}
+                                onChange={ev=>majPersonnel(e.prof.id, { optionChoisie: ev.target.value })}>
+                                <option value="enfant">Bourse enfant 100 %</option>
+                                <option value="etudes">Bourse d'études</option>
+                              </select>
+                            </div>
+                          )}
+                          <div style={{fontSize:12, lineHeight:1.6}}>
+                            {e.av.bourseEnfant > 0 && <div>🎓 Bourse enfant : <b style={{color:'var(--green)'}}>{e.av.bourseEnfant} %</b></div>}
+                            {e.av.bourseEtudes > 0 && <div>📚 Bourse d'études : <b style={{color:'var(--green)'}}>{e.av.bourseEtudes} %</b> (plafond {fcfa(pointsConfig.bourseEtudesPlafond)})</div>}
+                            {e.av.messages.map((m, k) => <div key={k} style={{color:'var(--muted)', fontStyle:'italic'}}>{m}</div>)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </>
+          )
+        })()}
+
         {tab === 'eleves' && (
           <>
             <div className="section-head">
@@ -796,6 +1011,116 @@ export default function DirecteurApp({ user, onLogout }) {
             </div>
             <button className="btn btn-primary" onClick={saveProf} disabled={loading}>{loading?'...':'Creer le compte'}</button>
             <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'bareme' && (
+        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
+          <div className="modal">
+            <div className="modal-handle"></div>
+            <div className="modal-title">⚙️ Barème des points</div>
+            <p style={{fontSize:12, color:'var(--muted)', marginBottom:'1rem', lineHeight:1.5}}>
+              Tout est modifiable. Les montants s'appliquent immédiatement au calcul de l'équipe.
+            </p>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Salaire de base mensuel</label>
+                <input type="number" className="form-input" defaultValue={pointsConfig.salaireBase}
+                  onBlur={e=>majConfig({ salaireBase: parseInt(e.target.value,10)||0 })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Enveloppe d'été max.</label>
+                <input type="number" className="form-input" defaultValue={pointsConfig.enveloppeEte}
+                  onBlur={e=>majConfig({ enveloppeEte: parseInt(e.target.value,10)||0 })} />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Coefficients par trimestre</label>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8}}>
+                {pointsConfig.trimestres.map((t, i) => (
+                  <div key={t.id}>
+                    <div style={{fontSize:10, color:'var(--muted)', marginBottom:3}}>{t.label}</div>
+                    <input type="number" step="0.1" min="0.1" className="form-input" defaultValue={t.coef}
+                      onBlur={e=>{
+                        const tri = pointsConfig.trimestres.map((x,k)=> k===i ? {...x, coef: parseFloat(e.target.value)||1} : x)
+                        majConfig({ trimestres: tri })
+                      }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Indicateurs — points et objectif par trimestre</label>
+              {pointsConfig.indicateurs.map((ind, i) => (
+                <div key={ind.id} style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+                  <span style={{flex:1, fontSize:12}}>{ind.label}</span>
+                  <input type="number" min="0" className="form-input" style={{width:62, padding:'.4rem'}} defaultValue={ind.points}
+                    onBlur={e=>{
+                      const list = pointsConfig.indicateurs.map((x,k)=> k===i ? {...x, points: parseInt(e.target.value,10)||0} : x)
+                      majConfig({ indicateurs: list })
+                    }} />
+                  <span style={{fontSize:11, color:'var(--muted)'}}>pts /</span>
+                  <input type="number" min="1" className="form-input" style={{width:62, padding:'.4rem'}} defaultValue={ind.cible}
+                    onBlur={e=>{
+                      const list = pointsConfig.indicateurs.map((x,k)=> k===i ? {...x, cible: parseInt(e.target.value,10)||1} : x)
+                      majConfig({ indicateurs: list })
+                    }} />
+                </div>
+              ))}
+              <div style={{fontSize:11, color: pointsConfig.indicateurs.reduce((s,i)=>s+i.points,0)===100 ? 'var(--green)' : 'var(--red)', marginTop:4}}>
+                Total : {pointsConfig.indicateurs.reduce((s,i)=>s+i.points,0)} points bruts par trimestre {pointsConfig.indicateurs.reduce((s,i)=>s+i.points,0)===100 ? '✓' : '(viser 100)'}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Paliers — seuil, bourse enfant, formation</label>
+              {pointsConfig.paliers.map((p, i) => (
+                <div key={p.id} style={{display:'flex', alignItems:'center', gap:6, marginBottom:6}}>
+                  <span style={{flex:1, fontSize:12}}>{p.label}</span>
+                  <input type="number" className="form-input" style={{width:56, padding:'.4rem'}} defaultValue={p.seuil}
+                    onBlur={e=>{
+                      const l = pointsConfig.paliers.map((x,k)=> k===i ? {...x, seuil: parseInt(e.target.value,10)||0} : x)
+                      majConfig({ paliers: l })
+                    }} />
+                  <input type="number" className="form-input" style={{width:56, padding:'.4rem'}} defaultValue={p.bourseEnfant}
+                    onBlur={e=>{
+                      const l = pointsConfig.paliers.map((x,k)=> k===i ? {...x, bourseEnfant: parseInt(e.target.value,10)||0} : x)
+                      majConfig({ paliers: l })
+                    }} />
+                  <input type="number" className="form-input" style={{width:56, padding:'.4rem'}} defaultValue={p.formation}
+                    onBlur={e=>{
+                      const l = pointsConfig.paliers.map((x,k)=> k===i ? {...x, formation: parseInt(e.target.value,10)||0} : x)
+                      majConfig({ paliers: l })
+                    }} />
+                </div>
+              ))}
+              <div style={{fontSize:10, color:'var(--muted)'}}>seuil % · bourse enfant % · formation %</div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Ancienneté bourse enfant</label>
+                <input type="number" min="0" className="form-input" defaultValue={pointsConfig.anciennete.bourseEnfant}
+                  onBlur={e=>majConfig({ anciennete: {...pointsConfig.anciennete, bourseEnfant: parseInt(e.target.value,10)||0} })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ancienneté formation</label>
+                <input type="number" min="0" className="form-input" defaultValue={pointsConfig.anciennete.formation}
+                  onBlur={e=>majConfig({ anciennete: {...pointsConfig.anciennete, formation: parseInt(e.target.value,10)||0} })} />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Plafond annuel de la bourse d'études</label>
+              <input type="number" className="form-input" defaultValue={pointsConfig.bourseEtudesPlafond}
+                onBlur={e=>majConfig({ bourseEtudesPlafond: parseInt(e.target.value,10)||0 })} />
+            </div>
+
+            <button className="btn btn-primary" onClick={()=>setShowModal(null)}>Fermer</button>
           </div>
         </div>
       )}
