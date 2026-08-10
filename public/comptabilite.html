@@ -4582,12 +4582,17 @@ function getPeriodCosts(s) {
   ];
 }
 
-function getMontantExigible(s, periode) {
+/**
+ * Postes exigibles d'une période, après filtrage sur la date de départ et
+ * application des réductions. Sert à la fois au total et à sa ventilation
+ * (scolarité / cantine), pour éviter deux logiques de calcul divergentes.
+ */
+function itemsExigibles(s, periode) {
   try {
     const clsObj = CLASSES.find(x => x.id === s.classe);
-    if (!clsObj) return 0;
+    if (!clsObj) return [];
     const t = TARIFS[clsObj.groupe];
-    if (!t) return 0;
+    if (!t) return [];
     const items = [];
     if (periode === 'rentree' || periode === 't2' || periode === 't3') {
       if (t.inscription) items.push({ id: 'inscription', amount: t.inscription });
@@ -4619,8 +4624,25 @@ function getMontantExigible(s, periode) {
       filteredEx = filterItemsByDeparture(items, s.dateDepart);
     }
     if (typeof applyReductions === 'function') applyReductions(filteredEx, s.reductions);
-    return Math.round(filteredEx.reduce((sum, it) => sum + it.amount, 0));
-  } catch(e) { return 0; }
+    return filteredEx;
+  } catch(e) { return []; }
+}
+
+function getMontantExigible(s, periode) {
+  return Math.round(itemsExigibles(s, periode).reduce((sum, it) => sum + it.amount, 0));
+}
+
+/** Ventilation scolarité / cantine — pour détailler ce que doit le parent */
+function rqVentilation(s, periode) {
+  let scolarite = 0, cantine = 0;
+  itemsExigibles(s, periode).forEach(it => {
+    if (String(it.id).startsWith('cant_')) cantine += it.amount; else scolarite += it.amount;
+  });
+  return {
+    scolarite: Math.round(scolarite),
+    cantine: Math.round(cantine),
+    total: Math.round(scolarite + cantine),
+  };
 }
 
 function getMontantTotalAnnuel(s) {
@@ -6298,10 +6320,20 @@ function rqDateFr(iso) {
   catch(e) { return iso || '—'; }
 }
 
+// Coordonnées de paiement communiquées aux parents
+const WAVE_NUMERO = '+223 90 19 00 07';
+
 function rqSituation(s, periode) {
   const exigible = getMontantExigible(s, periode);
   const solde = Math.max(0, exigible - (s.paye || 0));
-  return { exigible, solde, effort: rqEffortDuJour(solde, periode), jours: rqJoursRestants(periode) };
+  const vent = rqVentilation(s, periode);
+  return { exigible, solde, effort: rqEffortDuJour(solde, periode), jours: rqJoursRestants(periode), vent };
+}
+
+/** Ligne de détail cantine, omise pour un élève non-cantinier */
+function rqLigneCantine(sit) {
+  if (!sit.vent || sit.vent.cantine <= 0) return '';
+  return `\n   ├ 📚 Scolarité : ${fc(sit.vent.scolarite)}\n   └ 🍽 Cantine : ${fc(sit.vent.cantine)}`;
 }
 
 function rqCurrentPeriode() { return document.getElementById('rq-periode')?.value || 'rentree'; }
@@ -6327,9 +6359,9 @@ function rqRappelMsg(s, periode) {
     return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100%\n🎉 *Entièrement soldé !*\nMerci pour votre ponctualité 🙏`;
   }
   if (sit.jours <= 0) {
-    return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n${rqBarre(sit, true)}\n⚠️ *Échéance du ${rqDateFr(cfg.limite)} dépassée*\n🔴 Solde à régulariser : *${fc(sit.solde)}*\n\nMerci de passer à l'école pour trouver ensemble une solution 🙏`;
+    return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n${rqBarre(sit, true)}\n⚠️ *Échéance du ${rqDateFr(cfg.limite)} dépassée*\n💼 Total dû : ${fc(sit.exigible)}${rqLigneCantine(sit)}\n🔴 Solde à régulariser : *${fc(sit.solde)}*\n\n📲 Paiement sur *Wave* au *${WAVE_NUMERO}*\n\nMerci de passer à l'école pour trouver ensemble une solution 🙏`;
   }
-  return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n${rqBarre(sit, false)}\n✅ Déjà payé : ${fc(Math.max(0, sit.exigible - sit.solde))}\n🔶 Reste : ${fc(sit.solde)}\n📅 Avant le ${rqDateFr(cfg.limite)} (${sit.jours} jours)\n\n💧 *Effort du jour : ${fc(sit.effort)}*\n🪙 + 🪙 + 🪙 … un petit versement chaque jour, et tout est soldé à temps, sans pression. Merci 🙏`;
+  return `${entete}\n\n📚 ${RQ_LABELS[periode]}\n${rqBarre(sit, false)}\n💼 Total dû : ${fc(sit.exigible)}${rqLigneCantine(sit)}\n✅ Déjà payé : ${fc(Math.max(0, sit.exigible - sit.solde))}\n🔶 Reste : ${fc(sit.solde)}\n📅 Avant le ${rqDateFr(cfg.limite)} (${sit.jours} jours)\n\n💧 *Effort du jour : ${fc(sit.effort)}*\n📲 À verser chaque jour sur *Wave* au *${WAVE_NUMERO}*\n🪙 + 🪙 + 🪙 … un petit versement quotidien, et tout est soldé à temps, sans pression. Merci 🙏`;
 }
 
 function waSendRappel(id) {
@@ -6349,8 +6381,8 @@ function waSendRecu(id) {
   if (sit.solde <= 0) {
     msg += `🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100%\n🎉 *Entièrement soldé !* Bravo et merci.`;
   } else {
-    msg += `${rqBarre(sit, sit.jours <= 0)}\n✅ Payé : ${fc(Math.max(0, sit.exigible - sit.solde))}\n🔶 Reste : ${fc(sit.solde)}`;
-    if (sit.jours > 0) msg += `\n💧 *Nouvel effort du jour : ${fc(sit.effort)}* — il baisse à chaque versement 📉`;
+    msg += `${rqBarre(sit, sit.jours <= 0)}\n💼 Total dû : ${fc(sit.exigible)}${rqLigneCantine(sit)}\n✅ Payé : ${fc(Math.max(0, sit.exigible - sit.solde))}\n🔶 Reste : ${fc(sit.solde)}`;
+    if (sit.jours > 0) msg += `\n💧 *Nouvel effort du jour : ${fc(sit.effort)}* — il baisse à chaque versement 📉\n📲 Sur *Wave* au *${WAVE_NUMERO}*`;
   }
   msg += `\n\nMerci pour votre confiance 🙏`;
   rqOpenWhatsApp(msg);
@@ -6406,7 +6438,11 @@ function rqCardHTML(s, periode, payment) {
         <div style="font-size:11px;color:#1e40af;font-weight:600;">avant le ${rqDateFr(cfg.limite)}</div>
       </div>
     </div>
-    <div style="text-align:center;font-size:13px;color:#475569;margin-top:14px;">💧 Un petit versement chaque jour, et tout est soldé à temps — sans pression.</div>`;
+    <div style="text-align:center;font-size:13px;color:#475569;margin-top:14px;">💧 Un petit versement chaque jour, et tout est soldé à temps — sans pression.</div>
+    <div style="margin-top:12px;background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;padding:10px 16px;text-align:center;">
+      <span style="font-size:12px;color:#1e40af;">Versements quotidiens sur</span>
+      <span style="font-size:16px;font-weight:800;color:#1d4ed8;margin-left:6px;">Wave · ${WAVE_NUMERO}</span>
+    </div>`;
   }
 
   return `
@@ -6432,6 +6468,15 @@ function rqCardHTML(s, periode, payment) {
           <div style="font-size:17px;font-weight:800;color:#003B9E;">${rqClasseLabel(s)}</div></div>
       </div>
       ${recuBloc}
+      ${sit.vent && sit.vent.cantine > 0 ? `
+      <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;">
+        <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;">
+          📚 Scolarité <b style="float:right;">${fc(sit.vent.scolarite)}</b>
+        </div>
+        <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;">
+          🍽 Cantine <b style="float:right;">${fc(sit.vent.cantine)}</b>
+        </div>
+      </div>` : ''}
       <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
         <span style="color:#059669;">✅ Payé : ${fc(paye)}</span>
         <span style="color:${solded ? '#059669' : '#c2410c'};">${solded ? '' : '🔶 Reste : ' + fc(sit.solde)}</span>
