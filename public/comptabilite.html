@@ -6322,6 +6322,21 @@ function rqDateFr(iso) {
 
 // Coordonnées de paiement communiquées aux parents
 const WAVE_NUMERO = '+223 90 19 00 07';
+const WAVE_LOGO_SRC = '/wave.png';
+
+/**
+ * Logo Wave du bloc de paiement.
+ * Le style est porté par la balise <img> elle-même : html2canvas n'affiche
+ * pas une image imbriquée dans un conteneur à fond et coins arrondis.
+ * Si le fichier est absent, on retombe proprement sur le mot « Wave ».
+ */
+function blocWave(taille) {
+  const px = taille || 76;
+  const secours = `<div style=\\'font-size:30px;font-weight:800;margin:8px 0 0;letter-spacing:1px;\\'>Wave</div>`;
+  return `<img src="${WAVE_LOGO_SRC}" width="${px}" height="${px}"
+    style="width:${px}px;height:${px}px;display:inline-block;background:#fff;border-radius:${px}px;padding:5px;box-sizing:content-box;margin:8px 0 0;"
+    onerror="this.outerHTML='${secours}'">`;
+}
 
 function rqSituation(s, periode) {
   const exigible = getMontantExigible(s, periode);
@@ -6441,7 +6456,8 @@ function rqCardHTML(s, periode, payment) {
     </div>
     <div style="margin-top:16px;background:#003B9E;border-radius:16px;padding:18px 20px;text-align:center;color:#fff;">
       <div style="font-size:12px;letter-spacing:0.6px;text-transform:uppercase;opacity:0.85;">Paiement sur Wave</div>
-      <div style="font-size:26px;font-weight:800;margin-top:4px;letter-spacing:0.5px;">${WAVE_NUMERO}</div>
+      ${blocWave(60)}
+      <div style="font-size:26px;font-weight:800;margin-top:6px;letter-spacing:0.5px;">${WAVE_NUMERO}</div>
     </div>`;
   } else {
     statut = `
@@ -6468,8 +6484,8 @@ function rqCardHTML(s, periode, payment) {
 
     <div style="margin-top:20px;background:#003B9E;border-radius:16px;padding:20px;text-align:center;color:#fff;">
       <div style="font-size:12px;letter-spacing:0.6px;text-transform:uppercase;opacity:0.85;">Versements quotidiens sur</div>
-      <div style="font-size:30px;font-weight:800;margin:6px 0 2px;letter-spacing:1px;">Wave</div>
-      <div style="font-size:24px;font-weight:800;letter-spacing:0.5px;">${WAVE_NUMERO}</div>
+      ${blocWave()}
+      <div style="font-size:24px;font-weight:800;letter-spacing:0.5px;margin-top:6px;">${WAVE_NUMERO}</div>
     </div>`;
   }
 
