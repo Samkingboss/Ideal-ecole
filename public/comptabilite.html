@@ -766,7 +766,7 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
 
 <!-- Scène hors écran pour générer la carte-image WhatsApp (principe du rapport hebdomadaire).
      Au niveau racine, hors des tab-pane : elle doit rester rendue quel que soit l'onglet actif. -->
-<div id="rq-card-stage" style="position:fixed; left:-9999px; top:0; width:720px;"></div>
+<div id="rq-card-stage" style="position:fixed; left:-9999px; top:0; width:640px;"></div>
 
   <!-- ════════════ MODAL IMPORT DES INSCRIPTIONS ════════════ -->
   <div id="import-modal" class="modal-overlay">
@@ -6401,95 +6401,129 @@ function rqCardHTML(s, periode, payment) {
   const barCol = retard ? '#ef4444' : '#10b981';
   const fmtD = new Date().toLocaleDateString('fr-FR');
 
+  // Format portrait : la quasi-totalité des parents lisent sur téléphone.
+  // Tout est empilé verticalement, avec une seule information dominante par
+  // bloc pour rester lisible sur un petit écran.
+  const etiquette = t => `<div style="font-size:12px;color:#64748b;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;margin-bottom:6px;">${t}</div>`;
+
   const recuBloc = payment ? `
-    <div style="background:#ecfdf5;border:2px solid #10b981;border-radius:14px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <div style="font-size:13px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">✅ Versement bien reçu</div>
-        <div style="font-size:12px;color:#047857;margin-top:3px;">Reçu N° ${payment.receiptId} · ${payment.date}</div>
-      </div>
-      <div style="font-size:28px;font-weight:800;color:#059669;">${fc(payment.amount)}</div>
+    <div style="background:#ecfdf5;border:2px solid #10b981;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">
+      <div style="font-size:12px;color:#065f46;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">Versement bien reçu</div>
+      <div style="font-size:42px;font-weight:800;color:#059669;line-height:1.15;margin:6px 0;">${fc(payment.amount)}</div>
+      <div style="font-size:13px;color:#047857;">Reçu N° ${payment.receiptId} · ${payment.date}</div>
     </div>` : '';
+
+  const ligneMontant = (libelle, valeur, couleur, gras) => `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid #eef2f7;">
+      <span style="font-size:15px;color:#475569;">${libelle}</span>
+      <span style="font-size:${gras ? '19px' : '16px'};font-weight:${gras ? '800' : '700'};color:${couleur};">${valeur}</span>
+    </div>`;
 
   let statut;
   if (solded) {
-    statut = `<div style="background:#ecfdf5;border-radius:14px;padding:18px;text-align:center;margin-top:18px;">
-      <div style="font-size:26px;">🎉</div>
-      <div style="font-size:20px;font-weight:800;color:#059669;">${RQ_LABELS[periode]} entièrement soldé !</div>
-      <div style="font-size:13px;color:#047857;margin-top:4px;">Merci pour votre ponctualité.</div></div>`;
-  } else if (retard) {
-    statut = `<div style="background:#fef2f2;border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-top:18px;text-align:center;">
-      <div style="font-size:16px;font-weight:800;color:#b91c1c;">⚠️ Échéance du ${rqDateFr(cfg.limite)} dépassée</div>
-      <div style="font-size:13px;color:#7f1d1d;margin-top:5px;">Solde à régulariser : <b>${fc(sit.solde)}</b><br>Merci de passer à l'école pour trouver ensemble une solution.</div></div>`;
-  } else {
     statut = `
-    <div style="display:flex;align-items:stretch;justify-content:center;gap:10px;margin-top:20px;">
-      <div style="background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:12px 16px;text-align:center;min-width:140px;">
-        <div style="font-size:19px;font-weight:800;color:#c2410c;">${fc(sit.solde)}</div>
-        <div style="font-size:11px;color:#9a3412;font-weight:600;">reste à payer</div>
-      </div>
-      <div style="font-size:22px;color:#94a3b8;font-weight:700;align-self:center;">=</div>
-      <div style="background:#ecfdf5;border:2px solid #6ee7b7;border-radius:12px;padding:12px 16px;text-align:center;min-width:140px;">
-        <div style="font-size:19px;font-weight:800;color:#047857;">💧 ${fc(sit.effort)}</div>
-        <div style="font-size:11px;color:#065f46;font-weight:600;">par jour seulement</div>
-      </div>
-      <div style="font-size:22px;color:#94a3b8;font-weight:700;align-self:center;">×</div>
-      <div style="background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;padding:12px 16px;text-align:center;min-width:140px;">
-        <div style="font-size:19px;font-weight:800;color:#1d4ed8;">${sit.jours} jours</div>
-        <div style="font-size:11px;color:#1e40af;font-weight:600;">avant le ${rqDateFr(cfg.limite)}</div>
+    <div style="background:#ecfdf5;border:2px solid #6ee7b7;border-radius:16px;padding:26px 20px;text-align:center;margin-top:20px;">
+      <div style="font-size:44px;line-height:1;">🎉</div>
+      <div style="font-size:22px;font-weight:800;color:#059669;margin-top:10px;">${RQ_LABELS[periode]}<br>entièrement soldé</div>
+      <div style="font-size:14px;color:#047857;margin-top:8px;">Merci pour votre ponctualité.</div>
+    </div>`;
+  } else if (retard) {
+    statut = `
+    <div style="background:#fef2f2;border:2px solid #ef4444;border-radius:16px;padding:22px 20px;text-align:center;margin-top:20px;">
+      <div style="font-size:34px;line-height:1;">⚠️</div>
+      <div style="font-size:18px;font-weight:800;color:#b91c1c;margin-top:8px;">Échéance dépassée</div>
+      <div style="font-size:14px;color:#7f1d1d;margin-top:4px;">Depuis le ${rqDateFr(cfg.limite)}</div>
+      <div style="font-size:32px;font-weight:800;color:#b91c1c;margin:12px 0 4px;">${fc(sit.solde)}</div>
+      <div style="font-size:13px;color:#7f1d1d;">à régulariser</div>
+      <div style="font-size:13px;color:#7f1d1d;margin-top:12px;border-top:1px solid #fecaca;padding-top:12px;">
+        Merci de passer à l'école pour trouver ensemble une solution.
       </div>
     </div>
-    <div style="text-align:center;font-size:13px;color:#475569;margin-top:14px;">💧 Un petit versement chaque jour, et tout est soldé à temps — sans pression.</div>
-    <div style="margin-top:12px;background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;padding:10px 16px;text-align:center;">
-      <span style="font-size:12px;color:#1e40af;">Versements quotidiens sur</span>
-      <span style="font-size:16px;font-weight:800;color:#1d4ed8;margin-left:6px;">Wave · ${WAVE_NUMERO}</span>
+    <div style="margin-top:16px;background:#003B9E;border-radius:16px;padding:18px 20px;text-align:center;color:#fff;">
+      <div style="font-size:12px;letter-spacing:0.6px;text-transform:uppercase;opacity:0.85;">Paiement sur Wave</div>
+      <div style="font-size:26px;font-weight:800;margin-top:4px;letter-spacing:0.5px;">${WAVE_NUMERO}</div>
+    </div>`;
+  } else {
+    statut = `
+    <div style="margin-top:22px;">
+      ${etiquette('Votre effort quotidien')}
+      <div style="border:2px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 18px;background:#fff7ed;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:14px;color:#9a3412;font-weight:600;">Reste à payer</span>
+          <span style="font-size:22px;font-weight:800;color:#c2410c;">${fc(sit.solde)}</span>
+        </div>
+        <div style="padding:8px 18px;background:#f8fafc;text-align:center;font-size:13px;color:#64748b;font-weight:600;">
+          ÷ ${sit.jours} jours restants
+        </div>
+        <div style="padding:18px;background:#ecfdf5;text-align:center;border-top:2px solid #6ee7b7;">
+          <div style="font-size:13px;color:#065f46;font-weight:600;">soit seulement</div>
+          <div style="font-size:40px;font-weight:800;color:#047857;line-height:1.15;margin-top:2px;">💧 ${fc(sit.effort)}</div>
+          <div style="font-size:14px;color:#065f46;font-weight:600;">par jour</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:14px;color:#475569;margin-top:14px;line-height:1.5;">
+        Un petit versement chaque jour,<br>et tout est soldé avant le ${rqDateFr(cfg.limite)}.
+      </div>
+    </div>
+
+    <div style="margin-top:20px;background:#003B9E;border-radius:16px;padding:20px;text-align:center;color:#fff;">
+      <div style="font-size:12px;letter-spacing:0.6px;text-transform:uppercase;opacity:0.85;">Versements quotidiens sur</div>
+      <div style="font-size:30px;font-weight:800;margin:6px 0 2px;letter-spacing:1px;">Wave</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:0.5px;">${WAVE_NUMERO}</div>
     </div>`;
   }
 
   return `
-  <div style="width:720px;background:#ffffff;font-family:Inter,system-ui,sans-serif;border:1px solid #e2e8f0;">
-    <div style="background:#003B9E;color:#fff;padding:18px 26px;display:flex;align-items:center;gap:14px;">
-      <span style="background:#fff;border-radius:10px;padding:7px 11px;display:inline-flex;align-items:center;">
-        <img src="${typeof LOGO_BASE64!=='undefined'?LOGO_BASE64:'/logo-ideal.png'}" style="height:38px;width:auto;display:block;">
+  <div style="width:640px;background:#ffffff;font-family:Inter,system-ui,sans-serif;">
+    <div style="background:#003B9E;color:#fff;padding:24px 24px 20px;text-align:center;">
+      <span style="background:#fff;border-radius:12px;padding:8px 14px;display:inline-flex;align-items:center;">
+        <img src="${typeof LOGO_BASE64!=='undefined'?LOGO_BASE64:'/logo-ideal.png'}" style="height:44px;width:auto;display:block;">
       </span>
-      <div style="flex:1;">
-        <div style="font-size:20px;font-weight:800;">${payment ? 'Reçu de paiement' : 'Point scolarité'}</div>
-        <div style="font-size:12px;opacity:0.85;">École Internationale Bilingue IDEAL · Bamako</div>
-      </div>
-      <div style="text-align:right;font-size:12px;opacity:0.9;">
-        <div style="font-weight:700;">${RQ_LABELS[periode]}</div>
-        <div>édité le ${fmtD}</div>
+      <div style="font-size:24px;font-weight:800;margin-top:12px;">${payment ? 'Reçu de paiement' : 'Point scolarité'}</div>
+      <div style="font-size:13px;opacity:0.85;margin-top:2px;">École Internationale Bilingue IDEAL · Bamako</div>
+      <div style="display:inline-block;background:rgba(255,255,255,0.16);border-radius:20px;padding:5px 16px;margin-top:12px;font-size:13px;font-weight:700;">
+        ${RQ_LABELS[periode]} · édité le ${fmtD}
       </div>
     </div>
-    <div style="padding:22px 26px;">
-      <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 18px;margin-bottom:18px;">
-        <div><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Élève</div>
-          <div style="font-size:17px;font-weight:800;color:#0f172a;">${nomComplet}</div></div>
-        <div style="text-align:right;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Classe</div>
-          <div style="font-size:17px;font-weight:800;color:#003B9E;">${rqClasseLabel(s)}</div></div>
+
+    <div style="background:#F47920;height:5px;"></div>
+
+    <div style="padding:24px;">
+      <div style="text-align:center;padding-bottom:20px;border-bottom:1px solid #e2e8f0;">
+        <div style="font-size:12px;color:#64748b;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">Élève</div>
+        <div style="font-size:26px;font-weight:800;color:#0f172a;margin-top:4px;line-height:1.2;">${nomComplet}</div>
+        <div style="display:inline-block;background:#eff6ff;color:#1d4ed8;border-radius:20px;padding:4px 16px;margin-top:8px;font-size:14px;font-weight:700;">${rqClasseLabel(s)}</div>
       </div>
-      ${recuBloc}
-      ${sit.vent && sit.vent.cantine > 0 ? `
-      <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;">
-        <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;">
-          📚 Scolarité <b style="float:right;">${fc(sit.vent.scolarite)}</b>
+
+      <div style="padding-top:20px;">
+        ${recuBloc}
+
+        ${etiquette('Situation du trimestre')}
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:4px 18px 12px;">
+          ${sit.vent && sit.vent.cantine > 0 ? `
+            ${ligneMontant('📚 Scolarité', fc(sit.vent.scolarite), '#0f172a', false)}
+            ${ligneMontant('🍽 Cantine', fc(sit.vent.cantine), '#0f172a', false)}
+          ` : ''}
+          ${ligneMontant('💼 Total dû', fc(sit.exigible), '#0f172a', true)}
+          ${ligneMontant('✅ Déjà payé', fc(paye), '#059669', false)}
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;">
+            <span style="font-size:15px;color:#475569;">🔶 Reste</span>
+            <span style="font-size:19px;font-weight:800;color:${solded ? '#059669' : '#c2410c'};">${solded ? '—' : fc(sit.solde)}</span>
+          </div>
         </div>
-        <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;">
-          🍽 Cantine <b style="float:right;">${fc(sit.vent.cantine)}</b>
+
+        <div style="height:34px;background:#e2e8f0;border-radius:17px;overflow:hidden;position:relative;margin-top:16px;">
+          <div style="width:${Math.max(pct, 8)}%;height:100%;background:${barCol};border-radius:17px;"></div>
+          <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:${pct > 55 ? '#ffffff' : '#0f172a'};">${pct}% payé</div>
         </div>
-      </div>` : ''}
-      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;">
-        <span style="color:#059669;">✅ Payé : ${fc(paye)}</span>
-        <span style="color:${solded ? '#059669' : '#c2410c'};">${solded ? '' : '🔶 Reste : ' + fc(sit.solde)}</span>
+
+        ${statut}
       </div>
-      <div style="height:30px;background:#e2e8f0;border-radius:15px;overflow:hidden;position:relative;">
-        <div style="width:${Math.max(pct, 6)}%;height:100%;background:${barCol};border-radius:15px;"></div>
-        <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${pct > 55 ? '#ffffff' : '#0f172a'};">${pct}% payé</div>
-      </div>
-      ${statut}
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 26px;border-top:1px solid #e2e8f0;background:#f8fafc;">
-      <div style="font-size:11px;color:#64748b;">Le service comptabilité · École IDEAL — généré par la plateforme IDEAL</div>
-      <div style="background:#003B9E;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:8px;letter-spacing:1px;">IDEAL</div>
+
+    <div style="padding:16px 24px;border-top:1px solid #e2e8f0;background:#f8fafc;text-align:center;">
+      <div style="background:#003B9E;color:#fff;font-weight:800;font-size:12px;padding:5px 14px;border-radius:8px;letter-spacing:1.5px;display:inline-block;">IDEAL</div>
+      <div style="font-size:11px;color:#64748b;margin-top:8px;">Le service comptabilité · École IDEAL</div>
     </div>
   </div>`;
 }
@@ -6499,7 +6533,7 @@ async function rqCardToBlob() {
   const img = el.querySelector('img');
   if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; });
   if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
-  const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 720, windowWidth: 720 });
+  const canvas = await html2canvas(el, { scale: 2.5, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 640, windowWidth: 640 });
   return new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
 }
 
