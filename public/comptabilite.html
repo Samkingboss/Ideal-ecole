@@ -6330,11 +6330,12 @@ const WAVE_LOGO_SRC = '/wave.png';
  * pas une image imbriquée dans un conteneur à fond et coins arrondis.
  * Si le fichier est absent, on retombe proprement sur le mot « Wave ».
  */
-function blocWave(taille) {
-  const px = taille || 76;
+function blocWave(hauteur) {
+  const h = hauteur || 54;
+  const w = Math.round(h * 230 / 101); // proportions du logo officiel
   const secours = `<div style=\\'font-size:30px;font-weight:800;margin:8px 0 0;letter-spacing:1px;\\'>Wave</div>`;
-  return `<img src="${WAVE_LOGO_SRC}" width="${px}" height="${px}"
-    style="width:${px}px;height:${px}px;display:inline-block;background:#fff;border-radius:${px}px;padding:5px;box-sizing:content-box;margin:8px 0 0;"
+  return `<img src="${WAVE_LOGO_SRC}" width="${w}" height="${h}"
+    style="width:${w}px;height:${h}px;display:inline-block;background:#fff;border-radius:12px;padding:7px 12px;box-sizing:content-box;margin:10px 0 0;"
     onerror="this.outerHTML='${secours}'">`;
 }
 
