@@ -1059,8 +1059,65 @@
     // =============================================
     // SOUMISSION → SUPABASE
     // =============================================
+    /**
+     * Contrôle anti-doublon.
+     * Un parent qui clique deux fois, revient en arrière ou reprend un
+     * formulaire interrompu créait jusqu'ici plusieurs dossiers pour le même
+     * enfant. On avertit avant d'enregistrer, sans jamais bloquer : deux
+     * enfants peuvent légitimement porter le même nom (jumeaux, homonymes).
+     */
+    async function verifierDoublon() {
+        const nom = document.getElementById('el-nom').value.trim();
+        const prenom = document.getElementById('el-prenoms').value.trim();
+        const classe = document.getElementById('el-classe-demandee').value;
+        if (!nom || !prenom) return true;
+
+        try {
+            const { data, error } = await _supa.from('inscriptions')
+                .select('matricule, nom, prenom, classe_demandee, created_at')
+                .ilike('nom', nom)
+                .ilike('prenom', prenom);
+            if (error) return true; // en cas de panne de lecture, on n'empêche pas l'inscription
+
+            const memeClasse = (data || []).filter(i => i.classe_demandee === classe);
+            const autresClasses = (data || []).filter(i => i.classe_demandee !== classe);
+
+            if (memeClasse.length > 0) {
+                const d = memeClasse[0];
+                const quand = d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : 'date inconnue';
+                return confirm(
+                    `⚠️ Un dossier existe déjà pour cet élève.\n\n` +
+                    `${d.nom.toUpperCase()} ${d.prenom} — ${d.classe_demandee}\n` +
+                    `Matricule ${d.matricule}, inscrit le ${quand}.\n\n` +
+                    `S'il s'agit du même enfant, annulez : le dossier est déjà enregistré.\n` +
+                    `S'il s'agit d'un homonyme ou d'un jumeau, continuez.\n\n` +
+                    `Enregistrer quand même un nouveau dossier ?`
+                );
+            }
+
+            if (autresClasses.length > 0) {
+                const d = autresClasses[0];
+                return confirm(
+                    `ℹ️ Un élève du même nom est déjà inscrit dans une autre classe.\n\n` +
+                    `${d.nom.toUpperCase()} ${d.prenom} — ${d.classe_demandee} (${d.matricule})\n\n` +
+                    `Continuer l'inscription en ${classe} ?`
+                );
+            }
+            return true;
+        } catch (e) {
+            return true; // le contrôle ne doit jamais empêcher une inscription légitime
+        }
+    }
+
     async function submitInscription() {
         const btnNext = document.getElementById('btn-next');
+
+        if (!(await verifierDoublon())) {
+            btnNext.disabled = false;
+            btnNext.innerHTML = "✦ Valider l'inscription";
+            return;
+        }
+
         btnNext.disabled = true;
         btnNext.innerText = "Enregistrement...";
 
