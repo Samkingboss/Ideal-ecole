@@ -259,9 +259,15 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
     </div>
 
     <div class="field">
-      <label>Semaine du</label>
+      <label>Semaine concernée</label>
       <input type="date" id="ed-week" onchange="reloadPointage()">
+      <div id="ed-periode" style="font-weight:700;color:#0d2a3b;margin-top:6px;font-size:14px;">—</div>
+      <button type="button" onclick="reloadPointage()"
+        style="margin-top:8px;width:100%;background:#1AAFE0;color:#fff;border:none;border-radius:12px;padding:11px;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;">
+        🔄 Synchroniser toute la semaine
+      </button>
       <div id="pointage-badge" class="hint" style="color:#0d7fb0"></div>
+      <div id="synthese-sources" style="margin-top:8px;"></div>
     </div>
 
     <div class="grp-title">⏱️ Assiduité & ponctualité</div>
@@ -394,28 +400,152 @@ function weekBoundsISO(iso){
   const f=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
   return {monday:f(lundi),friday:f(vendredi)};
 }
-// Pré-remplit retards/absences depuis le pointage (table presences_eleves) pour la semaine
+/**
+ * Synchronisation hebdomadaire.
+ *
+ * Le rapport n'est plus une saisie manuelle : il rassemble tout ce que
+ * l'équipe a consigné sur l'élève entre le lundi et le vendredi choisis —
+ * pointage des professeurs et du conseiller, incidents relevés par les
+ * professeurs et les surveillants, progression pédagogique, devoirs donnés.
+ *
+ * Les champs factuels sont recalculés à chaque synchronisation ; les champs
+ * de jugement (appréciation, conseils) restent à la main du conseiller.
+ */
 async function loadPointageForCurrent(){
   const badge=document.getElementById('pointage-badge');
-  if(!CURRENT || !CURRENT.key.startsWith('el:')){ if(badge)badge.textContent=''; return; }
+  const synth=document.getElementById('synthese-sources');
+  const iso=document.getElementById('ed-week').value;
+  const {monday,friday}=weekBoundsISO(iso);
+
+  const per=document.getElementById('ed-periode');
+  if(per) per.textContent=weekRange(iso);
+
+  if(!CURRENT || !CURRENT.key.startsWith('el:')){
+    if(badge)badge.textContent='';
+    if(synth)synth.innerHTML='<div class="hint">Élève non rattaché à la base — synchronisation impossible.</div>';
+    return;
+  }
   const eleveId=CURRENT.key.slice(3);
-  const {monday,friday}=weekBoundsISO(document.getElementById('ed-week').value);
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/presences_eleves?eleve_id=eq.'+encodeURIComponent(eleveId)+'&date_jour=gte.'+monday+'&date_jour=lte.'+friday+'&select=*',{headers:H});
-    if(!r.ok)return;
-    const rows=await r.json();
-    if(!rows.length){ if(badge)badge.textContent='Aucun pointage enregistré cette semaine.'; return; }
-    let rm=0,rs=0,abs=0;const motifs=[];
-    rows.forEach(p=>{rm+=p.retard_matin||0;rs+=p.retard_soir||0;if(p.statut==='absent'){abs++;if(p.justification)motifs.push(p.justification);}});
-    document.getElementById('ed-retard-matin').value=rm;
-    document.getElementById('ed-retard-soir').value=rs;
-    if(abs>0){
-      const mt=motifs.join(' ; ');
-      if(!document.getElementById('ed-motif').value) document.getElementById('ed-motif').value=mt||(abs+' absence(s)');
-      if(document.getElementById('ed-motif-type').value==='ras') document.getElementById('ed-motif-type').value=/malad/i.test(mt)?'maladie':'autre';
+  if(badge)badge.textContent='Synchronisation en cours…';
+  if(synth)synth.innerHTML='';
+
+  const q=async(p)=>{ try{ const r=await fetch(SB_URL+'/rest/v1/'+p,{headers:H}); return r.ok?await r.json():[]; }catch(e){ return []; } };
+  const enc=encodeURIComponent(eleveId);
+
+  const [presences,incidents,checkpoints,devoirsRow]=await Promise.all([
+    q(`presences_eleves?eleve_id=eq.${enc}&date_jour=gte.${monday}&date_jour=lte.${friday}&select=*`),
+    q(`disciplines?eleve_id=eq.${enc}&date_incident=gte.${monday}&date_incident=lte.${friday}&select=date_incident,motif,gravite,points_perdus,sanction_type,prof_id,surveillant_id`),
+    q(`checkpoints?date_checkpoint=gte.${monday}&date_checkpoint=lte.${friday}&select=id`),
+    q(`app_state?app=eq.pedago&key=eq.ideal_homeworks&select=value`),
+  ]);
+
+  const sources=[];
+
+  // ── Assiduité : pointage saisi par les professeurs et le conseiller ──
+  let rm=0,rs=0,abs=0;const motifs=[];
+  presences.forEach(p=>{
+    rm+=p.retard_matin||0; rs+=p.retard_soir||0;
+    if(p.statut==='absent'){ abs++; if(p.justification) motifs.push(p.justification); }
+  });
+  document.getElementById('ed-retard-matin').value=rm;
+  document.getElementById('ed-retard-soir').value=rs;
+  if(abs>0){
+    const mt=motifs.join(' ; ');
+    if(!document.getElementById('ed-motif').value) document.getElementById('ed-motif').value=mt||(abs+' absence(s)');
+    if(document.getElementById('ed-motif-type').value==='ras') document.getElementById('ed-motif-type').value=/malad/i.test(mt)?'maladie':'autre';
+  }
+  sources.push({ ok:presences.length>0, libelle:'Pointage (professeurs, conseiller)',
+    detail:presences.length? `${presences.length} jour(s) · ${rm} min le matin · ${rs} min au départ${abs?` · ${abs} absence(s)`:''}` : 'aucun pointage cette semaine' });
+
+  // ── Comportement : incidents relevés par professeurs et surveillants ──
+  document.getElementById('ed-punitions').value=incidents.filter(i=>i.sanction_type).length;
+  if(incidents.length){
+    const txt=incidents.map(i=>{
+      const j=new Date(i.date_incident+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+      const auteurs=[]; if(i.prof_id) auteurs.push("l'enseignant"); if(i.surveillant_id) auteurs.push('le surveillant');
+      const par=auteurs.length? `relevé par ${auteurs.join(' et ')}` : 'relevé par l’équipe';
+      return `${j} — ${i.motif||'incident'} (gravité ${i.gravite||'—'}, ${par}${i.points_perdus?`, −${i.points_perdus} pts`:''})`;
+    }).join('\n');
+    document.getElementById('ed-incidents').value=txt;
+  } else {
+    document.getElementById('ed-incidents').value='';
+  }
+  sources.push({ ok:true, libelle:'Incidents (professeurs, surveillants)',
+    detail:incidents.length? `${incidents.length} incident(s) relevé(s)` : 'aucun incident — semaine sereine' });
+
+  // ── Progression : évaluations rattachées aux check-points de la semaine ──
+  const cpIds=checkpoints.map(c=>c.id);
+  let progressions=[];
+  let nomsObjectifs={};
+  if(cpIds.length){
+    // Aucune clé étrangère ne relie progressions à objectifs : la jointure
+    // imbriquée de PostgREST échoue. On rapproche donc les deux en mémoire.
+    const [prog,objs,comps]=await Promise.all([
+      q(`progressions?eleve_id=eq.${enc}&checkpoint_id=in.(${cpIds.join(',')})&select=pourcentage,objectif_id,competence_id`),
+      q(`objectifs?select=id,discipline,description`),
+      q(`competences?select=id,objectif_id,nom`),
+    ]);
+    progressions=prog;
+    // La table `objectifs` a été largement purgée, alors que les progressions
+    // y renvoient encore. `competences` porte à la fois son propre id, un
+    // `objectif_id` et un libellé lisible : c'est la seule source de noms qui
+    // subsiste pour ces évaluations. On indexe donc les deux clés, puis les
+    // objectifs réellement présents écrasent en dernier (libellé plus précis).
+    (comps||[]).forEach(c=>{
+      nomsObjectifs[c.id]=c.nom;
+      if(c.objectif_id && !nomsObjectifs[c.objectif_id]) nomsObjectifs[c.objectif_id]=c.nom;
+    });
+    (objs||[]).forEach(o=>{
+      nomsObjectifs[o.id]=[o.discipline,o.description].filter(Boolean).join(' — ');
+    });
+  }
+  if(progressions.length){
+    const nom=p=>nomsObjectifs[p.objectif_id]||nomsObjectifs[p.competence_id]||null;
+    // Certaines progressions pointent vers des objectifs supprimés depuis. On
+    // privilégie donc celles qui portent un libellé : un parent n'a que faire
+    // d'un pourcentage rattaché à un objectif sans nom.
+    const nommees=progressions.filter(p=>nom(p));
+    const base=nommees.length?nommees:progressions;
+    const tri=[...base].sort((a,b)=>(b.pourcentage||0)-(a.pourcentage||0));
+    const haut=tri[0], bas=tri[tri.length-1];
+    const libelle=p=>nom(p)?`${p.pourcentage}% — ${nom(p)}`:`${p.pourcentage}% de réussite`;
+    const champHaut=document.getElementById('ed-meilleure'), champBas=document.getElementById('ed-faible');
+    if(!champHaut.value) champHaut.value=libelle(haut);
+    if(!champBas.value && tri.length>1) champBas.value=libelle(bas);
+  }
+  const moyenne=progressions.length? Math.round(progressions.reduce((s,p)=>s+(p.pourcentage||0),0)/progressions.length) : null;
+  sources.push({ ok:progressions.length>0, libelle:'Progression pédagogique (enseignants)',
+    detail:progressions.length? `${progressions.length} objectif(s) évalué(s) · moyenne ${moyenne}%` : 'aucune évaluation cette semaine' });
+
+  // ── Devoirs donnés à la classe pendant la semaine ──
+  const devoirs=(devoirsRow[0]&&Array.isArray(devoirsRow[0].value))?devoirsRow[0].value:[];
+  const dansSemaine=devoirs.filter(d=>{
+    const ech=(d.dueDate||'').slice(0,10);
+    return ech && ech>=monday && ech<=friday;
+  });
+  const aVenir=devoirs.filter(d=>(d.dueDate||'')>friday).sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate)))[0];
+  if(aVenir){
+    const champ=document.getElementById('ed-devoir-venir');
+    if(!champ.value){
+      const ech=new Date(aVenir.dueDate+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+      champ.value=`${aVenir.subject||'Devoir'} — ${aVenir.objectives||aVenir.content||''} (pour ${ech})`.replace(/\s+—\s+\(/,' (');
     }
-    if(badge)badge.textContent='⏱️ Pré-rempli depuis le pointage ('+rows.length+' j) : matin '+rm+' min · départ '+rs+' min'+(abs?' · '+abs+' absence(s)':'');
-  }catch(e){}
+  }
+  sources.push({ ok:dansSemaine.length>0||!!aVenir, libelle:'Devoirs (enseignants)',
+    detail:`${dansSemaine.length} devoir(s) cette semaine${aVenir?` · prochain : ${aVenir.subject||'—'}`:''}` });
+
+  // ── Synthèse visible des sources consultées ──
+  if(synth){
+    synth.innerHTML=`
+      <div style="background:#f0f7fa;border:1px solid #d0e8f0;border-radius:12px;padding:10px 12px;">
+        <div style="font-size:11px;font-weight:800;color:#0d2a3b;margin-bottom:6px;">SOURCES CONSULTÉES · ${weekRange(iso).toLowerCase()}</div>
+        ${sources.map(s=>`<div style="display:flex;gap:8px;font-size:11px;padding:3px 0;align-items:flex-start;">
+          <span>${s.ok?'✅':'○'}</span>
+          <span style="flex:1;"><b>${s.libelle}</b><br><span style="color:#6b7280;">${s.detail}</span></span>
+        </div>`).join('')}
+      </div>`;
+  }
+  if(badge) badge.textContent='';
 }
 window.reloadPointage=loadPointageForCurrent;
 
