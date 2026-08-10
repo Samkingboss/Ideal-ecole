@@ -724,6 +724,13 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
 @media (min-width: 1400px) {
   .tab-pane { max-width: 1340px; margin-left: auto; margin-right: auto; }
 }
+
+/* Impression d'une liste de classe : seule la liste sort sur le papier */
+@media print {
+  body.impression-liste > *:not(#liste-print) { display: none !important; }
+  body.impression-liste #liste-print { position: static !important; overflow: visible !important; }
+  body.impression-liste { background: #fff !important; }
+}
 </style>
 
 <!-- ════════════════ HEADER ════════════════ -->
@@ -760,6 +767,53 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
 <!-- Scène hors écran pour générer la carte-image WhatsApp (principe du rapport hebdomadaire).
      Au niveau racine, hors des tab-pane : elle doit rester rendue quel que soit l'onglet actif. -->
 <div id="rq-card-stage" style="position:fixed; left:-9999px; top:0; width:720px;"></div>
+
+  <!-- ════════════ MODAL IMPORT DES INSCRIPTIONS ════════════ -->
+  <div id="import-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 820px; max-height: 92vh; overflow-y: auto;">
+      <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:0.8rem;">
+        📥 Importer les inscriptions
+      </h3>
+      <div class="p-note" style="margin-top:0.8rem;">
+        Les élèves inscrits via le formulaire d'inscription sont récupérés ici. Ceux déjà présents dans la base comptable
+        (identifiés par leur matricule) ne sont pas proposés une seconde fois.
+      </div>
+      <div id="import-etat" style="padding:1rem 0; font-size:0.9rem;">Chargement…</div>
+      <div id="import-liste" style="max-height:46vh; overflow-y:auto;"></div>
+      <div style="display:flex; gap:0.7rem; padding-top:1rem; border-top:1px solid var(--border); margin-top:1rem;">
+        <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="document.getElementById('import-modal').classList.remove('active')">Annuler</button>
+        <button class="btn-primary" style="flex:2; justify-content:center;" onclick="importerSelection()">✅ Importer la sélection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ MODAL LISTE DE CLASSE ════════════ -->
+  <div id="liste-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 620px;">
+      <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:0.8rem;">🖨️ Liste de classe</h3>
+      <div style="padding-top:1rem;">
+        <label style="font-size:0.8rem; font-weight:700; display:block; margin-bottom:0.3rem;">Classe</label>
+        <select id="liste-classe" class="inp" style="width:100%; background:var(--bg); border:1px solid var(--border); font-weight:700;"></select>
+
+        <label style="display:flex; align-items:center; gap:0.6rem; margin-top:1rem; cursor:pointer; font-size:0.85rem;">
+          <input type="checkbox" id="liste-avec-paiement" checked style="transform:scale(1.2)">
+          Inclure la situation de paiement (exigible, payé, reste)
+        </label>
+        <label style="display:flex; align-items:center; gap:0.6rem; margin-top:0.6rem; cursor:pointer; font-size:0.85rem;">
+          <input type="checkbox" id="liste-avec-signature" style="transform:scale(1.2)">
+          Ajouter une colonne de signature (appel, remise de bulletins)
+        </label>
+      </div>
+      <div style="display:flex; gap:0.7rem; padding-top:1.2rem; border-top:1px solid var(--border); margin-top:1.2rem;">
+        <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="document.getElementById('liste-modal').classList.remove('active')">Annuler</button>
+        <button class="btn-primary" style="flex:2; justify-content:center;" onclick="genererListeClasse()">🖨️ Générer la liste</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone d'impression de la liste de classe -->
+  <div id="liste-print" style="display:none;"></div>
+
 
 <!-- ════════════════ TAB: DASHBOARD ════════════════ -->
 <section class="tab-pane active" id="tab-dashboard">
@@ -1098,6 +1152,10 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
           <b>Rappel:</b> Si vous gérez les paiements ici, le "Radar de Recouvrement" dans l'onglet Pilotage est synchronisé avec ces chiffres réels.
         </div>
         <button class="btn-primary" style="width:100%; justify-content:center; background:#9333ea;" onclick="openFamilleModal()" title="Encaisser pour plusieurs enfants d'une même famille en une seule opération">👨‍👩‍👧‍👦 Encaissement famille (plusieurs enfants)</button>
+        <div style="display:flex; gap:0.6rem; margin-top:0.6rem; flex-wrap:wrap;">
+          <button class="btn-primary" style="flex:1; min-width:200px; justify-content:center; background:#0ea5e9;" onclick="openImportInscriptions()" title="Récupérer les élèves déjà inscrits via le formulaire d'inscription">📥 Importer les inscriptions</button>
+          <button class="btn-primary" style="flex:1; min-width:200px; justify-content:center; background:#0f766e;" onclick="openListeClasse()" title="Imprimer la liste des élèves d'une classe">🖨️ Liste de classe</button>
+        </div>
       </div>
     </div>
   </div>
@@ -6430,6 +6488,203 @@ async function waSendImage(id, type) {
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   const url = 'https://wa.me/?text=' + encodeURIComponent(legende + '\n(joindre l\'image téléchargée 🖼️)');
   setTimeout(() => window.open(url, '_blank'), 600);
+}
+
+// ══════════════════════════════════════════════
+// IMPORT DES INSCRIPTIONS
+// Le formulaire d'inscription et la comptabilité tenaient jusqu'ici deux
+// listes séparées, ce qui obligeait à ressaisir chaque élève. Le matricule
+// sert de lien : un élève déjà importé n'est plus proposé.
+// ══════════════════════════════════════════════
+let _inscriptionsCandidates = [];
+
+// « Petite Section » → 'ps', « CP1 » → 'cp1', etc.
+function classeVersCode(libelle) {
+  const s = (libelle || '').toString().trim().toLowerCase();
+  if (!s) return null;
+  if (s.includes('petite')) return 'ps';
+  if (s.includes('grande')) return 'gs';
+  const m = s.replace(/\s+/g, '').match(/^(cp|ce|cm)([12])$/);
+  if (m) return m[1] + m[2];
+  const direct = CLASSES.find(c => c.id === s.replace(/\s+/g, ''));
+  return direct ? direct.id : null;
+}
+
+async function openImportInscriptions() {
+  const modal = document.getElementById('import-modal');
+  const etat = document.getElementById('import-etat');
+  const liste = document.getElementById('import-liste');
+  modal.classList.add('active');
+  etat.textContent = 'Chargement des inscriptions…';
+  liste.innerHTML = '';
+
+  const { data, error } = await _supa.from('inscriptions')
+    .select('id, matricule, nom, prenom, classe_demandee, cantine, statut, annee_scolaire')
+    .order('matricule');
+
+  if (error) { etat.innerHTML = `<span style="color:var(--red)">Lecture impossible : ${error.message}</span>`; return; }
+
+  const dejaImportes = new Set(studentsData.map(s => s.matricule).filter(Boolean));
+  _inscriptionsCandidates = (data || []).filter(i => !dejaImportes.has(i.matricule));
+  const ignores = (data || []).length - _inscriptionsCandidates.length;
+
+  if (_inscriptionsCandidates.length === 0) {
+    etat.innerHTML = `<span style="color:var(--green)">✅ Toutes les inscriptions sont déjà dans la base comptable (${ignores} élève(s) déjà présent(s)).</span>`;
+    return;
+  }
+
+  etat.innerHTML = `<b>${_inscriptionsCandidates.length}</b> inscription(s) à importer${ignores ? ` · ${ignores} déjà présente(s)` : ''}.
+    <button class="btn btn-outline" style="padding:0.2rem 0.6rem; font-size:0.75rem; margin-left:0.6rem;" onclick="document.querySelectorAll('.imp-check:not([disabled])').forEach(c=>c.checked=true)">Tout cocher</button>`;
+
+  let html = `<table class="tbl"><thead><tr>
+    <th style="width:34px;"></th><th>Matricule</th><th>Élève</th><th>Classe</th><th>Cantine</th><th>Statut</th>
+  </tr></thead><tbody>`;
+  _inscriptionsCandidates.forEach((i, idx) => {
+    const code = classeVersCode(i.classe_demandee);
+    const cls = CLASSES.find(c => c.id === code);
+    html += `<tr>
+      <td><input type="checkbox" class="imp-check" data-idx="${idx}" ${code ? 'checked' : 'disabled'}></td>
+      <td style="font-family:monospace; font-size:0.8rem;">${i.matricule || '—'}</td>
+      <td><b>${(i.nom || '').toUpperCase()}</b> ${i.prenom || ''}</td>
+      <td>${cls ? cls.label : `<span style="color:var(--red)">« ${i.classe_demandee || '?'} » non reconnue</span>`}</td>
+      <td>${i.cantine ? 'Oui' : 'Non'}</td>
+      <td>${i.statut || '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  liste.innerHTML = html;
+}
+
+function importerSelection() {
+  const coches = [...document.querySelectorAll('.imp-check:checked')].map(c => _inscriptionsCandidates[parseInt(c.dataset.idx, 10)]);
+  if (coches.length === 0) { alert('Aucune inscription sélectionnée.'); return; }
+
+  let ajoutes = 0;
+  coches.forEach(i => {
+    const code = classeVersCode(i.classe_demandee);
+    if (!code) return;
+    studentsData.push({
+      id: Date.now() + Math.floor(Math.random() * 10000),
+      matricule: i.matricule || null,
+      nom: i.nom || '', prenom: i.prenom || '',
+      classe: code,
+      cantine: !!i.cantine,
+      plan: 'trimestre',
+      paye: 0, history: [], reductions: [],
+      dateDepart: null, motifDepart: '',
+      famille: (i.nom || '').toUpperCase(),
+    });
+    ajoutes++;
+  });
+
+  autoSave();
+  recalculate();
+  renderElevesTab();
+  document.getElementById('import-modal').classList.remove('active');
+  alert(`✅ ${ajoutes} élève(s) importé(s) dans la base comptable.\n\nLeurs frais exigibles sont calculés automatiquement selon leur classe et l'option cantine.`);
+}
+
+// ══════════════════════════════════════════════
+// LISTE DE CLASSE IMPRIMABLE
+// ══════════════════════════════════════════════
+function openListeClasse() {
+  const sel = document.getElementById('liste-classe');
+  sel.innerHTML = '<option value="toutes">Toutes les classes</option>' +
+    CLASSES.map(c => {
+      const n = studentsData.filter(s => s.classe === c.id && !s.dateDepart).length;
+      return `<option value="${c.id}">${c.label} — ${n} élève(s)</option>`;
+    }).join('');
+  document.getElementById('liste-modal').classList.add('active');
+}
+
+function genererListeClasse() {
+  const codeClasse = document.getElementById('liste-classe').value;
+  const avecPaiement = document.getElementById('liste-avec-paiement').checked;
+  const avecSignature = document.getElementById('liste-avec-signature').checked;
+  const periode = document.getElementById('crm-periode')?.value || 'rentree';
+
+  const classes = codeClasse === 'toutes' ? CLASSES : CLASSES.filter(c => c.id === codeClasse);
+  const dateJour = new Date().toLocaleDateString('fr-FR');
+  const nbCol = 4 + (avecPaiement ? 3 : 0) + (avecSignature ? 1 : 0);
+  let html = '';
+
+  classes.forEach((cls, idx) => {
+    const eleves = studentsData
+      .filter(s => s.classe === cls.id && !s.dateDepart)
+      .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
+    if (eleves.length === 0 && codeClasse === 'toutes') return;
+
+    let totalExigible = 0, totalPaye = 0;
+    const lignes = eleves.map((s, i) => {
+      const exigible = getMontantExigible(s, periode);
+      const paye = s.paye || 0;
+      const reste = Math.max(0, exigible - paye);
+      totalExigible += exigible; totalPaye += paye;
+      return `<tr>
+        <td style="text-align:center; padding:5px; border-bottom:1px solid #e5e7eb;">${i + 1}</td>
+        <td style="font-family:monospace; font-size:9pt; padding:5px; border-bottom:1px solid #e5e7eb;">${s.matricule || '—'}</td>
+        <td style="padding:5px; border-bottom:1px solid #e5e7eb;"><b>${(s.nom || '').toUpperCase()}</b> ${s.prenom || ''}</td>
+        <td style="text-align:center; padding:5px; border-bottom:1px solid #e5e7eb;">${s.cantine ? 'Oui' : '—'}</td>
+        ${avecPaiement ? `
+          <td style="text-align:right; padding:5px; border-bottom:1px solid #e5e7eb;">${fc(exigible)}</td>
+          <td style="text-align:right; padding:5px; border-bottom:1px solid #e5e7eb; color:#0f766e;">${fc(paye)}</td>
+          <td style="text-align:right; padding:5px; border-bottom:1px solid #e5e7eb; font-weight:700; color:${reste > 0 ? '#b91c1c' : '#0f766e'};">${reste > 0 ? fc(reste) : '—'}</td>` : ''}
+        ${avecSignature ? '<td style="height:26px; border-bottom:1px solid #e5e7eb;"></td>' : ''}
+      </tr>`;
+    }).join('');
+
+    html += `
+    <section style="page-break-after:${idx < classes.length - 1 ? 'always' : 'auto'}; padding:0 0 18px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #003B9E; padding-bottom:8px; margin-bottom:14px;">
+        <div>
+          <div style="font-size:16pt; font-weight:800; color:#003B9E;">École Internationale Bilingue IDEAL</div>
+          <div style="font-size:9pt; color:#555;">Bamako · Faladiè Sema — Année scolaire 2026-2027</div>
+        </div>
+        <div style="text-align:right; font-size:9pt; color:#555;">Édité le ${dateJour}</div>
+      </div>
+      <h2 style="font-size:13pt; margin:0 0 4px;">Liste de classe — ${cls.label}</h2>
+      <div style="font-size:9pt; color:#555; margin-bottom:10px;">
+        ${eleves.length} élève(s) inscrit(s)${avecPaiement ? ` · période : ${RQ_LABELS[periode] || periode}` : ''}
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:10pt;">
+        <thead>
+          <tr style="background:#003B9E; color:#fff;">
+            <th style="padding:6px; width:30px;">#</th>
+            <th style="padding:6px; text-align:left;">Matricule</th>
+            <th style="padding:6px; text-align:left;">Nom et prénom</th>
+            <th style="padding:6px; width:60px;">Cantine</th>
+            ${avecPaiement ? '<th style="padding:6px; text-align:right;">Exigible</th><th style="padding:6px; text-align:right;">Payé</th><th style="padding:6px; text-align:right;">Reste</th>' : ''}
+            ${avecSignature ? '<th style="padding:6px; width:120px;">Signature</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>${lignes || `<tr><td colspan="${nbCol}" style="padding:14px; text-align:center; color:#888; font-style:italic;">Aucun élève dans cette classe.</td></tr>`}</tbody>
+        ${avecPaiement && eleves.length ? `<tfoot><tr style="background:#f1f5f9; font-weight:800;">
+          <td colspan="4" style="padding:6px;">TOTAL</td>
+          <td style="padding:6px; text-align:right;">${fc(totalExigible)}</td>
+          <td style="padding:6px; text-align:right;">${fc(totalPaye)}</td>
+          <td style="padding:6px; text-align:right; color:#b91c1c;">${fc(Math.max(0, totalExigible - totalPaye))}</td>
+          ${avecSignature ? '<td></td>' : ''}
+        </tr></tfoot>` : ''}
+      </table>
+      <div style="margin-top:22px; font-size:9pt; color:#555; display:flex; justify-content:space-between;">
+        <div>Le titulaire de classe</div><div>La direction</div>
+      </div>
+    </section>`;
+  });
+
+  const zone = document.getElementById('liste-print');
+  zone.innerHTML = `
+    <div class="no-print" style="position:sticky; top:0; background:#fff; padding:12px 20px; border-bottom:2px solid #F47920; display:flex; justify-content:space-between; align-items:center; z-index:100;">
+      <b style="color:#003B9E;">Aperçu — liste de classe</b>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" style="background:#003B9E; padding:8px 16px;" onclick="window.print()">🖨️ Imprimer</button>
+        <button class="btn" style="background:#666; padding:8px 16px;" onclick="document.getElementById('liste-print').style.display='none'; document.body.classList.remove('impression-liste')">✖ Fermer</button>
+      </div>
+    </div>
+    <div style="max-width:860px; margin:16px auto; padding:0 20px 40px; color:#111;">${html}</div>`;
+  zone.style.cssText = 'display:block; position:fixed; inset:0; background:#fff; overflow-y:auto; z-index:9000;';
+  document.body.classList.add('impression-liste');
+  document.getElementById('liste-modal').classList.remove('active');
 }
 
 function updateRecouvConfig(periode, field, value) {
