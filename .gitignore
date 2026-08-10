@@ -3,3 +3,6 @@ dist
 .env
 .env.local
 .DS_Store
+
+# Sauvegardes de donnees (contiennent des donnees personnelles) — jamais versionnees
+sauvegardes/
