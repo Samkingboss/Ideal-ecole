@@ -6476,9 +6476,9 @@ function rqCardHTML(s, periode, payment) {
   return `
   <div style="width:640px;background:#ffffff;font-family:Inter,system-ui,sans-serif;">
     <div style="background:#003B9E;color:#fff;padding:24px 24px 20px;text-align:center;">
-      <span style="background:#fff;border-radius:12px;padding:8px 14px;display:inline-flex;align-items:center;">
-        <img src="${typeof LOGO_BASE64!=='undefined'?LOGO_BASE64:'/logo-ideal.png'}" style="height:44px;width:auto;display:block;">
-      </span>
+      <img src="${typeof LOGO_BASE64!=='undefined'?LOGO_BASE64:'/logo-ideal.png'}"
+           width="132" height="48"
+           style="width:132px;height:48px;display:inline-block;background:#fff;border-radius:12px;padding:8px 14px;box-sizing:content-box;">
       <div style="font-size:24px;font-weight:800;margin-top:12px;">${payment ? 'Reçu de paiement' : 'Point scolarité'}</div>
       <div style="font-size:13px;opacity:0.85;margin-top:2px;">École Internationale Bilingue IDEAL · Bamako</div>
       <div style="display:inline-block;background:rgba(255,255,255,0.16);border-radius:20px;padding:5px 16px;margin-top:12px;font-size:13px;font-weight:700;">
@@ -6530,9 +6530,22 @@ function rqCardHTML(s, periode, payment) {
 
 async function rqCardToBlob() {
   const el = document.getElementById('rq-card-stage').firstElementChild;
-  const img = el.querySelector('img');
-  if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; });
+
+  // html2canvas photographie le DOM tel quel : une image encore en cours de
+  // décodage sort blanche. On attend donc le chargement ET le décodage de
+  // chaque image avant de capturer — c'est ce qui manquait au logo.
+  await Promise.all([...el.querySelectorAll('img')].map(async img => {
+    try {
+      if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; });
+      if (img.decode) await img.decode();
+    } catch (e) { /* image indisponible : la carte est générée sans elle */ }
+  }));
+
   if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(e) {} }
+  // setTimeout et non requestAnimationFrame : rAF ne se déclenche pas si
+  // l'onglet passe en arrière-plan, ce qui figerait la génération.
+  await new Promise(r => setTimeout(r, 60));
+
   const canvas = await html2canvas(el, { scale: 2.5, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 640, windowWidth: 640 });
   return new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
 }
