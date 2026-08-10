@@ -432,19 +432,26 @@ async function loadPointageForCurrent(){
   const q=async(p)=>{ try{ const r=await fetch(SB_URL+'/rest/v1/'+p,{headers:H}); return r.ok?await r.json():[]; }catch(e){ return []; } };
   const enc=encodeURIComponent(eleveId);
 
-  const [presences,incidents,checkpoints,devoirsRow]=await Promise.all([
+  const [presences,incidents,checkpoints,devoirsRow,manquements]=await Promise.all([
     q(`presences_eleves?eleve_id=eq.${enc}&date_jour=gte.${monday}&date_jour=lte.${friday}&select=*`),
     q(`disciplines?eleve_id=eq.${enc}&date_incident=gte.${monday}&date_incident=lte.${friday}&select=date_incident,motif,gravite,points_perdus,sanction_type,prof_id,surveillant_id`),
     q(`checkpoints?date_checkpoint=gte.${monday}&date_checkpoint=lte.${friday}&select=id`),
     q(`app_state?app=eq.pedago&key=eq.ideal_homeworks&select=value`),
+    q(`manquements?eleve_id=eq.${enc}&date_manque=gte.${monday}&date_manque=lte.${friday}&select=date_manque,type_manque,matiere,observation,signale_par`),
   ]);
 
   const sources=[];
 
   // ── Assiduité : pointage saisi par les professeurs et le conseiller ──
+  // Deux voies de saisie coexistent : l'ancienne remplit `minutes_retard`,
+  // la nouvelle `retard_matin`/`retard_soir`. Ne lire que la seconde faisait
+  // afficher « 0 min » pour un élève arrivé avec 190 min de retard. On
+  // rattache le champ historique au matin, faute d'horaire plus précis.
   let rm=0,rs=0,abs=0;const motifs=[];
   presences.forEach(p=>{
-    rm+=p.retard_matin||0; rs+=p.retard_soir||0;
+    const matin=p.retard_matin||0, soir=p.retard_soir||0;
+    rm += (matin||soir) ? matin : (p.minutes_retard||0);
+    rs += soir;
     if(p.statut==='absent'){ abs++; if(p.justification) motifs.push(p.justification); }
   });
   document.getElementById('ed-retard-matin').value=rm;
@@ -533,6 +540,20 @@ async function loadPointageForCurrent(){
   }
   sources.push({ ok:dansSemaine.length>0||!!aVenir, libelle:'Devoirs (enseignants)',
     detail:`${dansSemaine.length} devoir(s) cette semaine${aVenir?` · prochain : ${aVenir.subject||'—'}`:''}` });
+
+  // ── Manquements signalés par le personnel (matériel, travail non fait) ──
+  if(manquements.length){
+    // Pas de champ dédié : on amorce l'appréciation générale, que le
+    // conseiller reste libre de réécrire. On n'écrase jamais sa saisie.
+    const champ=document.getElementById('ed-general');
+    const txt=manquements.map(m=>{
+      const j=new Date(m.date_manque+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+      return `${j} — ${m.type_manque||'manquement'}${m.matiere?` en ${m.matiere}`:''}${m.observation?` : ${m.observation}`:''}`;
+    }).join('\n');
+    if(champ && !champ.value) champ.value=txt;
+  }
+  sources.push({ ok:manquements.length>0, libelle:'Manquements (personnel encadrant)',
+    detail:manquements.length? `${manquements.length} manquement(s) signalé(s)` : 'aucun manquement signalé' });
 
   // ── Synthèse visible des sources consultées ──
   if(synth){
