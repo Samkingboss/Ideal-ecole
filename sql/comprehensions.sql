@@ -30,3 +30,29 @@ create index if not exists comprehensions_eleve_date_idx
 -- Vue enseignant : moyenne d'une classe sur une journée.
 create index if not exists comprehensions_classe_date_idx
   on public.comprehensions (classe_id, date_cours);
+
+-- ── Politiques d'accès ────────────────────────────────────────────────
+-- Supabase active RLS d'office sur toute nouvelle table : sans les règles
+-- ci-dessous, l'application reçoit « new row violates row-level security »
+-- et aucune note ne peut être enregistrée.
+--
+-- Lecture, saisie et correction sont ouvertes ; la suppression ne l'est pas.
+-- Une note erronée se corrige en ressaisissant le cours (la contrainte
+-- d'unicité met la ligne à jour), elle ne s'efface pas : le relevé de ce
+-- qu'un enfant a compris ne doit pas pouvoir disparaître sans trace.
+-- Ces règles restent larges tant que la plateforme n'a pas d'authentification
+-- réelle — c'est le chantier de sécurisation à mener avant la rentrée.
+
+alter table public.comprehensions enable row level security;
+
+drop policy if exists comprehensions_lecture on public.comprehensions;
+create policy comprehensions_lecture on public.comprehensions
+  for select using (true);
+
+drop policy if exists comprehensions_saisie on public.comprehensions;
+create policy comprehensions_saisie on public.comprehensions
+  for insert with check (true);
+
+drop policy if exists comprehensions_correction on public.comprehensions;
+create policy comprehensions_correction on public.comprehensions
+  for update using (true) with check (true);
