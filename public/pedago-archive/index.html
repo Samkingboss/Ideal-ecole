@@ -327,17 +327,19 @@
                 <div style="color:#fff; font-weight:800; font-size:1.05rem;">Message aux parents</div>
                 <button class="btn btn-secondary" onclick="fermerMessageParents()"><i class="fas fa-times"></i> Fermer</button>
             </div>
+            <!-- Un message par enfant quand le devoir ne vise que quelques élèves -->
+            <div id="msg-barre" style="margin-bottom:10px;"></div>
             <div id="msg-apercu" style="background:#fff; border-radius:14px; overflow:hidden;"></div>
             <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
-                <button class="btn btn-primary" style="flex:1; min-width:200px; background:#25D366; border-color:#25D366;" onclick="envoyerMessageParents()">
-                    <i class="fab fa-whatsapp"></i> Envoyer aux parents
+                <button id="msg-envoyer" class="btn btn-primary" style="flex:1; min-width:200px; background:#25D366; border-color:#25D366;" onclick="envoyerMessageParents()">
+                    Envoyer aux parents
                 </button>
                 <button class="btn btn-secondary" style="flex:1; min-width:160px;" onclick="telechargerMessageParents()">
                     <i class="fas fa-download"></i> Enregistrer l'image
                 </button>
             </div>
             <div style="color:#c7d3dd; font-size:.8rem; margin-top:10px; text-align:center;">
-                Le message part sur le WhatsApp de l'école (+223 90 19 00 07), qui le transmet ensuite aux parents.
+                Chaque message part sur le WhatsApp de l'école (+223 90 19 00 07), qui le transmet ensuite au parent concerné.
             </div>
         </div>
     </div>

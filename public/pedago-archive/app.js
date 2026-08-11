@@ -880,13 +880,14 @@ function carteMessageHTML(d, destinataires, dimsLogo) {
     const rapport = dimsLogo && dimsLogo.h ? dimsLogo.l / dimsLogo.h : (1032 / 375);
     const logo = { h: HAUTEUR_LOGO, l: Math.round(HAUTEUR_LOGO * rapport) };
 
+    // `destinataires` porte soit toute la classe (un seul message collectif),
+    // soit UN élève : quand le devoir ne vise que quelques enfants, l'école
+    // reçoit une carte nominative par enfant, qu'elle relaie au bon parent.
     const mode = modeDestinataires();
     const listeNoms = destinataires.map(s => s.name).filter(Boolean);
     const pourQui = mode === 'classe'
         ? `Toute la classe de <b>${d.grade}</b>`
-        : (listeNoms.length <= 3
-            ? `Concerne : <b>${listeNoms.join(', ')}</b>`
-            : `Concerne <b>${listeNoms.length} élèves</b> de ${d.grade}`);
+        : `Élève : <b>${listeNoms.join(', ')}</b> · ${d.grade}`;
 
     return `
     <div style="width:${MSG_LARGEUR}px; background:#fff; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#0d2a3b;">
@@ -949,6 +950,13 @@ function carteMessageHTML(d, destinataires, dimsLogo) {
 }
 
 let msgDernierBlob = null;
+// File d'envois : un élément = un message à transmettre à l'école.
+// Toute la classe → un seul envoi collectif. Élèves choisis → un envoi
+// nominatif par enfant, l'école relayant ensuite à chaque parent.
+let msgEnvois = [];
+let msgIndex = 0;
+let msgDonnees = null;
+let msgDimsLogo = null;
 
 async function ouvrirMessageParents() {
     const d = getHomeworkData();
@@ -965,18 +973,71 @@ async function ouvrirMessageParents() {
         return alert('Aucun élève sélectionné : cochez les élèves concernés ou choisissez « Toute la classe ».');
     }
 
+    msgDonnees = d;
+    msgDimsLogo = await mesurerLogo(idealLogoSrc());
+    msgEnvois = modeDestinataires() === 'classe'
+        ? [{ eleves: dest, titre: 'Toute la classe de ' + d.grade, envoye: false }]
+        : dest.map(s => ({ eleves: [s], titre: s.name, envoye: false }));
+    msgIndex = 0;
+
+    document.getElementById('msg-modal').style.display = 'block';
+    await afficherEnvoiCourant();
+}
+
+// Prépare et affiche le message en cours. Le rendu est fait à la demande :
+// générer d'emblée trois images d'un mégaoctet ferait patienter pour rien.
+async function afficherEnvoiCourant() {
+    const envoi = msgEnvois[msgIndex];
+    if (!envoi) return;
     const stage = document.getElementById('msg-stage');
-    const dimsLogo = await mesurerLogo(idealLogoSrc());
-    stage.innerHTML = carteMessageHTML(d, dest, dimsLogo);
+    stage.innerHTML = carteMessageHTML(msgDonnees, envoi.eleves, msgDimsLogo);
     document.getElementById('msg-apercu').innerHTML =
         `<div style="transform-origin:top left; width:${MSG_LARGEUR}px;">${stage.innerHTML}</div>`;
     // Afficher AVANT de mesurer : sur un conteneur encore masqué, clientWidth
     // vaut 0 et l'aperçu serait réduit à néant.
-    document.getElementById('msg-modal').style.display = 'block';
     ajusterApercuMessage();
+    majBarreEnvois();
 
     msgDernierBlob = null;
-    try { msgDernierBlob = await carteMessageEnBlob(); } catch (e) { console.warn('Rendu de la carte impossible:', e); }
+    try { msgDernierBlob = await carteMessageEnBlob(); }
+    catch (e) { console.warn('Rendu de la carte impossible:', e); }
+    majBarreEnvois();
+}
+
+function allerAEnvoi(i) {
+    if (i < 0 || i >= msgEnvois.length) return;
+    msgIndex = i;
+    afficherEnvoiCourant();
+}
+
+function majBarreEnvois() {
+    const barre = document.getElementById('msg-barre');
+    const bouton = document.getElementById('msg-envoyer');
+    if (!barre || !bouton) return;
+    const n = msgEnvois.length;
+    const envoi = msgEnvois[msgIndex] || {};
+    const restants = msgEnvois.filter(e => !e.envoye).length;
+
+    barre.innerHTML = n <= 1
+        ? `<div style="color:#e8eef3; font-size:.9rem; font-weight:600;">${envoi.titre || ''}</div>`
+        : `<div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;">
+               <button class="btn btn-secondary" style="padding:4px 12px;" ${msgIndex === 0 ? 'disabled' : ''}
+                       onclick="allerAEnvoi(${msgIndex - 1})">◀</button>
+               <div style="color:#fff; font-weight:800; font-size:.95rem;">
+                   ${envoi.envoye ? '✅ ' : ''}${envoi.titre}
+                   <span style="color:#9fb6c6; font-weight:600;"> — message ${msgIndex + 1} sur ${n}</span>
+               </div>
+               <button class="btn btn-secondary" style="padding:4px 12px;" ${msgIndex === n - 1 ? 'disabled' : ''}
+                       onclick="allerAEnvoi(${msgIndex + 1})">▶</button>
+           </div>
+           <div style="color:#9fb6c6; font-size:.78rem; text-align:center; margin-top:6px;">
+               ${restants === 0 ? 'Tous les messages ont été envoyés.'
+                                : `${restants} message(s) restant(s) — un par enfant.`}
+           </div>`;
+
+    bouton.disabled = !msgDernierBlob;
+    bouton.textContent = !msgDernierBlob ? 'Préparation de l’image…'
+        : (n > 1 ? `Envoyer le message de ${envoi.titre}` : 'Envoyer aux parents');
 }
 
 // L'aperçu est rendu à 640 px puis mis à l'échelle : la carte envoyée reste
@@ -1009,15 +1070,26 @@ async function carteMessageEnBlob() {
     return new Promise(r => canvas.toBlob(r, 'image/png'));
 }
 
+// Le nom de l'enfant entre dans le nom du fichier : l'ecole recoit plusieurs
+// images d'affilee et doit savoir, sans les ouvrir, a quel parent les envoyer.
 function nomFichierMessage() {
     const d = getHomeworkData();
-    const net = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-');
-    return `devoir-${net(d.grade)}-${net(d.subject)}.png`;
+    const envoi = msgEnvois[msgIndex];
+    const net = s => String(s || '').normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const qui = envoi && envoi.eleves.length === 1 ? net(envoi.eleves[0].name) : net(d.grade);
+    return `devoir-${qui}-${net(d.subject)}.png`;
 }
 
 function legendeMessage() {
     const d = getHomeworkData();
-    return `📚 ${d.type || 'Devoir'} de ${d.subject || ''} — classe de ${d.grade || ''}. À rendre le ${d.dueDate}. (École IDEAL)`;
+    const envoi = msgEnvois[msgIndex];
+    // Message nominatif : l'école sait immédiatement à quel parent le relayer.
+    const cible = envoi && envoi.eleves.length === 1
+        ? `pour *${envoi.eleves[0].name}* (${d.grade})`
+        : `pour la classe de *${d.grade}*`;
+    return `📚 À transmettre au parent ${cible}\n`
+         + `${d.type || 'Devoir'} de ${d.subject || ''}, à rendre le ${d.dueDate}. (École IDEAL)`;
 }
 
 async function envoyerMessageParents() {
@@ -1027,15 +1099,25 @@ async function envoyerMessageParents() {
     }
     const fichier = new File([msgDernierBlob], nomFichierMessage(), { type: 'image/png' });
     const legende = legendeMessage();
+    let parti = false;
 
     if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
-        try { await navigator.share({ files: [fichier], text: legende }); return; }
+        try { await navigator.share({ files: [fichier], text: legende }); parti = true; }
         catch (e) { if (e.name === 'AbortError') return; }
     }
-    // Repli : on télécharge l'image, puis WhatsApp s'ouvre sur le numéro de
-    // l'école, qui relaie ensuite aux parents.
-    telechargerMessageParents();
-    window.open('https://wa.me/' + IDEAL_WA + '?text=' + encodeURIComponent(legende + "\n(joindre l'image téléchargée)"), '_blank');
+    if (!parti) {
+        // Repli : on télécharge l'image, puis WhatsApp s'ouvre sur le numéro
+        // de l'école, qui relaie ensuite à chaque parent.
+        telechargerMessageParents();
+        window.open('https://wa.me/' + IDEAL_WA + '?text=' + encodeURIComponent(legende + "\n(joindre l'image téléchargée)"), '_blank');
+    }
+
+    if (msgEnvois[msgIndex]) msgEnvois[msgIndex].envoye = true;
+    // Enchaîner sur le premier enfant pas encore traité : avec plusieurs
+    // destinataires, aucun ne doit être oublié en cours de route.
+    const suivant = msgEnvois.findIndex(e => !e.envoye);
+    if (suivant === -1) { majBarreEnvois(); return; }
+    allerAEnvoi(suivant);
 }
 
 function telechargerMessageParents() {
