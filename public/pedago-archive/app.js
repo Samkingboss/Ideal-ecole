@@ -687,9 +687,12 @@ function buildHomeworkPages(d, studentName) {
                 </div>
             </div>
             <div class="hw-body" style="flex:1; overflow:hidden;"></div>
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:2px solid #0d2a3b; padding-top:8px; margin-top:12px; font-size:9pt; font-weight:700; color:#0d2a3b;">
-                <span>ÉLÈVE : ${(studentName || '____________________').toUpperCase()}</span>
-                <span>Page ${p + 1} / ${nbPages}</span>
+            <!-- Le nom est volontairement gros en pied de page : c'est lui qui
+                 permet de rendre une feuille égarée à son propriétaire. -->
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; border-top:2px solid #0d2a3b; padding-top:8px; margin-top:12px; color:#0d2a3b;">
+                <span style="font-size:8pt; font-weight:700; color:#64748b; flex-shrink:0;">ÉLÈVE</span>
+                <span style="font-size:13pt; font-weight:800; flex:1; letter-spacing:.3px;">${(studentName || '____________________').toUpperCase()}</span>
+                <span style="font-size:9pt; font-weight:700; flex-shrink:0;">Page ${p + 1} / ${nbPages}</span>
             </div>
         `;
         const body = page.querySelector('.hw-body');
@@ -716,12 +719,25 @@ function printAll() {
     if (!d.grade || (!d.content && d.images.length === 0)) {
         return alert('Veuillez sélectionner une classe et fournir le contenu.');
     }
+    // Un devoir sans nom finit en feuille égarée que personne ne réclame.
+    // On ne bascule donc jamais en version anonyme sans le dire franchement.
     let classStudents = destinatairesRetenus();
     if (classStudents.length === 0) {
-        const message = modeDestinataires() === 'choix'
-            ? 'Aucun élève sélectionné. Imprimer une version vierge ?'
-            : 'Aucun élève en ' + d.grade + '. Imprimer une version vierge ?';
-        if (!confirm(message)) return;
+        if (elevesDeLaClasse().length > 0) {
+            // La classe a des élèves : l'enseignant a seulement oublié de les
+            // cocher. Imprimer des feuilles vierges serait une erreur, pas un
+            // choix — on refuse plutôt que de proposer.
+            return alert(
+                'Aucun élève sélectionné : le devoir s\'imprimerait sans nom.\n\n'
+                + 'Cochez les élèves concernés, ou choisissez « Toute la classe ».'
+            );
+        }
+        const ok = confirm(
+            'Aucun élève trouvé en ' + d.grade + '.\n\n'
+            + 'Les feuilles s\'imprimeront SANS NOM, à remplir à la main.\n'
+            + 'Continuer quand même ?'
+        );
+        if (!ok) return;
         classStudents = [{ name: '' }];
     }
     const pc = document.getElementById('print-container');
