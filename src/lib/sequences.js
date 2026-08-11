@@ -31,6 +31,25 @@ export const SEQUENCES = [
 /** Minutes d'enseignement d'une journée complète : 12 × 30 = 360. */
 export const MINUTES_JOUR = SEQUENCES.length * DUREE_SEQUENCE
 
+// L'école compte six classes, mais l'enseignement est organisé en quatre
+// groupes : CE1 et CE2 sont jumelées, CM1 et CM2 aussi, et chaque paire suit
+// la même grille. On rattache donc chaque classe à son groupe plutôt que de
+// recopier l'emploi du temps deux fois.
+const GROUPES = {
+  'cp1': 'CP1',
+  'cp2': 'CP2',
+  'ce1': 'CE1-CE2', 'ce2': 'CE1-CE2', 'ce1-ce2': 'CE1-CE2',
+  'cm1': 'CM1-CM2', 'cm2': 'CM1-CM2', 'cm1-cm2': 'CM1-CM2',
+}
+
+/** Groupe pédagogique d'une classe, ou null si elle n'a pas de grille
+ *  (Petite et Grande Section : le document ne couvre que le primaire). */
+export function groupeDeClasse(nomClasse) {
+  const n = String(nomClasse || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, '').trim()
+  return GROUPES[n] || null
+}
+
 export const finSequence = s => s.debut + DUREE_SEQUENCE
 
 /** "08:45" ou "8h45" → minutes depuis minuit. */
