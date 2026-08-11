@@ -41,6 +41,13 @@
 }
 .portal-back:hover { box-shadow: 0 8px 24px rgba(13,42,59,.26); }
 .portal-back:active { transform: scale(.88); }
+
+/* Sur mobile la barre latérale disparaît : le bouton retour flotte alors
+   au-dessus du titre de section. On lui réserve sa place. */
+@media (max-width: 900px) {
+  .section > .header > h1,
+  .section > .students-topbar .students-title-row { padding-left: 54px; }
+}
 </style>
     <div class="app-container">
         <!-- Sidebar Navigation -->
@@ -273,7 +280,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
             </section>
 
             <!-- Students Section -->

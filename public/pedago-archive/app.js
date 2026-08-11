@@ -32,10 +32,32 @@ function modeDestinataires() {
     return r ? r.value : 'classe';
 }
 
+// Équivalences de nommage des classes. Les élèves peuvent arriver de deux
+// sources (table `eleves` via `classes.nom`, ou `inscriptions.classe_demandee`)
+// qui n'écrivent pas forcément la classe pareil. Une comparaison stricte a
+// deja masque toute la Petite Section a son enseignante : le menu proposait
+// « PS » quand les eleves portaient « Petite Section ».
+const SYNONYMES_CLASSE = [
+    ['ps', 'petite section'],
+    ['ms', 'moyenne section'],
+    ['gs', 'grande section'],
+];
+
+function normaliserClasse(v) {
+    const n = String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/\s+/g, ' ').trim();
+    const paire = SYNONYMES_CLASSE.find(p => p.includes(n));
+    return paire ? paire[1] : n;   // on retient toujours la forme longue
+}
+
+function memeClasse(a, b) {
+    return !!a && !!b && normaliserClasse(a) === normaliserClasse(b);
+}
+
 // Élèves de la classe actuellement choisie
 function elevesDeLaClasse() {
     const grade = (document.getElementById('grade-select') || {}).value || '';
-    return students.filter(s => s.grade === grade);
+    return students.filter(s => memeClasse(s.grade, grade));
 }
 
 // Destinataires retenus : toute la classe, ou les élèves cochés
@@ -368,7 +390,12 @@ function loadHomework(id) {
     const h = homeworks.find(hw => hw.id === id);
     if (h) {
         document.getElementById('subject').value = h.subject;
-        document.getElementById('grade-select').value = h.grade;
+        // Les devoirs archivés portent l'ancien code court (« PS », « GS ») ;
+        // le menu propose désormais le nom complet. On retrouve l'option
+        // correspondante au lieu de laisser le champ se vider.
+        const selClasse = document.getElementById('grade-select');
+        const opt = Array.from(selClasse.options).find(o => memeClasse(o.value, h.grade));
+        selClasse.value = opt ? opt.value : '';
         document.getElementById('homework-type').value = h.type;
         document.getElementById('homework-content').value = h.content;
         document.getElementById('teacher-name').value = h.teacher || '';
@@ -378,6 +405,7 @@ function loadHomework(id) {
         document.getElementById('homework-bareme').value = h.bareme || '';
         currentHomeworkImages = h.images || [];
         updateLivePreview();
+        majDestinataires();
         switchSection('composer');
     }
 }
