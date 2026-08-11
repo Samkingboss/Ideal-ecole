@@ -11,6 +11,19 @@ if (typeof window !== 'undefined') {
   })
 }
 
+// Les codes d'accès ne contiennent que des lettres et des chiffres. Sur
+// tablette, le clavier ajoute volontiers un espace après un « mot », voire un
+// caractère invisible (espace insécable, largeur nulle) : le code paraît juste
+// à l'écran mais la comparaison échoue. On ne garde donc que l'alphanumérique.
+const normaliserCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+// Une requête qui n'a pas atteint le serveur ne dit rien du code saisi.
+const estPanneReseau = e => {
+  const m = ((e && (e.message || e.details)) || '').toLowerCase()
+  return !navigator.onLine || m.includes('fetch') || m.includes('network')
+      || m.includes('timeout') || m.includes('réseau')
+}
+
 export default function LoginPage({ onLogin }) {
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
@@ -37,23 +50,38 @@ export default function LoginPage({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const propre = normaliserCode(code)
+    if (!propre) { setError('Saisissez votre code d\'accès.'); return }
     setLoading(true)
     setError('')
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('code_acces', code.toUpperCase().trim())
+        .eq('code_acces', propre)
         .eq('actif', true)
-        .single()
-      if (error || !data) {
+        .maybeSingle()
+
+      // Ne pas confondre « mauvais code » et « serveur injoignable » : sur une
+      // connexion coupée, annoncer un code incorrect envoie chercher un
+      // problème là où il n'y en a pas.
+      if (error) {
+        setError(estPanneReseau(error)
+          ? 'Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.'
+          : 'Connexion impossible : ' + (error.message || 'erreur inattendue'))
+        setLoading(false)
+        return
+      }
+      if (!data) {
         setError('Code incorrect ou compte inactif.')
         setLoading(false)
         return
       }
       onLogin(data)
-    } catch(e) {
-      setError('Erreur de connexion. Verifiez votre connexion internet.')
+    } catch (err) {
+      setError(estPanneReseau(err)
+        ? 'Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.'
+        : 'Erreur inattendue : ' + (err.message || ''))
     }
     setLoading(false)
   }
@@ -71,16 +99,23 @@ export default function LoginPage({ onLogin }) {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label" htmlFor="access-code">Code d'accès</label>
+            {/* Correction et majuscules automatiques désactivées : sur
+                tablette elles transforment le code sans que rien ne le
+                montre. La valeur affichée est déjà celle qui sera envoyée. */}
             <input
               id="access-code"
               className="form-input code-input"
               value={code}
-              onChange={e => setCode(e.target.value)}
+              onChange={e => setCode(normaliserCode(e.target.value))}
               placeholder="Saisir votre code"
               maxLength={20}
               required
               aria-label="Code d'accès personnel"
               autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              inputMode="text"
             />
           </div>
           <button className="btn btn-primary" type="submit" disabled={loading}>
