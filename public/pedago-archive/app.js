@@ -2,6 +2,96 @@
 let students = JSON.parse(localStorage.getItem('ideal_students')) || [];
 let homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
 let currentHomeworkImages = [];
+// Classes que l'utilisateur connecté a le droit de servir. Remplie par la
+// synchronisation Supabase en fin de fichier : un enseignant n'y trouve que
+// les siennes (prof_classes), la direction et le conseiller toutes.
+let classesAutorisees = [];
+
+// ═══════════ PÉRIMÈTRE DE CLASSES ET DESTINATAIRES ═══════════
+
+function remplirClasses() {
+    const sel = document.getElementById('grade-select');
+    if (!sel) return;
+    const choisi = sel.value;
+    if (!classesAutorisees.length) {
+        sel.innerHTML = '<option value="">Aucune classe ne vous est affectée</option>';
+        sel.disabled = true;
+        return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Choisir une classe</option>'
+        + classesAutorisees.map(c => `<option value="${c}">${c}</option>`).join('');
+    // Une seule classe : on la présélectionne, le prof n'a rien à choisir.
+    if (classesAutorisees.length === 1) sel.value = classesAutorisees[0];
+    else if (choisi && classesAutorisees.includes(choisi)) sel.value = choisi;
+    majDestinataires();
+}
+
+function modeDestinataires() {
+    const r = document.querySelector('input[name="dest-mode"]:checked');
+    return r ? r.value : 'classe';
+}
+
+// Élèves de la classe actuellement choisie
+function elevesDeLaClasse() {
+    const grade = (document.getElementById('grade-select') || {}).value || '';
+    return students.filter(s => s.grade === grade);
+}
+
+// Destinataires retenus : toute la classe, ou les élèves cochés
+function destinatairesRetenus() {
+    const liste = elevesDeLaClasse();
+    if (modeDestinataires() === 'classe') return liste;
+    const coches = new Set(
+        Array.from(document.querySelectorAll('#dest-liste input[type="checkbox"]:checked')).map(c => c.value)
+    );
+    return liste.filter(s => coches.has(String(s.id)));
+}
+
+function majDestinataires() {
+    const zone = document.getElementById('dest-liste');
+    const resume = document.getElementById('dest-resume');
+    if (!zone || !resume) return;
+    const liste = elevesDeLaClasse();
+    const parChoix = modeDestinataires() === 'choix';
+    zone.style.display = parChoix ? 'block' : 'none';
+
+    if (parChoix) {
+        // On reconstruit en conservant les cases déjà cochées.
+        const dejaCoches = new Set(
+            Array.from(zone.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value)
+        );
+        zone.innerHTML = liste.length
+            ? `<div style="display:flex; gap:8px; margin-bottom:8px;">
+                   <button type="button" class="btn btn-secondary" style="font-size:.75rem; padding:4px 10px;" onclick="cocherTousEleves(true)">Tout cocher</button>
+                   <button type="button" class="btn btn-secondary" style="font-size:.75rem; padding:4px 10px;" onclick="cocherTousEleves(false)">Tout décocher</button>
+               </div>`
+              + liste.map(s => `
+                <label style="display:flex; align-items:center; gap:8px; padding:5px 2px; cursor:pointer;">
+                    <input type="checkbox" value="${s.id}" ${dejaCoches.has(String(s.id)) ? 'checked' : ''} onchange="majResumeDestinataires()">
+                    <span>${s.name}</span>
+                </label>`).join('')
+            : '<div style="color:#6b7280; font-size:.85rem;">Aucun élève dans cette classe.</div>';
+    }
+    majResumeDestinataires();
+}
+
+function cocherTousEleves(etat) {
+    document.querySelectorAll('#dest-liste input[type="checkbox"]').forEach(c => { c.checked = etat; });
+    majResumeDestinataires();
+}
+
+function majResumeDestinataires() {
+    const resume = document.getElementById('dest-resume');
+    if (!resume) return;
+    const grade = (document.getElementById('grade-select') || {}).value || '';
+    if (!grade) { resume.textContent = 'Choisissez d’abord une classe.'; return; }
+    const total = elevesDeLaClasse().length;
+    const n = destinatairesRetenus().length;
+    resume.textContent = modeDestinataires() === 'classe'
+        ? `Toute la classe ${grade} — ${total} élève(s).`
+        : `${n} élève(s) sélectionné(s) sur ${total} en ${grade}.`;
+}
 
 // Constants
 const sections = document.querySelectorAll('.section');
@@ -71,6 +161,10 @@ function setupEventListeners() {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', updateLivePreview);
     });
+
+    // Changer de classe change la liste des élèves proposés
+    const gradeSel = document.getElementById('grade-select');
+    if (gradeSel) gradeSel.addEventListener('change', majDestinataires);
 
     // Save Homework
     const saveBtn = document.getElementById('save-homework-btn');
@@ -315,6 +409,10 @@ function saveHomework() {
         objectives,
         bareme,
         images: currentHomeworkImages,
+        // Qui est concerné : toute la classe, ou les seuls élèves désignés.
+        destinataires: modeDestinataires() === 'classe'
+            ? { mode: 'classe' }
+            : { mode: 'choix', eleves: destinatairesRetenus().map(s => ({ nom: s.name, cle: s.centralKey || null })) },
         date: new Date().toLocaleDateString('fr-FR')
     };
 
@@ -584,15 +682,18 @@ function buildHomeworkPages(d, studentName) {
     return pages;
 }
 
-// Publipostage : un exemplaire nominatif par élève de la classe
+// Publipostage : un exemplaire nominatif par destinataire retenu
 function printAll() {
     const d = getHomeworkData();
     if (!d.grade || (!d.content && d.images.length === 0)) {
         return alert('Veuillez sélectionner une classe et fournir le contenu.');
     }
-    let classStudents = students.filter(s => s.grade === d.grade);
+    let classStudents = destinatairesRetenus();
     if (classStudents.length === 0) {
-        if (!confirm('Aucun élève en ' + d.grade + '. Imprimer une version vierge ?')) return;
+        const message = modeDestinataires() === 'choix'
+            ? 'Aucun élève sélectionné. Imprimer une version vierge ?'
+            : 'Aucun élève en ' + d.grade + '. Imprimer une version vierge ?';
+        if (!confirm(message)) return;
         classStudents = [{ name: '' }];
     }
     const pc = document.getElementById('print-container');
@@ -612,6 +713,253 @@ function printSingle() {
     buildHomeworkPages(d, '').forEach(pg => pc.appendChild(pg));
     window.print();
 }
+
+// ═══════════════ MESSAGE ILLUSTRÉ AUX PARENTS ═══════════════
+// Carte portrait (~640 px, ratio proche de 1:1,9) : la quasi-totalité des
+// parents la reçoivent sur téléphone. Même principe que le rapport
+// hebdomadaire et les relances de recouvrement : image partagée en natif,
+// repli téléchargement + wa.me sans destinataire pré-rempli.
+
+const MSG_LARGEUR = 640;
+
+function logoBase64Pour(el) {
+    // html2canvas ne capture pas une image externe non décodée : on attend
+    // explicitement le chargement de chaque <img> avant la capture.
+    return Promise.all(Array.from(el.querySelectorAll('img')).map(img => {
+        if (img.complete && img.naturalWidth) return img.decode().catch(() => {});
+        return new Promise(r => { img.onload = () => img.decode().then(r).catch(r); img.onerror = r; });
+    }));
+}
+
+// Vignette d'une page : on réutilise le rendu réel, réduit en tout petit.
+function vignettePageHTML(d, index) {
+    const estGarde = index === 0;
+    if (estGarde) {
+        return `<div style="width:44px;height:62px;border:1px solid #cbd5e1;border-radius:3px;background:#fff;
+                     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;overflow:hidden;">
+                    <div style="width:26px;height:3px;background:#0d2a3b;border-radius:2px;"></div>
+                    <div style="width:32px;height:9px;background:#0d2a3b;border-radius:2px;"></div>
+                    <div style="width:30px;height:2px;background:#cbd5e1;"></div>
+                    <div style="width:30px;height:2px;background:#cbd5e1;"></div>
+                    <div style="width:22px;height:2px;background:#cbd5e1;"></div>
+                </div>`;
+    }
+    const img = d.images[index - 1];
+    if (img) {
+        return `<div style="width:44px;height:62px;border:1px solid #cbd5e1;border-radius:3px;overflow:hidden;background:#fff;">
+                    <img src="${img}" style="width:44px;height:62px;object-fit:cover;display:block;">
+                </div>`;
+    }
+    return `<div style="width:44px;height:62px;border:1px solid #cbd5e1;border-radius:3px;background:#fff;
+                 display:flex;flex-direction:column;justify-content:center;gap:3px;padding:6px;overflow:hidden;">
+                ${'<div style="height:2px;background:#cbd5e1;"></div>'.repeat(6)}
+            </div>`;
+}
+
+// Tableau minimaliste des pages : une ligne par page, vignette + intitulé.
+function tableauPagesHTML(d) {
+    const nbExercices = Math.max(1, d.images.length);
+    const lignes = [];
+    lignes.push({ i: 0, titre: 'Page de garde', detail: 'Nom, barème, note' });
+    for (let p = 1; p <= nbExercices; p++) {
+        const aImage = !!d.images[p - 1];
+        lignes.push({
+            i: p,
+            titre: 'Page ' + p,
+            detail: aImage ? 'Exercices' : (d.content ? 'Énoncé écrit' : 'Exercices')
+        });
+    }
+    return `
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+            <tr style="background:#0d2a3b; color:#fff;">
+                <th style="text-align:left; padding:8px 12px; font-size:11px; letter-spacing:.6px; font-weight:800;">APERÇU</th>
+                <th style="text-align:left; padding:8px 12px; font-size:11px; letter-spacing:.6px; font-weight:800;">PAGE</th>
+                <th style="text-align:left; padding:8px 12px; font-size:11px; letter-spacing:.6px; font-weight:800;">CONTENU</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${lignes.map((l, k) => `
+            <tr style="background:${k % 2 ? '#f6f9fb' : '#fff'};">
+                <td style="padding:8px 12px; border-bottom:1px solid #e5eaf0;">${vignettePageHTML(d, l.i)}</td>
+                <td style="padding:8px 12px; border-bottom:1px solid #e5eaf0; font-weight:700; color:#0d2a3b;">${l.titre}</td>
+                <td style="padding:8px 12px; border-bottom:1px solid #e5eaf0; color:#475569;">${l.detail}</td>
+            </tr>`).join('')}
+        </tbody>
+    </table>
+    <div style="text-align:center; font-size:12px; color:#6b7280; padding:8px 0 0;">
+        ${lignes.length} page(s) au total — la version papier est remise à l'élève.
+    </div>`;
+}
+
+function carteMessageHTML(d, destinataires) {
+    const mode = modeDestinataires();
+    const listeNoms = destinataires.map(s => s.name).filter(Boolean);
+    const pourQui = mode === 'classe'
+        ? `Toute la classe de <b>${d.grade}</b>`
+        : (listeNoms.length <= 3
+            ? `Concerne : <b>${listeNoms.join(', ')}</b>`
+            : `Concerne <b>${listeNoms.length} élèves</b> de ${d.grade}`);
+
+    return `
+    <div style="width:${MSG_LARGEUR}px; background:#fff; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#0d2a3b;">
+
+        <div style="background:linear-gradient(135deg,#0d2a3b 0%,#1d5f80 100%); padding:26px 30px 22px; text-align:center;">
+            <img src="${idealLogoSrc()}" width="150" height="54"
+                 style="width:150px;height:54px;display:inline-block;background:#fff;border-radius:12px;padding:8px 16px;box-sizing:content-box;object-fit:contain;">
+            <div style="color:#fff; font-size:27px; font-weight:800; margin-top:16px; letter-spacing:-.4px;">Devoir de maison</div>
+            <div style="color:#bcd8e8; font-size:12px; letter-spacing:1.6px; margin-top:5px; font-weight:600;">ÉCOLE INTERNATIONALE BILINGUE IDEAL · BAMAKO</div>
+            <div style="display:inline-block; background:#F7941D; color:#fff; font-weight:800; font-size:15px; padding:9px 22px; border-radius:22px; margin-top:16px;">
+                À rendre le ${d.dueDate}
+            </div>
+        </div>
+
+        <div style="padding:24px 30px 8px;">
+            <div style="font-size:15px; line-height:1.55; color:#334155;">
+                Chers parents, un <b>${(d.type || 'devoir').toLowerCase()}</b> de
+                <b>${d.subject || '—'}</b> a été donné aujourd'hui.
+                Merci d'accompagner votre enfant pour qu'il le rende à temps.
+            </div>
+        </div>
+
+        <div style="padding:16px 30px 0;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="background:#f3f7fa; border-radius:12px; padding:13px 15px;">
+                    <div style="font-size:10px; font-weight:800; color:#7c8ea0; letter-spacing:1px;">MATIÈRE</div>
+                    <div style="font-size:17px; font-weight:800; margin-top:3px;">${d.subject || '—'}</div>
+                </div>
+                <div style="background:#f3f7fa; border-radius:12px; padding:13px 15px;">
+                    <div style="font-size:10px; font-weight:800; color:#7c8ea0; letter-spacing:1px;">CLASSE</div>
+                    <div style="font-size:17px; font-weight:800; margin-top:3px;">${d.grade || '—'}</div>
+                </div>
+            </div>
+            <div style="background:#eef7ee; border-left:4px solid #2e9e4f; border-radius:0 10px 10px 0; padding:12px 15px; margin-top:12px; font-size:14px;">
+                ${pourQui}
+            </div>
+        </div>
+
+        ${d.objectives ? `
+        <div style="padding:16px 30px 0;">
+            <div style="font-size:11px; font-weight:800; color:#7c8ea0; letter-spacing:1.1px; margin-bottom:6px;">CE QUI EST TRAVAILLÉ</div>
+            <div style="font-size:14px; line-height:1.5; color:#334155;">${d.objectives}</div>
+        </div>` : ''}
+
+        <div style="padding:20px 30px 0;">
+            <div style="font-size:11px; font-weight:800; color:#7c8ea0; letter-spacing:1.1px; margin-bottom:8px;">CE QUE CONTIENT LE DEVOIR</div>
+            <div style="border:1px solid #e5eaf0; border-radius:10px; overflow:hidden;">
+                ${tableauPagesHTML(d)}
+            </div>
+        </div>
+
+        <div style="padding:20px 30px 26px;">
+            <div style="background:#0d2a3b; border-radius:12px; padding:16px 18px; color:#fff; text-align:center;">
+                <div style="font-size:13px; color:#bcd8e8;">Enseignant</div>
+                <div style="font-size:17px; font-weight:800; margin-top:2px;">${d.teacher || '—'}</div>
+                <div style="font-size:12px; color:#95b4c8; margin-top:8px;">Pour toute question, contactez l'école.</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+let msgDernierBlob = null;
+
+async function ouvrirMessageParents() {
+    const d = getHomeworkData();
+    if (!d.grade || !d.subject || (!d.content && d.images.length === 0)) {
+        return alert('Renseignez au moins la classe, la matière et le contenu du devoir avant de prévenir les parents.');
+    }
+    const dest = destinatairesRetenus();
+    if (modeDestinataires() === 'choix' && dest.length === 0) {
+        return alert('Aucun élève sélectionné : cochez les élèves concernés ou choisissez « Toute la classe ».');
+    }
+
+    const stage = document.getElementById('msg-stage');
+    stage.innerHTML = carteMessageHTML(d, dest);
+    document.getElementById('msg-apercu').innerHTML =
+        `<div style="transform-origin:top left; width:${MSG_LARGEUR}px;">${stage.innerHTML}</div>`;
+    // Afficher AVANT de mesurer : sur un conteneur encore masqué, clientWidth
+    // vaut 0 et l'aperçu serait réduit à néant.
+    document.getElementById('msg-modal').style.display = 'block';
+    ajusterApercuMessage();
+
+    msgDernierBlob = null;
+    try { msgDernierBlob = await carteMessageEnBlob(); } catch (e) { console.warn('Rendu de la carte impossible:', e); }
+}
+
+// L'aperçu est rendu à 640 px puis mis à l'échelle : la carte envoyée reste
+// identique quelle que soit la largeur de l'écran de l'enseignant.
+function ajusterApercuMessage() {
+    const boite = document.getElementById('msg-apercu');
+    if (!boite || !boite.firstElementChild) return;
+    const dispo = boite.clientWidth || MSG_LARGEUR;
+    const k = Math.min(1, dispo / MSG_LARGEUR);
+    boite.firstElementChild.style.transform = `scale(${k})`;
+    boite.style.height = (boite.firstElementChild.scrollHeight * k) + 'px';
+    boite.style.overflow = 'hidden';
+}
+
+async function carteMessageEnBlob() {
+    const stage = document.getElementById('msg-stage');
+    const cible = stage.firstElementChild;
+    await logoBase64Pour(stage);
+    // Laisser au navigateur le temps de peindre. Pas de requestAnimationFrame :
+    // il ne se déclenche pas si l'onglet passe en arrière-plan.
+    await new Promise(r => setTimeout(r, 60));
+    const canvas = await html2canvas(cible, {
+        scale: 2.5, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        width: MSG_LARGEUR, windowWidth: MSG_LARGEUR
+    });
+    // JPEG plutôt que PNG : 294 Ko au lieu de 728 pour la même définition
+    // (1600 px). La carte porte des vignettes photo, et WhatsApp recompresse
+    // en JPEG de toute façon — le PNG ne coûterait que de la donnée mobile.
+    return new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
+}
+
+function nomFichierMessage() {
+    const d = getHomeworkData();
+    const net = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-');
+    return `devoir-${net(d.grade)}-${net(d.subject)}.jpg`;
+}
+
+function legendeMessage() {
+    const d = getHomeworkData();
+    return `📚 ${d.type || 'Devoir'} de ${d.subject || ''} — classe de ${d.grade || ''}. À rendre le ${d.dueDate}. (École IDEAL)`;
+}
+
+async function envoyerMessageParents() {
+    if (!msgDernierBlob) {
+        try { msgDernierBlob = await carteMessageEnBlob(); }
+        catch (e) { return alert("L'image n'a pas pu être générée."); }
+    }
+    const fichier = new File([msgDernierBlob], nomFichierMessage(), { type: 'image/jpeg' });
+    const legende = legendeMessage();
+
+    if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
+        try { await navigator.share({ files: [fichier], text: legende }); return; }
+        catch (e) { if (e.name === 'AbortError') return; }
+    }
+    // Repli : on télécharge l'image, puis WhatsApp s'ouvre sans destinataire —
+    // l'enseignant choisit le groupe de la classe ou le contact du parent.
+    telechargerMessageParents();
+    window.open('https://wa.me/?text=' + encodeURIComponent(legende + "\n(joindre l'image téléchargée)"), '_blank');
+}
+
+function telechargerMessageParents() {
+    if (!msgDernierBlob) return alert("L'image n'est pas encore prête.");
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(msgDernierBlob);
+    a.download = nomFichierMessage();
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function fermerMessageParents() {
+    document.getElementById('msg-modal').style.display = 'none';
+}
+
+window.addEventListener('resize', () => {
+    if (document.getElementById('msg-modal').style.display === 'block') ajusterApercuMessage();
+});
 
 function closeModal() {
     const modal = document.getElementById('student-modal');
@@ -812,10 +1160,15 @@ function clearHomeworkContent() {
                     (await pc.json()).forEach(row => {
                         if (row.classe_id != null) allowedClassIds.add(String(row.classe_id));
                         const nm = row.classes && row.classes.nom;
-                        if (nm) allowedClassNames.add(nm.toLowerCase());
+                        if (nm) { allowedClassNames.add(nm.toLowerCase()); classesAutorisees.push(nm); }
                     });
                 }
+            } else {
+                // Direction et conseiller : toutes les classes de l'établissement
+                const cr = await fetch(SB_URL + '/rest/v1/classes?select=nom&order=nom', { headers: H });
+                if (cr.ok) (await cr.json()).forEach(c => { if (c.nom) classesAutorisees.push(c.nom); });
             }
+            remplirClasses();
 
             const inScope = (classeId, classeNom) => {
                 if (!allowedClassIds) return true; // direction / conseiller : tout
@@ -852,6 +1205,7 @@ function clearHomeworkContent() {
 
             students = list;
             homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
+            if (typeof majDestinataires === 'function') majDestinataires();
             if (typeof renderStudentList === 'function') renderStudentList();
             if (typeof renderArchive === 'function') renderArchive();
             if (typeof updateStats === 'function') updateStats();
