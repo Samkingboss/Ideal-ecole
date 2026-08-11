@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import AgendaCalendrier from './AgendaCalendrier'
+import { MINUTES_JOUR } from '../lib/sequences'
 
 // Horaires officiels : arrivée 08h00, départ 16h00
 const timeToMin = t => { if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m }
@@ -158,7 +159,10 @@ export default function ConseillerApp({ user, onLogout }) {
     }
   }
 
-  // Absence : motif OBLIGATOIRE, 480 min de cours manqués (journée de 8h)
+  // Absence : motif OBLIGATOIRE. Une journée manquée coûte MINUTES_JOUR de
+  // cours, soit 360 minutes — les douze séquences de 30 min de l'emploi du
+  // temps officiel. Le chiffre de 480 utilisé jusqu'ici comptait aussi les
+  // récréations et le déjeuner, qui ne sont pas du temps d'enseignement.
   const markAbsent = async (eleveId) => {
     const motif = prompt("Motif de l'absence (obligatoire) :\nEx : Maladie, Voyage, Rendez-vous, Non justifiée…")
     if (motif === null) return
@@ -167,7 +171,7 @@ export default function ConseillerApp({ user, onLogout }) {
     const { data } = await supabase.from('presences_eleves').upsert({
       eleve_id: eleveId, date_jour: today, statut: 'absent',
       heure_arrivee: null, heure_depart: null, retard_matin: 0, retard_soir: 0,
-      minutes_retard: 480, justification: motif.trim()
+      minutes_retard: MINUTES_JOUR, justification: motif.trim()
     }, { onConflict: 'eleve_id, date_jour' }).select().single()
     if (data) setPresences(prev => ({ ...prev, [eleveId]: data }))
   }
@@ -435,7 +439,7 @@ export default function ConseillerApp({ user, onLogout }) {
                   )}
                   {absent && (
                     <div style={{fontSize:12, color:'var(--red)', fontWeight:600, marginBottom:8}}>
-                      🔴 <b>480 min</b> de cours manqués (journée de 8h)<br/>
+                      🔴 <b>{MINUTES_JOUR} min</b> de cours manqués (12 séquences de 30 min)<br/>
                       <span style={{color:'var(--muted)', fontWeight:400}}>Motif : {p.justification || '—'}</span>
                     </div>
                   )}
