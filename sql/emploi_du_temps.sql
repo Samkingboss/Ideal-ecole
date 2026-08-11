@@ -73,26 +73,26 @@ create policy aff_suppression on public.affectations_matieres for delete using (
 insert into public.emploi_du_temps (groupe, jour, sequence, matiere)
 select g.groupe, g.jour::smallint, s.ord::smallint, s.matiere
 from (values
-  ('CP1', 1, array['Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'Savoir-vivre', 'English', 'Mathematics', 'Mathematics', 'English', 'Science', 'Handwriting'])  -- Lundi,
-  ('CP1', 2, array['Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'Sport', 'English', 'Mathematics', 'English', 'Arts', 'Arts', 'Science'])  -- Mardi,
-  ('CP1', 3, array['Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'Savoir-vivre', 'English', 'Mathematics', 'Mathematics', 'English', 'English', 'Handwriting'])  -- Mercredi,
-  ('CP1', 4, array['Lecture', 'Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'English', 'English', 'Mathematics', 'Science', 'Arts', 'Arts'])  -- Jeudi,
-  ('CP1', 5, array['Lecture', 'Lecture', 'Écriture', 'Écriture', 'Maths', 'Sport', 'English', 'English', 'English', 'Mathematics', 'Science', 'Handwriting'])  -- Vendredi,
-  ('CP2', 1, array['English', 'Mathematics', 'Mathematics', 'English', 'Science', 'Handwriting', 'Lecture', 'Lecture', 'Maths', 'Maths', 'Grammaire', 'Écriture'])  -- Lundi,
-  ('CP2', 2, array['English', 'Mathematics', 'English', 'Arts', 'Arts', 'Science', 'Lecture', 'Lecture', 'Maths', 'Maths', 'Orthographe', 'Écriture'])  -- Mardi,
-  ('CP2', 3, array['English', 'Mathematics', 'Mathematics', 'English', 'English', 'Handwriting', 'Lecture', 'Lecture', 'Maths', 'Maths', 'Vocabulaire', 'Écriture'])  -- Mercredi,
-  ('CP2', 4, array['English', 'English', 'Mathematics', 'Science', 'Arts', 'Arts', 'Lecture', 'Maths', 'Grammaire', 'Orthographe', 'Écriture', 'Savoir-vivre'])  -- Jeudi,
-  ('CP2', 5, array['English', 'English', 'English', 'Mathematics', 'Science', 'Handwriting', 'Lecture', 'Maths', 'Grammaire', 'Orthographe', 'Vocabulaire', 'Sport'])  -- Vendredi,
-  ('CE1-CE2', 1, array['English', 'English', 'English', 'Mathematics', 'Mathematics', 'Science', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Orthographe', 'Questions de cours'])  -- Lundi,
-  ('CE1-CE2', 2, array['English', 'English', 'PE', 'Mathematics', 'Science', 'Science', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Orthographe', 'Vocabulaire'])  -- Mardi,
-  ('CE1-CE2', 3, array['TP et projets', 'TP et projets', 'TP et projets', 'TP et projets', 'Mathematics', 'Science', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Orthographe', 'Questions de cours'])  -- Mercredi,
-  ('CE1-CE2', 4, array['English', 'English', 'English', 'PE', 'Mathematics', 'Mathematics', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Vocabulaire', 'Questions de cours'])  -- Jeudi,
-  ('CE1-CE2', 5, array['English', 'English', 'English', 'English', 'Mathematics', 'Science', 'Orthographe', 'Maths', 'Art', 'Vocabulaire', 'Questions de cours', 'ECM'])  -- Vendredi,
-  ('CM1-CM2', 1, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Orthographe', 'Questions de cours', 'English', 'English', 'English', 'Mathematics', 'Mathematics', 'Science'])  -- Lundi,
-  ('CM1-CM2', 2, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Orthographe', 'Vocabulaire', 'English', 'English', 'PE', 'Mathematics', 'Science', 'Science'])  -- Mardi,
-  ('CM1-CM2', 3, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Orthographe', 'Questions de cours', 'TP et projets', 'TP et projets', 'TP et projets', 'TP et projets', 'Mathematics', 'Science'])  -- Mercredi,
-  ('CM1-CM2', 4, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Vocabulaire', 'Questions de cours', 'English', 'English', 'English', 'PE', 'Mathematics', 'Mathematics'])  -- Jeudi,
-  ('CM1-CM2', 5, array['Maths', 'Art', 'Orthographe', 'Vocabulaire', 'Questions de cours', 'ECM', 'English', 'English', 'English', 'English', 'Mathematics', 'Science'])  -- Vendredi
+  ('CP1', 1, array['Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'Savoir-vivre', 'English', 'Mathematics', 'Mathematics', 'English', 'Science', 'Handwriting']), -- Lundi
+  ('CP1', 2, array['Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'Sport', 'English', 'Mathematics', 'English', 'Arts', 'Arts', 'Science']), -- Mardi
+  ('CP1', 3, array['Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'Savoir-vivre', 'English', 'Mathematics', 'Mathematics', 'English', 'English', 'Handwriting']), -- Mercredi
+  ('CP1', 4, array['Lecture', 'Lecture', 'Lecture', 'Écriture', 'Maths', 'Maths', 'English', 'English', 'Mathematics', 'Science', 'Arts', 'Arts']), -- Jeudi
+  ('CP1', 5, array['Lecture', 'Lecture', 'Écriture', 'Écriture', 'Maths', 'Sport', 'English', 'English', 'English', 'Mathematics', 'Science', 'Handwriting']), -- Vendredi
+  ('CP2', 1, array['English', 'Mathematics', 'Mathematics', 'English', 'Science', 'Handwriting', 'Lecture', 'Lecture', 'Maths', 'Maths', 'Grammaire', 'Écriture']), -- Lundi
+  ('CP2', 2, array['English', 'Mathematics', 'English', 'Arts', 'Arts', 'Science', 'Lecture', 'Lecture', 'Maths', 'Maths', 'Orthographe', 'Écriture']), -- Mardi
+  ('CP2', 3, array['English', 'Mathematics', 'Mathematics', 'English', 'English', 'Handwriting', 'Lecture', 'Lecture', 'Maths', 'Maths', 'Vocabulaire', 'Écriture']), -- Mercredi
+  ('CP2', 4, array['English', 'English', 'Mathematics', 'Science', 'Arts', 'Arts', 'Lecture', 'Maths', 'Grammaire', 'Orthographe', 'Écriture', 'Savoir-vivre']), -- Jeudi
+  ('CP2', 5, array['English', 'English', 'English', 'Mathematics', 'Science', 'Handwriting', 'Lecture', 'Maths', 'Grammaire', 'Orthographe', 'Vocabulaire', 'Sport']), -- Vendredi
+  ('CE1-CE2', 1, array['English', 'English', 'English', 'Mathematics', 'Mathematics', 'Science', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Orthographe', 'Questions de cours']), -- Lundi
+  ('CE1-CE2', 2, array['English', 'English', 'PE', 'Mathematics', 'Science', 'Science', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Orthographe', 'Vocabulaire']), -- Mardi
+  ('CE1-CE2', 3, array['TP et projets', 'TP et projets', 'TP et projets', 'TP et projets', 'Mathematics', 'Science', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Orthographe', 'Questions de cours']), -- Mercredi
+  ('CE1-CE2', 4, array['English', 'English', 'English', 'PE', 'Mathematics', 'Mathematics', 'Grammaire', 'Maths', 'Maths', 'Conjugaison', 'Vocabulaire', 'Questions de cours']), -- Jeudi
+  ('CE1-CE2', 5, array['English', 'English', 'English', 'English', 'Mathematics', 'Science', 'Orthographe', 'Maths', 'Art', 'Vocabulaire', 'Questions de cours', 'ECM']), -- Vendredi
+  ('CM1-CM2', 1, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Orthographe', 'Questions de cours', 'English', 'English', 'English', 'Mathematics', 'Mathematics', 'Science']), -- Lundi
+  ('CM1-CM2', 2, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Orthographe', 'Vocabulaire', 'English', 'English', 'PE', 'Mathematics', 'Science', 'Science']), -- Mardi
+  ('CM1-CM2', 3, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Orthographe', 'Questions de cours', 'TP et projets', 'TP et projets', 'TP et projets', 'TP et projets', 'Mathematics', 'Science']), -- Mercredi
+  ('CM1-CM2', 4, array['Maths', 'Maths', 'Grammaire', 'Conjugaison', 'Vocabulaire', 'Questions de cours', 'English', 'English', 'English', 'PE', 'Mathematics', 'Mathematics']), -- Jeudi
+  ('CM1-CM2', 5, array['Maths', 'Art', 'Orthographe', 'Vocabulaire', 'Questions de cours', 'ECM', 'English', 'English', 'English', 'English', 'Mathematics', 'Science']) -- Vendredi
 ) as g(groupe, jour, matieres)
 cross join lateral unnest(g.matieres) with ordinality as s(matiere, ord)
 on conflict (groupe, jour, sequence) do update set matiere = excluded.matiere;
