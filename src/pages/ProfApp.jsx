@@ -3,6 +3,7 @@ import CheckpointModal from './CheckpointModal'
 import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
 import MaPrime from './MaPrime'
+import FinDeCours from './FinDeCours'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -18,6 +19,7 @@ const RECREE_CHECKS = [
 const TABS = [
   { id:'programme', icon:'📚', label:'Programme' },  { id:'checkpoint', icon:'✅', label:'Check-point' },
   { id:'progression', icon:'📈', label:'Progression' },
+  { id:'fincours', icon:'🎯', label:'Fin de cours' },
   { id:'classe', icon:'🏫', label:'Classe' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
 ]
@@ -679,6 +681,16 @@ export default function ProfApp({ user, onLogout }) {
               </>
             )}
           </>
+        )}
+
+        {tab === 'fincours' && (
+          <FinDeCours
+            user={user}
+            selectedClasse={selectedClasse}
+            classEleves={classEleves}
+            programmeData={programmeData}
+            supabase={supabase}
+          />
         )}
 
         {tab === 'progression' && (

@@ -749,6 +749,10 @@ function printSingle() {
 // repli téléchargement + wa.me sans destinataire pré-rempli.
 
 const MSG_LARGEUR = 640;
+// Numéro WhatsApp officiel d'IDEAL : l'enseignant envoie la carte à l'école,
+// qui la relaie ensuite aux parents. Même destinataire que les rapports
+// hebdomadaires (IDEAL_WA dans rapports.html).
+const IDEAL_WA = '22390190007';
 
 function logoBase64Pour(el) {
     // html2canvas ne capture pas une image externe non décodée : on attend
@@ -966,10 +970,10 @@ async function envoyerMessageParents() {
         try { await navigator.share({ files: [fichier], text: legende }); return; }
         catch (e) { if (e.name === 'AbortError') return; }
     }
-    // Repli : on télécharge l'image, puis WhatsApp s'ouvre sans destinataire —
-    // l'enseignant choisit le groupe de la classe ou le contact du parent.
+    // Repli : on télécharge l'image, puis WhatsApp s'ouvre sur le numéro de
+    // l'école, qui relaie ensuite aux parents.
     telechargerMessageParents();
-    window.open('https://wa.me/?text=' + encodeURIComponent(legende + "\n(joindre l'image téléchargée)"), '_blank');
+    window.open('https://wa.me/' + IDEAL_WA + '?text=' + encodeURIComponent(legende + "\n(joindre l'image téléchargée)"), '_blank');
 }
 
 function telechargerMessageParents() {
