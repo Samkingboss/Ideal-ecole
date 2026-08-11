@@ -593,8 +593,24 @@ function getHomeworkData() {
     };
 }
 
+// Le SVG livré avec le site fait 2416x3007 : c'est un visuel en PORTRAIT.
+// Le placer dans un bandeau horizontal l'étirait de plus de trois fois en
+// largeur. Le PNG (1032x375) est la vraie version horizontale du logo.
 function idealLogoSrc() {
-    return localStorage.getItem('ideal_logo') || '/logo-ideal.svg';
+    return localStorage.getItem('ideal_logo') || '/logo-ideal.png';
+}
+
+// Charge le logo et renvoie ses dimensions naturelles. On ne fixe jamais à la
+// fois la largeur et la hauteur d'une image : html2canvas n'applique pas
+// `object-fit`, donc toute boîte au mauvais rapport déforme le logo au lieu
+// de le contenir. On calcule donc la largeur à partir de la hauteur voulue.
+function mesurerLogo(src) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ l: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = src;
+    });
 }
 
 // Bandeau d'en-tête commun (logo + école)
@@ -770,38 +786,54 @@ const MSG_LARGEUR = 640;
 // hebdomadaires (IDEAL_WA dans rapports.html).
 const IDEAL_WA = '22390190007';
 
-function logoBase64Pour(el) {
-    // html2canvas ne capture pas une image externe non décodée : on attend
-    // explicitement le chargement de chaque <img> avant la capture.
-    return Promise.all(Array.from(el.querySelectorAll('img')).map(img => {
-        if (img.complete && img.naturalWidth) return img.decode().catch(() => {});
-        return new Promise(r => { img.onload = () => img.decode().then(r).catch(r); img.onerror = r; });
+// html2canvas ne capture pas une image non décodée : on attend chaque <img>
+// avant la capture. Chaque attente est bornée — une image qui finissait de
+// charger juste avant qu'on attache l'écouteur laissait la promesse en
+// suspens, et la génération se figeait sans le moindre message.
+function attendreImages(el, limiteMs = 8000) {
+    const images = Array.from(el.querySelectorAll('img'));
+    return Promise.all(images.map(img => {
+        const pret = new Promise(resolve => {
+            const fini = () => resolve();
+            // Une image déjà chargée est exploitable telle quelle. Ne pas
+            // appeler `decode()` dessus : en arrière-plan d'onglet, l'appel
+            // ne se termine jamais et bloquait la génération.
+            if (img.complete && img.naturalWidth) { resolve(); return; }
+            img.addEventListener('load', fini, { once: true });
+            img.addEventListener('error', fini, { once: true });
+        });
+        return Promise.race([pret, new Promise(r => setTimeout(r, limiteMs))]);
     }));
 }
 
-// Vignette d'une page : on réutilise le rendu réel, réduit en tout petit.
+// Vignette d'une page. Comme pour le logo, on ne contraint jamais les deux
+// dimensions d'une photo : `object-fit` n'est pas appliqué par html2canvas,
+// et une image forcée en 56x78 en sortait étirée. La largeur est imposée,
+// la hauteur suit, et le cadre rogne le débordement.
+const VIGN_L = 56, VIGN_H = 78;
+const cadreVignette = contenu =>
+    `<div style="width:${VIGN_L}px;height:${VIGN_H}px;border:1px solid #cbd5e1;border-radius:4px;
+          background:#fff;overflow:hidden;">${contenu}</div>`;
+
 function vignettePageHTML(d, index) {
-    const estGarde = index === 0;
-    if (estGarde) {
-        return `<div style="width:44px;height:62px;border:1px solid #cbd5e1;border-radius:3px;background:#fff;
-                     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;overflow:hidden;">
-                    <div style="width:26px;height:3px;background:#0d2a3b;border-radius:2px;"></div>
-                    <div style="width:32px;height:9px;background:#0d2a3b;border-radius:2px;"></div>
-                    <div style="width:30px;height:2px;background:#cbd5e1;"></div>
-                    <div style="width:30px;height:2px;background:#cbd5e1;"></div>
-                    <div style="width:22px;height:2px;background:#cbd5e1;"></div>
-                </div>`;
+    if (index === 0) {
+        return cadreVignette(`
+            <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+                <div style="width:32px;height:4px;background:#0d2a3b;border-radius:2px;"></div>
+                <div style="width:40px;height:11px;background:#0d2a3b;border-radius:2px;"></div>
+                <div style="width:38px;height:3px;background:#cbd5e1;"></div>
+                <div style="width:38px;height:3px;background:#cbd5e1;"></div>
+                <div style="width:28px;height:3px;background:#cbd5e1;"></div>
+            </div>`);
     }
     const img = d.images[index - 1];
     if (img) {
-        return `<div style="width:44px;height:62px;border:1px solid #cbd5e1;border-radius:3px;overflow:hidden;background:#fff;">
-                    <img src="${img}" style="width:44px;height:62px;object-fit:cover;display:block;">
-                </div>`;
+        return cadreVignette(`<img src="${img}" style="width:${VIGN_L}px;height:auto;display:block;">`);
     }
-    return `<div style="width:44px;height:62px;border:1px solid #cbd5e1;border-radius:3px;background:#fff;
-                 display:flex;flex-direction:column;justify-content:center;gap:3px;padding:6px;overflow:hidden;">
-                ${'<div style="height:2px;background:#cbd5e1;"></div>'.repeat(6)}
-            </div>`;
+    return cadreVignette(`
+        <div style="height:100%;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 8px;">
+            ${'<div style="height:3px;background:#cbd5e1;"></div>'.repeat(6)}
+        </div>`);
 }
 
 // Tableau minimaliste des pages : une ligne par page, vignette + intitulé.
@@ -840,7 +872,14 @@ function tableauPagesHTML(d) {
     </div>`;
 }
 
-function carteMessageHTML(d, destinataires) {
+function carteMessageHTML(d, destinataires, dimsLogo) {
+    // Hauteur voulue pour le logo ; la largeur suit le rapport réel du
+    // fichier. Repli sur les proportions du PNG horizontal si la mesure a
+    // échoué, jamais sur une boîte arbitraire qui déformerait l'image.
+    const HAUTEUR_LOGO = 58;
+    const rapport = dimsLogo && dimsLogo.h ? dimsLogo.l / dimsLogo.h : (1032 / 375);
+    const logo = { h: HAUTEUR_LOGO, l: Math.round(HAUTEUR_LOGO * rapport) };
+
     const mode = modeDestinataires();
     const listeNoms = destinataires.map(s => s.name).filter(Boolean);
     const pourQui = mode === 'classe'
@@ -853,8 +892,8 @@ function carteMessageHTML(d, destinataires) {
     <div style="width:${MSG_LARGEUR}px; background:#fff; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#0d2a3b;">
 
         <div style="background:linear-gradient(135deg,#0d2a3b 0%,#1d5f80 100%); padding:26px 30px 22px; text-align:center;">
-            <img src="${idealLogoSrc()}" width="150" height="54"
-                 style="width:150px;height:54px;display:inline-block;background:#fff;border-radius:12px;padding:8px 16px;box-sizing:content-box;object-fit:contain;">
+            <img src="${idealLogoSrc()}" width="${logo.l}" height="${logo.h}"
+                 style="width:${logo.l}px;height:${logo.h}px;display:block;margin:0 auto;background:#fff;border-radius:14px;padding:10px 18px;box-sizing:content-box;">
             <div style="color:#fff; font-size:27px; font-weight:800; margin-top:16px; letter-spacing:-.4px;">Devoir de maison</div>
             <div style="color:#bcd8e8; font-size:12px; letter-spacing:1.6px; margin-top:5px; font-weight:600;">ÉCOLE INTERNATIONALE BILINGUE IDEAL · BAMAKO</div>
             <div style="display:inline-block; background:#F7941D; color:#fff; font-weight:800; font-size:15px; padding:9px 22px; border-radius:22px; margin-top:16px;">
@@ -916,13 +955,19 @@ async function ouvrirMessageParents() {
     if (!d.grade || !d.subject || (!d.content && d.images.length === 0)) {
         return alert('Renseignez au moins la classe, la matière et le contenu du devoir avant de prévenir les parents.');
     }
+    // Sans date de remise, la carte annonce « À rendre le ______ » aux
+    // parents : un document incomplet ne doit pas quitter l'école.
+    if (!document.getElementById('due-date').value) {
+        return alert('Indiquez la date de remise : sans elle, les parents recevraient un message sans échéance.');
+    }
     const dest = destinatairesRetenus();
     if (modeDestinataires() === 'choix' && dest.length === 0) {
         return alert('Aucun élève sélectionné : cochez les élèves concernés ou choisissez « Toute la classe ».');
     }
 
     const stage = document.getElementById('msg-stage');
-    stage.innerHTML = carteMessageHTML(d, dest);
+    const dimsLogo = await mesurerLogo(idealLogoSrc());
+    stage.innerHTML = carteMessageHTML(d, dest, dimsLogo);
     document.getElementById('msg-apercu').innerHTML =
         `<div style="transform-origin:top left; width:${MSG_LARGEUR}px;">${stage.innerHTML}</div>`;
     // Afficher AVANT de mesurer : sur un conteneur encore masqué, clientWidth
@@ -949,24 +994,25 @@ function ajusterApercuMessage() {
 async function carteMessageEnBlob() {
     const stage = document.getElementById('msg-stage');
     const cible = stage.firstElementChild;
-    await logoBase64Pour(stage);
+    await attendreImages(stage);
     // Laisser au navigateur le temps de peindre. Pas de requestAnimationFrame :
     // il ne se déclenche pas si l'onglet passe en arrière-plan.
     await new Promise(r => setTimeout(r, 60));
     const canvas = await html2canvas(cible, {
-        scale: 2.5, backgroundColor: '#ffffff', useCORS: true, logging: false,
-        width: MSG_LARGEUR, windowWidth: MSG_LARGEUR
+        scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        width: MSG_LARGEUR, windowWidth: MSG_LARGEUR, imageTimeout: 0
     });
-    // JPEG plutôt que PNG : 294 Ko au lieu de 728 pour la même définition
-    // (1600 px). La carte porte des vignettes photo, et WhatsApp recompresse
-    // en JPEG de toute façon — le PNG ne coûterait que de la donnée mobile.
-    return new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
+    // PNG et non JPEG : le document part chez les parents, la netteté du
+    // texte prime sur le poids du fichier. Le JPEG, même à 0,92, adoucit les
+    // contours des lettres et laisse un halo autour des aplats sombres.
+    // 1920 px de large : la carte reste nette même agrandie sur l'écran.
+    return new Promise(r => canvas.toBlob(r, 'image/png'));
 }
 
 function nomFichierMessage() {
     const d = getHomeworkData();
     const net = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-');
-    return `devoir-${net(d.grade)}-${net(d.subject)}.jpg`;
+    return `devoir-${net(d.grade)}-${net(d.subject)}.png`;
 }
 
 function legendeMessage() {
@@ -979,7 +1025,7 @@ async function envoyerMessageParents() {
         try { msgDernierBlob = await carteMessageEnBlob(); }
         catch (e) { return alert("L'image n'a pas pu être générée."); }
     }
-    const fichier = new File([msgDernierBlob], nomFichierMessage(), { type: 'image/jpeg' });
+    const fichier = new File([msgDernierBlob], nomFichierMessage(), { type: 'image/png' });
     const legende = legendeMessage();
 
     if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
