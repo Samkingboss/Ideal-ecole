@@ -120,16 +120,19 @@ export default function AffectationsMatieres({ user }) {
             Charge hebdomadaire
           </div>
           {profs.filter(p => charges[p.id]).map(p => {
-            const h = charges[p.id] / 60
             const vise = CHARGES_DOCUMENT[p.prenom]
-            const ecart = vise != null ? h - vise : null
+            // L'écart se lit en heures et minutes comme le reste : « -14 h 30 »
+            // et non « -14.5 h », qui oblige à convertir de tête.
+            const ecartMin = vise != null ? charges[p.id] - vise * 60 : null
             return (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{p.prenom} {p.nom}</div>
                 <div style={{ fontSize: 13, fontWeight: 800 }}>{heuresLisibles(charges[p.id])}</div>
-                {ecart !== null && (
-                  <div style={{ fontSize: 11, width: 96, textAlign: 'right', color: ecart === 0 ? 'var(--green)' : 'var(--amber)' }}>
-                    {ecart === 0 ? 'conforme' : `${ecart > 0 ? '+' : ''}${ecart} h / ${vise} h`}
+                {ecartMin !== null && (
+                  <div style={{ fontSize: 11, width: 104, textAlign: 'right', color: ecartMin === 0 ? 'var(--green)' : 'var(--amber)' }}>
+                    {ecartMin === 0
+                      ? `conforme (${vise} h)`
+                      : `${ecartMin > 0 ? '+' : '−'}${heuresLisibles(Math.abs(ecartMin))} / ${vise} h`}
                   </div>
                 )}
               </div>
@@ -190,7 +193,7 @@ export default function AffectationsMatieres({ user }) {
           <div style={{ background: 'rgba(247,148,29,.08)', border: '1px solid rgba(247,148,29,.35)', borderRadius: 12, padding: '12px 14px', fontSize: 12, marginTop: 6 }}>
             <b>{manquants.join(', ')}</b> {manquants.length > 1 ? 'sont nommés' : 'est nommé'} dans l'emploi du temps
             mais {manquants.length > 1 ? 'n\'ont' : 'n\'a'} pas de compte sur la plateforme.
-            Créez-{manquants.length > 1 ? 'les' : 'le'} depuis l'onglet Équipe pour pouvoir {manquants.length > 1 ? 'les' : 'l\''}affecter.
+            {' '}Créez-{manquants.length > 1 ? 'les' : 'le'} depuis l'onglet Équipe pour pouvoir {manquants.length > 1 ? 'les affecter' : 'l\'affecter'}.
           </div>
         )
       })()}
