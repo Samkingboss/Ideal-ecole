@@ -1090,6 +1090,25 @@
      * enfant. On avertit avant d'enregistrer, sans jamais bloquer : deux
      * enfants peuvent légitimement porter le même nom (jumeaux, homonymes).
      */
+    /**
+     * Prochain matricule libre pour une année donnée.
+     *
+     * On lit les matricules déjà attribués et on repart du plus grand. Le
+     * comptage des lignes, utilisé auparavant, se trompait dès qu'une
+     * inscription avait été supprimée : avec 001, 006, 007, 008 et 009 en
+     * base, il proposait 006, déjà pris, et l'enregistrement échouait.
+     */
+    async function prochainMatricule(prefixe, decalage = 0) {
+        const { data, error } = await _supa.from('inscriptions')
+            .select('matricule').like('matricule', prefixe + '%');
+        if (error) throw new Error('Lecture des matricules impossible : ' + error.message);
+        const maxi = (data || []).reduce((m, r) => {
+            const n = parseInt(String(r.matricule).slice(prefixe.length), 10);
+            return Number.isFinite(n) && n > m ? n : m;
+        }, 0);
+        return prefixe + String(maxi + 1 + decalage).padStart(3, '0');
+    }
+
     async function verifierDoublon() {
         const nom = document.getElementById('el-nom').value.trim();
         const prenom = document.getElementById('el-prenoms').value.trim();
@@ -1182,10 +1201,14 @@
             }
 
             // 3. Générer le matricule
+            //
+            // Le numéro suit le PLUS GRAND matricule déjà attribué, jamais le
+            // nombre de lignes. Une inscription supprimée creuse un trou dans
+            // la numérotation : avec un simple comptage, le compteur retombait
+            // sur un matricule existant et l'enregistrement était refusé.
             const annee = new Date().getFullYear() + 1;
-            const { count } = await _supa.from('inscriptions').select('*', { count: 'exact', head: true });
-            const numero = String((count || 0) + 1).padStart(3, '0');
-            const matricule = `IDEAL-${annee}-${numero}`;
+            const prefixe = `IDEAL-${annee}-`;
+            const matricule = await prochainMatricule(prefixe);
 
             // 4. Upload photo vers Supabase Storage
             let photoUrl = null;
@@ -1259,13 +1282,27 @@
                 annee_scolaire: `${new Date().getFullYear()}-${annee}`,
                 type_inscription: window._inscriptionType || 'nouvelle',
             };
-            const { error: inscErr } = await _supa.from('inscriptions').insert(inscData);
+            // Si deux inscriptions sont saisies en même temps, la seconde peut
+            // tomber sur le matricule que la première vient de prendre. On
+            // reprend alors le numéro suivant plutôt que d'échouer sous les
+            // yeux du parent, dossier déjà rempli.
+            let inscErr = null;
+            for (let essai = 0; essai < 4; essai++) {
+                const r = await _supa.from('inscriptions').insert(inscData);
+                if (!r.error) { inscErr = null; break; }
+                inscErr = r.error;
+                if (r.error.code !== '23505' || !/matricule/.test(r.error.message || '')) break;
+                inscData.matricule = await prochainMatricule(prefixe, essai + 1);
+            }
             if (inscErr) throw new Error("Erreur inscription: " + inscErr.message);
 
-            // 8. Succès
-            lastSavedMatricule = matricule;
+            // 8. Succès — on affiche le matricule réellement retenu, qui peut
+            // différer de celui prévu si un rattrapage a eu lieu. Les fichiers
+            // déjà déposés gardent alors l'ancien nom dans le stockage : leurs
+            // adresses sont enregistrées telles quelles, rien ne se perd.
+            lastSavedMatricule = inscData.matricule;
             lastSavedData = { ...inscData, responsable1: r1Data };
-            showSuccessScreen(matricule);
+            showSuccessScreen(inscData.matricule);
 
         } catch (err) {
             console.error(err);
