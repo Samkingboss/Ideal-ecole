@@ -39,6 +39,19 @@ function dateDuJour(ref, j) {
   return d.toISOString().slice(0, 10)
 }
 
+/** Lundi de la semaine contenant `d`, à minuit. */
+function lundiDe(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  x.setDate(x.getDate() - ((x.getDay() === 0 ? 7 : x.getDay()) - 1))
+  return x
+}
+
+const enJours = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
+
+const jourMois = iso =>
+  new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
 export default function MonEmploiDuTemps({ user }) {
   const [creneaux, setCreneaux] = useState([])   // { jour, sequence, matiere, groupe }
   const [preparees, setPreparees] = useState(new Set())  // "date|sequence"
@@ -47,11 +60,21 @@ export default function MonEmploiDuTemps({ user }) {
   const [erreur, setErreur] = useState(null)
 
   const aujourdhui = new Date()
-  const dateISO = aujourdhui.toISOString().slice(0, 10)
-  const jourActuel = jourOuvre(aujourdhui)
+  const lundiCourant = lundiDe(aujourdhui)
+  // Semaine affichée. L'enseignant navigue : sa grille est son agenda.
+  const [lundi, setLundi] = useState(lundiCourant)
+
+  const dateISO = dateDuJour(lundi, 1)
   const paire = semainePaire(dateISO)
 
+  // Décalage en semaines par rapport à aujourd'hui : 0 = en cours,
+  // négatif = archive, positif = à venir.
+  const decalage = Math.round((lundi - lundiCourant) / (7 * 86400000))
+  const archive = decalage < 0
+  const jourActuel = decalage === 0 ? jourOuvre(aujourdhui) : null
+
   useEffect(() => { charger() }, [user?.id])
+  useEffect(() => { if (!chargement) chargerPreparations() }, [lundi])
 
   async function charger() {
     setChargement(true); setErreur(null)
@@ -80,11 +103,11 @@ export default function MonEmploiDuTemps({ user }) {
   // Séances déjà préparées pour la semaine affichée. La pastille verte suit
   // la semaine : préparer lundi dernier ne dispense pas de préparer ce lundi.
   async function chargerPreparations() {
-    const lundi = dateDuJour(aujourdhui, 1)
-    const vendredi = dateDuJour(aujourdhui, 5)
+    const debut = dateDuJour(lundi, 1)
+    const fin = dateDuJour(lundi, 5)
     const { data } = await supabase.from('preparations')
       .select('date_cours, sequence')
-      .eq('user_id', user.id).gte('date_cours', lundi).lte('date_cours', vendredi)
+      .eq('user_id', user.id).gte('date_cours', debut).lte('date_cours', fin)
     setPreparees(new Set((data || [])
       .filter(p => p.sequence != null)
       .map(p => `${p.date_cours}|${p.sequence}`)))
@@ -98,6 +121,21 @@ export default function MonEmploiDuTemps({ user }) {
   }
 
   const minutesSemaine = creneaux.length * DUREE_SEQUENCE
+
+  // Séances réellement données cette semaine : une par jour et par créneau
+  // occupé. `sequence` est ici l'horaire RÉEL de la semaine affichée, pas la
+  // case de la grille — les deux diffèrent de six en semaine paire, où les
+  // blocs sont permutés. C'est cet horaire réel qu'on enregistre avec la
+  // préparation, sinon la pastille ne retrouverait jamais sa séance.
+  const seances = []
+  for (let jour = 1; jour <= 5; jour++) {
+    for (const s of SEQUENCES) {
+      const c = caseDe(jour, s.n)
+      if (c) seances.push({ ...c, jour, sequence: s.n, date: dateDuJour(lundi, jour) })
+    }
+  }
+  const estPrete = se => preparees.has(`${se.date}|${se.sequence}`)
+  const pretes = seances.filter(estPrete).length
 
   // Séquence en cours, pour se repérer d'un coup d'œil dans la journée.
   const minutesMaintenant = aujourdhui.getHours() * 60 + aujourdhui.getMinutes()
@@ -125,19 +163,43 @@ export default function MonEmploiDuTemps({ user }) {
     <>
       <div className="section-head">
         <div className="section-title">Mon emploi du temps</div>
-        <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
-          {heuresLisibles(minutesSemaine)} / semaine
+        <span style={{ fontSize: 12, fontWeight: 800, color: pretes === creneaux.length ? 'var(--green)' : 'var(--accent)' }}>
+          {pretes}/{creneaux.length} préparées · {heuresLisibles(minutesSemaine)}
         </span>
       </div>
 
+      {/* Navigation d'agenda : semaines écoulées, semaine en cours, semaines
+          à venir. Préparer d'avance est le fonctionnement normal. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <button className="btn-sm" onClick={() => setLundi(enJours(lundi, -7))} aria-label="Semaine précédente">◀</button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, fontWeight: 800 }}>
+            {jourMois(dateDuJour(lundi, 1))} — {jourMois(dateDuJour(lundi, 5))}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+            {decalage === 0 ? 'Semaine en cours'
+              : decalage === 1 ? 'Semaine à venir'
+              : decalage === -1 ? 'Semaine dernière'
+              : decalage < 0 ? `Il y a ${-decalage} semaines`
+              : `Dans ${decalage} semaines`}
+          </div>
+        </div>
+        <button className="btn-sm" onClick={() => setLundi(enJours(lundi, 7))} aria-label="Semaine suivante">▶</button>
+        {decalage !== 0 && (
+          <button className="btn-sm" onClick={() => setLundi(lundiCourant)} title="Revenir à la semaine en cours">Aujourd’hui</button>
+        )}
+      </div>
+
       <div style={{
-        background: paire ? 'rgba(247,148,29,.10)' : 'rgba(26,175,224,.10)',
-        border: '1px solid ' + (paire ? 'rgba(247,148,29,.35)' : 'rgba(26,175,224,.35)'),
+        background: archive ? 'rgba(100,116,139,.10)' : (paire ? 'rgba(247,148,29,.10)' : 'rgba(26,175,224,.10)'),
+        border: '1px solid ' + (archive ? 'rgba(100,116,139,.35)' : (paire ? 'rgba(247,148,29,.35)' : 'rgba(26,175,224,.35)')),
         borderRadius: 12, padding: '9px 13px', fontSize: 12, marginBottom: 12,
       }}>
-        <b>Semaine {paire ? 'paire' : 'impaire'}</b> — {paire
-          ? 'les blocs du matin et de l’après-midi sont permutés cette semaine.'
-          : 'grille normale, telle qu’écrite dans le document.'}
+        {archive
+          ? <><b>Semaine archivée</b> — consultable et imprimable, elle ne se modifie plus.</>
+          : <><b>Semaine {paire ? 'paire' : 'impaire'}</b> — {paire
+              ? 'les blocs du matin et de l’après-midi sont permutés cette semaine.'
+              : 'grille normale, telle qu’écrite dans le document.'}</>}
       </div>
 
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -168,14 +230,18 @@ export default function MonEmploiDuTemps({ user }) {
                   </td>
                   {JOURS.map((_, i) => {
                     const jour = i + 1
-                    const c = caseDe(jour, s.n)
+                    const se = seances.find(x => x.jour === jour && x.sequence === s.n) || null
+                    const c = se
                     const cetteCase = enCours && jour === jourActuel
-                    const date = dateDuJour(aujourdhui, jour)
-                    const prete = c && preparees.has(`${date}|${s.n}`)
+                    const prete = se && estPrete(se)
                     return (
                       <td key={i}
-                        onClick={c ? () => setOuverte({ creneau: c, dateCours: date }) : undefined}
-                        title={c ? (prete ? 'Séance préparée — cliquez pour revoir la fiche' : 'Cliquez pour préparer cette séance') : undefined}
+                        onClick={se ? () => setOuverte({ creneau: se, dateCours: se.date, lectureSeule: archive }) : undefined}
+                        title={se
+                          ? (archive ? 'Semaine archivée — consultation seule'
+                             : prete ? 'Séance préparée — cliquez pour revoir la fiche'
+                             : 'Cliquez pour préparer cette séance')
+                          : undefined}
                         style={{
                           border: '1px solid var(--border)', padding: '6px', textAlign: 'center',
                           position: 'relative', cursor: c ? 'pointer' : 'default',
@@ -219,6 +285,7 @@ export default function MonEmploiDuTemps({ user }) {
           user={user}
           creneau={ouverte.creneau}
           dateCours={ouverte.dateCours}
+          lectureSeule={ouverte.lectureSeule}
           onFerme={() => setOuverte(null)}
           onEnregistre={chargerPreparations}
         />

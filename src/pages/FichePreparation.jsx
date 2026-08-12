@@ -49,7 +49,7 @@ const horaireDe = seq => {
 const dateLisible = iso =>
   new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-export default function FichePreparation({ user, creneau, dateCours, onFerme, onEnregistre }) {
+export default function FichePreparation({ user, creneau, dateCours, lectureSeule = false, onFerme, onEnregistre }) {
   const [fiche, setFiche] = useState(vide())
   const [enCours, setEnCours] = useState(false)
   const [message, setMessage] = useState(null)
@@ -190,7 +190,12 @@ export default function FichePreparation({ user, creneau, dateCours, onFerme, on
           <button className="btn-sm" onClick={onFerme}>Fermer</button>
         </div>
 
-        {existante && (
+        {lectureSeule ? (
+          <div style={{ background: 'rgba(100,116,139,.12)', border: '1px solid rgba(100,116,139,.35)', borderRadius: 10, padding: '8px 12px', fontSize: 12, marginTop: 12 }}>
+            Semaine archivée : cette fiche ne se modifie plus. Vous pouvez la relire,
+            l’imprimer ou la télécharger.
+          </div>
+        ) : existante && (
           <div style={{ background: 'rgba(46,158,79,.10)', border: '1px solid rgba(46,158,79,.35)', borderRadius: 10, padding: '8px 12px', fontSize: 12, marginTop: 12 }}>
             Séance déjà préparée. Vos modifications corrigeront la fiche existante.
           </div>
@@ -200,7 +205,7 @@ export default function FichePreparation({ user, creneau, dateCours, onFerme, on
           <label key={r.id} style={{ display: 'block', marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
             {r.label}{r.obligatoire && <span style={{ color: 'var(--red)' }}> *</span>}
             <textarea rows={r.lignes} value={fiche[r.id]} placeholder={r.aide}
-              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })} style={champ} />
+              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })} readOnly={lectureSeule} style={champ} />
           </label>
         ))}
 
@@ -215,12 +220,12 @@ export default function FichePreparation({ user, creneau, dateCours, onFerme, on
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{e.label}</div>
               <input type="number" min="0" max="30" value={fiche.etapes[e.id]?.minutes ?? 0}
-                onChange={ev => majEtape(e.id, 'minutes', Math.max(0, Math.min(30, Number(ev.target.value) || 0)))}
+                onChange={ev => majEtape(e.id, 'minutes', Math.max(0, Math.min(30, Number(ev.target.value) || 0)))} readOnly={lectureSeule}
                 style={{ width: 58, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', textAlign: 'center', fontWeight: 700 }} />
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>min</span>
             </div>
             <textarea rows={2} value={fiche.etapes[e.id]?.texte || ''} placeholder={e.aide}
-              onChange={ev => majEtape(e.id, 'texte', ev.target.value)} style={{ ...champ, marginTop: 6 }} />
+              onChange={ev => majEtape(e.id, 'texte', ev.target.value)} readOnly={lectureSeule} style={{ ...champ, marginTop: 6 }} />
           </div>
         ))}
 
@@ -228,7 +233,7 @@ export default function FichePreparation({ user, creneau, dateCours, onFerme, on
           <label key={r.id} style={{ display: 'block', marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
             {r.label}{r.obligatoire && <span style={{ color: 'var(--red)' }}> *</span>}
             <textarea rows={r.lignes} value={fiche[r.id]} placeholder={r.aide}
-              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })} style={champ} />
+              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })} readOnly={lectureSeule} style={champ} />
           </label>
         ))}
 
@@ -241,10 +246,12 @@ export default function FichePreparation({ user, creneau, dateCours, onFerme, on
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={enregistrer} disabled={enCours}
-            style={{ flex: 2, minWidth: 180, padding: 12, borderRadius: 12, fontWeight: 800 }}>
-            {enCours ? 'Enregistrement…' : (existante ? 'Enregistrer les modifications' : 'Valider la préparation')}
-          </button>
+          {!lectureSeule && (
+            <button className="btn btn-primary" onClick={enregistrer} disabled={enCours}
+              style={{ flex: 2, minWidth: 180, padding: 12, borderRadius: 12, fontWeight: 800 }}>
+              {enCours ? 'Enregistrement…' : (existante ? 'Enregistrer les modifications' : 'Valider la préparation')}
+            </button>
+          )}
           <button className="btn-sm" onClick={imprimer} style={{ flex: 1, minWidth: 90 }}>🖨️ Imprimer</button>
           <button className="btn-sm" onClick={telecharger} style={{ flex: 1, minWidth: 110 }}>⬇️ Télécharger</button>
         </div>
