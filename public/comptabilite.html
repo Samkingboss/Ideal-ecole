@@ -768,6 +768,45 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
      Au niveau racine, hors des tab-pane : elle doit rester rendue quel que soit l'onglet actif. -->
 <div id="rq-card-stage" style="position:fixed; left:-9999px; top:0; width:640px;"></div>
 
+  <!-- ════════════ MODAL ABSENCES ENSEIGNANTS ════════════ -->
+  <div id="abs-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 860px; max-height: 92vh; overflow-y: auto;">
+      <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:0.8rem;">
+        🗂️ Absences enseignants &amp; justificatifs
+      </h3>
+      <div class="p-note" style="margin-top:0.8rem;">
+        Une journée d'absence ne rapporte aucun point à l'enseignant. Si l'absence est justifiée —
+        pièce jointe et validation ci-dessous — la journée est <b>neutralisée</b> : elle sort de ce
+        qu'on attend de lui, et il est jugé sur les jours où il était présent. Son pourcentage
+        n'est alors ni pénalisé, ni avantagé.
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-top:1rem;">
+        <label style="font-size:0.8rem; font-weight:700;">Enseignant
+          <select id="abs-prof" style="width:100%; margin-top:0.25rem; padding:0.5rem;"></select>
+        </label>
+        <label style="font-size:0.8rem; font-weight:700;">Date de l'absence
+          <input type="date" id="abs-date" style="width:100%; margin-top:0.25rem; padding:0.5rem;">
+        </label>
+      </div>
+      <label style="font-size:0.8rem; font-weight:700; display:block; margin-top:0.6rem;">Motif
+        <input type="text" id="abs-motif" placeholder="Ex : maladie, décès dans la famille, convocation administrative" style="width:100%; margin-top:0.25rem; padding:0.5rem;">
+      </label>
+      <div style="display:flex; gap:0.6rem; margin-top:0.8rem; flex-wrap:wrap;">
+        <button class="btn-primary" style="flex:1; min-width:220px; justify-content:center;" onclick="declarerAbsence()">Déclarer l'absence</button>
+      </div>
+      <div id="abs-message" style="margin-top:0.7rem; font-size:0.85rem;"></div>
+
+      <h4 style="margin:1.4rem 0 0.5rem; border-top:1px solid var(--border); padding-top:1rem;">Absences enregistrées</h4>
+      <div id="abs-liste"></div>
+      <input type="file" id="abs-fichier" style="display:none;" accept="image/*,application/pdf">
+
+      <div style="display:flex; gap:0.6rem; margin-top:1.2rem;">
+        <button class="btn-secondary" style="flex:1; justify-content:center;" onclick="document.getElementById('abs-modal').classList.remove('show')">Fermer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════ MODAL IMPORT DES INSCRIPTIONS ════════════ -->
   <div id="import-modal" class="modal-overlay">
     <div class="modal-content" style="max-width: 820px; max-height: 92vh; overflow-y: auto;">
@@ -1162,6 +1201,9 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
         <a href="/inscription.html" class="btn-primary" style="display:flex; width:100%; justify-content:center; margin-top:0.6rem; background:#1d4ed8; text-decoration:none;" title="Nouvelles inscriptions, réinscriptions et dossiers numériques des élèves">
           🎒 Inscriptions &amp; dossiers élèves
         </a>
+        <button class="btn-primary" style="width:100%; justify-content:center; margin-top:0.6rem; background:#b45309;" onclick="openAbsencesProfs()" title="Déclarer une absence d'enseignant et joindre le justificatif qui neutralise la pénalité">
+          🗂️ Absences enseignants &amp; justificatifs
+        </button>
       </div>
     </div>
   </div>
@@ -6623,6 +6665,116 @@ function classeVersCode(libelle) {
   if (m) return m[1] + m[2];
   const direct = CLASSES.find(c => c.id === s.replace(/\s+/g, ''));
   return direct ? direct.id : null;
+}
+
+// ═══════════ ABSENCES ENSEIGNANTS ET NEUTRALISATION ═══════════
+// Une absence non justifiée coûte les points de la journée. Justifiée —
+// pièce à l'appui et validée ici — elle est neutralisée dans le calcul de
+// la prime. C'est le responsable administratif qui tranche, sur pièce.
+
+let _absProfs = [];
+let _absLignes = [];
+
+function absUtilisateur() {
+  try { return JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch (e) { return null; }
+}
+
+async function openAbsencesProfs() {
+  document.getElementById('abs-modal').classList.add('show');
+  document.getElementById('abs-date').value = new Date().toISOString().slice(0, 10);
+  const msg = document.getElementById('abs-message');
+  msg.textContent = 'Chargement…'; msg.style.color = 'var(--text-muted)';
+
+  const { data: profs, error: e1 } = await _supa.from('users')
+    .select('id, prenom, nom').eq('role', 'professeur').eq('actif', true).order('nom');
+  if (e1) { msg.textContent = 'Chargement des enseignants impossible : ' + e1.message; msg.style.color = '#dc2626'; return; }
+  _absProfs = profs || [];
+  document.getElementById('abs-prof').innerHTML =
+    _absProfs.map(p => `<option value="${p.id}">${p.prenom} ${p.nom}</option>`).join('')
+    || '<option value="">Aucun enseignant actif</option>';
+
+  msg.textContent = '';
+  await chargerAbsences();
+}
+
+async function chargerAbsences() {
+  const { data, error } = await _supa.from('absences_enseignants')
+    .select('*, users!prof_id(prenom, nom)')
+    .order('date_absence', { ascending: false }).limit(60);
+  const zone = document.getElementById('abs-liste');
+  if (error) {
+    // 42P01 : le script SQL n'a pas encore été exécuté.
+    zone.innerHTML = error.code === '42P01'
+      ? `<div class="p-note">La table des absences n'existe pas encore. Le script <code>sql/absences_enseignants.sql</code> doit être exécuté une fois dans Supabase.</div>`
+      : `<div class="p-note" style="color:#dc2626;">Lecture impossible : ${error.message}</div>`;
+    return;
+  }
+  _absLignes = data || [];
+  if (!_absLignes.length) { zone.innerHTML = '<div class="p-note">Aucune absence enregistrée.</div>'; return; }
+
+  zone.innerHTML = `<table class="tbl"><thead><tr>
+      <th>Date</th><th>Enseignant</th><th>Motif</th><th>État</th><th>Justificatif</th></tr></thead><tbody>${
+    _absLignes.map(a => {
+      const nom = a.users ? `${a.users.prenom} ${a.users.nom}` : '—';
+      const etat = a.justifiee
+        ? '<span style="color:#059669; font-weight:700;">Neutralisée</span>'
+        : '<span style="color:#b45309; font-weight:700;">0 point</span>';
+      const piece = a.justificatif_url
+        ? `<a href="${a.justificatif_url}" target="_blank" rel="noopener">${a.justificatif_nom || 'voir la pièce'}</a>`
+        : `<button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="joindreJustificatif('${a.id}')">Joindre</button>`;
+      return `<tr><td>${rqDateFr ? rqDateFr(a.date_absence) : a.date_absence}</td><td>${nom}</td>
+              <td>${a.motif || '—'}</td><td>${etat}</td><td>${piece}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+async function declarerAbsence() {
+  const msg = document.getElementById('abs-message');
+  const prof = document.getElementById('abs-prof').value;
+  const date = document.getElementById('abs-date').value;
+  if (!prof || !date) { msg.textContent = 'Choisissez un enseignant et une date.'; msg.style.color = '#dc2626'; return; }
+
+  const { error } = await _supa.from('absences_enseignants').upsert({
+    prof_id: prof, date_absence: date,
+    motif: document.getElementById('abs-motif').value.trim() || null,
+    justifiee: false,
+  }, { onConflict: 'prof_id,date_absence' });
+
+  if (error) { msg.textContent = 'Enregistrement refusé : ' + error.message; msg.style.color = '#dc2626'; return; }
+  msg.textContent = "Absence enregistrée. Elle ne rapporte aucun point tant qu'un justificatif n'est pas joint.";
+  msg.style.color = '#b45309';
+  document.getElementById('abs-motif').value = '';
+  await chargerAbsences();
+}
+
+// Joindre la pièce et neutraliser. Les deux vont ensemble : la contrainte
+// en base refuse une absence déclarée justifiée sans pièce ni validation.
+function joindreJustificatif(id) {
+  const input = document.getElementById('abs-fichier');
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const msg = document.getElementById('abs-message');
+    msg.textContent = 'Envoi du justificatif…'; msg.style.color = 'var(--text-muted)';
+
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+    const chemin = `justificatifs/${id}.${ext}`;
+    const { error: upErr } = await _supa.storage.from('inscriptions').upload(chemin, file, { upsert: true });
+    if (upErr) { msg.textContent = "Envoi du fichier refusé : " + upErr.message; msg.style.color = '#dc2626'; return; }
+    const { data: pub } = _supa.storage.from('inscriptions').getPublicUrl(chemin);
+
+    const u = absUtilisateur();
+    const { error } = await _supa.from('absences_enseignants').update({
+      justificatif_url: pub.publicUrl, justificatif_nom: file.name,
+      justifiee: true, valide_par: u && u.id ? u.id : null, valide_le: new Date().toISOString(),
+    }).eq('id', id);
+
+    if (error) { msg.textContent = 'Neutralisation refusée : ' + error.message; msg.style.color = '#dc2626'; return; }
+    msg.textContent = 'Justificatif enregistré — la journée est neutralisée.';
+    msg.style.color = '#059669';
+    await chargerAbsences();
+  };
+  input.click();
 }
 
 async function openImportInscriptions() {

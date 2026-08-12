@@ -22,14 +22,28 @@ export const CONFIG_DEFAUT = {
     { id: 't3', label: '3e trimestre', debut: '2027-04-06', fin: '2027-06-30', coef: 2 },
   ],
 
-  // Points bruts par trimestre — le total doit faire 100
+  // Points bruts par trimestre — le total doit faire 100.
+  //
+  // `parHeure: true` signale une cible proportionnelle à la charge : le
+  // document confie 23 h à un enseignant et 10 h aux membres de la direction.
+  // Exiger d'eux le même nombre de préparations les pénaliserait pour une
+  // décision qui n'est pas la leur.
+  //
+  // L'indicateur « rapports hebdomadaires » a été retiré : ces rapports sont
+  // produits par le conseiller de vie scolaire, pas par l'enseignant. Le
+  // maintenir revenait à noter chacun sur le travail d'un autre. Ses 20
+  // points sont redistribués sur ce que l'enseignant maîtrise réellement.
   indicateurs: [
-    { id: 'preparations', label: 'Préparations déposées à temps', points: 30, cible: 12, auto: true },
-    { id: 'checkpoints', label: 'Checkpoints réalisés', points: 25, cible: 8, auto: true },
-    { id: 'rapports', label: 'Rapports hebdomadaires transmis', points: 20, cible: 10, auto: true },
-    { id: 'ponctualite', label: 'Ponctualité et assiduité', points: 15, cible: 55, auto: true },
-    { id: 'reunions', label: 'Présence aux réunions', points: 10, cible: 3, auto: false },
+    { id: 'preparations', label: 'Préparations déposées à temps', points: 35, cible: 12, auto: true, parHeure: true },
+    { id: 'checkpoints', label: 'Checkpoints réalisés', points: 30, cible: 8, auto: true, parHeure: true },
+    { id: 'ponctualite', label: 'Ponctualité et assiduité', points: 25, cible: 55, auto: true },
+    { id: 'reunions', label: 'Présence aux réunions du vendredi', points: 10, cible: 12, auto: false },
   ],
+
+  // Charge hebdomadaire de référence : celle sur laquelle les cibles
+  // ci-dessus sont exprimées. Un enseignant à 10 h se voit demander la
+  // moitié de ce qu'on attend d'un enseignant à 20 h.
+  heuresReference: 20,
 
   salaireBase: 125000,
   enveloppeEte: 375000,
@@ -57,6 +71,18 @@ export const CONFIG_DEFAUT = {
 }
 
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d)
+
+/** Jours ouvrés (lundi à vendredi) entre deux dates incluses. */
+export function joursOuvres(debut, fin) {
+  if (!debut || !fin) return 0
+  const d = new Date(debut + 'T00:00:00'), f = new Date(fin + 'T00:00:00')
+  let n = 0
+  for (let x = new Date(d); x <= f; x.setDate(x.getDate() + 1)) {
+    const j = x.getDay()
+    if (j >= 1 && j <= 5) n++
+  }
+  return n
+}
 
 /** Points bruts maximum par trimestre (normalement 100) */
 export function pointsBrutsMax(config) {
@@ -115,9 +141,15 @@ export function preparationATemps(prep) {
  * saisieManuelle = { [userId]: { [trimestreId]: { [indicateurId]: nombre } } }
  */
 export function calculerPoints(config, donnees, userId, nomComplet) {
-  const cible = id => num((config.indicateurs.find(i => i.id === id) || {}).cible, 1) || 1
   const pts = id => num((config.indicateurs.find(i => i.id === id) || {}).points)
   const manuel = ((donnees.saisieManuelle || {})[userId]) || {}
+
+  // Charge hebdomadaire réelle de l'enseignant, telle que la direction l'a
+  // affectée. Sans affectation connue, on retient la référence : mieux vaut
+  // la cible standard qu'une cible nulle qui donnerait 100 % pour rien.
+  const heuresRef = num(config.heuresReference, 20) || 20
+  const heuresProf = num((donnees.heuresParProf || {})[userId], heuresRef) || heuresRef
+  const facteurCharge = heuresProf / heuresRef
 
   const parTrimestre = config.trimestres.map(tri => {
     const dansTri = dateISO => {
@@ -125,22 +157,43 @@ export function calculerPoints(config, donnees, userId, nomComplet) {
       return t && t.id === tri.id
     }
 
+    // Journées d'absence justifiées et validées par le responsable
+    // administratif. Elles sont neutralisées : retirées de l'attente, pour
+    // que l'enseignant soit jugé sur les jours où il était présent.
+    const absencesTri = (donnees.absencesEnseignants || [])
+      .filter(a => a.prof_id === userId && dansTri(a.date_absence))
+    const neutralisees = absencesTri.filter(a => a.justifiee).length
+    const ouvresTri = joursOuvres(tri.debut, tri.fin)
+    // Part de la période réellement due par l'enseignant.
+    const partDue = ouvresTri > 0 ? Math.max(0, (ouvresTri - neutralisees) / ouvresTri) : 1
+
+    // Cible effective : ajustée à la charge pour les indicateurs qui en
+    // dépendent, puis réduite des journées neutralisées.
+    const cible = id => {
+      const ind = config.indicateurs.find(i => i.id === id) || {}
+      const base = num(ind.cible, 1) || 1
+      const ajustee = ind.parHeure ? base * facteurCharge : base
+      return Math.max(1, Math.round(ajustee * partDue * 10) / 10)
+    }
+
     const preps = (donnees.preparations || []).filter(p => p.user_id === userId && dansTri(p.date_cours))
     const prepsOk = preps.filter(preparationATemps).length
 
     const cps = (donnees.checkpoints || []).filter(c => c.prof_id === userId && dansTri(c.date_checkpoint)).length
 
-    const raps = (donnees.rapports || []).filter(r =>
-      rapportDe(r, userId, nomComplet) && dansTri(dateRapport(r))
-    ).length
-
+    // Ponctualité : seule une arrivée réellement relevée et à l'heure
+    // compte. Auparavant, une journée sans heure d'arrivée était comptée
+    // comme ponctuelle — ne pas être pointé rapportait donc plus que
+    // l'être, et la note dépendait de l'assiduité de celui qui pointe.
     const jours = (donnees.performances || []).filter(p => p.prof_id === userId && dansTri(p.date_jour))
     const limite = config.heureLimiteArrivee || '08:00'
-    const joursOk = jours.filter(p => !p.heure_arrivee || String(p.heure_arrivee).slice(0, 5) <= limite).length
+    const joursOk = jours.filter(p =>
+      p.heure_arrivee && String(p.heure_arrivee).slice(0, 5) <= limite
+    ).length
 
     const reunions = num((manuel[tri.id] || {}).reunions)
 
-    const compte = { preparations: prepsOk, checkpoints: cps, rapports: raps, ponctualite: joursOk, reunions }
+    const compte = { preparations: prepsOk, checkpoints: cps, ponctualite: joursOk, reunions }
 
     const detail = config.indicateurs.map(ind => {
       const realise = num(compte[ind.id])
@@ -159,6 +212,8 @@ export function calculerPoints(config, donnees, userId, nomComplet) {
     return {
       ...tri,
       detail,
+      neutralisees,
+      absencesNonJustifiees: absencesTri.length - neutralisees,
       brut: Math.round(brut * 10) / 10,
       brutMax: pointsBrutsMax(config),
       pondere: Math.round(brut * num(tri.coef, 1) * 10) / 10,

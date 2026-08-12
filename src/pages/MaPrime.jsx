@@ -27,7 +27,7 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
 
   const charger = async () => {
     try {
-      const [cfgRes, persRes, manRes, prepRes, cpRes, perfRes, rapRes] = await Promise.all([
+      const [cfgRes, persRes, manRes, prepRes, cpRes, perfRes, rapRes, absRes, affRes, edtRes] = await Promise.all([
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'points_config').maybeSingle(),
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'personnel').maybeSingle(),
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'saisie_manuelle').maybeSingle(),
@@ -35,18 +35,30 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
         supabase.from('checkpoints').select('prof_id, date_checkpoint').eq('prof_id', user.id),
         supabase.from('performances').select('prof_id, date_jour, heure_arrivee').eq('prof_id', user.id),
         supabase.from('app_state').select('value').eq('app', 'rapports_eleves'),
+        supabase.from('absences_enseignants').select('prof_id, date_absence, justifiee').eq('prof_id', user.id),
+        supabase.from('affectations_matieres').select('groupe, matiere').eq('prof_id', user.id),
+        supabase.from('emploi_du_temps').select('groupe, matiere'),
       ])
 
       const cfg = cfgRes.data?.value ? { ...CONFIG_DEFAUT, ...cfgRes.data.value } : CONFIG_DEFAUT
       setConfig(cfg)
 
       const nomComplet = `${user.prenom || ''} ${user.nom || ''}`.trim()
+      // Charge hebdomadaire réelle : 30 min par créneau des matières qui lui
+      // sont confiées. Elle sert à proratiser les cibles, pour ne pas exiger
+      // d'un enseignant à 10 h ce qu'on attend d'un enseignant à 20 h.
+      const miennes = new Set((affRes.data || []).map(a => `${a.groupe}|${a.matiere}`))
+      const creneaux = (edtRes.data || []).filter(c => miennes.has(`${c.groupe}|${c.matiere}`)).length
+      const heures = creneaux ? (creneaux * 30) / 60 : null
+
       const donnees = {
         preparations: prepRes.data || [],
         checkpoints: cpRes.data || [],
         performances: perfRes.data || [],
         rapports: (rapRes.data || []).map(r => r.value).filter(Boolean),
         saisieManuelle: manRes.data?.value || {},
+        absencesEnseignants: absRes.data || [],
+        heuresParProf: heures ? { [user.id]: heures } : {},
       }
 
       setDonnees(donnees)
