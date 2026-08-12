@@ -802,7 +802,7 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
       <input type="file" id="abs-fichier" style="display:none;" accept="image/*,application/pdf">
 
       <div style="display:flex; gap:0.6rem; margin-top:1.2rem;">
-        <button class="btn-secondary" style="flex:1; justify-content:center;" onclick="document.getElementById('abs-modal').classList.remove('show')">Fermer</button>
+        <button class="btn-secondary" style="flex:1; justify-content:center;" onclick="document.getElementById('abs-modal').classList.remove('active')">Fermer</button>
       </div>
     </div>
   </div>
@@ -6680,7 +6680,7 @@ function absUtilisateur() {
 }
 
 async function openAbsencesProfs() {
-  document.getElementById('abs-modal').classList.add('show');
+  document.getElementById('abs-modal').classList.add('active');
   document.getElementById('abs-date').value = new Date().toISOString().slice(0, 10);
   const msg = document.getElementById('abs-message');
   msg.textContent = 'Chargement…'; msg.style.color = 'var(--text-muted)';
