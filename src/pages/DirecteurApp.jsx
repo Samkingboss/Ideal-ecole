@@ -7,6 +7,7 @@ import {
   avantagesDe, ancienneteAnnees, pointsMaxAnnee,
 } from '../lib/points'
 import { lireJournal } from '../lib/audit'
+import AffectationsMatieres from './AffectationsMatieres'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -21,6 +22,7 @@ const TOP_TABS = [
   { id:'synthese', icon:'📊', label:'Synthèse' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
   { id:'pedagogie', icon:'📚', label:'Pédagogie' },
+  { id:'emploi', icon:'🗓️', label:'Emploi du temps' },
 ]
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
@@ -898,6 +900,8 @@ export default function DirecteurApp({ user, onLogout }) {
             })}
           </>
         )}
+
+        {tab === 'emploi' && <AffectationsMatieres user={user} />}
 
         {tab === 'pedagogie' && (
           <div>
