@@ -29,9 +29,7 @@ export default function ConseillerApp({ user, onLogout }) {
   const [presences, setPresences] = useState({})
   const [devoirs, setDevoirs] = useState([])
   const [loading, setLoading] = useState(false)
-  const [showModal, setShowModal] = useState(null)
   const [selectedClass, setSelectedClass] = useState(null)
-  const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:'' })
 
   const TRIMESTRES = {
     T1: { start: '2025-09-01', end: '2025-12-31', label: '1er Trimestre' },
@@ -106,43 +104,12 @@ export default function ConseillerApp({ user, onLogout }) {
     setPresences(pMap)
     
     if (cl && cl.length > 0 && !selectedClass) setSelectedClass(cl[0].id)
-    if (cl && cl.length > 0 && !newEleve.classe_id) setNewEleve(prev => ({ ...prev, classe_id: cl[0].id }))
     setLoading(false)
   }
 
-  const saveEleve = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    
-    // On nettoie l'objet pour ne garder que les champs nécessaires
-    const cleanEleve = {
-      prenom: newEleve.prenom,
-      nom: newEleve.nom,
-      sexe: newEleve.sexe,
-      date_naissance: newEleve.date_naissance || null,
-      parent_nom: newEleve.parent_nom,
-      parent_phone: newEleve.parent_phone,
-      parent2_nom: newEleve.parent2_nom || '',
-      parent2_phone: newEleve.parent2_phone || '',
-      adresse: newEleve.adresse,
-      photo_url: newEleve.photo_url || null,
-      classe_id: newEleve.classe_id,
-      actif: true
-    }
-
-    const { error } = await supabase.from('eleves').upsert([
-      { ...cleanEleve, id: newEleve.id }
-    ], { onConflict: 'id' })
-
-    if (!error) {
-      setShowModal(null)
-      setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id: classes[0]?.id || '' })
-      loadData()
-    } else {
-      alert("Erreur base de données : " + error.message)
-    }
-    setLoading(false)
-  }
+  // saveEleve, la modale d'eleve et l'etat associe ont ete retires : le
+  // conseiller ne cree ni ne modifie plus d'eleve. Les inscriptions et les
+  // dossiers sont tenus par le responsable administratif.
 
   const markPresence = async (eleveId, statut, minutes = 0, justification = null) => {
     const today = new Date().toISOString().slice(0, 10)
@@ -309,9 +276,9 @@ export default function ConseillerApp({ user, onLogout }) {
           <div className="nav-icon" aria-hidden="true">📊</div>
           <span>Stats</span>
         </button>
-        <button className={`nav-item ${tab==='inscriptions'?'active':''}`} onClick={()=>setTab('inscriptions')} aria-label="Gestion des inscriptions">
+        <button className={`nav-item ${tab==='inscriptions'?'active':''}`} onClick={()=>setTab('inscriptions')} aria-label="Liste des élèves">
           <div className="nav-icon" aria-hidden="true">🎒</div>
-          <span>Inscriptions</span>
+          <span>Élèves</span>
         </button>
         <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')} aria-label="Pointage des présences">
           <div className="nav-icon" aria-hidden="true">⏰</div>
@@ -375,9 +342,14 @@ export default function ConseillerApp({ user, onLogout }) {
 
         {tab === 'inscriptions' && (
           <>
+            {/* Les inscriptions relèvent du responsable administratif seul.
+                Le conseiller consulte les élèves — il en a besoin pour le
+                pointage et les rapports — mais ne les crée ni ne les modifie. */}
             <div className="section-head">
-              <div className="section-title">Gestion des Élèves</div>
-              <button className="btn-sm" onClick={()=>{setNewEleve({ prenom:'', nom:'', sexe:'M', date_naissance:'', parent_nom:'', parent_phone:'', parent2_nom:'', parent2_phone:'', adresse:'', photo_url:'', classe_id:classes[0]?.id || '' }); setShowModal('eleve')}}>+ Ajouter</button>
+              <div className="section-title">Les élèves</div>
+            </div>
+            <div style={{background:'var(--card)', border:'1px solid var(--border)', borderRadius:12, padding:'10px 14px', marginBottom:10, fontSize:12, color:'var(--muted)'}}>
+              Liste consultable. Les inscriptions et les dossiers élèves sont tenus par le responsable administratif.
             </div>
             {classes.map(cls => (
               <div key={cls.id} className="card" style={{marginBottom:10}}>
@@ -390,7 +362,6 @@ export default function ConseillerApp({ user, onLogout }) {
                         <div style={{fontWeight:700, fontSize:13}}>{el.prenom} {el.nom}</div>
                         <div style={{fontSize:10, color:'var(--muted)'}}>{el.parent_phone}</div>
                       </div>
-                      <button className="btn-sm" onClick={()=>{setNewEleve({...el}); setShowModal('eleve')}}>✏️</button>
                     </div>
                   ))}
                 </div>
@@ -573,43 +544,8 @@ export default function ConseillerApp({ user, onLogout }) {
         )}
       </div>
 
-      {showModal === 'eleve' && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-handle"></div>
-            <div className="modal-title">{newEleve.id ? 'Modifier' : 'Ajouter'} un élève</div>
-            <form onSubmit={saveEleve}>
-              <div className="form-group"><label className="form-label">Prénom</label><input className="form-input" value={newEleve.prenom} onChange={e=>setNewEleve({...newEleve, prenom:e.target.value})} required/></div>
-              <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newEleve.nom} onChange={e=>setNewEleve({...newEleve, nom:e.target.value})} required/></div>
-              <div className="form-group">
-                <label className="form-label">Sexe</label>
-                <div style={{display:'flex', gap:10}}>
-                  <button type="button" className={`btn-sm ${newEleve.sexe==='M'?'active':''}`} onClick={()=>setNewEleve({...newEleve, sexe:'M'})}>Masculin</button>
-                  <button type="button" className={`btn-sm ${newEleve.sexe==='F'?'active':''}`} onClick={()=>setNewEleve({...newEleve, sexe:'F'})}>Féminin</button>
-                </div>
-              </div>
-              <div className="form-group"><label className="form-label">Date de Naissance</label><input type="date" className="form-input" value={newEleve.date_naissance} onChange={e=>setNewEleve({...newEleve, date_naissance:e.target.value})}/></div>
-              <div className="form-group"><label className="form-label">Classe</label>
-                <select className="form-input" value={newEleve.classe_id} onChange={e=>setNewEleve({...newEleve, classe_id:e.target.value})} required>
-                  <option value="">Sélectionner</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                </select>
-              </div>
-              <hr style={{margin:'20px 0', border:'none', borderTop:'1px solid #eee'}}/>
-              <div className="form-group"><label className="form-label">Nom du Parent 1</label><input className="form-input" value={newEleve.parent_nom} onChange={e=>setNewEleve({...newEleve, parent_nom:e.target.value})}/></div>
-              <div className="form-group"><label className="form-label">Téléphone Parent 1 (WhatsApp)</label><input className="form-input" value={newEleve.parent_phone} onChange={e=>setNewEleve({...newEleve, parent_phone:e.target.value})} placeholder="+223..."/></div>
-              <div className="form-group"><label className="form-label">Nom du Parent 2</label><input className="form-input" value={newEleve.parent2_nom} onChange={e=>setNewEleve({...newEleve, parent2_nom:e.target.value})}/></div>
-              <div className="form-group"><label className="form-label">Téléphone Parent 2 (WhatsApp)</label><input className="form-input" value={newEleve.parent2_phone} onChange={e=>setNewEleve({...newEleve, parent2_phone:e.target.value})} placeholder="+223..."/></div>
-              <div className="form-group"><label className="form-label">Adresse Résidence</label><textarea className="form-input" value={newEleve.adresse} onChange={e=>setNewEleve({...newEleve, adresse:e.target.value})} /></div>
-              
-              <div style={{display:'flex', gap:10, marginTop:10}}>
-                <button className="btn btn-primary" type="submit" disabled={loading}>{loading?'...':'Enregistrer'}</button>
-                <button type="button" className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* La modale d'ajout/modification d'eleve a ete retiree : les
+          inscriptions et les dossiers releveent du responsable administratif. */}
     </div>
   )
 }

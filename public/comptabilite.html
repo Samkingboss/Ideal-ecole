@@ -1156,6 +1156,12 @@ table.tbl, table.tbl-compta { display: block; overflow-x: auto; max-width: 100%;
           <button class="btn-primary" style="flex:1; min-width:200px; justify-content:center; background:#0ea5e9;" onclick="openImportInscriptions()" title="Récupérer les élèves déjà inscrits via le formulaire d'inscription">📥 Importer les inscriptions</button>
           <button class="btn-primary" style="flex:1; min-width:200px; justify-content:center; background:#0f766e;" onclick="openListeClasse()" title="Imprimer la liste des élèves d'une classe">🖨️ Liste de classe</button>
         </div>
+        <!-- Les inscriptions et les dossiers élèves relèvent du responsable
+             administratif. La garde d'accès de inscription.html l'autorisait
+             déjà, mais aucun lien ne l'y menait depuis son espace. -->
+        <a href="/inscription.html" class="btn-primary" style="display:flex; width:100%; justify-content:center; margin-top:0.6rem; background:#1d4ed8; text-decoration:none;" title="Nouvelles inscriptions, réinscriptions et dossiers numériques des élèves">
+          🎒 Inscriptions &amp; dossiers élèves
+        </a>
       </div>
     </div>
   </div>
