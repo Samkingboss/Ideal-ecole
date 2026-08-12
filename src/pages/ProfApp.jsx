@@ -4,6 +4,7 @@ import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
 import MaPrime from './MaPrime'
 import FinDeCours from './FinDeCours'
+import MonEmploiDuTemps from './MonEmploiDuTemps'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -25,6 +26,7 @@ const TABS = [
 ]
 
 const TOP_TABS = [
+  { id:'edt', icon:'🗓️', label:'Mon emploi du temps' },
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'prime', icon:'🏆', label:'Ma prime' },
   { id:'messages', icon:'💬', label:'Messages' },
@@ -32,7 +34,9 @@ const TOP_TABS = [
 ]
 
 export default function ProfApp({ user, onLogout }) {
-  const [tab, setTab] = useState('perfs')
+  // L'enseignant arrive sur son emploi du temps : c'est ce qu'il consulte le
+  // plus souvent, et ce dont il a besoin pour s'organiser dans la journée.
+  const [tab, setTab] = useState('edt')
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState([])
   const [allClasses, setAllClasses] = useState([])
@@ -569,6 +573,8 @@ export default function ProfApp({ user, onLogout }) {
       <div className="page-content">
         {/* Bandeau permanent : la prime d'été reste sous les yeux, quel que soit l'onglet */}
         {tab !== 'prime' && <MaPrime user={user} compact onOuvrir={() => setTab('prime')} />}
+
+        {tab === 'edt' && <MonEmploiDuTemps user={user} />}
 
         {tab === 'prime' && <MaPrime user={user} />}
 
