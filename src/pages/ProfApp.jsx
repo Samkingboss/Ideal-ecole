@@ -18,8 +18,7 @@ const RECREE_CHECKS = [
 ]
 
 const TABS = [
-  { id:'programme', icon:'📚', label:'Programme' },  { id:'checkpoint', icon:'✅', label:'Check-point' },
-  { id:'progression', icon:'📈', label:'Progression' },
+  { id:'programme', icon:'📚', label:'Programme' },  { id:'progression', icon:'📈', label:'Progression' },
   { id:'fincours', icon:'🎯', label:'Fin de cours' },
   { id:'classe', icon:'🏫', label:'Classe' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
@@ -608,86 +607,8 @@ export default function ProfApp({ user, onLogout }) {
         )}
 
         {!loading && classes.length > 0 && tab === 'programme' && (<ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} onUpdate={loadProgramme} />)} 
-        {!loading && classes.length > 0 && tab === 'checkpoint' && (
-          <>
-            <div className="section-head">
-              <div className="section-title">Check-points — {selectedClasse?.nom}</div>
-              <button className="btn-sm" onClick={openCheckpoint}>+ Check-point</button>
-            </div>
-
-            {programmeData.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">📚</div>
-                <p>Aucun programme défini pour {selectedClasse?.nom}.</p>
-                <button className="btn-sm" onClick={() => setTab('programme')} style={{marginTop:10}}>Créer le programme</button>
-              </div>
-            ) : (
-              <>
-                {programmeData.map(mat => (
-                  <div key={mat.id} style={{marginBottom:15}}>
-                    <div style={{background:'#0d2a3b', color:'#fff', padding:'12px 16px', fontSize:13, fontWeight:800, textTransform:'uppercase', borderRadius:'16px 16px 0 0'}}>
-                      📚 {mat.nom}
-                    </div>
-                    {mat.objectifs.map(obj => {
-                      const isActive = activeCpObjId === obj.id
-                      return (
-                        <div key={obj.id} style={{background:'var(--card)', border:'1px solid var(--border)', borderTop:'none', overflow:'hidden', borderBottomLeftRadius: mat.objectifs.indexOf(obj) === mat.objectifs.length-1 ? 16 : 0, borderBottomRightRadius: mat.objectifs.indexOf(obj) === mat.objectifs.length-1 ? 16 : 0}}>
-                          <div 
-                            onClick={() => setActiveCpObjId(isActive ? null : obj.id)}
-                            style={{padding:'12px 16px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', background: isActive ? 'rgba(26,175,224,.04)' : 'transparent'}}
-                          >
-                            <div style={{fontSize:13, fontWeight:700, color: isActive ? 'var(--accent)' : 'var(--text)', display:'flex', alignItems:'center', gap:8}}>
-                              <span>🎯</span> {obj.nom}
-                            </div>
-                            <span style={{fontSize:16, color:'var(--muted)', transform: isActive ? 'rotate(180deg)' : 'none', transition:'0.2s'}}>⌄</span>
-                          </div>
-
-                          {isActive && (
-                            <div style={{padding:'4px 16px 16px', borderTop:'1px solid var(--border)'}}>
-                              {classEleves.map(el => {
-                                const cps = checkpoints.filter(cp => {
-                                  if (cp.classe_id && cp.periode_id) {
-                                    return cp.classe_id == selectedClasse?.id && cp.periode_id == selectedPeriode?.id
-                                  }
-                                  const p = planifications.find(pl => pl.id == cp.planification_id)
-                                  return p && p.classe_id == selectedClasse?.id && p.periode_id == selectedPeriode?.id
-                                }).sort((a,b) => b.date_checkpoint.localeCompare(a.date_checkpoint))
-                                
-                                let val = 0
-                                for (const cp of cps) {
-                                  const pr = cp.progressions?.find(p => p.eleve_id == el.id && p.objectif_id == obj.id)
-                                  if (pr) { val = pr.pourcentage; break }
-                                }
-                                
-                                const isPS = selectedClasse?.nom === 'Petite Section' || selectedClasse?.nom === 'Grande Section'
-                                const lbl = v => isPS ? (v>=87?'Bien acquis':v>=62?'Acquis':v>=37?'En cours':v>0?'Debut':'—') : v>0?v+'%':'—'
-                                const col = v => v>=75?'var(--green)':v>=50?'var(--amber)':v>0?'var(--red)':'var(--muted)'
-                                const c2 = col(val)
-                                
-                                return (
-                                  <div key={el.id} style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
-                                    <div className="avatar av-blue" style={{width:28, height:28, fontSize:10, flexShrink:0, background: isActive ? 'var(--accent)' : 'rgba(26,175,224,.1)'}}>
-                                      {(el.prenom[0]||'')+(el.nom[0]||'')}
-                                    </div>
-                                    <div style={{fontSize:11, width:110, flexShrink:0, fontWeight:600}}>{el.prenom} {el.nom}</div>
-                                    <div className="progress-wrap" style={{flex:1, height:6, background:'rgba(0,0,0,0.03)'}}>
-                                      <div className="progress-fill" style={{width:val+'%', background:c2, borderRadius:10}}></div>
-                                    </div>
-                                    <span style={{fontSize:11, fontWeight:800, color:c2, width:75, textAlign:'right'}}>{lbl(val)}</span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
-              </>
-            )}
-          </>
-        )}
+        {/* L'onglet Check-point a ete retire : l'enseignant prepare
+            desormais ses seances depuis son emploi du temps. */}
 
         {tab === 'fincours' && (
           <FinDeCours

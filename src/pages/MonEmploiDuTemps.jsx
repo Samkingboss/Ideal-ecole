@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE, sequenceDansGrille, semainePaire } from '../lib/sequences'
+import FichePreparation from './FichePreparation'
 
 // Emploi du temps personnel de l'enseignant, en page d'accueil.
 //
@@ -30,8 +31,18 @@ const jourOuvre = d => {
   return j >= 1 && j <= 5 ? j : null
 }
 
+/** Date ISO du jour `j` (1 = lundi) de la semaine contenant `ref`. */
+function dateDuJour(ref, j) {
+  const d = new Date(ref)
+  const decalage = (d.getDay() === 0 ? 7 : d.getDay()) - j
+  d.setDate(d.getDate() - decalage)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function MonEmploiDuTemps({ user }) {
   const [creneaux, setCreneaux] = useState([])   // { jour, sequence, matiere, groupe }
+  const [preparees, setPreparees] = useState(new Set())  // "date|sequence"
+  const [ouverte, setOuverte] = useState(null)   // { creneau, dateCours }
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
 
@@ -62,7 +73,21 @@ export default function MonEmploiDuTemps({ user }) {
     // On ne garde que les créneaux dont la matière lui a été confiée.
     const miennes = new Set(aff.map(a => `${a.groupe}|${a.matiere}`))
     setCreneaux((edt || []).filter(c => miennes.has(`${c.groupe}|${c.matiere}`)))
+    await chargerPreparations()
     setChargement(false)
+  }
+
+  // Séances déjà préparées pour la semaine affichée. La pastille verte suit
+  // la semaine : préparer lundi dernier ne dispense pas de préparer ce lundi.
+  async function chargerPreparations() {
+    const lundi = dateDuJour(aujourdhui, 1)
+    const vendredi = dateDuJour(aujourdhui, 5)
+    const { data } = await supabase.from('preparations')
+      .select('date_cours, sequence')
+      .eq('user_id', user.id).gte('date_cours', lundi).lte('date_cours', vendredi)
+    setPreparees(new Set((data || [])
+      .filter(p => p.sequence != null)
+      .map(p => `${p.date_cours}|${p.sequence}`)))
   }
 
   // Case affichée pour un jour et une séquence, en tenant compte de la
@@ -142,18 +167,34 @@ export default function MonEmploiDuTemps({ user }) {
                     <div style={{ fontSize: 9, color: 'var(--muted)' }}>S{s.n}</div>
                   </td>
                   {JOURS.map((_, i) => {
-                    const c = caseDe(i + 1, s.n)
-                    const cetteCase = enCours && i + 1 === jourActuel
+                    const jour = i + 1
+                    const c = caseDe(jour, s.n)
+                    const cetteCase = enCours && jour === jourActuel
+                    const date = dateDuJour(aujourdhui, jour)
+                    const prete = c && preparees.has(`${date}|${s.n}`)
                     return (
-                      <td key={i} style={{
-                        border: '1px solid var(--border)', padding: '6px', textAlign: 'center',
-                        background: cetteCase ? 'var(--accent)' : (c ? 'rgba(26,175,224,.06)' : 'transparent'),
-                        color: cetteCase ? '#fff' : 'inherit',
-                      }}>
+                      <td key={i}
+                        onClick={c ? () => setOuverte({ creneau: c, dateCours: date }) : undefined}
+                        title={c ? (prete ? 'Séance préparée — cliquez pour revoir la fiche' : 'Cliquez pour préparer cette séance') : undefined}
+                        style={{
+                          border: '1px solid var(--border)', padding: '6px', textAlign: 'center',
+                          position: 'relative', cursor: c ? 'pointer' : 'default',
+                          background: cetteCase ? 'var(--accent)' : (c ? 'rgba(26,175,224,.06)' : 'transparent'),
+                          color: cetteCase ? '#fff' : 'inherit',
+                        }}>
                         {c ? (
                           <>
                             <div style={{ fontWeight: 700 }}>{c.matiere}</div>
                             <div style={{ fontSize: 10, opacity: .75 }}>{c.groupe}</div>
+                            {/* Pastille verte : cette séance est préparée. */}
+                            {prete && (
+                              <span aria-label="Séance préparée" style={{
+                                position: 'absolute', right: 4, bottom: 3, width: 13, height: 13,
+                                borderRadius: '50%', background: 'var(--green, #2e9e4f)', color: '#fff',
+                                fontSize: 9, lineHeight: '13px', fontWeight: 800,
+                                boxShadow: '0 0 0 1.5px #fff',
+                              }}>✓</span>
+                            )}
                           </>
                         ) : <span style={{ color: 'var(--muted)', opacity: .4 }}>—</span>}
                       </td>
@@ -167,9 +208,21 @@ export default function MonEmploiDuTemps({ user }) {
       </div>
 
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
-        Les cases vides sont vos heures libres. Récréations (10h00, 15h00) et déjeuner (12h00)
-        ne figurent pas : ce ne sont pas des heures d’enseignement.
+        Cliquez sur une séance pour préparer votre cours. La pastille verte signale
+        celles qui sont déjà prêtes cette semaine. Les cases vides sont vos heures libres :
+        récréations (10h00, 15h00) et déjeuner (12h00) n’y figurent pas, ce ne sont pas
+        des heures d’enseignement.
       </div>
+
+      {ouverte && (
+        <FichePreparation
+          user={user}
+          creneau={ouverte.creneau}
+          dateCours={ouverte.dateCours}
+          onFerme={() => setOuverte(null)}
+          onEnregistre={chargerPreparations}
+        />
+      )}
     </>
   )
 }

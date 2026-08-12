@@ -34,8 +34,12 @@ export const CONFIG_DEFAUT = {
   // maintenir revenait à noter chacun sur le travail d'un autre. Ses 20
   // points sont redistribués sur ce que l'enseignant maîtrise réellement.
   indicateurs: [
-    { id: 'preparations', label: 'Préparations déposées à temps', points: 35, cible: 12, auto: true, parHeure: true },
-    { id: 'checkpoints', label: 'Checkpoints réalisés', points: 30, cible: 8, auto: true, parHeure: true },
+    { id: 'preparations', label: 'Séances préparées à temps', points: 35, cible: 12, auto: true, parHeure: true },
+    // Remplace les check-points, retirés de l'espace enseignant. On compte le
+    // nombre de fiches de fin de cours remplies, jamais les notes qu'elles
+    // portent : l'enseignant note lui-même ses élèves, l'indexer sur le
+    // niveau l'inviterait à surnoter pour gonfler sa prime.
+    { id: 'fincours', label: 'Fiches de fin de cours remplies', points: 30, cible: 24, auto: true, parHeure: true },
     { id: 'ponctualite', label: 'Ponctualité et assiduité', points: 25, cible: 55, auto: true },
     { id: 'reunions', label: 'Présence aux réunions du vendredi', points: 10, cible: 12, auto: false },
   ],
@@ -179,7 +183,14 @@ export function calculerPoints(config, donnees, userId, nomComplet) {
     const preps = (donnees.preparations || []).filter(p => p.user_id === userId && dansTri(p.date_cours))
     const prepsOk = preps.filter(preparationATemps).length
 
-    const cps = (donnees.checkpoints || []).filter(c => c.prof_id === userId && dansTri(c.date_checkpoint)).length
+    // Une fiche de fin de cours = un cours évalué. On compte les couples
+    // (date, matière) distincts pour qu'une classe de 20 élèves ne vaille
+    // pas 20 fois plus qu'une classe de 5.
+    const fins = new Set(
+      (donnees.comprehensions || [])
+        .filter(c => c.prof_id === userId && dansTri(c.date_cours))
+        .map(c => `${c.date_cours}|${c.matiere}`)
+    ).size
 
     // Ponctualité : seule une arrivée réellement relevée et à l'heure
     // compte. Auparavant, une journée sans heure d'arrivée était comptée
@@ -193,7 +204,7 @@ export function calculerPoints(config, donnees, userId, nomComplet) {
 
     const reunions = num((manuel[tri.id] || {}).reunions)
 
-    const compte = { preparations: prepsOk, checkpoints: cps, ponctualite: joursOk, reunions }
+    const compte = { preparations: prepsOk, fincours: fins, ponctualite: joursOk, reunions }
 
     const detail = config.indicateurs.map(ind => {
       const realise = num(compte[ind.id])
@@ -267,11 +278,19 @@ export function detailIndicateur(config, donnees, userId, nomComplet, trimestreI
       })
   }
 
-  if (indicateurId === 'checkpoints') {
-    return (donnees.checkpoints || [])
-      .filter(c => c.prof_id === userId && dans(c.date_checkpoint))
-      .sort((a, b) => String(a.date_checkpoint).localeCompare(String(b.date_checkpoint)))
-      .map(c => ({ date: c.date_checkpoint, info: 'check-point enregistré', compte: true, raison: 'compté' }))
+  if (indicateurId === 'fincours') {
+    // Un cours évalué = un couple (date, matière), quel que soit le nombre
+    // d'élèves notés ce jour-là.
+    const vus = new Set()
+    return (donnees.comprehensions || [])
+      .filter(c => c.prof_id === userId && dans(c.date_cours))
+      .sort((a, b) => String(a.date_cours).localeCompare(String(b.date_cours)))
+      .filter(c => {
+        const cle = `${c.date_cours}|${c.matiere}`
+        if (vus.has(cle)) return false
+        vus.add(cle); return true
+      })
+      .map(c => ({ date: c.date_cours, info: `fin de cours — ${c.matiere || 'matière non précisée'}`, compte: true, raison: 'compté' }))
   }
 
   if (indicateurId === 'rapports') {

@@ -32,7 +32,7 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'personnel').maybeSingle(),
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'saisie_manuelle').maybeSingle(),
         supabase.from('preparations').select('user_id, date_cours, heure_cours, heure_depot').eq('user_id', user.id),
-        supabase.from('checkpoints').select('prof_id, date_checkpoint').eq('prof_id', user.id),
+        supabase.from('comprehensions').select('prof_id, date_cours, matiere').eq('prof_id', user.id),
         supabase.from('performances').select('prof_id, date_jour, heure_arrivee').eq('prof_id', user.id),
         supabase.from('app_state').select('value').eq('app', 'rapports_eleves'),
         supabase.from('absences_enseignants').select('prof_id, date_absence, justifiee').eq('prof_id', user.id),
@@ -53,7 +53,7 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
 
       const donnees = {
         preparations: prepRes.data || [],
-        checkpoints: cpRes.data || [],
+        comprehensions: cpRes.data || [],
         performances: perfRes.data || [],
         rapports: (rapRes.data || []).map(r => r.value).filter(Boolean),
         saisieManuelle: manRes.data?.value || {},
