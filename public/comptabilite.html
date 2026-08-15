@@ -1001,6 +1001,61 @@ function deconnexionIdeal() {
       <div class="card" style="overflow:hidden;">
         <div style="overflow-x:auto;"><table class="tbl" id="tbl-salaires"></table></div>
       </div>
+
+      <!-- ════════════════ ÉTAT DES SALAIRES MENSUELS & ÉMARGEMENT ════════════════ -->
+      <div class="sep"></div>
+
+      <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+          <div class="sec-title">📑 Édition & Impression des États de Salaires Mensuels</div>
+          <div class="sec-sub">Générez la fiche d'émargement de paie mensuelle du personnel avec le récapitulatif net à payer et la grille de signatures.</div>
+        </div>
+        <div style="display:flex; gap:0.6rem; align-items:center;">
+          <select id="salaires-mois-select" class="inp" onchange="renderEtatSalairesMensuel()" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
+            <option value="2026-10">Octobre 2026</option>
+            <option value="2026-11">Novembre 2026</option>
+            <option value="2026-12">Décembre 2026</option>
+            <option value="2027-01">Janvier 2027</option>
+            <option value="2027-02">Février 2027</option>
+            <option value="2027-03">Mars 2027</option>
+            <option value="2027-04">Avril 2027</option>
+            <option value="2027-05">Mai 2027</option>
+            <option value="2027-06">Juin 2027</option>
+          </select>
+          <button class="btn btn-outline" style="color:var(--blue); border-color:var(--blue); font-weight:700; padding:0.6rem 1rem;" onclick="imprimerEtatSalaires()">
+            🖨️ Imprimer la Fiche d'Émargement (PDF)
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="overflow:hidden; margin-bottom:2rem;">
+        <div style="padding:1.2rem; background:rgba(0,168,224,0.04); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h4 style="margin:0; font-size:1.05rem; color:var(--text);" id="etat-salaires-title">État de Paie du Personnel — Octobre 2026</h4>
+            <div style="font-size:0.8rem; color:var(--text-dim); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
+            <div style="font-size:1.3rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net">0 FCFA</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="tbl" id="tbl-etat-salaires-mensuel">
+            <thead>
+              <tr>
+                <th>Poste / Employé</th>
+                <th class="r">Salaire de Base</th>
+                <th class="r">Primes / Bonus</th>
+                <th class="r">Retenues / Avances</th>
+                <th class="r">Net à Payer</th>
+                <th>Mode de Règlement</th>
+                <th class="c">Statut</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-etat-salaires-mensuel"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -1272,6 +1327,100 @@ function deconnexionIdeal() {
   </div>
 
   
+  <!-- GABARIT IMPRIMABLE : ÉTAT MENSUEL DES SALAIRES & ÉMARGEMENT -->
+  <div id="print-salaires-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:99999; overflow-y:auto;">
+    <div class="no-print" style="position: sticky; top: 0; background: #fff; padding: 15px 30px; border-bottom: 2px solid #00a8e0; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+       <div style="font-weight: 800; color: #1A2B4C; display: flex; align-items: center; gap: 10px;">
+          <div style="width: 10px; height: 10px; background: #00a8e0; border-radius: 50%;"></div>
+          FICHE D'ÉMARGEMENT ET ÉTAT DE PAIE MENSUEL (APERÇU OFFICIEL)
+       </div>
+       <div style="display: flex; gap: 15px;">
+          <button onclick="window.print()" class="btn" style="background: #00a8e0; color:#fff; padding: 10px 20px; font-weight: bold; border-radius: 6px; cursor:pointer;">🖨️ Lancer l'impression / PDF</button>
+          <button onclick="document.getElementById('print-salaires-modal').style.display='none'" class="btn" style="background: #666; color:#fff; padding: 10px 20px; font-weight: bold; border-radius: 6px; cursor:pointer;">✖ Fermer</button>
+       </div>
+    </div>
+    
+    <div id="salaires-print-content" style="max-width: 1000px; margin: 20px auto; border: 1px solid #ddd; padding: 30px 40px; background: #fff; position: relative; box-shadow: 0 15px 40px rgba(0,0,0,0.1); border-radius: 6px;">
+      
+      <!-- Top Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2.5px solid #1A2B4C; padding-bottom: 14px;">
+        <div style="display:flex; align-items:center; gap:16px;">
+          <img src="/logo-ideal.png" style="max-height: 60px; display: block;" alt="Logo IDEAL" />
+          <div>
+            <div style="font-weight: 900; color: #1A2B4C; font-size: 1.1rem; text-transform:uppercase;">ÉCOLE INTERNATIONALE BILINGUE IDEAL</div>
+            <div style="font-size: 0.8rem; color: #475569;">Faladiè Sema, Bamako, Mali · Tél: (+223) 97 73 14 07 / 90 19 00 07</div>
+            <div style="font-size: 0.78rem; color: #64748b;">Email: comptabilite.idealecole@gmail.com</div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">DOCUMENT REQUIS RH & COMPTABILITÉ</div>
+          <div style="font-size: 1.15rem; color: #1A2B4C; font-weight: 900; margin-top:2px;" id="p-salaires-mois-titre">ÉTAT DE PAIE — OCTOBRE 2026</div>
+        </div>
+      </div>
+
+      <!-- Informations récapitulatives -->
+      <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:20px; background:#f8fafc; padding:12px 16px; border-radius:8px; border:1px solid #e2e8f0;">
+        <div>
+          <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase;">Période de Paie</div>
+          <div style="font-size:0.95rem; font-weight:800; color:#1e293b;" id="p-salaires-periode">Octobre 2026</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase;">Effectif Payé</div>
+          <div style="font-size:0.95rem; font-weight:800; color:#1e293b;" id="p-salaires-nb-personnel">0 Employés</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase;">Total Primes & Bonus</div>
+          <div style="font-size:0.95rem; font-weight:800; color:#059669;" id="p-salaires-tot-primes">0 FCFA</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase;">Masse Salariale Nette</div>
+          <div style="font-size:1.1rem; font-weight:900; color:#0284c7;" id="p-salaires-tot-net">0 FCFA</div>
+        </div>
+      </div>
+
+      <!-- Tableau complet d'émargement -->
+      <table style="width:100%; border-collapse:collapse; margin-bottom:25px; font-size:0.82rem;">
+        <thead>
+          <tr style="background:#1A2B4C; color:#fff; font-weight:700; text-transform:uppercase; font-size:0.75rem;">
+            <th style="padding:8px 10px; text-align:left; border:1px solid #1A2B4C;">N°</th>
+            <th style="padding:8px 10px; text-align:left; border:1px solid #1A2B4C;">Employé & Poste</th>
+            <th style="padding:8px 10px; text-align:right; border:1px solid #1A2B4C;">Salaire de Base</th>
+            <th style="padding:8px 10px; text-align:right; border:1px solid #1A2B4C;">Primes</th>
+            <th style="padding:8px 10px; text-align:right; border:1px solid #1A2B4C;">Retenues</th>
+            <th style="padding:8px 10px; text-align:right; border:1px solid #1A2B4C;">Net à Payer</th>
+            <th style="padding:8px 10px; text-align:center; border:1px solid #1A2B4C;">Mode</th>
+            <th style="padding:8px 10px; text-align:center; border:1px solid #1A2B4C; width:160px;">Émargement / Signature</th>
+          </tr>
+        </thead>
+        <tbody id="p-salaires-tbody">
+          <!-- Injecté par JS -->
+        </tbody>
+      </table>
+
+      <!-- Cadres de Visa & Signature -->
+      <div style="display:flex; justify-content:space-between; margin-top:35px; padding-top:15px; border-top:1px solid #cbd5e1; page-break-inside:avoid;">
+        <div style="text-align:center; width:220px;">
+          <div style="font-size:0.78rem; font-weight:800; color:#475569; text-transform:uppercase;">Le Comptable / Caissier</div>
+          <div style="height:65px; margin-top:8px; border:1px dashed #cbd5e1; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:0.72rem;">
+            Visa & Cachet
+          </div>
+        </div>
+        <div style="text-align:center; width:220px;">
+          <div style="font-size:0.78rem; font-weight:800; color:#475569; text-transform:uppercase;">La Direction Générale</div>
+          <div style="height:65px; margin-top:8px; border:1px dashed #cbd5e1; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:0.72rem;">
+            Approbation & Cachet Officiel
+          </div>
+        </div>
+      </div>
+
+      <!-- Pied de page -->
+      <div style="margin-top:25px; text-align:center; font-size:0.72rem; color:#94a3b8; border-top:1px solid #eee; padding-top:10px;">
+        Document officiel d'émargement de paie · École Internationale Bilingue IDEAL · Généré le <span id="p-salaires-date-gen"></span>
+      </div>
+
+    </div>
+  </div>
+
   <!-- GABARIT DE RECU (OFFICIEL IDEAL) -->
   <div id="print-receipt-modal">
     <div class="no-print" style="position: sticky; top: 0; background: #fff; padding: 15px 30px; border-bottom: 2px solid #F47920; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -4402,6 +4551,143 @@ function renderSalairesTable() {
     <td class="r" id="sal-total-annuel">${fc(totM * 12)}</td>
   </tr></tbody>`;
   document.getElementById('tbl-salaires').innerHTML = h;
+  renderEtatSalairesMensuel();
+}
+
+let _etatSalairesMensuelData = {};
+
+function initEtatSalairesMensuel() {
+  const moisSelect = document.getElementById('salaires-mois-select');
+  if (!moisSelect) return;
+  const currentMois = moisSelect.value || '2026-10';
+  
+  if (!_etatSalairesMensuelData[currentMois]) {
+    _etatSalairesMensuelData[currentMois] = SALAIRES_DETAIL.map((s, idx) => ({
+      id: s.id || `emp-${idx}`,
+      poste: s.poste,
+      base: s.mensuel || 0,
+      primes: 0,
+      retenues: 0,
+      mode: 'Espèces',
+      statut: 'Payé'
+    }));
+  }
+}
+
+function renderEtatSalairesMensuel() {
+  initEtatSalairesMensuel();
+  const moisSelect = document.getElementById('salaires-mois-select');
+  if (!moisSelect) return;
+  const moisKey = moisSelect.value;
+  const moisLabel = moisSelect.options[moisSelect.selectedIndex].text;
+
+  const titleEl = document.getElementById('etat-salaires-title');
+  if (titleEl) titleEl.textContent = `État de Paie du Personnel — ${moisLabel}`;
+
+  const tbody = document.getElementById('tbody-etat-salaires-mensuel');
+  if (!tbody) return;
+
+  const items = _etatSalairesMensuelData[moisKey] || [];
+  let html = '';
+  let totNet = 0;
+
+  items.forEach((item, idx) => {
+    const net = Math.max(0, item.base + (item.primes || 0) - (item.retenues || 0));
+    totNet += net;
+
+    html += `<tr>
+      <td><b>${item.poste}</b></td>
+      <td class="r" style="font-weight:600;">${fc(item.base)}</td>
+      <td class="r">
+        <input class="inp" type="number" min="0" value="${item.primes || 0}" style="width:100px; text-align:right; padding:4px 8px; font-weight:700; color:var(--green);" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'primes', this.value)">
+      </td>
+      <td class="r">
+        <input class="inp" type="number" min="0" value="${item.retenues || 0}" style="width:100px; text-align:right; padding:4px 8px; font-weight:700; color:var(--red);" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'retenues', this.value)">
+      </td>
+      <td class="r" style="font-weight:900; color:var(--blue);">${fc(net)}</td>
+      <td>
+        <select class="inp" style="padding:4px 8px;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'mode', this.value)">
+          <option value="Espèces" ${item.mode === 'Espèces' ? 'selected' : ''}>Espèces</option>
+          <option value="Virement" ${item.mode === 'Virement' ? 'selected' : ''}>Virement bancaire</option>
+          <option value="Orange Money" ${item.mode === 'Orange Money' ? 'selected' : ''}>Orange Money</option>
+          <option value="Wave" ${item.mode === 'Wave' ? 'selected' : ''}>Wave</option>
+        </select>
+      </td>
+      <td class="c">
+        <select class="inp" style="padding:4px 8px; font-weight:700;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'statut', this.value)">
+          <option value="Payé" ${item.statut === 'Payé' ? 'selected' : ''}>✓ Payé</option>
+          <option value="En attente" ${item.statut === 'En attente' ? 'selected' : ''}>⏳ En attente</option>
+        </select>
+      </td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  const totNetEl = document.getElementById('etat-salaires-total-net');
+  if (totNetEl) totNetEl.textContent = fc(totNet);
+}
+
+function updateEtatSalairesItem(moisKey, idx, field, val) {
+  if (!_etatSalairesMensuelData[moisKey] || !_etatSalairesMensuelData[moisKey][idx]) return;
+  if (field === 'primes' || field === 'retenues') {
+    _etatSalairesMensuelData[moisKey][idx][field] = parseInt(val, 10) || 0;
+  } else {
+    _etatSalairesMensuelData[moisKey][idx][field] = val;
+  }
+  renderEtatSalairesMensuel();
+  autoSave();
+}
+
+function imprimerEtatSalaires() {
+  const moisSelect = document.getElementById('salaires-mois-select');
+  if (!moisSelect) return;
+  const moisKey = moisSelect.value;
+  const moisLabel = moisSelect.options[moisSelect.selectedIndex].text;
+  const items = _etatSalairesMensuelData[moisKey] || [];
+
+  document.getElementById('p-salaires-mois-titre').textContent = `ÉTAT DE PAIE — ${moisLabel.toUpperCase()}`;
+  document.getElementById('p-salaires-periode').textContent = moisLabel;
+  document.getElementById('p-salaires-nb-personnel').textContent = `${items.length} Employés`;
+  document.getElementById('p-salaires-date-gen').textContent = new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR');
+
+  let totPrimes = 0;
+  let totNet = 0;
+  let tbodyHTML = '';
+
+  items.forEach((item, idx) => {
+    const primes = item.primes || 0;
+    const retenues = item.retenues || 0;
+    const net = Math.max(0, item.base + primes - retenues);
+    totPrimes += primes;
+    totNet += net;
+
+    tbodyHTML += `<tr style="border-bottom:1px solid #e2e8f0; ${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
+      <td style="padding:8px 10px; font-weight:700; border:1px solid #e2e8f0; text-align:center;">${idx + 1}</td>
+      <td style="padding:8px 10px; font-weight:800; border:1px solid #e2e8f0; color:#0f172a;">${item.poste}</td>
+      <td style="padding:8px 10px; text-align:right; border:1px solid #e2e8f0; font-weight:600;">${fc(item.base)}</td>
+      <td style="padding:8px 10px; text-align:right; border:1px solid #e2e8f0; color:#059669;">${primes ? '+' + fc(primes) : '—'}</td>
+      <td style="padding:8px 10px; text-align:right; border:1px solid #e2e8f0; color:#dc2626;">${retenues ? '-' + fc(retenues) : '—'}</td>
+      <td style="padding:8px 10px; text-align:right; border:1px solid #e2e8f0; font-weight:900; color:#0369a1;">${fc(net)}</td>
+      <td style="padding:8px 10px; text-align:center; border:1px solid #e2e8f0; font-weight:600;">${item.mode || 'Espèces'}</td>
+      <td style="padding:8px 10px; border:1px solid #e2e8f0; height:38px;"></td>
+    </tr>`;
+  });
+
+  tbodyHTML += `<tr style="background:#f1f5f9; font-weight:900; border-top:2px solid #1A2B4C;">
+    <td colspan="2" style="padding:10px; text-align:right; border:1px solid #cbd5e1; font-size:0.85rem; text-transform:uppercase;">TOTAL GÉNÉRAL :</td>
+    <td style="padding:10px; text-align:right; border:1px solid #cbd5e1;">${fc(items.reduce((s, x) => s + x.base, 0))}</td>
+    <td style="padding:10px; text-align:right; border:1px solid #cbd5e1; color:#059669;">+${fc(totPrimes)}</td>
+    <td style="padding:10px; text-align:right; border:1px solid #cbd5e1; color:#dc2626;">-${fc(items.reduce((s, x) => s + (x.retenues || 0), 0))}</td>
+    <td style="padding:10px; text-align:right; border:1px solid #cbd5e1; color:#0284c7; font-size:0.95rem;">${fc(totNet)}</td>
+    <td colspan="2" style="border:1px solid #cbd5e1;"></td>
+  </tr>`;
+
+  document.getElementById('p-salaires-tot-primes').textContent = fc(totPrimes);
+  document.getElementById('p-salaires-tot-net').textContent = fc(totNet);
+  document.getElementById('p-salaires-tbody').innerHTML = tbodyHTML;
+
+  const modal = document.getElementById('print-salaires-modal');
+  modal.style.display = 'block';
 }
 
 function renderMonthlyTable(m) {
