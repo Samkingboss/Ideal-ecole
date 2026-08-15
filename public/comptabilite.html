@@ -792,7 +792,7 @@ function deconnexionIdeal() {
   <button class="tab-btn" onclick="showTab('recettes',this)">💵 Effectifs & Recettes</button>
   <button class="tab-btn" onclick="showTab('charges',this)">📋 Charges</button>
   <button class="tab-btn" id="btn-tab-salaires" onclick="showTab('salaires-rh',this)" style="background: linear-gradient(135deg, rgba(147,51,234,0.3), rgba(0,168,224,0.3)); color: #38bdf8 !important; border: 1.5px solid #38bdf8; font-weight: 800;">👥 Salaires &amp; Paie (RH)</button>
-  <button class="tab-btn" onclick="window.location.href='/?tab=cartes'" style="background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(0,168,224,0.25)); color: #10b981 !important; border: 1.5px solid #10b981; font-weight: 800;">💳 Cartes Scolaires</button>
+  <button class="tab-btn" onclick="showTab('cartes',this)" style="background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(0,168,224,0.25)); color: #10b981 !important; border: 1.5px solid #10b981; font-weight: 800;">💳 Cartes Scolaires</button>
   <button class="tab-btn" onclick="showTab('eleves',this)">🎓 Gestion Élèves</button>
   <button class="tab-btn" onclick="showTab('recouvrement',this)">📲 Recouvrement WhatsApp</button>
   <button class="tab-btn" onclick="showTab('pilotage',this)">🚀 Pilotage & Alertes</button>
@@ -1126,6 +1126,32 @@ function deconnexionIdeal() {
         <tbody id="tbody-etat-salaires-mensuel-rh"></tbody>
       </table>
     </div>
+  </div>
+</section>
+
+<!-- ════════════════ TAB: CARTES SCOLAIRES ÉLÈVES ════════════════ -->
+<section class="tab-pane" id="tab-cartes">
+  <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+    <div>
+      <div class="sec-title">💳 Cartes Scolaires d'Élèves (Design Épuré IDEAL)</div>
+      <div class="sec-sub">Génération, prévisualisation et impression des cartes d'identité scolaires des élèves.</div>
+    </div>
+    <button class="btn" style="background:linear-gradient(135deg,#00a8e0,#0078b4); color:#fff; font-weight:800; padding:0.75rem 1.3rem; border-radius:8px; border:none; cursor:pointer;" onclick="window.print()">
+      🖨️ Imprimer les Cartes (PDF)
+    </button>
+  </div>
+
+  <div class="card" style="padding:1.2rem; margin-bottom:1.5rem; background:var(--card);">
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+      <div style="flex:1; min-width:220px;">
+        <label style="font-size:0.75rem; font-weight:800; color:var(--muted); text-transform:uppercase; display:block; margin-bottom:4px;">Sélectionner un élève</label>
+        <select id="cartes-eleve-select-compta" class="inp" onchange="renderCartePreviewCompta(this.value)" style="width:100%; padding:0.6rem; font-weight:700; background:var(--bg); border:1.5px solid var(--border); color:var(--text); border-radius:8px;"></select>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:2rem; padding:1rem 0;" id="cartes-preview-container-compta">
+    <!-- Rendu dynamique par JS -->
   </div>
 </section>
 
@@ -6738,6 +6764,7 @@ function showTab(name, btn) {
   // Re-render Eleves before showing
   if (name === 'eleves') renderElevesTab();
   if (name === 'recouvrement') renderRecouvrement();
+  if (name === 'cartes') renderCartesTabCompta();
   if (name === 'salaires-rh' || name === 'charges') { renderSalairesTable(); renderEtatSalairesMensuel(); }
 
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -7858,8 +7885,111 @@ window.addEventListener('DOMContentLoaded', async () => {
       // 3. Fermer le modal d'impression du reçu si visible
       const pm = document.getElementById('print-receipt-modal');
       if (pm && pm.style.display === 'block') pm.style.display = 'none';
-    }
-  });
+function renderCartesTabCompta() {
+  const container = document.getElementById('cartes-preview-container-compta');
+  const select = document.getElementById('cartes-eleve-select-compta');
+  if (!container || !select) return;
+
+  const list = studentsData || [];
+  select.innerHTML = list.map(s => `<option value="${s.id}">${(s.nom||'').toUpperCase()} ${s.prenom||''} (${s.matricule||'24-25 A001'}) — ${s.classe||'CP1'}</option>`).join('');
+
+  if (list.length > 0) {
+    renderCartePreviewCompta(list[0].id);
+  } else {
+    container.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:3rem;">Aucun élève trouvé.</div>`;
+  }
+}
+
+function renderCartePreviewCompta(eleveId) {
+  const container = document.getElementById('cartes-preview-container-compta');
+  if (!container) return;
+  const el = (studentsData || []).find(s => String(s.id) === String(eleveId)) || studentsData?.[0];
+  if (!el) return;
+
+  const nom = (el.nom || 'SAMAKÉ').toUpperCase();
+  const prenom = el.prenom || 'Mamadou';
+  const mat = el.matricule || '24-25 A014';
+  const cls = el.classe || 'CP1 Bilingue';
+  const dob = el.date_naissance || '15/04/2018';
+  const pob = el.lieu_naissance || 'Bamako';
+  const gs = el.groupe_sanguin || 'O+';
+  const tel = el.tel1 || el.telephone_parent || '+223 76 45 89 12';
+  const adr = el.adresse || 'Bamako, Mali';
+  const cantine = el.cantine !== false;
+
+  container.innerHTML = `
+    <!-- RECTO -->
+    <div style="width:380px; height:240px; border-radius:16px; background:linear-gradient(135deg, #0b1929 0%, #0d2a3b 60%, #004d73 100%); color:#fff; padding:14px; box-sizing:border-box; position:relative; overflow:hidden; font-family:sans-serif; box-shadow:0 15px 35px rgba(0,0,0,0.3);">
+      <div style="display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(255,255,255,0.15); padding-bottom:8px; margin-bottom:10px;">
+        <img src="/logo-ideal.png" alt="IDEAL" style="height:32px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+        <div>
+          <div style="font-size:10px; font-weight:900; letter-spacing:0.8px; color:#38bdf8; text-transform:uppercase;">ÉCOLE INTERNATIONALE BILINGUE IDEAL</div>
+          <div style="font-size:8.5px; color:rgba(255,255,255,0.7); font-weight:600;">Bamako, Mali • Année 2026 - 2027</div>
+        </div>
+        <div style="margin-left:auto; background:rgba(56,189,248,0.2); border:1px solid #38bdf8; border-radius:4px; padding:2px 6px; font-size:7.5px; font-weight:900; color:#38bdf8;">RECTO</div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div style="width:85px; height:105px; border-radius:10px; border:2px solid #38bdf8; background:#091b29; overflow:hidden; display:flex; align-items:center; justify-content:center; position:relative;">
+          ${el.photo_url ? `<img src="${el.photo_url}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="text-align:center; color:#94a3b8;"><div style="font-size:32px;">👤</div></div>`}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:8px; color:#94a3b8; font-weight:800;">NOM ET PRÉNOM(S)</div>
+          <div style="font-size:13.5px; font-weight:900; color:#fff; text-transform:uppercase; margin-bottom:6px;">${nom} <span style="color:#38bdf8;">${prenom}</span></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; font-size:8.5px;">
+            <div><span style="color:#94a3b8;">MATRICULE :</span><div style="font-weight:900; color:#38bdf8;">${mat}</div></div>
+            <div><span style="color:#94a3b8;">CLASSE :</span><div style="font-weight:900; color:#fff;">${cls}</div></div>
+            <div><span style="color:#94a3b8;">NÉ(E) LE :</span><div style="font-weight:700; color:#e2e8f0;">${dob}</div></div>
+            <div><span style="color:#94a3b8;">À :</span><div style="font-weight:700; color:#e2e8f0;">${pob}</div></div>
+          </div>
+        </div>
+        <div style="background:#fff; padding:4px; border-radius:6px; width:44px; height:44px; display:flex; align-items:center; justify-content:center;">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="#091b29"><path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm9-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm13-2h4v2h-4v-2zm-4 4h2v4h-2v-4zm2-2h4v2h-4v-2zm2 4h4v2h-4v-2z"/></svg>
+        </div>
+      </div>
+      <div style="position:absolute; bottom:6px; left:14px; right:14px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.1); padding-top:4px;">
+        <div style="font-size:7px; color:rgba(255,255,255,0.6);">CARTE SCOLAIRE OFFICIELLE • IDEAL ÉCOLE</div>
+        <div style="font-size:7px; color:#38bdf8; font-weight:800;">VALIDITÉ : 2026 - 2027</div>
+      </div>
+    </div>
+
+    <!-- VERSO -->
+    <div style="width:380px; height:240px; border-radius:16px; background:#ffffff; border:1px solid #cbd5e1; color:#1e293b; padding:14px; box-sizing:border-box; position:relative; overflow:hidden; font-family:sans-serif; box-shadow:0 15px 35px rgba(0,0,0,0.15);">
+      <div style="background:#0d2a3b; color:#fff; margin:-14px -14px 10px -14px; padding:8px 14px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:9px; font-weight:900; color:#38bdf8;">INFORMATIONS D'URGENCE & SERVICES</div>
+        <div style="background:rgba(255,255,255,0.2); border-radius:4px; padding:2px 6px; font-size:7.5px; font-weight:900; color:#fff;">VERSO</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:10px; font-size:8.5px;">
+        <div>
+          <div style="font-weight:800; color:#0d2a3b; margin-bottom:2px;">📞 PARENT / TUTEUR :</div>
+          <div style="font-size:10px; font-weight:900; color:#00a8e0;">${tel}</div>
+          <div style="font-weight:800; color:#0d2a3b; margin-top:5px; margin-bottom:2px;">🏫 CONTACT ÉCOLE IDEAL :</div>
+          <div style="font-size:9.5px; font-weight:900; color:#0d2a3b;">+223 20 22 00 00 / 70 00 00 00</div>
+          <div style="font-weight:800; color:#0d2a3b; margin-top:5px; margin-bottom:2px;">📍 ADRESSE :</div>
+          <div style="font-size:8.5px; color:#475569; font-weight:600;">${adr}</div>
+        </div>
+        <div style="background:#f8fafc; padding:8px; border-radius:8px; border:1px solid #e2e8f0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:8px; font-weight:800; color:#64748b;">GROUPE SANGUIN</span>
+            <span style="background:#ef4444; color:#fff; font-size:9px; font-weight:900; padding:1px 6px; border-radius:6px;">${gs}</span>
+          </div>
+          <div style="font-size:8.5px; margin-top:8px;">
+            <span>🍽️ Cantine Impériale :</span> <b style="color:${cantine?'#16a34a':'#94a3b8'};">${cantine?'Inscrit(e)':'Non'}</b>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px; padding-top:6px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:flex-end;">
+        <div style="flex:1; font-size:7px; color:#64748b; line-height:1.3; padding-right:10px;">
+          ⚠️ Cette carte est strictly personnelle et obligatoire pour l'accès aux classes et activités d'IDEAL. En cas de perte, signaler à la Direction.
+        </div>
+        <div style="text-align:center; min-width:90px;">
+          <div style="font-size:7px; font-weight:800; color:#0d2a3b;">LE DIRECTEUR</div>
+          <div style="height:20px; font-style:italic; font-weight:900; color:#0078b4; font-size:11px;">IDEAL Ecole</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 });
 </script>
 </body>

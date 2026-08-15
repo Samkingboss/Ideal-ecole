@@ -50,17 +50,9 @@ export default function App() {
   )
 
   if (!user) return <LoginPage onLogin={handleLogin} />
-  if (user.role === 'responsable_administratif') {
-    window.location.replace('/comptabilite.html')
-    return (
-      <div className="splash">
-        <div className="splash-icon">📒</div>
-        <div className="splash-title">IDEAL</div>
-        <div className="splash-sub">Ouverture de la comptabilité…</div>
-      </div>
-    )
+  if (user.role === 'directeur' || user.role === 'responsable_administratif') {
+    return <DirecteurApp user={user} onLogout={handleLogout} />
   }
-  if (user.role === 'directeur') return <DirecteurApp user={user} onLogout={handleLogout} />
   if (user.role === 'professeur') return <ProfApp user={user} onLogout={handleLogout} />
   if (user.role === 'surveillant') return <SurveillantApp user={user} onLogout={handleLogout} />
   if (user.role === 'conseiller_vie_scolaire') return <ConseillerApp user={user} onLogout={handleLogout} />
