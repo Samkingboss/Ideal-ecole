@@ -33,6 +33,18 @@ const TOP_TABS = [
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
+const fmtRole = r => {
+  const map = {
+    'directeur': 'Directeur',
+    'professeur': 'Enseignant',
+    'surveillant': 'Surveillant',
+    'conseiller_vie_scolaire': 'Conseiller Vie Scolaire',
+    'responsable_administratif': 'Responsable Administratif',
+    'cuisiniere': 'Chef Cuisinière / Cantine'
+  }
+  return map[r] || r
+}
+
 // Référentiel par défaut des postes (seed si app_state rh/postes est vide).
 // Doit rester aligné avec SALAIRES_DETAIL de public/comptabilite.html.
 const DEFAULT_POSTES = [
@@ -40,6 +52,7 @@ const DEFAULT_POSTES = [
   { id:'resp-administratif',     label:'Responsable administratif',       mensuel:150000, commentaire:'Secrétariat et suivi' },
   { id:'conseillere-vie-scol',   label:'Conseillère de vie scolaire',     mensuel:75000,  commentaire:'' },
   { id:'surveillant',            label:'Surveillant(e)',                  mensuel:75000,  commentaire:'Sécurité et discipline' },
+  { id:'cuisiniere',             label:'Chef Cuisinière / Cantine',       mensuel:90000,  commentaire:'Restauration et gestion cantine' },
   { id:'menageres',              label:'Ménagères (× 3)',                 mensuel:150000, commentaire:'50 000 FCFA × 3' },
   { id:'gardien',                label:'Gardien',                         mensuel:30000,  commentaire:'Sécurité nocturne' },
   { id:'maitresse-fr-mat',       label:'Maîtresse Français (Maternelle)', mensuel:125000, commentaire:'' },
@@ -599,7 +612,7 @@ export default function DirecteurApp({ user, onLogout }) {
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                            Rôle: <b style={{ color: 'var(--accent)' }}>{p.role}</b> {p.langue ? `(${p.langue.toUpperCase()})` : ''}
+                            Rôle: <b style={{ color: 'var(--accent)' }}>{fmtRole(p.role)}</b> {p.langue ? `(${p.langue.toUpperCase()})` : ''}
                           </div>
                         </div>
                       </div>
@@ -940,7 +953,7 @@ export default function DirecteurApp({ user, onLogout }) {
                   {profs.map(p => (
                     <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Rôle: <b style={{ color: 'var(--accent)' }}>{p.role}</b></div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Rôle: <b style={{ color: 'var(--accent)' }}>{fmtRole(p.role)}</b></div>
                       <div style={{ fontSize: 11, background: 'var(--card)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>
                         🔑 Code : <b style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{p.code_acces}</b>
                       </div>
