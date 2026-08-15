@@ -989,15 +989,32 @@
         if (currentStep !== 4 && stream) stopCamera();
 
         if (currentStep === 8) {
-            setTimeout(() => {
-                const canvas = document.getElementById('signature-pad');
+            // Sur tablette (devicePixelRatio ≥ 2), wrapper.offsetWidth peut être 0
+            // si le layout n'est pas encore calculé à 100 ms. On réessaie via
+            // requestAnimationFrame jusqu'à obtenir une largeur réelle.
+            const initSignaturePad = (tentatives) => {
+                const canvas  = document.getElementById('signature-pad');
                 const wrapper = document.getElementById('signature-wrapper');
+                if (!canvas || !wrapper) return;
+
+                const w = wrapper.offsetWidth;
+                if (w === 0 && tentatives < 20) {
+                    // Layout pas encore prêt — on retente à la frame suivante
+                    requestAnimationFrame(() => initSignaturePad(tentatives + 1));
+                    return;
+                }
+
                 const ratio = window.devicePixelRatio || 1;
-                canvas.width = wrapper.offsetWidth * ratio;
+                // On fixe les dimensions RÉELLES du canvas (résolution native)
+                canvas.width  = Math.max(w, 300) * ratio;
                 canvas.height = 220 * ratio;
                 const ctx = canvas.getContext('2d');
+                // IMPORTANT : réinitialiser la transformation avant d'appliquer
+                // le ratio — évite le double-scale si initSignaturePad est appelé
+                // plusieurs fois (retour arrière + avancement).
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.scale(ratio, ratio);
-                ctx.fillStyle = 'rgb(255,255,255)';
+                ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 if (signaturePad) signaturePad.off();
                 signaturePad = new SignaturePad(canvas, {
@@ -1006,7 +1023,8 @@
                     minWidth: 1.5,
                     maxWidth: 3,
                 });
-            }, 100);
+            };
+            setTimeout(() => initSignaturePad(0), 100);
         }
 
         // Barre de progression
@@ -1177,8 +1195,14 @@
                 profession: document.getElementById('r1-profession').value.trim() || null,
                 situation_matrimoniale: document.getElementById('r1-situation').value || null,
             };
-            const { data: r1, error: r1Err } = await _supa.from('responsables').insert(r1Data).select('id').single();
-            if (r1Err) throw new Error("Erreur Responsable 1: " + r1Err.message);
+            let r1, r1Err;
+            try {
+                ({ data: r1, error: r1Err } = await _supa.from('responsables').insert(r1Data).select('id').single());
+            } catch (fetchErr) {
+                throw new Error('Connexion interrompue lors de la création du dossier responsable. Vérifiez votre connexion et réessayez.');
+            }
+            if (r1Err) throw new Error('Erreur Responsable 1 : ' + r1Err.message);
+            if (!r1 || !r1.id) throw new Error('Dossier responsable non enregistré (réponse vide). Vérifiez votre connexion et réessayez.');
 
             // 2. Insérer Responsable 2 si renseigné
             let r2Id = null;
@@ -1247,13 +1271,26 @@
             // 6. Upload signature
             let signatureUrl = null;
             if (signaturePad && !signaturePad.isEmpty()) {
-                const sigBlob = dataURLtoBlob(signaturePad.toDataURL('image/png'));
-                const sigPath = `signatures/${matricule}.png`;
-                const { error: sigErr } = await _supa.storage.from('inscriptions').upload(sigPath, sigBlob, { contentType: 'image/png', upsert: true });
-                if (!sigErr) {
-                    const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(sigPath);
-                    signatureUrl = pubData.publicUrl;
+                // Vérification préventive : un canvas de largeur 0 (problème
+                // d'initialisation sur tablette) retournerait "data:," et ferait
+                // planter dataURLtoBlob. On réinitialise si nécessaire.
+                const sigCanvas = document.getElementById('signature-pad');
+                if (sigCanvas && sigCanvas.width === 0) {
+                    throw new Error('La zone de signature ne s\'est pas initialisée correctement sur cet appareil. Faites défiler jusqu\'à la zone de signature, effacez et resignez, puis réessayez.');
                 }
+                const sigDataUrl = signaturePad.toDataURL('image/png');
+                if (!sigDataUrl || sigDataUrl === 'data:,') {
+                    throw new Error('Impossible de lire la signature (canvas vide). Effacez et resignez avant de valider.');
+                }
+                const sigBlob = dataURLtoBlob(sigDataUrl);
+                const sigPath = `signatures/${matricule}.png`;
+                try {
+                    const { error: sigErr } = await _supa.storage.from('inscriptions').upload(sigPath, sigBlob, { contentType: 'image/png', upsert: true });
+                    if (!sigErr) {
+                        const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(sigPath);
+                        signatureUrl = pubData.publicUrl;
+                    }
+                } catch (e) { /* L'upload de signature est non bloquant */ }
             }
 
             // 7. Insérer l'inscription principale
@@ -1785,9 +1822,18 @@ Merci de votre confiance.
     // UTILITAIRES
     // =============================================
     function dataURLtoBlob(dataUrl) {
+        if (!dataUrl || dataUrl === 'data:,') {
+            // Canvas vide (largeur 0 sur tablette haute résolution)
+            throw new Error('Le canvas de signature est vide. Vérifiez que la zone de signature est bien visible et réessayez.');
+        }
         const arr = dataUrl.split(',');
-        const mime = arr[0].match(/:(.*?);/)[1];
-        const bstr = atob(arr[1]);
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        if (!mimeMatch) {
+            // Format inattendu — ne devrait pas arriver mais protège sur mobile
+            throw new Error('Format de signature invalide (' + arr[0].slice(0, 30) + '). Effacez et resignez.');
+        }
+        const mime = mimeMatch[1];
+        const bstr = atob(arr[1] || '');
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
         while (n--) u8arr[n] = bstr.charCodeAt(n);
