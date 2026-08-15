@@ -93,6 +93,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [profSelectionne, setProfSelectionne] = useState(null)
   const [journal, setJournal] = useState([])
   const [journalOuvert, setJournalOuvert] = useState(false)
+  const [subTabEleve, setSubTabEleve] = useState('dossiers')
 
   useEffect(() => { 
     loadData() 
@@ -404,15 +405,19 @@ export default function DirecteurApp({ user, onLogout }) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF
+  // INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF (3 SESSIONS DISTINCTES)
   // ═══════════════════════════════════════════════════════════════════
   if (user.role === 'responsable_administratif') {
     const masseSalariale = (postes || []).reduce((s, p) => s + (p.mensuel || 0), 0)
     const nbInscrits = eleves.filter(e => e.is_inscription).length
     const nbEleves = eleves.filter(e => !e.is_inscription).length
 
+    // Active session among the 3 distinct sessions: 'eleves', 'rh', 'compta'
+    const activeSession = ['eleves', 'rh', 'compta'].includes(tab) ? tab : 'eleves'
+
     return (
       <div className="app-shell">
+        {/* Topbar */}
         <div className="topbar">
           <div className="topbar-brand">
             <div>
@@ -429,156 +434,202 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         </div>
 
+        {/* Navigation des 3 SESSIONS DISTINCTES */}
+        <div style={{ display: 'flex', background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 12px', gap: 8, position: 'sticky', top: 51, zIndex: 99 }}>
+          <button 
+            className={`top-nav-item ${activeSession === 'eleves' ? 'active' : ''}`}
+            onClick={() => setTab('eleves')}
+            style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            🎓 1. Gestion Élèves
+          </button>
+          <button 
+            className={`top-nav-item ${activeSession === 'rh' ? 'active' : ''}`}
+            onClick={() => setTab('rh')}
+            style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            💼 2. RH & Paie
+          </button>
+          <button 
+            className={`top-nav-item ${activeSession === 'compta' ? 'active' : ''}`}
+            onClick={() => setTab('compta')}
+            style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            💰 3. Comptabilité
+          </button>
+        </div>
+
         <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px' }}>
 
-          {/* En-tête de bienvenue */}
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>Tableau de bord administratif</h1>
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gérez les inscriptions, la paie du personnel et la comptabilité de l'établissement.</p>
-          </div>
+          {/* ════════════════ SESSION 1 : GESTION ÉLÈVES ════════════════ */}
+          {activeSession === 'eleves' && (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🎓 Session : Gestion Élèves</h1>
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gestion complète des élèves : inscriptions, dossiers numériques, cartes scolaires et certificats de scolarité.</p>
+              </div>
 
-          {/* ═══ SECTION 1 : INSCRIPTIONS ═══ */}
-          <div className="card" style={{ marginBottom: 20, overflow: 'hidden', borderLeft: '4px solid #00a8e0' }}>
-            <div style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#00a8e0,#0078b4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📝</div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>Inscriptions & Dossiers</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Gestion des inscriptions et dossiers numériques des élèves</div>
+              {/* Raccourcis et modules pour la Gestion Élèves */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <a href="/inscription.html" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: 'linear-gradient(135deg,#00a8e0,#0078b4)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(0,168,224,0.25)', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 26, marginBottom: 6 }}>📝</div>
+                    <div style={{ fontWeight: 900, fontSize: 15 }}>Inscriptions &amp; Dossiers</div>
+                    <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>{nbInscrits} nouvelles demandes</div>
+                  </div>
+                </a>
+                <div 
+                  onClick={() => setSubTabEleve('cartes')}
+                  style={{ background: subTabEleve === 'cartes' ? 'linear-gradient(135deg,#059669,#047857)' : 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(16,185,129,0.25)', cursor: 'pointer' }}
+                >
+                  <div style={{ fontSize: 26, marginBottom: 6 }}>💳</div>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>Cartes Scolaires</div>
+                  <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Génération &amp; impression PDF</div>
+                </div>
+                <div 
+                  onClick={() => setSubTabEleve('certificat')}
+                  style={{ background: subTabEleve === 'certificat' ? 'linear-gradient(135deg,#1d4ed8,#1e40af)' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(59,130,246,0.25)', cursor: 'pointer' }}
+                >
+                  <div style={{ fontSize: 26, marginBottom: 6 }}>📜</div>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>Certificat de Scolarité</div>
+                  <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Format portrait A4 officiel</div>
+                </div>
+                <div 
+                  onClick={() => setSubTabEleve('liste')}
+                  style={{ background: subTabEleve === 'liste' ? 'linear-gradient(135deg,#d97706,#b45309)' : 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(245,158,11,0.25)', cursor: 'pointer' }}
+                >
+                  <div style={{ fontSize: 26, marginBottom: 6 }}>🎒</div>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>Fiches &amp; Effectifs</div>
+                  <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>{nbEleves} élèves actifs</div>
                 </div>
               </div>
-              <a href="/inscription.html" style={{ textDecoration: 'none' }}>
-                <button style={{ background: 'linear-gradient(135deg,#00a8e0,#0078b4)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,168,224,0.3)' }}>
-                  Ouvrir les Inscriptions →
-                </button>
-              </a>
-            </div>
-            <div style={{ padding: '1rem 1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                <div style={{ background: 'rgba(0,168,224,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#00a8e0' }}>{nbInscrits}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Nouvelles inscriptions</div>
-                </div>
-                <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--green)' }}>{nbEleves}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Élèves inscrits</div>
-                </div>
-                <div style={{ background: 'rgba(247,148,29,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--amber)' }}>{classes.length}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Classes ouvertes</div>
-                </div>
-              </div>
-              {/* Dernières inscriptions */}
-              {nbInscrits > 0 && (
-                <div style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>Dernières inscriptions</div>
-                  {eleves.filter(e => e.is_inscription).slice(0, 4).map((e, i) => (
-                    <div key={e.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{e.prenom} {e.nom}</div>
-                      <span style={{ fontSize: 10, background: 'rgba(0,168,224,0.1)', color: '#00a8e0', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>{e.classe_nom || '—'}</span>
-                    </div>
-                  ))}
+
+              {/* Contenu dynamique du module actif dans Gestion Élèves */}
+              {subTabEleve === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
+              {subTabEleve === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} />}
+              {(subTabEleve === 'liste' || subTabEleve === 'dossiers') && (
+                <div className="card" style={{ padding: '1.2rem' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: 16 }}>🎒 Effectifs et Liste des Élèves</h3>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                          <th style={{ textAlign: 'left', padding: '10px 12px' }}>Nom &amp; Prénom</th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px' }}>Classe</th>
+                          <th style={{ textAlign: 'center', padding: '10px 12px' }}>Document / Carte</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {eleves.map(e => (
+                          <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '10px 12px', fontWeight: 700 }}>{e.prenom} {e.nom}</td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <span className="chip chip-blue">{e.classe_nom || classes.find(c => c.id === e.classe_id)?.nom || '—'}</span>
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <button 
+                                className="btn-sm" 
+                                style={{ background: 'var(--accent)', color: '#fff', marginRight: 6 }}
+                                onClick={() => setSubTabEleve('certificat')}
+                              >
+                                📜 Certificat
+                              </button>
+                              <button 
+                                className="btn-sm" 
+                                style={{ background: 'var(--green)', color: '#fff' }}
+                                onClick={() => setSubTabEleve('cartes')}
+                              >
+                                💳 Carte
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
+          )}
 
-          {/* ═══ SECTION 2 : RH & PAIE ═══ */}
-          <div className="card" style={{ marginBottom: 20, overflow: 'hidden', borderLeft: '4px solid #8e44ad' }}>
-            <div style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#8e44ad,#6c3483)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💼</div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>RH & Paie du Personnel</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Grille salariale, émargement et gestion du personnel</div>
-                </div>
+          {/* ════════════════ SESSION 2 : RH & PAIE ════════════════ */}
+          {activeSession === 'rh' && (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>💼 Session : RH &amp; Paie du Personnel</h1>
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Référentiel des postes, masse salariale, émargement mensuel et fiches de paie du personnel.</p>
               </div>
-              <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
-                <button style={{ background: 'linear-gradient(135deg,#8e44ad,#6c3483)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(142,68,173,0.3)' }}>
-                  Ouvrir la Paie →
-                </button>
-              </a>
-            </div>
-            <div style={{ padding: '1rem 1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
-                <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+
+              {/* KPI Masse Salariale */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}>{stats.profs}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
                 </div>
-                <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(141,198,63,0.2)' }}>
                   <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--green)' }}>{fcfa(masseSalariale)}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / mois</div>
                 </div>
-                <div style={{ background: 'rgba(236,0,140,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(236,0,140,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(236,0,140,0.2)' }}>
                   <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--pink)' }}>{fcfa(masseSalariale * 12)}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / an</div>
                 </div>
               </div>
-              {/* Grille résumée des postes */}
-              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>Référentiel des postes</div>
-              <div style={{ maxHeight: 220, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg)', position: 'sticky', top: 0 }}>
-                      <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 800, fontSize: 10, textTransform: 'uppercase', color: 'var(--muted)' }}>Poste</th>
-                      <th style={{ textAlign: 'right', padding: '8px 12px', fontWeight: 800, fontSize: 10, textTransform: 'uppercase', color: 'var(--muted)' }}>Mensuel</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(postes || []).map((p, i) => (
-                      <tr key={p.id || i} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '7px 12px', fontWeight: 600 }}>{p.label}</td>
-                        <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{fcfa(p.mensuel)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
 
-          {/* ═══ SECTION 3 : COMPTABILITÉ ═══ */}
-          <div className="card" style={{ marginBottom: 20, overflow: 'hidden', borderLeft: '4px solid #7bc142' }}>
-            <div style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#7bc142,#5a9a2e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💰</div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>Comptabilité & Finances</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Frais de scolarité, paiements, reçus, dépenses et trésorerie</div>
+              {/* Grille Salariale complète */}
+              <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel des Postes &amp; Salaires</h3>
+                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setPosteDraft(postes.map(p => ({ ...p }))); setShowModal('postes') }}>
+                    ✏️ Éditer les Postes
+                  </button>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Poste / Emploi</th>
+                        <th style={{ textAlign: 'right', padding: '10px 12px' }}>Salaire Mensuel</th>
+                        <th style={{ textAlign: 'right', padding: '10px 12px' }}>Cumul Annuel (12 mois)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(postes || []).map((p, i) => (
+                        <tr key={p.id || i} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 600 }}>{p.label}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{fcfa(p.mensuel)}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{fcfa((p.mensuel || 0) * 12)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
-                <button style={{ background: 'linear-gradient(135deg,#7bc142,#5a9a2e)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(123,193,66,0.3)' }}>
-                  Ouvrir la Comptabilité →
-                </button>
-              </a>
             </div>
-            <div style={{ padding: '1rem 1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          )}
+
+          {/* ════════════════ SESSION 3 : COMPTABILITÉ ════════════════ */}
+          {activeSession === 'compta' && (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>💰 Session : Comptabilité &amp; Finances</h1>
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Plateforme financière : gestion des frais de scolarité, reçus, dépenses et trésorerie prévisionnelle (séparée de la paie et des élèves).</p>
+              </div>
+
+              <div className="card" style={{ padding: '2.5rem 1.5rem', textAlign: 'center', background: 'linear-gradient(135deg, #0d2a3b, #1565a0)', color: '#fff', borderRadius: 16 }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+                <h2 style={{ fontSize: 22, fontWeight: 900, margin: '0 0 8px 0' }}>Plateforme Comptabilité Financière Purifiée</h2>
+                <p style={{ fontSize: 13, opacity: 0.85, maxWidth: 500, margin: '0 auto 24px' }}>
+                  Accédez au portail comptable dédié pour suivre les effectifs &amp; recettes, les dépenses fixes et la trésorerie mensuelle sans aucune interférence RH.
+                </p>
                 <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
-                  <div style={{ background: 'rgba(123,193,66,0.06)', borderRadius: 12, padding: '16px', border: '1px solid rgba(123,193,66,0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}>
-                    <div style={{ fontSize: 20, marginBottom: 6 }}>💵</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--dark)' }}>Effectifs & Recettes</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Recettes prévisionnelles par classe</div>
-                  </div>
-                </a>
-                <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
-                  <div style={{ background: 'rgba(0,168,224,0.06)', borderRadius: 12, padding: '16px', border: '1px solid rgba(0,168,224,0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}>
-                    <div style={{ fontSize: 20, marginBottom: 6 }}>📋</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--dark)' }}>Charges & Dépenses</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Salaires, cantine et frais fixes</div>
-                  </div>
-                </a>
-                <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
-                  <div style={{ background: 'rgba(236,0,140,0.06)', borderRadius: 12, padding: '16px', border: '1px solid rgba(236,0,140,0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}>
-                    <div style={{ fontSize: 20, marginBottom: 6 }}>📅</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--dark)' }}>Trésorerie Mensuelle</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Flux d'entrées et sorties</div>
-                  </div>
+                  <button style={{ background: 'linear-gradient(135deg,#8DC63F,#7bc142)', color: '#0d2a3b', border: 'none', padding: '14px 32px', borderRadius: 12, fontWeight: 900, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 16px rgba(141,198,63,0.4)' }}>
+                    💵 Accéder à la Comptabilité Financière →
+                  </button>
                 </a>
               </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>
