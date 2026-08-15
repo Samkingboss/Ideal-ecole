@@ -77,6 +77,9 @@ export default function App() {
   }, [user])
 
   const handleLogin = (u) => {
+    if (u && (u.fonction === 'cuisiniere' || u.custom_role === 'cuisiniere')) {
+      u.role = 'cuisiniere'
+    }
     localStorage.setItem('ideal_user', JSON.stringify(u))
     setUser(u)
   }
@@ -95,13 +98,14 @@ export default function App() {
 
   const renderApp = () => {
     if (!user) return <LoginPage onLogin={handleLogin} />
-    if (user.role === 'directeur' || user.role === 'responsable_administratif') {
+    const r = (user.fonction === 'cuisiniere' || user.custom_role === 'cuisiniere') ? 'cuisiniere' : user.role
+    if (r === 'directeur' || r === 'responsable_administratif') {
       return <DirecteurApp user={user} onLogout={handleLogout} />
     }
-    if (user.role === 'professeur') return <ProfApp user={user} onLogout={handleLogout} />
-    if (user.role === 'surveillant') return <SurveillantApp user={user} onLogout={handleLogout} />
-    if (user.role === 'conseiller_vie_scolaire') return <ConseillerApp user={user} onLogout={handleLogout} />
-    if (user.role === 'cuisiniere') return <CuisiniereApp user={user} onLogout={handleLogout} />
+    if (r === 'professeur') return <ProfApp user={user} onLogout={handleLogout} />
+    if (r === 'surveillant') return <SurveillantApp user={user} onLogout={handleLogout} />
+    if (r === 'conseiller_vie_scolaire') return <ConseillerApp user={user} onLogout={handleLogout} />
+    if (r === 'cuisiniere') return <CuisiniereApp user={{...user, role: 'cuisiniere'}} onLogout={handleLogout} />
     return <LoginPage onLogin={handleLogin} />
   }
 

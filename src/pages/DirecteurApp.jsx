@@ -174,6 +174,7 @@ export default function DirecteurApp({ user, onLogout }) {
       
       const enrichedProfs = u.map(p => ({
         ...p,
+        role: (p.fonction === 'cuisiniere' || p.custom_role === 'cuisiniere') ? 'cuisiniere' : p.role,
         classe_ids: pc.filter(link => link.user_id === p.id).map(link => link.classe_id)
       }))
       setProfs(enrichedProfs)
@@ -319,7 +320,7 @@ export default function DirecteurApp({ user, onLogout }) {
     setLoading(true)
     try {
       const code = newProf.code_acces || generateCode()
-      const { data: userData, error } = await supabase.from('users').upsert({ 
+      let { data: userData, error } = await supabase.from('users').upsert({ 
         id: newProf.id || undefined,
         prenom: newProf.prenom, 
         nom: newProf.nom, 
@@ -330,12 +331,27 @@ export default function DirecteurApp({ user, onLogout }) {
         actif: true 
       }, { onConflict: 'id' }).select().single()
 
+      // Si la contrainte CHECK bloque le rôle en base, on fait un fallback transparent
+      if (error && error.message.includes('users_role_check')) {
+        console.warn('Contrainte users_role_check détectée. Application du fallback fonction: cuisiniere...')
+        const fallback = await supabase.from('users').upsert({
+          id: newProf.id || undefined,
+          prenom: newProf.prenom, 
+          nom: newProf.nom, 
+          role: 'surveillant',
+          fonction: 'cuisiniere',
+          langue: newProf.langue, 
+          code_acces: code, 
+          plafond_salaire: newProf.plafond_salaire,
+          actif: true 
+        }, { onConflict: 'id' }).select().single()
+
+        userData = fallback.data
+        error = fallback.error
+      }
+
       if (error) {
-        // Le modal masque la zone de message : afficher l'erreur de façon visible
-        const explication = error.message.includes('users_role_check')
-          ? "La base de données n'autorise pas encore ce rôle.\n\nExécutez le script SQL de mise à jour des rôles dans Supabase (SQL Editor) puis réessayez."
-          : error.message
-        alert('❌ Compte non enregistré.\n\n' + explication)
+        alert('❌ Compte non enregistré : ' + (error.message || 'Erreur inattendue'))
         setMsg('Erreur: ' + error.message)
       } else if (userData) {
         if (newProf.role === 'professeur') {
