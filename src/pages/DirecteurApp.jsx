@@ -692,7 +692,7 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="section-head">
               <div className="section-title">Gestion RH, Paie &amp; Demandes du Personnel</div>
               <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft(postes.map(p=>({...p})));setShowModal('postes')}}>💼 Grille des Postes &amp; Salaires</button>
+                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft((postes||[]).map(p=>({...p})));setShowModal('postes')}}>💼 Grille des Postes &amp; Salaires</button>
                 <a href="/comptabilite.html#salaires-rh" className="btn-sm" style={{textDecoration:'none', background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6}}>🖨️ Éditer l'État des Salaires (PDF)</a>
               </div>
             </div>
@@ -704,11 +704,11 @@ export default function DirecteurApp({ user, onLogout }) {
                   <span>📩 Demandes du Personnel (Prêts, Avances, Congés, Permissions)</span>
                 </h4>
                 <span className="badge" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', fontWeight:800, padding:'4px 10px', borderRadius:20, fontSize:11}}>
-                  {demandesRH.filter(d => d.statut === 'En attente').length} En attente
+                  {(demandesRH || []).filter(d => d && d.statut === 'En attente').length} En attente
                 </span>
               </div>
 
-              {demandesRH.length === 0 ? (
+              {(!demandesRH || demandesRH.length === 0) ? (
                 <div style={{padding:'2rem', textAlign:'center', color:'var(--muted)', fontSize:13}}>
                   📬 Aucune demande reçue du personnel pour le moment.
                 </div>
@@ -725,11 +725,13 @@ export default function DirecteurApp({ user, onLogout }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {demandesRH.map(d => (
-                        <tr key={d.id} style={{borderBottom:'1px solid var(--border)'}}>
+                      {(demandesRH || []).map(d => d && (
+                        <tr key={d.id || Math.random()} style={{borderBottom:'1px solid var(--border)'}}>
                           <td style={{padding:'12px', fontWeight:800, color:'var(--text)'}}>
-                            {d.user_name}
-                            <div style={{fontSize:10, color:'var(--muted)', fontWeight:400}}>{new Date(d.date_soumission).toLocaleDateString('fr-FR')}</div>
+                            {d.user_name || 'Enseignant'}
+                            <div style={{fontSize:10, color:'var(--muted)', fontWeight:400}}>
+                              {d.date_soumission ? new Date(d.date_soumission).toLocaleDateString('fr-FR') : ''}
+                            </div>
                           </td>
                           <td style={{padding:'12px'}}>
                             <span style={{fontWeight:800, color:'var(--accent)'}}>
@@ -755,7 +757,7 @@ export default function DirecteurApp({ user, onLogout }) {
                               background: d.statut === 'Approuvée' ? 'rgba(34,197,94,0.15)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)',
                               color: d.statut === 'Approuvée' ? '#22c55e' : d.statut === 'Refusée' ? '#ef4444' : '#eab308'
                             }}>
-                              {d.statut}
+                              {d.statut || 'En attente'}
                             </span>
                           </td>
                           <td style={{padding:'12px', textAlign:'center'}}>
@@ -767,7 +769,7 @@ export default function DirecteurApp({ user, onLogout }) {
                                   onClick={async () => {
                                     const rep = prompt('Confirmation / Message pour l\'enseignant (optionnel) :', 'Demande approuvée par la Direction.')
                                     if (rep === null) return
-                                    const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut:'Approuvée', reponse_direction: rep } : x)
+                                    const updated = (demandesRH || []).map(x => x.id === d.id ? { ...x, statut:'Approuvée', reponse_direction: rep } : x)
                                     setDemandesRH(updated)
                                     await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() })
                                     alert('✅ Demande approuvée avec succès !')
@@ -781,7 +783,7 @@ export default function DirecteurApp({ user, onLogout }) {
                                   onClick={async () => {
                                     const rep = prompt('Motif du refus :', 'Refusé')
                                     if (!rep) return
-                                    const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut:'Refusée', reponse_direction: rep } : x)
+                                    const updated = (demandesRH || []).map(x => x.id === d.id ? { ...x, statut:'Refusée', reponse_direction: rep } : x)
                                     setDemandesRH(updated)
                                     await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() })
                                     alert('❌ Demande refusée.')
@@ -805,7 +807,7 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="card" style={{marginBottom:16}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
                 <h4 style={{margin:0, fontSize:14, color:'var(--text)'}}>Référentiel Salarial du Personnel</h4>
-                <span className="badge" style={{background:'rgba(26,175,224,0.1)', color:'var(--accent)', fontWeight:700, padding:'4px 10px', borderRadius:20, fontSize:11}}>{postes.length} Postes configurés</span>
+                <span className="badge" style={{background:'rgba(26,175,224,0.1)', color:'var(--accent)', fontWeight:700, padding:'4px 10px', borderRadius:20, fontSize:11}}>{(postes || []).length} Postes configurés</span>
               </div>
               <div style={{overflowX:'auto'}}>
                 <table className="tbl" style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
@@ -817,8 +819,8 @@ export default function DirecteurApp({ user, onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {postes.map(p => (
-                      <tr key={p.id} style={{borderBottom:'1px solid var(--border)'}}>
+                    {(postes || []).map(p => (
+                      <tr key={p.id || Math.random()} style={{borderBottom:'1px solid var(--border)'}}>
                         <td style={{padding:'10px 12px', fontWeight:600}}>{p.label} {p.commentaire ? <small style={{color:'var(--muted)', display:'block', fontWeight:400, fontSize:11}}>{p.commentaire}</small> : ''}</td>
                         <td style={{padding:'10px 12px', textAlign:'right', fontWeight:700, color:'var(--green)'}}>{fcfa(p.mensuel)}</td>
                         <td style={{padding:'10px 12px', textAlign:'right', fontWeight600, color:'var(--text)'}}>{fcfa((p.mensuel || 0) * 12)}</td>
@@ -826,8 +828,8 @@ export default function DirecteurApp({ user, onLogout }) {
                     ))}
                     <tr style={{background:'rgba(0,168,224,0.06)', fontWeight:900}}>
                       <td style={{padding:'12px'}}>MASSE SALARIALE TOTALE</td>
-                      <td style={{padding:'12px', textAlign:'right', color:'var(--green)'}}>{fcfa(postes.reduce((s, x) => s + (Number(x.mensuel) || 0), 0))} / mois</td>
-                      <td style={{padding:'12px', textAlign:'right', color:'var(--accent)'}}>{fcfa(postes.reduce((s, x) => s + (Number(x.mensuel) || 0), 0) * 12)} / an</td>
+                      <td style={{padding:'12px', textAlign:'right', color:'var(--green)'}}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0))} / mois</td>
+                      <td style={{padding:'12px', textAlign:'right', color:'var(--accent)'}}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0) * 12)} / an</td>
                     </tr>
                   </tbody>
                 </table>

@@ -55,14 +55,16 @@ body {
   padding: 10px 1.2rem; 
   background: var(--card); 
   border-bottom: 1px solid var(--border); 
-  overflow-x: auto; 
-  scrollbar-width: none; 
+  overflow-x: auto !important; 
   position: sticky; 
   top: 51px; /* Juste sous la topbar */
   z-index: 99; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
 }
-.top-nav-secondary::-webkit-scrollbar { display: none; }
+.top-nav-secondary::-webkit-scrollbar { height: 4px; display: block; }
+.top-nav-secondary::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
 .top-nav-item { 
   flex-shrink: 0; 
   padding: 7px 14px; 
