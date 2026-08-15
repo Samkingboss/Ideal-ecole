@@ -538,26 +538,25 @@ export default function CartesScolaires() {
                     <div style={{ fontWeight: 800, color: '#0d2a3b', marginBottom: 2 }}>📞 PARENT / TUTEUR :</div>
                     <div style={{ fontSize: 10, fontWeight: 900, color: '#00a8e0' }}>{selectedEleve.telephone_parent}</div>
                     
-                    <div style={{ fontWeight: 800, color: '#0d2a3b', marginTop: 6, marginBottom: 2 }}>📍 ADRESSE DE RÉSIDENCE :</div>
+                    <div style={{ fontWeight: 800, color: '#0d2a3b', marginTop: 5, marginBottom: 2 }}>🏫 CONTACT ÉCOLE IDEAL :</div>
+                    <div style={{ fontSize: 9.5, fontWeight: 900, color: '#0d2a3b' }}>+223 20 22 00 00 / 70 00 00 00</div>
+
+                    <div style={{ fontWeight: 800, color: '#0d2a3b', marginTop: 5, marginBottom: 2 }}>📍 ADRESSE DE RÉSIDENCE :</div>
                     <div style={{ fontSize: 8.5, color: '#475569', fontWeight: 600 }}>{selectedEleve.adresse}</div>
                   </div>
 
                   <div style={{ background: '#f8fafc', padding: 8, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontSize: 8, fontWeight: 800, color: '#64748b' }}>GROUPE SANGUIN</span>
                       <span style={{ background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 6 }}>
                         {selectedEleve.groupe_sanguin}
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 6 }}>
-                      <div style={{ fontSize: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>🍽️ Cantine :</span>
-                        <b style={{ color: selectedEleve.cantine ? '#16a34a' : '#94a3b8' }}>{selectedEleve.cantine ? 'Inscrit(e)' : 'Non'}</b>
-                      </div>
-                      <div style={{ fontSize: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>🚌 Transport :</span>
-                        <b style={{ color: selectedEleve.transport ? '#16a34a' : '#94a3b8' }}>{selectedEleve.transport ? 'Ligne Active' : 'Non'}</b>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                      <div style={{ fontSize: 8.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span>🍽️ Cantine Impériale :</span>
+                        <b style={{ color: selectedEleve.cantine ? '#16a34a' : '#94a3b8' }}>{selectedEleve.cantine ? 'Inscrit(e)' : 'Non inscrite'}</b>
                       </div>
                     </div>
                   </div>
