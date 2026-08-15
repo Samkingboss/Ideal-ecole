@@ -823,7 +823,7 @@ export default function DirecteurApp({ user, onLogout }) {
                       <tr key={p.id || Math.random()} style={{borderBottom:'1px solid var(--border)'}}>
                         <td style={{padding:'10px 12px', fontWeight:600}}>{p.label} {p.commentaire ? <small style={{color:'var(--muted)', display:'block', fontWeight:400, fontSize:11}}>{p.commentaire}</small> : ''}</td>
                         <td style={{padding:'10px 12px', textAlign:'right', fontWeight:700, color:'var(--green)'}}>{fcfa(p.mensuel)}</td>
-                        <td style={{padding:'10px 12px', textAlign:'right', fontWeight600, color:'var(--text)'}}>{fcfa((p.mensuel || 0) * 12)}</td>
+                        <td style={{padding:'10px 12px', textAlign:'right', fontWeight: 600, color:'var(--text)'}}>{fcfa((p.mensuel || 0) * 12)}</td>
                       </tr>
                     ))}
                     <tr style={{background:'rgba(0,168,224,0.06)', fontWeight:900}}>
