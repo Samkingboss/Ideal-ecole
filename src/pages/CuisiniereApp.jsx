@@ -1141,61 +1141,66 @@ export default function CuisiniereApp({ user, onLogout }) {
             </div>
 
             {/* AFFICHE INTÉGRALE HEBDOMADAIRE (FONDS COLORÉS SANS BORDURES NI POINTILLÉS) */}
-            <div
-              id="menu-whatsapp-poster"
-              style={{
-                padding: '3rem 2.5rem',
-                background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
-                color: '#0f172a',
-                borderRadius: 32,
-                boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
-                border: '3px double #d97706',
-                position: 'relative',
-                overflow: 'hidden',
-                fontFamily: 'system-ui, -apple-system, sans-serif'
-              }}
-            >
-              {/* Filigrane de sécurité couronne impériale */}
-              <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 260, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
+            <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px 0' }}>
+              <div
+                id="menu-whatsapp-poster"
+                style={{
+                  width: 820,
+                  maxWidth: '100%',
+                  margin: '0 auto',
+                  padding: '2.5rem 1.8rem',
+                  background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
+                  color: '#0f172a',
+                  borderRadius: 32,
+                  boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
+                  border: '3px double #d97706',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {/* Filigrane de sécurité couronne impériale */}
+                <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 260, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
 
-              {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & SERVICE DE RESTAURATION */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
-                {/* Logo a gauche bien visible SANS cercle */}
-                <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 95, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
+                {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & SERVICE DE RESTAURATION */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 20, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 20, marginBottom: 20, flexWrap: 'wrap' }}>
+                  {/* Logo a gauche bien visible SANS cercle */}
+                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 85, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
 
-                <div>
-                  {/* ECOLE INTERNATIONALE BILINGUE IDEAL un peu plus grand */}
-                  <div style={{ fontSize: 26, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    ÉCOLE INTERNATIONALE BILINGUE IDEAL
-                  </div>
-                  {/* SERVICE DE RESTAURATION */}
-                  <div style={{ fontSize: 38, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
-                    SERVICE DE RESTAURATION
-                  </div>
-                </div>
-              </div>
-
-              {/* BARRE BLEU FONCÉ : DATES AFFICHÉES DE MANIÈRE ABSOLUMENT GARANTIE */}
-              <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                <div style={{ display: 'inline-block', backgroundColor: '#0f172a', background: '#0f172a', color: '#ffffff', padding: '14px 44px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                    {getPosterMenuDateTitle(menuSemaine)}
+                  <div>
+                    {/* ECOLE INTERNATIONALE BILINGUE IDEAL un peu plus grand */}
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      ÉCOLE INTERNATIONALE BILINGUE IDEAL
+                    </div>
+                    {/* SERVICE DE RESTAURATION */}
+                    <div style={{ fontSize: 32, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
+                      SERVICE DE RESTAURATION
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* DISPOSITION 2 RANGÉES PARFAITEMENT ÉQUILIBRÉES : 3 COLONNES EN HAUT (LUNDI, MARDI, MERCREDI) ET 2 COLONNES LARGES EN BAS (JEUDI, VENDREDI) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 32 }}>
-                {/* RANGÉE 1 : LUNDI, MARDI, MERCREDI (3 Colonnes très bien fournies) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
-                  {['Lundi', 'Mardi', 'Mercredi'].map(j => renderDayCard(j))}
+                {/* BARRE BLEU FONCÉ : DATES AFFICHÉES DE MANIÈRE ABSOLUMENT GARANTIE */}
+                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                  <div style={{ display: 'inline-block', backgroundColor: '#0f172a', background: '#0f172a', color: '#ffffff', padding: '12px 32px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)', maxWidth: '100%' }}>
+                    <div style={{ fontSize: 17, fontWeight: 900, color: '#ffffff', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                      {getPosterMenuDateTitle(menuSemaine)}
+                    </div>
+                  </div>
                 </div>
 
-                {/* RANGÉE 2 : JEUDI, VENDREDI (2 Colonnes larges remplissant 100% de la largeur) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 22 }}>
-                  {['Jeudi', 'Vendredi'].map(j => renderDayCard(j))}
+                {/* DISPOSITION RESPONSIVE PARFAITEMENT ÉQUILIBRÉES */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 28 }}>
+                  {/* RANGÉE 1 : LUNDI, MARDI, MERCREDI */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18 }}>
+                    {['Lundi', 'Mardi', 'Mercredi'].map(j => renderDayCard(j))}
+                  </div>
+
+                  {/* RANGÉE 2 : JEUDI, VENDREDI */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
+                    {['Jeudi', 'Vendredi'].map(j => renderDayCard(j))}
+                  </div>
                 </div>
-              </div>
 
               {/* PIED DE PAGE HAUTE QUALITÉ AVEC SCEAU DE GARANTIE */}
               <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
@@ -1214,7 +1219,8 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (100% MODIFIABLE & CHOIX PÉRIODE) ════════════════ */}
         {tab === 'marche' && (

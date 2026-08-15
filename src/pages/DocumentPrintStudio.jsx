@@ -131,22 +131,23 @@ export default function DocumentPrintStudio({
       </div>
 
       {/* SUPPORT D'IMPRESSION MASTER TEMPLATE (PAGE A4 RENDUE AVEC CODE COULEUR PAR PROVENANCE) */}
-      <div
-        id="official-department-document"
-        style={{
-          width: 820,
-          maxWidth: '100%',
-          margin: '0 auto',
-          background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
-          padding: '3rem 2.8rem',
-          boxSizing: 'border-box',
-          borderRadius: 32,
-          boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
-          border: `3px double ${theme.primaryColor}`,
-          position: 'relative',
-          color: '#0f172a'
-        }}
-      >
+      <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px 0' }}>
+        <div
+          id="official-department-document"
+          style={{
+            width: 820,
+            maxWidth: '100%',
+            margin: '0 auto',
+            background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
+            padding: '2.5rem 1.8rem',
+            boxSizing: 'border-box',
+            borderRadius: 32,
+            boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
+            border: `3px double ${theme.primaryColor}`,
+            position: 'relative',
+            color: '#0f172a'
+          }}
+        >
         {/* Filigrane de sécurité couronne impériale */}
         <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 280, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
 
@@ -221,5 +222,6 @@ export default function DocumentPrintStudio({
         </div>
       </div>
     </div>
+  </div>
   )
 }
