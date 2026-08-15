@@ -603,20 +603,26 @@ export default function DossierPersonnel({ user, profInfo }) {
 
           <div id="dossier-rh-print-content" style={{ maxWidth: 850, margin: '20px auto', border: '1px solid #cbd5e1', padding: '35px 45px', background: '#fff', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.15)', borderRadius: 8, color: '#1e293b', fontFamily: 'sans-serif' }}>
             
-            {/* Header officiel */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '2.5px solid #0d2a3b', paddingBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <img src="/logo-ideal.png" style={{ maxHeight: 65, display: 'block' }} alt="Logo IDEAL" />
-                <div>
-                  <div style={{ fontWeight: 900, color: '#0d2a3b', fontSize: '1.15rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>ÉCOLE INTERNATIONALE BILINGUE IDEAL</div>
-                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: 2 }}>Faladiè Sema, Bamako, Mali · Tél: (+223) 97 73 14 07 / 90 19 00 07</div>
-                  <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Email: comptabilite.idealecole@gmail.com</div>
+            {/* Header officiel Ultra-Premium */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
+              <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 85, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
+
+              <div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  ÉCOLE INTERNATIONALE BILINGUE IDEAL
+                </div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
+                  FICHE INDIVIDUELLE DU DOSSIER RH
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.7rem', color: '#00a8e0', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DIRECTION DES RESSOURCES HUMAINES</div>
-                <div style={{ fontSize: '1.1rem', color: '#0d2a3b', fontWeight: 900, marginTop: 2 }}>FICHE DOSSIER RH</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>N° Réf: RH-{user?.id?.slice(0, 6)?.toUpperCase() || '2026'}</div>
+            </div>
+
+            {/* BARRE BLEU FONCÉ : N° RÉFÉRENCE & PÉRIODE */}
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'inline-block', background: '#0f172a', color: '#ffffff', padding: '12px 36px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                  📜 FICHE OFFICIELLE • N° RÉE: RH-{user?.id?.slice(0, 6)?.toUpperCase() || '2026'}
+                </div>
               </div>
             </div>
 

@@ -408,17 +408,17 @@ export default function CartesScolaires() {
                 </div>
 
                 {/* Header de la carte */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: 8, marginBottom: 10 }}>
-                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 32, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1.5px solid rgba(217,119,6,0.4)', paddingBottom: 8, marginBottom: 10 }}>
+                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 36, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: 0.8, color: '#38bdf8', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: 0.8, color: '#f59e0b', textTransform: 'uppercase' }}>
                       ÉCOLE INTERNATIONALE BILINGUE IDEAL
                     </div>
-                    <div style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-                      Bamako, République du Mali • Annee 2026 - 2027
+                    <div style={{ fontSize: 8.5, color: '#ffffff', fontWeight: 700 }}>
+                      CARTE D'IDENTITÉ SCOLAIRE • 2026 - 2027
                     </div>
                   </div>
-                  <div style={{ marginLeft: 'auto', background: 'rgba(56,189,248,0.2)', border: '1px solid #38bdf8', borderRadius: 4, padding: '2px 6px', fontSize: 7.5, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase' }}>
+                  <div style={{ marginLeft: 'auto', background: '#0f172a', border: '1px solid #f59e0b', borderRadius: 6, padding: '3px 8px', fontSize: 8, fontWeight: 900, color: '#ffffff', textTransform: 'uppercase' }}>
                     RECTO
                   </div>
                 </div>
