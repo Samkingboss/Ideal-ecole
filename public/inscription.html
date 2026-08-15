@@ -374,6 +374,25 @@
         }
         .wizard-step-sub { color:var(--muted); font-size:.85rem; margin-bottom:1.5rem; }
 
+        @keyframes slideInRight {
+            0% { opacity: 0; transform: translateX(35px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideInLeft {
+            0% { opacity: 0; transform: translateX(-35px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        .wizard-step {
+            will-change: transform, opacity;
+        }
+        .wizard-step.slide-right {
+            animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .wizard-step.slide-left {
+            animation: slideInLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
         /* ═══════════════════════════════════════════
            FORMULAIRES
         ═══════════════════════════════════════════ */
@@ -939,6 +958,8 @@
     // =============================================
     // WIZARD UI
     // =============================================
+    let previousStepIndex = 1;
+
     function updateWizardUI() {
         for (let i = 1; i <= totalSteps; i++) {
             const ind = document.getElementById(`ind-${i}`);
@@ -955,9 +976,19 @@
             }
         }
 
-        document.querySelectorAll('.wizard-step').forEach(el => el.classList.add('hidden'));
+        const animClass = (currentStep >= previousStepIndex) ? 'slide-right' : 'slide-left';
+        previousStepIndex = currentStep;
+
+        document.querySelectorAll('.wizard-step').forEach(el => {
+            el.classList.add('hidden');
+            el.classList.remove('slide-right', 'slide-left');
+        });
         const stepEl = document.getElementById(`step-${currentStep}`);
-        if (stepEl) stepEl.classList.remove('hidden');
+        if (stepEl) {
+            stepEl.classList.remove('hidden');
+            void stepEl.offsetWidth; // Force reflow
+            stepEl.classList.add(animClass);
+        }
 
         if (currentStep !== 4 && stream) stopCamera();
 
