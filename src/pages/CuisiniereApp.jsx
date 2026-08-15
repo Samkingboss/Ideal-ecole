@@ -158,7 +158,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       const canvas = await html2canvas(posterElem, {
         scale: 3, // Ultra Retina Quality 3x pour un rendu presse/magazine sur WhatsApp
         useCORS: true,
-        backgroundColor: '#fffdfa',
+        backgroundColor: '#ffffff',
         logging: false
       })
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98)
@@ -354,6 +354,71 @@ export default function CuisiniereApp({ user, onLogout }) {
   const countMatin = elevesInscrits.filter(e => pointage[e.id]?.matin).length
   const countMidi = elevesInscrits.filter(e => pointage[e.id]?.midi).length
   const countGouter = elevesInscrits.filter(e => pointage[e.id]?.gouter).length
+
+  // Rendu de la carte d'un jour (style maqueté fidèle à 100%)
+  const renderDayCard = (j) => {
+    const item = menuSemaine[j] || {}
+    return (
+      <div
+        key={j}
+        style={{
+          background: '#ffffff',
+          border: '2.5px dashed #ea580c',
+          borderRadius: 26,
+          padding: '20px 22px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          boxShadow: '0 6px 20px rgba(0,0,0,0.03)'
+        }}
+      >
+        {/* En-tête du jour pointillé */}
+        <div style={{ textAlign: 'center', fontSize: 18, fontWeight: 900, color: '#ea580c', letterSpacing: '2px', textTransform: 'uppercase' }}>
+          ---------------- {j.toUpperCase()} ----------------
+        </div>
+
+        {/* ENTRÉE */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7' }}>
+            “{item.entreeTitre || item.entree || 'Entrée fraîche'}”
+          </div>
+          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
+            • {item.entreeDesc || 'Composition fraîcheur préparée le matin.'}
+          </div>
+        </div>
+
+        {/* PLAT PRINCIPAL */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7' }}>
+            “{item.platTitre || item.plat || 'Plat du Chef'}”
+          </div>
+          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
+            • {item.platDesc || 'Plat chaud mijoté, tendre et équilibré pour les enfants.'}
+          </div>
+        </div>
+
+        {/* DESSERT */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#ea580c' }}>
+            “{item.dessertTitre || item.dessert || 'Dessert du jour'}”
+          </div>
+          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
+            • {item.dessertDesc || 'Fruits locaux frais naturellement sucrés.'}
+          </div>
+        </div>
+
+        {/* GOÛTER / COLLATION */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#e11d48' }}>
+            “{item.gouterTitre || item.boisson || 'Collation douce'}”
+          </div>
+          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
+            • {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="app-shell" style={{ background: '#f8fafc', minHeight: '100vh' }}>
@@ -900,19 +965,19 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (AJUSTEMENT DESIGN PRECIS USER) ════════════════ */}
+        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (DISPOSITION PARFAITE 2 RANGÉES ÉQUILIBRÉES) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>👑 Session 4 : Service de Restauration — Affiche Officielle</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium ajusté sur 5 colonnes équilibrées pour diffusion WhatsApp.</p>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium parfaitement équilibré sans aucun vide pour diffusion WhatsApp.</p>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
                   className="btn btn-primary"
                   onClick={exportMenuJpeg}
-                  style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: '#fff', border: 'none', padding: '13px 26px', borderRadius: 14, fontWeight: 900, boxShadow: '0 6px 20px rgba(217,119,6,0.4)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}
+                  style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)', color: '#fff', border: 'none', padding: '13px 26px', borderRadius: 14, fontWeight: 900, boxShadow: '0 6px 20px rgba(234,88,12,0.4)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}
                 >
                   📸 Télécharger Image JPEG HD (WhatsApp Retina 3x)
                 </button>
@@ -926,138 +991,75 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
-            {/* AFFICHE INTÉGRALE HEBDOMADAIRE SUR 5 COLONNES PARFAITES */}
+            {/* AFFICHE INTÉGRALE HEBDOMADAIRE REPRODUISANT FIDÈLEMENT LE DESIGN PARENTS (SANS AUCUN VIDE) */}
             <div
               id="menu-whatsapp-poster"
               style={{
                 padding: '3rem 2.5rem',
-                background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
+                background: '#ffffff',
                 color: '#0f172a',
                 borderRadius: 32,
-                boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
-                border: '3px double #d97706',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.1)',
+                border: '2px solid #e2e8f0',
                 position: 'relative',
                 overflow: 'hidden',
                 fontFamily: 'system-ui, -apple-system, sans-serif'
               }}
             >
-              {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE BIEN VISIBLE & NOUVEAUX TITRES */}
+              {/* EN-TÊTE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & SERVICE DE RESTAURATION */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
                 {/* Logo a gauche bien visible SANS cercle */}
-                <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 85, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
+                <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 95, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
 
                 <div>
-                  {/* ECOLE INTERNATIONALE BILINGUE IDEAL plus grand */}
-                  <div style={{ fontSize: 24, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  {/* ECOLE INTERNATIONALE BILINGUE IDEAL un peu plus grand */}
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
                     ÉCOLE INTERNATIONALE BILINGUE IDEAL
                   </div>
                   {/* SERVICE DE RESTAURATION */}
-                  <div style={{ fontSize: 36, fontWeight: 900, color: '#0f172a', letterSpacing: '1px', marginTop: 2 }}>
+                  <div style={{ fontSize: 38, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
                     SERVICE DE RESTAURATION
                   </div>
                 </div>
               </div>
 
               {/* BARRE BLEU FONCÉ : MENU DU ...../..... AU ...../...../...... */}
-              <div style={{ textAlign: 'center', marginBottom: 28 }}>
-                <div style={{ display: 'inline-block', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: '#fff', padding: '12px 36px', borderRadius: 30, boxShadow: '0 6px 20px rgba(15,23,42,0.25)', border: '1.5px solid #d97706' }}>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+              <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                <div style={{ display: 'inline-block', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: '#fff', padding: '14px 44px', borderRadius: 36, boxShadow: '0 6px 20px rgba(15,23,42,0.25)', border: '1.5px solid #d97706' }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase' }}>
                     MENU DU {menuSemaine.date_debut || '12/01/2026'} AU {menuSemaine.date_fin || '16/01/2026'}
                   </div>
                 </div>
               </div>
 
-              {/* GRILLE PARFAITE DES 5 JOURS EN 5 COLONNES ÉGALES (SANS AUCUN VIDE) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 32 }}>
-                {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(j => {
-                  const item = menuSemaine[j] || {}
-                  return (
-                    <div
-                      key={j}
-                      style={{
-                        background: '#ffffff',
-                        border: '1.5px solid rgba(217,119,6,0.3)',
-                        borderRadius: 22,
-                        padding: '18px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 14,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.04)'
-                      }}
-                    >
-                      {/* Ruban de Titre du Jour */}
-                      <div style={{ background: 'linear-gradient(135deg, #065f46, #047857)', color: '#fff', padding: '8px 10px', borderRadius: 12, textAlign: 'center', fontWeight: 900, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 10px rgba(4,120,87,0.25)', border: '1px solid #10b981' }}>
-                        📅 {j}
-                      </div>
+              {/* DISPOSITION 2 RANGÉES PARFAITEMENT ÉQUILIBRÉES : 3 COLONNES EN HAUT (LUNDI, MARDI, MERCREDI) ET 2 COLONNES LARGES EN BAS (JEUDI, VENDREDI) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 32 }}>
+                {/* RANGÉE 1 : LUNDI, MARDI, MERCREDI (3 Colonnes très bien fournies) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+                  {['Lundi', 'Mardi', 'Mercredi'].map(j => renderDayCard(j))}
+                </div>
 
-                      {/* ENTRÉE */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 4 }}>
-                          <span>🥗</span> ENTRÉE DU CHEF
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
-                          “{item.entreeTitre || item.entree || 'Entrée fraîche' }”
-                        </div>
-                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
-                          <span style={{ color: '#d97706' }}>✦</span> {item.entreeDesc || 'Composition fraîcheur préparée le matin.'}
-                        </div>
-                      </div>
-
-                      {/* PLAT PRINCIPAL CHAUD (VERT ÉMERAUDE) */}
-                      <div style={{ background: 'rgba(16,185,129,0.08)', padding: '10px 8px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.25)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
-                          <span>🍲</span> PLAT PRINCIPAL CHAUD
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: '#064e3b' }}>
-                          “{item.platTitre || item.plat || 'Plat du Chef'}”
-                        </div>
-                        <div style={{ fontSize: 11, color: '#334155', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
-                          <span style={{ color: '#047857' }}>✦</span> {item.platDesc || 'Recette gourmande adaptée à la nutrition infantile.'}
-                        </div>
-                      </div>
-
-                      {/* DESSERT */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#d97706', textTransform: 'uppercase', marginBottom: 4 }}>
-                          <span>🍎</span> DESSERT &amp; FRUITS
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
-                          “{item.dessertTitre || item.dessert || 'Dessert du jour'}”
-                        </div>
-                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
-                          <span style={{ color: '#d97706' }}>✦</span> {item.dessertDesc || 'Sélection de fruits mûrs et naturels.'}
-                        </div>
-                      </div>
-
-                      {/* GOÛTER / COLLATION */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', marginBottom: 4 }}>
-                          <span>🍪</span> GOÛTER &amp; COLLATION
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
-                          “{item.gouterTitre || item.boisson || 'Collation douce'}”
-                        </div>
-                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
-                          <span style={{ color: '#e11d48' }}>✦</span> {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                {/* RANGÉE 2 : JEUDI, VENDREDI (2 Colonnes larges remplissant 100% de la largeur) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 22 }}>
+                  {['Jeudi', 'Vendredi'].map(j => renderDayCard(j))}
+                </div>
               </div>
 
               {/* PIED DE PAGE HAUTE QUALITÉ AVEC SCEAU DE GARANTIE */}
-              <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ fontSize: 32 }}>🥪</div>
+                  <div style={{ fontSize: 32 }}>🍅</div>
+                  <div style={{ fontSize: 32 }}>🥗</div>
                   <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, color: '#b45309', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>🏅</span> CERTIFIÉ QUALITÉ &amp; NUTRITION GASTRONOMIQUE
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
                     Produits 100% Frais &amp; Équilibrés — Cuisine Chef IDEAL
                   </div>
                 </div>
 
-                <div style={{ fontSize: 12, fontWeight: 900, color: '#0f172a', background: 'linear-gradient(135deg, #fef3c7, #fde68a)', padding: '8px 18px', borderRadius: 20, border: '1px solid #f59e0b' }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#ea580c', background: '#fff7ed', padding: '10px 22px', borderRadius: 24, border: '1.5px solid #ffedd5' }}>
                   📲 Diffusion Officielle WhatsApp Parents
                 </div>
               </div>
