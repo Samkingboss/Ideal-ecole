@@ -4657,8 +4657,9 @@ function renderEtatSalairesMensuel() {
   initEtatSalairesMensuel();
   const moisSelect = document.getElementById('salaires-mois-select') || document.getElementById('salaires-mois-select-rh');
   if (!moisSelect) return;
-  const moisKey = moisSelect.value;
-  const moisLabel = moisSelect.options[moisSelect.selectedIndex].text;
+  const moisKey = moisSelect.value || '2026-10';
+  const opt = moisSelect.options && moisSelect.selectedIndex >= 0 ? moisSelect.options[moisSelect.selectedIndex] : null;
+  const moisLabel = opt ? opt.text : moisKey;
 
   const title1 = document.getElementById('etat-salaires-title');
   if (title1) title1.textContent = `État de Paie du Personnel — ${moisLabel}`;
@@ -7785,35 +7786,43 @@ function resetData() {
 // INIT
 // ═══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-  // Fixer les logos depuis la constante base64 (fichier auto-suffisant)
-  const mainLogo = document.getElementById('r-main-logo');
-  if (mainLogo) mainLogo.src = LOGO_BASE64;
-  const footerLogo = document.getElementById('r-footer-logo');
-  if (footerLogo) footerLogo.src = LOGO_BASE64;
+  try {
+    // Fixer les logos depuis la constante base64 (fichier auto-suffisant)
+    const mainLogo = document.getElementById('r-main-logo');
+    if (mainLogo) mainLogo.src = LOGO_BASE64;
+    const footerLogo = document.getElementById('r-footer-logo');
+    if (footerLogo) footerLogo.src = LOGO_BASE64;
 
-  // Charger depuis Supabase en priorité, sinon localStorage
-  const cloudData = await loadFromSupabase();
-  if (cloudData) {
-    // Sauvegarder dans localStorage puis laisser autoLoad appliquer tout (charges, salaires, UI...)
-    try { localStorage.setItem('ideal-prevision-state', JSON.stringify(cloudData)); } catch(e) {}
+    // 1. Chargement instantané et rendu immédiat du tableau de bord
     autoLoad();
-  } else {
-    autoLoad(); // Fallback localStorage
-  }
-  // Le référentiel Postes & salaires du portail directeur fait foi sur la liste des postes
-  await loadPostesCloud();
-  renderChargesTable();
-  renderCantineChargesTable();
-  renderSalairesTable();
-  syncSalaires();                 // aligne la charge « salaires » sur le référentiel chargé
-  clearTimeout(_postesDebounce);  // pas d'écho cloud au simple chargement
-  recalculate();
+    recalculate();
 
-  // ─── Module Comptabilité ───
-  initComptaEvents();
-  fillCompteSelects();
-  renderJournal('CAI');
-  renderComptaStats();
+    // 2. Synchro cloud Supabase si disponible
+    const cloudData = await loadFromSupabase();
+    if (cloudData) {
+      try { localStorage.setItem('ideal-prevision-state', JSON.stringify(cloudData)); } catch(e) {}
+      autoLoad();
+      recalculate();
+    }
+
+    // 3. Postes & charges
+    await loadPostesCloud();
+    renderChargesTable();
+    renderCantineChargesTable();
+    if (typeof renderSalairesTable === 'function') renderSalairesTable();
+    syncSalaires();                 // aligne la charge « salaires » sur le référentiel chargé
+    clearTimeout(_postesDebounce);  // pas d'écho cloud au simple chargement
+    recalculate();
+
+    // ─── Module Comptabilité ───
+    initComptaEvents();
+    fillCompteSelects();
+    renderJournal('CAI');
+    renderComptaStats();
+  } catch (err) {
+    console.error('⚠️ Erreur init comptabilite:', err);
+    try { recalculate(); } catch(e) {}
+  }
 
   // ─── Raccourci clavier global : Échap ferme tous les modals actifs ───
   document.addEventListener('keydown', function(ev) {
