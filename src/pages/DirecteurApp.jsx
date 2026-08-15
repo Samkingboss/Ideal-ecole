@@ -417,13 +417,15 @@ export default function DirecteurApp({ user, onLogout }) {
         <div className="topbar-brand">
           <div>
             <div className="topbar-logo">IDEAL</div>
-            <div className="topbar-sub">ECOLE INTERNATIONALE BILINGUE</div>
+            <div className="topbar-sub">
+              {user.role === 'responsable_administratif' ? 'ADMINISTRATION & GESTION' : 'ÉCOLE INTERNATIONALE BILINGUE'}
+            </div>
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={setTab} />
-          <span className="role-badge role-directeur" style={{ cursor: 'pointer' }} onClick={() => window.location.reload(true)} title="Cliquez pour forcer la mise à jour">
-            Directeur v2.5
+          <span className="role-badge role-directeur" style={{ cursor: 'pointer', background: user.role === 'responsable_administratif' ? 'rgba(0,168,224,0.18)' : undefined, color: user.role === 'responsable_administratif' ? '#00a8e0' : undefined, border: user.role === 'responsable_administratif' ? '1px solid #00a8e0' : undefined }} onClick={() => window.location.reload(true)} title="Cliquez pour forcer la mise à jour">
+            {user.role === 'responsable_administratif' ? 'Responsable Admin v2.5' : 'Directeur v2.5'}
           </span>
           <button className="btn-logout" onClick={onLogout}>Deconnexion</button>
         </div>
