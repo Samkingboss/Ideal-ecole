@@ -94,6 +94,28 @@ const EMPTY_FICHE_MARCHE = {
   articles: []
 }
 
+// Générateur ultra-robuste de titre de date pour l'affiche (Garantie de non-vacuité)
+const getPosterMenuDateTitle = (menu) => {
+  if (!menu) return 'MENU DU 12/01/2026 AU 16/01/2026'
+
+  const debut = menu.date_debut && String(menu.date_debut).trim() ? String(menu.date_debut).trim() : null
+  const fin = menu.date_fin && String(menu.date_fin).trim() ? String(menu.date_fin).trim() : null
+  const dates = menu.dates_semaine && String(menu.dates_semaine).trim() ? String(menu.dates_semaine).trim() : null
+
+  if (debut && fin) {
+    return `MENU DU ${debut} AU ${fin}`
+  }
+
+  if (dates) {
+    const uppercaseDates = dates.toUpperCase()
+    if (uppercaseDates.startsWith('MENU')) return uppercaseDates
+    if (uppercaseDates.startsWith('DU')) return `MENU ${uppercaseDates}`
+    return `MENU DU ${uppercaseDates}`
+  }
+
+  return 'MENU DU 12/01/2026 AU 16/01/2026'
+}
+
 // Données démo élèves cantine (chargées depuis Supabase si actives)
 const DEMO_ELEVES_CANTINE = [
   { id: 'el-1', nom: 'TRAORÉ', prenom: 'Aïcha', classe: 'CP1 Bilingue', cantine: true, allergies: 'Allergie aux Arachides', restrictions: 'Sans Porc' },
@@ -824,7 +846,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                   <input
                     className="form-input"
                     value={menuSemaine.date_debut || '12/01/2026'}
-                    onChange={e => setMenuSemaine({ ...menuSemaine, date_debut: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value })}
                     placeholder="Ex: 12/01/2026"
                     style={{ fontWeight: 800 }}
                   />
@@ -834,8 +856,18 @@ export default function CuisiniereApp({ user, onLogout }) {
                   <input
                     className="form-input"
                     value={menuSemaine.date_fin || '16/01/2026'}
-                    onChange={e => setMenuSemaine({ ...menuSemaine, date_fin: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value })}
                     placeholder="Ex: 16/01/2026"
+                    style={{ fontWeight: 800 }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 800 }}>Intitulé complet de la période</label>
+                  <input
+                    className="form-input"
+                    value={menuSemaine.dates_semaine || '12 au 16 janvier 2026'}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, dates_semaine: e.target.value })}
+                    placeholder="Ex: 12 au 16 janvier 2026"
                     style={{ fontWeight: 800 }}
                   />
                 </div>
@@ -994,10 +1026,10 @@ export default function CuisiniereApp({ user, onLogout }) {
         {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (FONDS COLORÉS SANS BORDURES NI POINTILLÉS) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
-            <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>👑 Session 4 : Service de Restauration — Affiche Officielle</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Fonds colorés élégants sans bordures &amp; en-têtes épurés pour les jours de la semaine.</p>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Officiel pour la chaîne WhatsApp des parents d'élèves.</p>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
@@ -1014,6 +1046,35 @@ export default function CuisiniereApp({ user, onLogout }) {
                 >
                   🖨️ Imprimer Affiche
                 </button>
+              </div>
+            </div>
+
+            {/* BARRE DIRECTE DE Saisie/Modification des dates de l'affiche */}
+            <div className="card" style={{ padding: '14px 20px', marginBottom: 20, background: '#ffffff', borderRadius: 16, borderLeft: '5px solid #0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, fontWeight: 900, color: '#0d2a3b' }}>📅 Dates de la Semaine sur l'Affiche :</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#64748b' }}>Du</span>
+                  <input
+                    className="form-input"
+                    value={menuSemaine.date_debut || '12/01/2026'}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value })}
+                    placeholder="12/01/2026"
+                    style={{ width: 140, fontWeight: 800, color: '#0d2a3b', textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#64748b' }}>Au</span>
+                  <input
+                    className="form-input"
+                    value={menuSemaine.date_fin || '16/01/2026'}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value })}
+                    placeholder="16/01/2026"
+                    style={{ width: 140, fontWeight: 800, color: '#0d2a3b', textAlign: 'center' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#047857', background: '#f0fdf4', padding: '6px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                ✨ {getPosterMenuDateTitle(menuSemaine)}
               </div>
             </div>
 
@@ -1052,22 +1113,11 @@ export default function CuisiniereApp({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* BARRE BLEU FONCÉ : MENU DU ...../..... AU ...../...../...... */}
+              {/* BARRE BLEU FONCÉ : DATES AFFICHÉES DE MANIÈRE ABSOLUMENT GARANTIE */}
               <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                <div style={{ display: 'inline-block', background: '#0f172a', color: '#ffffff', padding: '14px 44px', borderRadius: 36, border: '2px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'system-ui, sans-serif' }}>
-                    {(() => {
-                      if (menuSemaine.date_debut && menuSemaine.date_fin) {
-                        return `MENU DU ${menuSemaine.date_debut} AU ${menuSemaine.date_fin}`
-                      }
-                      if (menuSemaine.dates_semaine) {
-                        const d = menuSemaine.dates_semaine.trim()
-                        if (d.toLowerCase().startsWith('menu')) return d.toUpperCase()
-                        if (d.toLowerCase().startsWith('du')) return `MENU ${d.toUpperCase()}`
-                        return `MENU DU ${d.toUpperCase()}`
-                      }
-                      return 'MENU DU 12/01/2026 AU 16/01/2026'
-                    })()}
+                <div style={{ display: 'inline-block', backgroundColor: '#0f172a', background: '#0f172a', color: '#ffffff', padding: '14px 44px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                    {getPosterMenuDateTitle(menuSemaine)}
                   </div>
                 </div>
               </div>
