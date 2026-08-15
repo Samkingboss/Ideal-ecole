@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { pushNotification } from '../lib/notifications'
 
 export default function DemandesEnseignant({ user }) {
   const [tabType, setTabType] = useState('nouvelle') // 'nouvelle' | 'historique'
@@ -155,6 +156,14 @@ export default function DemandesEnseignant({ user }) {
           value: updatedGlobal,
           updated_at: new Date().toISOString()
         })
+
+      // Push notification au Directeur & Admin
+      await pushNotification('directeur', {
+        titre: `📩 Nouvelle demande: ${getTypeLabel(typeDemande)}`,
+        message: `${nouvelleDemande.user_name} a soumis une nouvelle demande.`,
+        type: 'rh',
+        tabTarget: 'rh'
+      })
 
       setSuccessMsg('✅ Votre demande a été transmise à la Direction Générale et à la Comptabilité avec succès !')
       setTabType('historique')

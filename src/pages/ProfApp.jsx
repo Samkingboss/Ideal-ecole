@@ -7,6 +7,7 @@ import FinDeCours from './FinDeCours'
 import MonEmploiDuTemps from './MonEmploiDuTemps'
 import DossierPersonnel from './DossierPersonnel'
 import DemandesEnseignant from './DemandesEnseignant'
+import NotificationCenter from './NotificationCenter'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -545,7 +546,8 @@ export default function ProfApp({ user, onLogout }) {
               <div className="topbar-sub">{user.prenom} {user.nom}</div>
             </div>
           </div>
-          <div className="topbar-user" style={{gap:10}}>
+          <div className="topbar-user" style={{gap:10, display: 'flex', alignItems: 'center'}}>
+            <NotificationCenter user={user} role="prof" onNavigateTab={setTab} />
             <span className="role-badge role-professeur" style={{fontSize:10, padding:'2px 8px'}}>{user.langue === 'en' ? 'English' : 'Français'}</span>
             <button className="btn-logout" onClick={onLogout} style={{padding:'4px 10px', fontSize:11, borderRadius:8, width:'auto', height:'auto'}}>Déconnexion</button>
           </div>

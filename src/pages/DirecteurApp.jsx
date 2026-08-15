@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import PerformancesDirecteur from './PerformancesDirecteur'
 import AgendaCalendrier from './AgendaCalendrier'
+import NotificationCenter from './NotificationCenter'
 import {
   CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction,
   avantagesDe, ancienneteAnnees, pointsMaxAnnee,
@@ -386,7 +387,8 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="topbar-sub">ECOLE INTERNATIONALE BILINGUE</div>
           </div>
         </div>
-        <div className="topbar-user">
+        <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={setTab} />
           <span className="role-badge role-directeur">Directeur</span>
           <button className="btn-logout" onClick={onLogout}>Deconnexion</button>
         </div>
