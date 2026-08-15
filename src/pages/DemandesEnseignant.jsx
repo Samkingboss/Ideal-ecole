@@ -21,8 +21,8 @@ export default function DemandesEnseignant({ user }) {
     remplacant: '',
     materiel_nom: '',
     materiel_quantite: '1',
-    materiel_estimation: '',
-    urgence: 'Moyen',
+    stade_grossesse: '2 mois (8 SA)',
+    date_dpa: '',
     motif: '',
     fichier_justificatif: null,
     fichier_nom: ''
@@ -251,11 +251,11 @@ export default function DemandesEnseignant({ user }) {
 
               <button
                 type="button"
-                style={{ padding: '1rem 0.8rem', borderRadius: 12, border: typeDemande === 'achat' ? '2px solid #e67e22' : '1px solid var(--border)', background: typeDemande === 'achat' ? 'rgba(230,126,34,0.08)' : '#fff', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s' }}
-                onClick={() => setTypeDemande('achat')}
+                style={{ padding: '1rem 0.8rem', borderRadius: 12, border: typeDemande === 'maternite' ? '2px solid #ec4899' : '1px solid var(--border)', background: typeDemande === 'maternite' ? 'rgba(236,72,153,0.08)' : '#fff', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s' }}
+                onClick={() => setTypeDemande('maternite')}
               >
-                <div style={{ fontSize: 24, marginBottom: 4 }}>📦</div>
-                <div style={{ fontWeight: 800, fontSize: 12, color: typeDemande === 'achat' ? '#e67e22' : 'var(--text)' }}>Matériel Pédagogique</div>
+                <div style={{ fontSize: 24, marginBottom: 4 }}>🤰</div>
+                <div style={{ fontWeight: 800, fontSize: 12, color: typeDemande === 'maternite' ? '#ec4899' : 'var(--text)' }}>Congé Maternité</div>
               </button>
 
             </div>
@@ -391,6 +391,54 @@ export default function DemandesEnseignant({ user }) {
               </div>
             )}
 
+            {/* DEMANDE DE CONGÉ MATERNITÉ */}
+            {typeDemande === 'maternite' && (
+              <div style={{ background: 'rgba(236,72,153,0.04)', padding: '1.2rem', borderRadius: 12, border: '1px solid rgba(236,72,153,0.3)' }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#be185d', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🤰 Déclaration &amp; Demande de Congé de Maternité
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Stade actuel de la grossesse *</label>
+                    <select value={formData.stade_grossesse} onChange={(e) => setFormData({ ...formData, stade_grossesse: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700 }}>
+                      <option value="1 mois (4 SA)">1 mois (4 SA)</option>
+                      <option value="2 mois (8 SA)">2 mois (8 SA)</option>
+                      <option value="3 mois (12 SA - 1er Trimestre)">3 mois (12 SA - 1er Trimestre)</option>
+                      <option value="4 mois (16 SA)">4 mois (16 SA)</option>
+                      <option value="5 mois (20 SA - 2ème Trimestre)">5 mois (20 SA - 2ème Trimestre)</option>
+                      <option value="6 mois (24 SA)">6 mois (24 SA)</option>
+                      <option value="7 mois (28 SA - 3ème Trimestre)">7 mois (28 SA - 3ème Trimestre)</option>
+                      <option value="8 mois (32 SA)">8 mois (32 SA)</option>
+                      <option value="9 mois (36 SA)">9 mois (36 SA)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date Présumée d'Accouchement (DPA) *</label>
+                    <input type="date" required value={formData.date_dpa} onChange={(e) => setFormData({ ...formData, date_dpa: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700, color: '#be185d' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date de début de congé pré-natal *</label>
+                    <input type="date" required value={formData.date_debut} onChange={(e) => setFormData({ ...formData, date_debut: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date prévisionnelle de reprise *</label>
+                    <input type="date" required value={formData.date_fin} onChange={(e) => setFormData({ ...formData, date_fin: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)' }} />
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', background: '#fff', padding: '0.9rem', borderRadius: 8, border: '1px dashed #f472b6' }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#be185d', display: 'block', marginBottom: 4 }}>
+                      📄 Importer la fiche d'échographie / Déclaration médicale de grossesse *
+                    </label>
+                    <input type="file" accept="image/*,.pdf" onChange={handleFileChange} style={{ fontSize: 12 }} />
+                    {formData.fichier_nom && <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 800, marginLeft: 8 }}>✓ Fiche d'échographie jointe: {formData.fichier_nom}</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* CHAMP MOTIF COMMUN */}
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--dark)', display: 'block', marginBottom: 4 }}>
@@ -452,10 +500,11 @@ export default function DemandesEnseignant({ user }) {
                   {/* Résumé des détails */}
                   <div style={{ background: '#fff', padding: '0.8rem 1rem', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, margin: '8px 0' }}>
                     {d.details?.montant && <div style={{ marginBottom: 4 }}>💵 Montant: <b style={{ color: 'var(--accent)' }}>{Number(d.details.montant).toLocaleString('fr-FR')} FCFA</b> {d.details?.duree_mois ? `(Remboursement sur ${d.details.duree_mois} mois)` : ''}</div>}
+                    {d.details?.stade_grossesse && <div style={{ marginBottom: 4, color: '#be185d', fontWeight: 800 }}>🤰 Stade de grossesse: {d.details.stade_grossesse} {d.details?.date_dpa ? `· DPA prévisionnelle: ${d.details.date_dpa}` : ''}</div>}
                     {d.details?.materiel_nom && <div style={{ marginBottom: 4 }}>📦 Matériel: <b>{d.details.materiel_nom}</b> (Qté: {d.details.materiel_quantite || 1})</div>}
-                    {d.details?.date_debut && <div style={{ marginBottom: 4 }}>📅 Période: Du <b>{d.details.date_debut}</b> au <b>{d.details.date_fin || d.details.date_debut}</b></div>}
-                    {d.details?.motif && <div>💬 Motif: <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>« {d.details.motif} »</span></div>}
-                    {d.details?.fichier_nom && <div style={{ marginTop: 6, color: 'var(--green)', fontWeight: 700 }}>📎 Pièce jointe: {d.details.fichier_nom}</div>}
+                    {d.details?.date_debut && <div style={{ marginBottom: 4 }}>📅 Période congé: Du <b>{d.details.date_debut}</b> au <b>{d.details.date_fin || d.details.date_debut}</b></div>}
+                    {d.details?.motif && <div>💬 Motif / Notes: <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>« {d.details.motif} »</span></div>}
+                    {d.details?.fichier_nom && <div style={{ marginTop: 6, color: 'var(--green)', fontWeight: 800 }}>📎 Pièce jointe / Échographie: {d.details.fichier_nom}</div>}
                   </div>
 
                   {d.reponse_direction && (
