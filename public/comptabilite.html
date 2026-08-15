@@ -7785,7 +7785,7 @@ function resetData() {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-window.addEventListener('DOMContentLoaded', async () => {
+async function initComptabiliteApp() {
   try {
     // Fixer les logos depuis la constante base64 (fichier auto-suffisant)
     const mainLogo = document.getElementById('r-main-logo');
@@ -7823,6 +7823,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('⚠️ Erreur init comptabilite:', err);
     try { recalculate(); } catch(e) {}
   }
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initComptabiliteApp);
+} else {
+  initComptabiliteApp();
+}
 
   // ─── Raccourci clavier global : Échap ferme tous les modals actifs ───
   document.addEventListener('keydown', function(ev) {
