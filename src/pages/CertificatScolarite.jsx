@@ -324,8 +324,11 @@ export default function CertificatScolarite() {
                   </div>
                 </div>
 
-          </div>
+              </div>
 
+            </div>
+
+          </div>
         </div>
       )}
 
