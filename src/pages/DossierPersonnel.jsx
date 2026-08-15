@@ -194,7 +194,7 @@ export default function DossierPersonnel({ user, profInfo }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
           
           {/* Avatar / Photo */}
-          <div style={{ position: 'relative', width: 90, height: 90, borderRadius: '50%', background: '#fff', border: '4px solid rgba(255,255,255,0.3)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyCenter: 'center' }}>
+          <div style={{ position: 'relative', width: 90, height: 90, borderRadius: '50%', background: '#fff', border: '4px solid rgba(255,255,255,0.3)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {formData.photo_url ? (
               <img src={formData.photo_url} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
@@ -207,7 +207,7 @@ export default function DossierPersonnel({ user, profInfo }) {
           </div>
 
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>DOSSIER RH & ADMINISTRATIF DE L'ENSEIGNANT</div>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>DOSSIER RH &amp; ADMINISTRATIF DE L'ENSEIGNANT</div>
             <h2 style={{ margin: '4px 0 6px', fontSize: '1.4rem', fontWeight: 900, color: '#fff' }}>
               {formData.prenom || 'Prénom'} {formData.nom || 'Nom'}
             </h2>
@@ -224,7 +224,7 @@ export default function DossierPersonnel({ user, profInfo }) {
             <div style={{ fontSize: 24, fontWeight: 900, color: percentComplete >= 80 ? '#8DC63F' : '#F7941D' }}>
               {percentComplete}%
             </div>
-            <div style="background:rgba(255,255,255,0.2); border-radius:10px; height:6px; margin-top:6px; overflow:hidden;">
+            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 10, height: 6, marginTop: 6, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${percentComplete}%`, background: percentComplete >= 80 ? '#8DC63F' : '#F7941D', transition: 'width 0.3s' }}></div>
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function DossierPersonnel({ user, profInfo }) {
           🔒 Vos données sont confidentielles et sécurisées par la Direction Générale.
         </div>
         <div style={{ display: 'flex', gap: '0.8rem' }}>
-          <button className="btn-ghost" style={{ padding: '0.6rem 1.2rem', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }} onclick={handlePrint}>
+          <button className="btn-ghost" style={{ padding: '0.6rem 1.2rem', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }} onClick={handlePrint}>
             🖨️ Imprimer la Fiche RH (PDF)
           </button>
           <button className="btn-primary" style={{ padding: '0.6rem 1.4rem', borderRadius: 10, cursor: 'pointer', fontWeight: 800, background: 'var(--accent)', color: '#fff', border: 'none' }} onClick={handleSave} disabled={loading}>
