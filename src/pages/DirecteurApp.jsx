@@ -11,6 +11,7 @@ import { lireJournal } from '../lib/audit'
 import AffectationsMatieres from './AffectationsMatieres'
 import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
+import DocumentPrintStudio from './DocumentPrintStudio'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
