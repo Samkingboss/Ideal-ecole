@@ -605,9 +605,9 @@
     details.pil-params-details[open] summary { color: var(--orange); margin-bottom: 0.8rem; }
     .pil-param-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; padding-top: 0.5rem; }
 
-    /* ═══════════ RESSENTI APPLICATION NATIVE ═══════════ */
-    html { overscroll-behavior: none; background: #0c1526; }
-    body { overscroll-behavior-y: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    /* ═══════════ DÉFILEMENT FLUIDE SUR TOUTE LA PAGE ═══════════ */
+    html { scroll-behavior: smooth; overflow-y: auto !important; background: #0c1526; }
+    body { overflow-y: auto !important; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
     input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
     .app-header { padding-top: calc(1.25rem + env(safe-area-inset-top)); }
 

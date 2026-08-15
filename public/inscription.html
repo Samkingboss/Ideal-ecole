@@ -84,12 +84,25 @@
 
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
+        html {
+            scroll-behavior: smooth;
+            overflow-y: auto !important;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
+            overflow-y: auto !important;
             overflow-x: hidden;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        *, .container, .card, .wizard-card, .wizard-step {
+            touch-action: pan-y;
         }
 
         .container {

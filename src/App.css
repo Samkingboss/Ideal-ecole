@@ -14,7 +14,20 @@
   --red: #c53030; /* Amélioré pour le contraste */
   --radius: 16px;
 }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+html {
+  scroll-behavior: smooth;
+  overflow-y: auto !important;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* ── SPLASH ── */
 .splash { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background: linear-gradient(160deg, #0d2a3b, #1565a0 60%, #1AAFE0); gap:12px; }
