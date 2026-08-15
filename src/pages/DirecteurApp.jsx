@@ -109,6 +109,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
   const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
   const [ficheMarcheCantine, setFicheMarcheCantine] = useState({ budget: 0, articles: [] })
+  const [justificatifsCuisine, setJustificatifsCuisine] = useState([])
 
   useEffect(() => { 
     loadData() 
@@ -223,6 +224,13 @@ export default function DirecteurApp({ user, onLogout }) {
       const { data: stateMarche } = await supabase.from('app_state')
         .select('value').eq('key', 'cantine_fiche_marche').maybeSingle()
       if (stateMarche && stateMarche.value) setFicheMarcheCantine(stateMarche.value)
+
+      // Historique des Justificatifs du Jour transmis par la Cuisinière
+      const { data: stateJustifs } = await supabase.from('app_state')
+        .select('value').eq('key', 'cantine_justificatifs_historique').maybeSingle()
+      if (stateJustifs && Array.isArray(stateJustifs.value)) {
+        setJustificatifsCuisine(stateJustifs.value)
+      }
 
       // ─── Points & prime d'été ───
       const [cfgRes, persRes, manRes, perfRes, rapRes] = await Promise.all([
@@ -640,6 +648,81 @@ export default function DirecteurApp({ user, onLogout }) {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Section Registre des Justificatifs du Jour Transmis par la Cuisine */}
+                  <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid #f59e0b', background: '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#0d2a3b' }}>
+                          🧾 Registre des Justificatifs du Jour &amp; Fiches de Marché Transmises
+                        </h3>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                          Feuilles d'achats validées, signées électroniquement par la Cuisinière et répertoriées dans les justificatifs du Responsable Administratif.
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 800, background: '#fffbeb', color: '#b45309', border: '1px solid #fcd34d', padding: '4px 12px', borderRadius: 8 }}>
+                        📜 {justificatifsCuisine.length} Justificatif(s) Enregistré(s)
+                      </span>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: 11, textTransform: 'uppercase' }}>
+                            <th style={{ textAlign: 'left', padding: '10px 12px' }}>Période / Date</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px' }}>Signataire (Chef Cuisinière)</th>
+                            <th style={{ textAlign: 'right', padding: '10px 12px' }}>Budget Alloué</th>
+                            <th style={{ textAlign: 'right', padding: '10px 12px' }}>Total Achats</th>
+                            <th style={{ textAlign: 'right', padding: '10px 12px' }}>Solde Restant</th>
+                            <th style={{ textAlign: 'center', padding: '10px 12px' }}>Horodatage Transmission</th>
+                            <th style={{ textAlign: 'center', padding: '10px 12px' }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {justificatifsCuisine.map(justif => (
+                            <tr key={justif.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0d2a3b' }}>
+                                {justif.type_periode === 'journalier' ? `📅 Jour du ${justif.date_du_jour || justif.date}` : `🗓️ ${justif.periode_semaine || 'Semaine'}`}
+                              </td>
+                              <td style={{ padding: '10px 12px', fontWeight: 800, color: '#d97706' }}>
+                                ✍️ {justif.signature_nom || 'Chef Cuisinière IDEAL'}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>
+                                {fcfa(justif.budget)}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 900, color: '#dc2626' }}>
+                                {fcfa(justif.total_depense)}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 900, color: justif.solde >= 0 ? '#16a34a' : '#dc2626' }}>
+                                {fcfa(justif.solde)}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+                                {justif.timestamp || justif.date}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                <button
+                                  onClick={() => setSelectedJustificatif(justif)}
+                                  style={{ background: '#0d2a3b', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                  👁️ Voir / Imprimer
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+
+                          {justificatifsCuisine.length === 0 && (
+                            <tr>
+                              <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                                <div style={{ fontSize: 32, marginBottom: 6 }}>🧾</div>
+                                <div style={{ fontWeight: 800, fontSize: 13 }}>Aucun justificatif transmis par la cuisine pour le moment.</div>
+                                <div style={{ fontSize: 11, marginTop: 4 }}>Dès que la Cuisinière valide et signe sa fiche du marché, elle s'affichera automatiquement ici.</div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
@@ -1623,6 +1706,83 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="form-group"><label className="form-label">Description (optionnel)</label><textarea className="form-input" value={newEvenement.description} onChange={e=>setNewEvenement({...newEvenement,description:e.target.value})} rows={3} /></div>
             <button className="btn btn-primary" onClick={saveEvenement} disabled={loading}>{loading?'...':'Enregistrer'}</button>
             <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FICHE DE JUSTIFICATIF MARCHÉ SÉLECTIONNÉ (RESPONSABLE ADMINISTRATIF) */}
+      {selectedJustificatif && (
+        <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setSelectedJustificatif(null)} style={{ zIndex: 999999 }}>
+          <div style={{ background: '#fff', borderRadius: 24, maxWidth: 880, width: '95%', maxHeight: '92vh', overflowY: 'auto', padding: 24, margin: '20px auto', position: 'relative' }}>
+            <DocumentPrintStudio
+              type="restauration"
+              documentTitle="JUSTIFICATIF DU MARCHÉ & DÉPENSES CUISINE"
+              subTitlePill={`👑 FICHE VALIDÉE ET SIGNÉE LE ${selectedJustificatif.timestamp || selectedJustificatif.date}`}
+              eleveInfo={{
+                nom: `SIGNÉ PAR : ${selectedJustificatif.signature_nom || 'Chef Cuisinière'}`,
+                matricule: `BUDGET : ${fcfa(selectedJustificatif.budget)}`,
+                classe: selectedJustificatif.type_periode === 'journalier' ? `DU ${selectedJustificatif.date_du_jour || selectedJustificatif.date}` : selectedJustificatif.periode_semaine,
+                date: selectedJustificatif.timestamp || selectedJustificatif.date
+              }}
+              onClose={() => setSelectedJustificatif(null)}
+            >
+              <div style={{ background: '#fffbeb', borderRadius: 20, padding: 20, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, textAlign: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: '#b45309' }}>BUDGET CANTINE ALLOUÉ</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#0d2a3b' }}>{fcfa(selectedJustificatif.budget)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: '#dc2626' }}>TOTAL ACHATS DU MARCHÉ</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#dc2626' }}>{fcfa(selectedJustificatif.total_depense)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: '#16a34a' }}>SOLDE RESTANT (RESTE)</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: selectedJustificatif.solde >= 0 ? '#16a34a' : '#dc2626' }}>{fcfa(selectedJustificatif.solde)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <h4 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 900, color: '#0d2a3b' }}>🛒 Détail des Ingrédients / Aliments Achetés</h4>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#fff', borderRadius: 14, overflow: 'hidden' }}>
+                <thead>
+                  <tr style={{ background: '#0d2a3b', color: '#fff', fontSize: 12, textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 12px', textAlign: 'left' }}>Aliment / Ingrédient</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'center' }}>Quantité</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Prix Unitaire</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Prix Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedJustificatif.articles || []).map((art, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 800 }}>{art.nom}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>{art.quantite}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fcfa(art.pu)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 900, color: '#16a34a' }}>
+                        {fcfa((Number(art.pu) || 0) * (parseFloat(art.quantite) || 1))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: 12, borderTop: '1.5px solid #fde68a' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: '#047857' }}>STATUT DE TRANSMISSION :</div>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: '#0d2a3b', marginTop: 2 }}>
+                    ✅ Validé &amp; Signé par {selectedJustificatif.signature_nom || 'la Chef Cuisinière'}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: '#d97706', marginBottom: 4 }}>SIGNATURE ÉLECTRONIQUE</div>
+                  <div style={{ border: '2px solid #d97706', borderRadius: 12, padding: '10px 20px', background: '#fffbeb', fontWeight: 900, color: '#b45309' }}>
+                    ✍️ {selectedJustificatif.signature_nom || 'Chef Cuisinière IDEAL'}
+                  </div>
+                </div>
+              </div>
+            </DocumentPrintStudio>
           </div>
         </div>
       )}

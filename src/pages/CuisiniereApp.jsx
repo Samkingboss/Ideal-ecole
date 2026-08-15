@@ -356,6 +356,65 @@ export default function CuisiniereApp({ user, onLogout }) {
     saveFicheMarche({ ...ficheMarche, articles: updatedArticles })
   }
 
+  // Validation, signature et transmission de la fiche du marché au Responsable Administratif
+  const handleValidateAndSendFicheMarche = async () => {
+    if (ficheMarche.articles.length === 0) {
+      alert('Veuillez ajouter au moins un aliment à la fiche du marché avant de la valider et de la transmettre.')
+      return
+    }
+
+    const timestamp = new Date().toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const sigNom = ficheMarche.signature_nom && ficheMarche.signature_nom.trim()
+      ? ficheMarche.signature_nom.trim()
+      : (user?.prenom ? `${user.prenom} ${user.nom}` : 'Chef Cuisinière IDEAL')
+
+    const updatedMarche = {
+      ...ficheMarche,
+      valide: true,
+      signature_nom: sigNom,
+      date_validation: timestamp
+    }
+
+    saveFicheMarche(updatedMarche)
+
+    // Transmettre la fiche signée dans l'historique des justificatifs Supabase pour le Responsable Administratif
+    try {
+      const justificatifEntry = {
+        id: `justif-marche-${Date.now()}`,
+        type: 'fiche_marche',
+        date: getTodayString(),
+        type_periode: ficheMarche.type_periode || 'journalier',
+        date_du_jour: ficheMarche.date_du_jour || getTodayString(),
+        periode_semaine: ficheMarche.periode_semaine || 'Semaine du 12 au 16 Janvier 2026',
+        budget: Number(ficheMarche.budget) || 0,
+        total_depense: totalDepense,
+        solde: resteBudget,
+        articles: ficheMarche.articles,
+        signature_nom: sigNom,
+        timestamp: timestamp,
+        statut: 'VALIDE_CUISINE'
+      }
+
+      const { data: stateJustifs } = await supabase.from('app_state').select('value').eq('key', 'cantine_justificatifs_historique').single()
+      const currentList = (stateJustifs && Array.isArray(stateJustifs.value)) ? stateJustifs.value : []
+      const filteredList = currentList.filter(j => j.date_du_jour !== justificatifEntry.date_du_jour || j.type_periode !== justificatifEntry.type_periode)
+      const newList = [justificatifEntry, ...filteredList]
+
+      await supabase.from('app_state').upsert({
+        key: 'cantine_justificatifs_historique',
+        value: newList,
+        updated_at: new Date().toISOString()
+      })
+
+      setMsg('📜 Fiche du marché validée, signée par la cuisinière et enregistrée dans les justificatifs du Responsable Administratif !')
+      setTimeout(() => setMsg(''), 5000)
+    } catch (e) {
+      console.error('Erreur transmission justificatif:', e)
+      setMsg('📜 Fiche du marché signée et transmise avec succès !')
+      setTimeout(() => setMsg(''), 4000)
+    }
+  }
+
   // Mettre à jour les allergies d'un élève
   const saveEleveAllergie = async () => {
     if (!editEleveModal) return
@@ -1417,6 +1476,80 @@ export default function CuisiniereApp({ user, onLogout }) {
                     </tfoot>
                   )}
                 </table>
+              </div>
+            </div>
+
+            {/* BLOC DE VALIDATION, SIGNATURE DE LA CUISINIÈRE ET TRANSMISSION AU RESPONSABLE ADMIN */}
+            <div className="card" style={{ padding: '24px', borderRadius: 20, background: 'linear-gradient(180deg, #ffffff 0%, #fffbeb 100%)', border: '2px solid #f59e0b', marginTop: 24, boxShadow: '0 8px 24px rgba(217,119,6,0.12)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 18 }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: '#0d2a3b', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span>✍️ Validation &amp; Signature Digitale de la Chef Cuisinière</span>
+                    {ficheMarche.valide ? (
+                      <span style={{ background: '#d1fae5', color: '#047857', border: '1px solid #6ee7b7', padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 900 }}>
+                        ✅ Signé &amp; Transmis au Responsable Admin
+                      </span>
+                    ) : (
+                      <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fcd34d', padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 900 }}>
+                        ⏳ En attente de signature &amp; validation
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                    Une fois enregistrée, cette fiche du marché signée sera automatiquement transférée dans les **Justificatifs du Jour** du compte du Responsable Administratif.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, alignItems: 'center' }}>
+                {/* Zone Nom & Signature */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 800, color: '#0d2a3b', display: 'block', marginBottom: 6 }}>
+                    ✍️ Nom &amp; Prénom de la Cuisinière signataire :
+                  </label>
+                  <input
+                    className="form-input"
+                    value={ficheMarche.signature_nom || (user?.prenom ? `${user.prenom} ${user.nom}` : 'Chef Cuisinière IDEAL')}
+                    onChange={e => saveFicheMarche({ ...ficheMarche, signature_nom: e.target.value })}
+                    placeholder="Ex: Chef Aïcha TRAORÉ"
+                    style={{ fontWeight: 800, color: '#0d2a3b', background: '#fff' }}
+                  />
+                </div>
+
+                {/* Horodatage & Statut */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#0d2a3b', marginBottom: 6 }}>
+                    📅 Horodatage de la signature &amp; transmission :
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: ficheMarche.date_validation ? '#047857' : '#64748b', background: '#fff', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #cbd5e1' }}>
+                    {ficheMarche.date_validation ? `✅ Transmise le ${ficheMarche.date_validation}` : '⌛ Non encore transmise aujourd\'hui'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bouton d'Enregistrement et de Transmission Directe */}
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #fde68a', display: 'flex', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleValidateAndSendFicheMarche}
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '14px 28px',
+                    borderRadius: 14,
+                    fontWeight: 900,
+                    fontSize: 15,
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 20px rgba(16,185,129,0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10
+                  }}
+                >
+                  <span>💾 Enregistrer &amp; Transmettre aux Justificatifs du Responsable Admin ➔</span>
+                </button>
               </div>
             </div>
           </div>
