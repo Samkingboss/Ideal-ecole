@@ -17,6 +17,9 @@ export default function DossierPersonnel({ user, profInfo }) {
     numero_nina: '',
     situation_matrimoniale: 'Célibataire',
     nombre_enfants: 0,
+    nombre_enfants_total: 0,
+    nombre_enfants_mineurs: 0,
+    enfants_liste: [],
     adresse: '',
     telephone: user?.phone || '',
     whatsapp: '',
@@ -41,6 +44,58 @@ export default function DossierPersonnel({ user, profInfo }) {
     doc_rib: null,
     doc_medical: null,
   })
+
+  // Gestion dynamique de la liste des enfants
+  const handleAddEnfant = () => {
+    setFormData(prev => {
+      const list = [
+        ...(prev.enfants_liste || []),
+        { id: Date.now(), nom_prenom: '', age: '', classe: '', scolarise_ideal: false }
+      ]
+      return {
+        ...prev,
+        enfants_liste: list,
+        nombre_enfants_total: list.length
+      }
+    })
+  }
+
+  const handleUpdateEnfant = (index, field, value) => {
+    setFormData(prev => {
+      const list = [...(prev.enfants_liste || [])]
+      if (list[index]) {
+        list[index] = { ...list[index], [field]: value }
+      }
+      const minorCount = list.filter(child => {
+        const a = parseInt(child.age, 10)
+        return !isNaN(a) && a < 18
+      }).length
+
+      return {
+        ...prev,
+        enfants_liste: list,
+        nombre_enfants_total: list.length,
+        nombre_enfants_mineurs: minorCount
+      }
+    })
+  }
+
+  const handleRemoveEnfant = (index) => {
+    setFormData(prev => {
+      const list = [...(prev.enfants_liste || [])].filter((_, i) => i !== index)
+      const minorCount = list.filter(child => {
+        const a = parseInt(child.age, 10)
+        return !isNaN(a) && a < 18
+      }).length
+
+      return {
+        ...prev,
+        enfants_liste: list,
+        nombre_enfants_total: list.length,
+        nombre_enfants_mineurs: minorCount
+      }
+    })
+  }
 
   // Chargement du dossier RH depuis Supabase ou LocalStorage
   useEffect(() => {
@@ -255,12 +310,73 @@ export default function DossierPersonnel({ user, profInfo }) {
                 <option value="Veuf/Veuve">Veuf/Veuve</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* SECTION 1.B : SITUATION FAMILIALE & ENFANTS À CHARGE */}
+        <div className="card" style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: '1.5rem' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--dark)', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid var(--bg)', paddingBottom: 8, flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>👨‍👩‍👧‍👦</span> Situation Familiale &amp; Enfants du Personnel
+            </div>
+            <button type="button" className="btn-sm" style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', border: '1px solid var(--accent)', padding: '6px 12px', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }} onClick={handleAddEnfant}>
+              + Ajouter un enfant
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem', marginBottom: '1.2rem' }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Nombre total d'enfants</label>
+              <input type="number" min="0" name="nombre_enfants_total" value={formData.nombre_enfants_total ?? (formData.enfants_liste?.length || 0)} onChange={handleChange} className="inp" style={{ width: '100%', padding: '0.65rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700 }} />
+            </div>
 
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Enfants à charge</label>
-              <input type="number" min="0" name="nombre_enfants" value={formData.nombre_enfants} onChange={handleChange} className="inp" style={{ width: '100%', padding: '0.65rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 600 }} />
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Nombre d'enfants mineurs (&lt; 18 ans)</label>
+              <input type="number" min="0" name="nombre_enfants_mineurs" value={formData.nombre_enfants_mineurs ?? 0} onChange={handleChange} className="inp" style={{ width: '100%', padding: '0.65rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700, color: 'var(--accent)' }} />
             </div>
           </div>
+
+          {/* Liste dynamique des enfants */}
+          {(formData.enfants_liste || []).length === 0 ? (
+            <div style={{ background: 'var(--bg)', padding: '1.2rem', borderRadius: 10, textAlign: 'center', color: 'var(--muted)', fontSize: 12, fontStyle: 'italic' }}>
+              Aucun enfant renseigné pour le moment. Cliquez sur le bouton « + Ajouter un enfant » pour saisir le prénom, l'âge et la classe de vos enfants.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              {(formData.enfants_liste || []).map((enf, idx) => (
+                <div key={enf.id || idx} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr)) 40px', gap: '0.8rem', alignItems: 'center' }}>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Nom &amp; Prénom enfant #{idx + 1}</label>
+                    <input type="text" value={enf.nom_prenom || ''} onChange={(e) => handleUpdateEnfant(idx, 'nom_prenom', e.target.value)} className="inp" style={{ width: '100%', padding: '0.55rem', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, fontWeight: 600 }} placeholder="Ex: COULIBALY Fanta" />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Âge (ans)</label>
+                    <input type="number" min="0" max="40" value={enf.age || ''} onChange={(e) => handleUpdateEnfant(idx, 'age', e.target.value)} className="inp" style={{ width: '100%', padding: '0.55rem', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, fontWeight: 700 }} placeholder="Ex: 8" />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Classe / Niveau scolaire</label>
+                    <input type="text" value={enf.classe || ''} onChange={(e) => handleUpdateEnfant(idx, 'classe', e.target.value)} className="inp" style={{ width: '100%', padding: '0.55rem', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }} placeholder="Ex: CP1, 6ème, Lycée..." />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Élève à IDEAL ?</label>
+                    <select value={enf.scolarise_ideal ? 'Oui' : 'Non'} onChange={(e) => handleUpdateEnfant(idx, 'scolarise_ideal', e.target.value === 'Oui')} className="inp" style={{ width: '100%', padding: '0.55rem', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: enf.scolarise_ideal ? 'var(--green)' : 'var(--muted)' }}>
+                      <option value="Oui">✓ Oui (IDEAL)</option>
+                      <option value="Non">Non (Autre)</option>
+                    </select>
+                  </div>
+
+                  <div style={{ textAlign: 'center' }}>
+                    <button type="button" onClick={() => handleRemoveEnfant(idx)} style={{ background: 'rgba(237,28,36,0.1)', color: 'var(--red)', border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', fontWeight: 900, marginTop: 12 }} title="Supprimer cet enfant">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
 
