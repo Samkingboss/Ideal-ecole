@@ -185,11 +185,12 @@ export default function CertificatScolarite() {
 
       {/* Rendu imprimable du Certificat de Scolarité */}
       {selectedEleve && (
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', overflowX: 'auto', padding: '0 8px' }}>
           <div
             id="certificat-print-area"
             style={{
               width: 680,
+              maxWidth: '100%',
               minHeight: 960,
               background: 'radial-gradient(circle at 50% 35%, #ffffff 0%, #edf7fc 55%, #e0f2fe 100%)',
               padding: '0 0 40px 0',
