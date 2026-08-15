@@ -1054,9 +1054,20 @@ export default function CuisiniereApp({ user, onLogout }) {
 
               {/* BARRE BLEU FONCÉ : MENU DU ...../..... AU ...../...../...... */}
               <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                <div style={{ display: 'inline-block', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: '#fff', padding: '14px 44px', borderRadius: 36, boxShadow: '0 6px 20px rgba(15,23,42,0.25)', border: '1.5px solid #d97706' }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase' }}>
-                    MENU DU {menuSemaine.date_debut || '12/01/2026'} AU {menuSemaine.date_fin || '16/01/2026'}
+                <div style={{ display: 'inline-block', background: '#0f172a', color: '#ffffff', padding: '14px 44px', borderRadius: 36, border: '2px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: 'system-ui, sans-serif' }}>
+                    {(() => {
+                      if (menuSemaine.date_debut && menuSemaine.date_fin) {
+                        return `MENU DU ${menuSemaine.date_debut} AU ${menuSemaine.date_fin}`
+                      }
+                      if (menuSemaine.dates_semaine) {
+                        const d = menuSemaine.dates_semaine.trim()
+                        if (d.toLowerCase().startsWith('menu')) return d.toUpperCase()
+                        if (d.toLowerCase().startsWith('du')) return `MENU ${d.toUpperCase()}`
+                        return `MENU DU ${d.toUpperCase()}`
+                      }
+                      return 'MENU DU 12/01/2026 AU 16/01/2026'
+                    })()}
                   </div>
                 </div>
               </div>
