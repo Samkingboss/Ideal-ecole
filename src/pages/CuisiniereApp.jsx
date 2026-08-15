@@ -5,13 +5,69 @@ import html2canvas from 'html2canvas'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
+// Exemple officiel de menu hebdomadaire conforme au modèle visuel des parents
+const SAMPLE_MENU_SEMAINE = {
+  dates_semaine: "12 au 16 janvier 2026",
+  Lundi: {
+    entreeTitre: "Croq'Concombre",
+    entreeDesc: "Fines rondelles de concombre bien fraîches et croquantes, légèrement assaisonnées avec une vinaigrette douce.",
+    platTitre: "Arachide'Poulet Bonheur",
+    platDesc: "Riz blanc bien moelleux accompagné d'une sauce arachide onctueuse, préparée avec des morceaux de poulet tendres et peu épicée.",
+    dessertTitre: "Banana'Doux",
+    dessertDesc: "Banane bien mûre, naturellement sucrée et facile à manger.",
+    gouterTitre: "Beignet'Nuage",
+    gouterDesc: "Beignet léger, doré et moelleux à l'intérieur, légèrement sucré."
+  },
+  Mardi: {
+    entreeTitre: "Piemont'Douceur",
+    entreeDesc: "Petits cubes de pommes de terre, carottes, œufs et légumes, mélangés à une mayonnaise légère spécialement dosée pour les enfants.",
+    platTitre: "Yam'Œuf Énergie",
+    platDesc: "Igname bien tendre cuit à l'eau, accompagné d'œufs brouillés moelleux et légèrement assaisonnés.",
+    dessertTitre: "Soleil d'Orange",
+    dessertDesc: "Quartiers d'orange juteux et riches en vitamine C.",
+    gouterTitre: "Pop'Lait Douceur",
+    gouterDesc: "Popcorn léger nappé d'un filet de lait sucré, facile à grignoter."
+  },
+  Mercredi: {
+    entreeTitre: "Chou'Croque",
+    entreeDesc: "Choux finement émincé, légèrement assaisonné avec une vinaigrette douce et quelques carottes râpées.",
+    platTitre: "Riz'Poulet Festif",
+    platDesc: "Riz sauté avec de petits légumes (carottes, petits pois), des œufs et des morceaux de poulet bien tendres.",
+    dessertTitre: "Papaye Soleil",
+    dessertDesc: "Morceaux de papaye bien mûre, sucrée et rafraîchissante.",
+    gouterTitre: "Soleil'Douceur",
+    gouterDesc: "Beignet bien doré, léger et moelleux, délicatement sucré."
+  },
+  Jeudi: {
+    entreeTitre: "Niçoise'Plaisir",
+    entreeDesc: "Une salade colorée et douce composée de pommes de terre, tomates, œufs, thon et légumes, assaisonnée légèrement pour convenir aux enfants.",
+    platTitre: "Spag'Bolo Bonheur",
+    platDesc: "Pâtes bien tendres nappées d'une sauce bolognaise douce à base de viande hachée et de tomates.",
+    dessertTitre: "Pastèque Fraîcheur",
+    dessertDesc: "Morceaux de pastèque bien juteux et rafraîchissants.",
+    gouterTitre: "Mini'Sandwich Énergie",
+    gouterDesc: "Petit sandwich moelleux garni de viande hachée légèrement assaisonnée, adapté aux petites mains."
+  },
+  Vendredi: {
+    entreeTitre: "Avo'Douceur",
+    entreeDesc: "Tranches d'avocat bien mûres, fondantes et légèrement citronnées pour garder toute leur fraîcheur.",
+    platTitre: "Saka'Riz Énergie",
+    platDesc: "Riz bien moelleux accompagné d'une sauce saka-saka (feuilles de manioc) cuisinée en version douce, peu épicée et adaptée aux enfants.",
+    dessertTitre: "Soleil d'Orange",
+    dessertDesc: "Quartiers d'orange juteux et riches en vitamine C.",
+    gouterTitre: "Crevette'Croque",
+    gouterDesc: "Chips légères et croustillantes, faciles à grignoter pour les petites mains."
+  }
+}
+
 // Menus de la semaine vides par défaut
 const EMPTY_MENU_SEMAINE = {
-  Lundi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
-  Mardi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
-  Mercredi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
-  Jeudi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
-  Vendredi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' }
+  dates_semaine: "",
+  Lundi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
+  Mardi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
+  Mercredi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
+  Jeudi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
+  Vendredi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' }
 }
 
 // Ingrédients du marché vides par défaut
@@ -34,7 +90,7 @@ const getTodayString = () => new Date().toISOString().split('T')[0]
 export default function CuisiniereApp({ user, onLogout }) {
   const [tab, setTab] = useState('eleves')
   const [eleves, setEleves] = useState(DEMO_ELEVES_CANTINE)
-  const [menuSemaine, setMenuSemaine] = useState(EMPTY_MENU_SEMAINE)
+  const [menuSemaine, setMenuSemaine] = useState(SAMPLE_MENU_SEMAINE)
   const [ficheMarche, setFicheMarche] = useState(EMPTY_FICHE_MARCHE)
   const [jourSelectionne, setJourSelectionne] = useState('Lundi')
   const [searchEleve, setSearchEleve] = useState('')
@@ -98,7 +154,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       const canvas = await html2canvas(posterElem, {
         scale: 2, // Ultra HD 2x pour une netteté parfaite sur WhatsApp
         useCORS: true,
-        backgroundColor: '#071924',
+        backgroundColor: '#ffffff',
         logging: false
       })
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
@@ -174,14 +230,22 @@ export default function CuisiniereApp({ user, onLogout }) {
   }
 
   // Sauvegarder le menu de la semaine
-  const saveMenuSemaine = async () => {
+  const saveMenuSemaine = async (updatedMenu = menuSemaine) => {
+    setMenuSemaine(updatedMenu)
     try {
-      await supabase.from('app_state').upsert({ key: 'cantine_menu_semaine', value: menuSemaine, updated_at: new Date().toISOString() })
+      await supabase.from('app_state').upsert({ key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() })
       setMsg('✅ Menu de la semaine enregistré avec succès !')
       setTimeout(() => setMsg(''), 4000)
     } catch (e) {
       alert('Erreur enregistrement menu: ' + e.message)
     }
+  }
+
+  // Charger le modèle d'exemple officiel
+  const loadSampleMenu = () => {
+    saveMenuSemaine(SAMPLE_MENU_SEMAINE)
+    setMsg('✨ Modèle officiel de menu chargé avec succès !')
+    setTimeout(() => setMsg(''), 3000)
   }
 
   // Effacer tout le menu de la semaine
@@ -348,7 +412,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       </div>
 
       {/* Main Content */}
-      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px', maxWidth: 1280, margin: '0 auto' }}>
         {msg && <div className="error-msg" style={{ background: 'rgba(123,193,66,0.15)', borderColor: '#7bc142', color: '#275204', marginBottom: 16, borderRadius: 12, padding: '12px 16px', fontWeight: 700 }} onClick={() => setMsg('')}>{msg}</div>}
 
         {/* ════════════════ SESSION 1 : ÉLÈVES INSCRITS & ALLERGIES ════════════════ */}
@@ -623,30 +687,49 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 3 : PRÉPARATION DU MENU ════════════════ */}
+        {/* ════════════════ SESSION 3 : PRÉPARATION ET SAISIE DU MENU DE LA SEMAINE ════════════════ */}
         {tab === 'preparation' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍳 Session 3 : Saisie du Menu de la Semaine</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Conception et équilibre nutritionnel des repas servis du Lundi au Vendredi.</p>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍳 Session 3 : Saisie &amp; Élaboration du Menu de la Semaine</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Saisissez les titres poétiques et les descriptions appétissantes pour chaque jour de la semaine.</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  className="btn-sm"
+                  onClick={loadSampleMenu}
+                  style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706', border: '1px solid #f59e0b', padding: '10px 16px', borderRadius: 10, fontWeight: 800 }}
+                >
+                  ✨ Charger l'Exemple Officiel (12 au 16 Janvier)
+                </button>
                 <button
                   className="btn-sm"
                   onClick={clearMenuSemaine}
                   style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', padding: '10px 16px', borderRadius: 10, fontWeight: 800 }}
                 >
-                  🗑️ Effacer Tout le Menu
+                  🗑️ Effacer Tout
                 </button>
                 <button
                   className="btn btn-primary"
-                  onClick={saveMenuSemaine}
+                  onClick={() => saveMenuSemaine()}
                   style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 900, boxShadow: '0 4px 14px rgba(123,193,66,0.3)' }}
                 >
                   💾 Enregistrer &amp; Publier
                 </button>
               </div>
+            </div>
+
+            {/* Saisie de la date de la semaine */}
+            <div className="card" style={{ padding: '16px', marginBottom: 20, background: '#fff' }}>
+              <label className="form-label" style={{ fontWeight: 900, color: '#ea580c', fontSize: 14 }}>📅 Période de la Semaine (Affiche Officielle)</label>
+              <input
+                className="form-input"
+                value={menuSemaine.dates_semaine || ''}
+                onChange={e => setMenuSemaine({ ...menuSemaine, dates_semaine: e.target.value })}
+                placeholder="Ex: 12 au 16 janvier 2026"
+                style={{ fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}
+              />
             </div>
 
             {/* Selecteur de Jour */}
@@ -668,95 +751,149 @@ export default function CuisiniereApp({ user, onLogout }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '2px solid var(--border)', paddingBottom: 14, marginBottom: 20 }}>
                 <div style={{ fontSize: 28 }}>🍽️</div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0d2a3b' }}>Composition du Repas du {jourSelectionne}</h3>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Saisissez librement le menu de ce jour.</div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0d2a3b' }}>Composition des Plats du {jourSelectionne}</h3>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Renseignez le titre gourmand et la description détaillée.</div>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 800, color: '#0d2a3b' }}>🥗 Entrée / Salade</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine[jourSelectionne]?.entree || ''}
-                    onChange={e => setMenuSemaine({
-                      ...menuSemaine,
-                      [jourSelectionne]: { ...menuSemaine[jourSelectionne], entree: e.target.value }
-                    })}
-                    placeholder="Saisir l'entrée..."
-                  />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+                {/* ENTRÉE */}
+                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontWeight: 900, color: '#0284c7', marginBottom: 10, fontSize: 14 }}>🥗 ENTRÉE</div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 11 }}>Titre du plat (ex: “Croq'Concombre”)</label>
+                    <input
+                      className="form-input"
+                      value={menuSemaine[jourSelectionne]?.entreeTitre || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], entreeTitre: e.target.value }
+                      })}
+                      placeholder="Ex: “Croq'Concombre”"
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: 11 }}>Description gourmande</label>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      value={menuSemaine[jourSelectionne]?.entreeDesc || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], entreeDesc: e.target.value }
+                      })}
+                      placeholder="Fines rondelles de concombre bien fraîches..."
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 800, color: '#0d2a3b' }}>🍲 Plat Principal (Chaud)</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine[jourSelectionne]?.plat || ''}
-                    onChange={e => setMenuSemaine({
-                      ...menuSemaine,
-                      [jourSelectionne]: { ...menuSemaine[jourSelectionne], plat: e.target.value }
-                    })}
-                    placeholder="Saisir le plat chaud..."
-                  />
+                {/* PLAT PRINCIPAL */}
+                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 14, border: '1.5px solid #7bc142' }}>
+                  <div style={{ fontWeight: 900, color: '#7bc142', marginBottom: 10, fontSize: 14 }}>🍲 PLAT PRINCIPAL</div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 11 }}>Titre du plat (ex: “Arachide'Poulet Bonheur”)</label>
+                    <input
+                      className="form-input"
+                      value={menuSemaine[jourSelectionne]?.platTitre || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], platTitre: e.target.value }
+                      })}
+                      placeholder="Ex: “Arachide'Poulet Bonheur”"
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: 11 }}>Description gourmande</label>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      value={menuSemaine[jourSelectionne]?.platDesc || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], platDesc: e.target.value }
+                      })}
+                      placeholder="Riz blanc bien moelleux accompagné d'une sauce..."
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 800, color: '#0d2a3b' }}>🍎 Dessert / Fruit</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine[jourSelectionne]?.dessert || ''}
-                    onChange={e => setMenuSemaine({
-                      ...menuSemaine,
-                      [jourSelectionne]: { ...menuSemaine[jourSelectionne], dessert: e.target.value }
-                    })}
-                    placeholder="Saisir le dessert..."
-                  />
+                {/* DESSERT */}
+                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontWeight: 900, color: '#ea580c', marginBottom: 10, fontSize: 14 }}>🍎 DESSERT</div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 11 }}>Titre (ex: “Banana'Doux”)</label>
+                    <input
+                      className="form-input"
+                      value={menuSemaine[jourSelectionne]?.dessertTitre || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], dessertTitre: e.target.value }
+                      })}
+                      placeholder="Ex: “Banana'Doux”"
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: 11 }}>Description</label>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      value={menuSemaine[jourSelectionne]?.dessertDesc || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], dessertDesc: e.target.value }
+                      })}
+                      placeholder="Banane bien mûre, naturellement sucrée..."
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 800, color: '#0d2a3b' }}>🥤 Boisson / Rafraîchissement</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine[jourSelectionne]?.boisson || ''}
-                    onChange={e => setMenuSemaine({
-                      ...menuSemaine,
-                      [jourSelectionne]: { ...menuSemaine[jourSelectionne], boisson: e.target.value }
-                    })}
-                    placeholder="Saisir la boisson..."
-                  />
+                {/* GOÛTER / COLLATION */}
+                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontWeight: 900, color: '#e11d48', marginBottom: 10, fontSize: 14 }}>🍪 GOÛTER / COLLATION</div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 11 }}>Titre (ex: “Beignet'Nuage”)</label>
+                    <input
+                      className="form-input"
+                      value={menuSemaine[jourSelectionne]?.gouterTitre || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], gouterTitre: e.target.value }
+                      })}
+                      placeholder="Ex: “Beignet'Nuage”"
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: 11 }}>Description</label>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      value={menuSemaine[jourSelectionne]?.gouterDesc || ''}
+                      onChange={e => setMenuSemaine({
+                        ...menuSemaine,
+                        [jourSelectionne]: { ...menuSemaine[jourSelectionne], gouterDesc: e.target.value }
+                      })}
+                      placeholder="Beignet léger, doré et moelleux à l'intérieur..."
+                    />
+                  </div>
                 </div>
-              </div>
-
-              <div className="form-group" style={{ marginTop: 16 }}>
-                <label className="form-label" style={{ fontWeight: 800, color: '#dc2626' }}>⚠️ Option de Substitution (Allergies &amp; Régimes)</label>
-                <input
-                  className="form-input"
-                  value={menuSemaine[jourSelectionne]?.substitution || ''}
-                  onChange={e => setMenuSemaine({
-                    ...menuSemaine,
-                    [jourSelectionne]: { ...menuSemaine[jourSelectionne], substitution: e.target.value }
-                  })}
-                  placeholder="Saisir le plat de substitution pour enfants allergiques..."
-                  style={{ borderColor: '#fca5a5', background: '#fef2f2' }}
-                />
               </div>
             </div>
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : MENU HEBDOMADAIRE (TOUS LES MENUS DU LUNDI AU VENDREDI SUR UNE SEULE IMAGE JPEG WHATSAPP) ════════════════ */}
+        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE DES PARENTS (REPRODUCTION EXACTE MAQUETTE) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>📅 Session 4 : Menu Hebdomadaire Complet (Affiche WhatsApp HD)</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Affiche intégrale regroupant tous les repas de la semaine (Lundi au Vendredi) à télécharger au format JPEG pour les parents.</p>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>📅 Session 4 : Affiche Officielle du Menu de la Semaine</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Modèle exact conforme à la charte graphique de restauration scolaire pour diffusion WhatsApp.</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
                   className="btn btn-primary"
                   onClick={exportMenuJpeg}
-                  style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 900, boxShadow: '0 4px 16px rgba(123,193,66,0.4)', fontSize: 14 }}
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 900, boxShadow: '0 4px 16px rgba(249,115,22,0.4)', fontSize: 14 }}
                 >
                   📸 Télécharger le Menu Hebdomadaire JPEG (WhatsApp HD)
                 </button>
@@ -770,104 +907,133 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
-            {/* AFFICHE INTÉGRALE HEBDOMADAIRE DESIGN RESTAURATION IMPÉRIALE (5 JOURS) */}
+            {/* AFFICHE INTÉGRALE HEBDOMADAIRE CONFORME À LA MAQUETTE UTILISATEUR */}
             <div
               id="menu-whatsapp-poster"
               style={{
-                padding: '2.5rem 2rem',
-                background: 'linear-gradient(135deg, #071924 0%, #0d2a3b 50%, #0f3854 100%)',
-                color: '#fff',
+                padding: '2.5rem 2.2rem',
+                background: '#ffffff',
+                color: '#1e293b',
                 borderRadius: 24,
-                boxShadow: '0 20px 50px rgba(13,42,59,0.35)',
-                border: '4px solid #7bc142',
+                boxShadow: '0 15px 45px rgba(0,0,0,0.1)',
+                border: '1px solid #e2e8f0',
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                fontFamily: 'system-ui, -apple-system, sans-serif'
               }}
             >
-              <div style={{ position: 'absolute', top: -30, right: -30, fontSize: 220, opacity: 0.03, pointerEvents: 'none' }}>🍽️</div>
+              {/* EN-TÊTE SUPÉRIEUR : LOGO CIRCULAIRE, PHOTO PLAT & TITRE MENU */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                  {/* Badge Logo Circulaire */}
+                  <div style={{ width: 100, height: 100, borderRadius: '50%', background: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', border: '4px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img src="/logo-ideal.png" alt="IDEAL" style={{ width: '85%', height: '85%', objectFit: 'contain' }} />
+                  </div>
 
-              {/* En-tête Officiel École IDEAL */}
-              <div style={{ borderBottom: '2px solid rgba(123,193,66,0.4)', paddingBottom: 20, marginBottom: 24, textAlign: 'center' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 52, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' }} />
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#7bc142', letterSpacing: '1px' }}>ÉCOLE INTERNATIONALE BILINGUE IDEAL</div>
-                    <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>CANTINE &amp; RESTAURATION IMPÉRIALE</div>
+                  {/* Photo d'assiette gourmande */}
+                  <div style={{ width: 140, height: 140, borderRadius: '50%', background: '#f59e0b', border: '5px solid #fbbf24', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: 75, textAlign: 'center' }}>🍲</div>
+                  </div>
+
+                  {/* Titre MENU et dates */}
+                  <div>
+                    <div style={{ fontSize: 62, fontWeight: 900, color: '#ea580c', letterSpacing: '2px', lineHeight: 1 }}>
+                      MENU
+                    </div>
+                    <div style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 800, color: '#334155', marginTop: 4 }}>
+                      {menuSemaine.dates_semaine || '12 au 16 janvier 2026'}
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ marginTop: 10, background: 'linear-gradient(90deg, transparent, rgba(123,193,66,0.2), transparent)', padding: '10px 16px', borderRadius: 20 }}>
-                  <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: '#fff', letterSpacing: '1px' }}>
-                    🍽️ MENU OFFICIEL DE LA SEMAINE (LUNDI AU VENDREDI)
-                  </h2>
-                  <div style={{ fontSize: 13, color: '#7bc142', fontWeight: 800, marginTop: 4 }}>
-                    Repas Équilibrés &amp; Produits Frais Servis à Nos Élèves
-                  </div>
+                {/* Badge Décoratif Couverts */}
+                <div style={{ background: '#fffbea', border: '2px solid #f59e0b', borderRadius: 20, padding: '10px 18px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24 }}>🍴</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: '#b45309', textTransform: 'uppercase', marginTop: 2 }}>Restauration Impériale</div>
                 </div>
               </div>
 
-              {/* GRILLE DES 5 JOURS DE LA SEMAINE */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
+              {/* GRILLE DES 5 JOURS EN CADRES POINTILLÉS (REPRODUCTION EXACTE) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 28 }}>
                 {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(j => {
                   const item = menuSemaine[j] || {}
                   return (
-                    <div key={j} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 18, border: '1.5px solid rgba(123,193,66,0.3)', padding: '14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {/* En-tête du Jour */}
-                      <div style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', padding: '8px 12px', borderRadius: 10, textAlign: 'center', fontWeight: 900, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        📅 {j}
+                    <div
+                      key={j}
+                      style={{
+                        background: '#ffffff',
+                        border: '2.5px dashed #b45309',
+                        borderRadius: 28,
+                        padding: '18px 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.03)'
+                      }}
+                    >
+                      {/* En-tête du jour pointillé */}
+                      <div style={{ textAlign: 'center', fontSize: 18, fontWeight: 900, color: '#ea580c', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                        ---------------- {j.toUpperCase()} ----------------
                       </div>
 
-                      {/* Entrée */}
-                      <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase' }}>🥗 ENTRÉE</div>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>{item.entree || '— Non renseignée —'}</div>
-                      </div>
-
-                      {/* Plat Principal */}
-                      <div style={{ background: 'rgba(123,193,66,0.16)', padding: '10px 10px', borderRadius: 10, borderLeft: '3px solid #7bc142' }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#7bc142', textTransform: 'uppercase' }}>🍲 PLAT PRINCIPAL</div>
-                        <div style={{ fontSize: 13, fontWeight: 900, color: '#fff', marginTop: 2 }}>{item.plat || '— Non renseigné —'}</div>
-                      </div>
-
-                      {/* Dessert */}
-                      <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#f59e0b', textTransform: 'uppercase' }}>🍎 DESSERT</div>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>{item.dessert || '— Non renseigné —'}</div>
-                      </div>
-
-                      {/* Boisson */}
-                      <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: '#ec4899', textTransform: 'uppercase' }}>🥤 BOISSON</div>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>{item.boisson || '— Non renseignée —'}</div>
-                      </div>
-
-                      {/* Substitution Allergies */}
-                      {item.substitution && (
-                        <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', padding: '8px 10px', borderRadius: 10, marginTop: 'auto' }}>
-                          <div style={{ fontSize: 9, fontWeight: 900, color: '#fca5a5', textTransform: 'uppercase' }}>⚠️ REPAS SUBSTITUTION</div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#fee2e2', marginTop: 2 }}>{item.substitution}</div>
+                      {/* ENTRÉE */}
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7' }}>
+                          “{item.entreeTitre || item.entree || 'Entrée fraîche' }”
                         </div>
-                      )}
+                        <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 3, paddingLeft: 12 }}>
+                          • {item.entreeDesc || 'Ingrédients frais de saison assaisonnés avec soin.'}
+                        </div>
+                      </div>
+
+                      {/* PLAT PRINCIPAL */}
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7' }}>
+                          “{item.platTitre || item.plat || 'Plat du Chef'}”
+                        </div>
+                        <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 3, paddingLeft: 12 }}>
+                          • {item.platDesc || 'Plat chaud mijoté, tendre et équilibré pour les enfants.'}
+                        </div>
+                      </div>
+
+                      {/* DESSERT */}
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: '#ea580c' }}>
+                          “{item.dessertTitre || item.dessert || 'Dessert du jour'}”
+                        </div>
+                        <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 3, paddingLeft: 12 }}>
+                          • {item.dessertDesc || 'Fruits locaux frais naturellement sucrés.'}
+                        </div>
+                      </div>
+
+                      {/* GOÛTER / COLLATION */}
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: '#e11d48' }}>
+                          “{item.gouterTitre || item.boisson || 'Collation douce'}”
+                        </div>
+                        <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 3, paddingLeft: 12 }}>
+                          • {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
+                        </div>
+                      </div>
                     </div>
                   )
                 })}
               </div>
 
-              {/* Bandeau de Sécurité & Communication WhatsApp */}
-              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: '#7bc142' }}>🛡️ ENGAGEMENT HYGIÈNE &amp; ALLERGIES</div>
-                  <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>Des portions de substitution adaptées sont préparées pour chaque enfant ayant une allergie déclarée.</div>
+              {/* PIED DE PAGE AVEC MASCOTTES ET DÉCORATIONS CULINAIRES */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px dashed #cbd5e1', paddingTop: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ fontSize: 36 }}>🥪</div>
+                  <div style={{ fontSize: 36 }}>🍅</div>
+                  <div style={{ fontSize: 36 }}>🥗</div>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
+                    Écoles Internationale Bilingue IDEAL — Restauration Équilibrée &amp; Produits Frais
+                  </div>
                 </div>
-                <div style={{ background: '#7bc142', color: '#0d2a3b', padding: '6px 14px', borderRadius: 20, fontWeight: 900, fontSize: 12 }}>
-                  100% Produits Frais &amp; Locaux
-                </div>
-              </div>
 
-              {/* Pied de Page Affiche WhatsApp */}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'rgba(255,255,255,0.7)', flexWrap: 'wrap', gap: 10 }}>
-                <div>✨ Équilibre, Hygiène &amp; Fraîcheur — École Internationale Bilingue IDEAL</div>
-                <div style={{ fontWeight: 800, color: '#7bc142' }}>📲 Diffusion Chaine WhatsApp Officielle aux Parents</div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#ea580c', background: '#fff7ed', padding: '6px 14px', borderRadius: 20, border: '1px solid #ffedd5' }}>
+                  📲 Diffusion WhatsApp Officielle
+                </div>
               </div>
             </div>
           </div>
