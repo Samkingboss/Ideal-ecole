@@ -49,15 +49,14 @@ body {
 .top-nav-secondary { 
   display: flex; 
   gap: 8px; 
-  padding: 10px 1.2rem; 
+  padding: 8px 1rem; 
   background: var(--card); 
   border-bottom: 1px solid var(--border); 
   overflow-x: auto; 
   overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  position: sticky; 
-  top: 51px; /* Juste sous la topbar */
-  z-index: 99; 
+  white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
   scrollbar-width: thin;
   scrollbar-color: var(--accent) transparent;
@@ -65,18 +64,25 @@ body {
 .top-nav-secondary::-webkit-scrollbar { height: 4px; display: block; }
 .top-nav-secondary::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
 .top-nav-item { 
-  flex-shrink: 0; 
-  padding: 7px 14px; 
+  flex-shrink: 0 !important; 
+  white-space: nowrap !important;
+  padding: 8px 14px; 
   border-radius: 10px; 
-  font-size: 11px; 
+  font-size: 12px; 
   font-weight: 800; 
   color: var(--muted); 
   background: var(--bg); 
   border: none; 
   cursor: pointer; 
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
-  text-transform: uppercase; 
-  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-nav-item.active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,168,224,0.3);
 }
 .top-nav-item.active { 
   background: var(--accent); 

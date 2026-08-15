@@ -221,9 +221,9 @@ export default function ProfApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Barre de navigation des 6 SESSIONS ENSEIGNANT */}
-      <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px' }}>
-        <div className="top-nav-secondary" style={{ flex: 1, borderBottom: 'none', top: 0, boxShadow: 'none', display: 'flex', gap: 6, overflowX: 'auto' }}>
+      {/* Barre de navigation des 6 SESSIONS ENSEIGNANT (Mobile-friendly Scroll horizontal sans chevauchement) */}
+      <div style={{ background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div className="top-nav-secondary" style={{ borderBottom: 'none', boxShadow: 'none', display: 'flex', gap: 8, width: 'max-content' }}>
           {PROF_SESSIONS.map(s => {
             const isActive = activeProfSession === s.id
             return (
@@ -239,9 +239,19 @@ export default function ProfApp({ user, onLogout }) {
                   else if (s.id === 'perfs') setTab('prime')
                   else if (s.id === 'rh') setTab('dossier')
                 }}
-                style={{ flex: 1, padding: '10px 12px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 140 }}
+                style={{
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  padding: '9px 16px',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  borderRadius: 12,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
               >
-                {s.icon} {s.label}
+                <span>{s.icon}</span> <span>{s.label}</span>
               </button>
             )
           })}

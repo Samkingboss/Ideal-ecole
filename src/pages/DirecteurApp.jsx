@@ -1030,9 +1030,9 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Barre de navigation des 6 SESSIONS DIRECTEUR */}
-      <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px' }}>
-        <div className="top-nav-secondary" style={{ flex: 1, borderBottom: 'none', top: 0, boxShadow: 'none', display: 'flex', gap: 6 }}>
+      {/* Barre de navigation des 6 SESSIONS DIRECTEUR (Mobile-friendly Scroll horizontal sans chevauchement) */}
+      <div style={{ background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div className="top-nav-secondary" style={{ borderBottom: 'none', boxShadow: 'none', display: 'flex', gap: 8, width: 'max-content' }}>
           {DIRECTOR_SESSIONS.map(t => {
             const isActive = activeDirectorTab === t.id ||
               (t.id === 'agenda' && activeDirectorTab === 'emploi') ||
@@ -1044,9 +1044,19 @@ export default function DirecteurApp({ user, onLogout }) {
                 key={t.id} 
                 className={`top-nav-item ${isActive ? 'active' : ''}`} 
                 onClick={() => setTab(t.id)}
-                style={{ flex: 1, padding: '10px 12px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                style={{
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  padding: '9px 16px',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  borderRadius: 12,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
               >
-                {t.icon} {t.label}
+                <span>{t.icon}</span> <span>{t.label}</span>
               </button>
             )
           })}
