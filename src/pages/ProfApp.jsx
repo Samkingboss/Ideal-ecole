@@ -568,7 +568,7 @@ export default function ProfApp({ user, onLogout }) {
               }}
             >
               <div style={{fontSize:16, marginBottom:2}} aria-hidden="true">{t.icon}</div>
-              <div style={{fontSize:10, fontWeight:700, color: tab === t.id ? '#fff' : 'rgba(255,255,255,0.6)'}}>{t.label}</div>
+              <div style={{fontSize:10, fontWeight:800, color: tab === t.id ? '#ffffff' : '#e2e8f0'}}>{t.label}</div>
             </button>
           ))}
         </div>
