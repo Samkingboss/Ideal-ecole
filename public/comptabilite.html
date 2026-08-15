@@ -996,74 +996,11 @@ function deconnexionIdeal() {
         <div style="overflow-x:auto;"><table class="tbl" id="tbl-cantine-charges"></table></div>
       </div>
 
-      <div class="sep"></div>
 
-      <div class="sec-h">
-        <div>
-          <div class="sec-title">Détail des Salaires</div>
-          <div class="sec-sub">✏️ Modifiez chaque salaire — le total se met à jour automatiquement. La <b>liste des postes</b> se gère dans le portail directeur (Équipe → 💼 Postes & salaires) et se synchronise ici.</div>
-        </div>
-      </div>
-      <div class="card" style="overflow:hidden;">
-        <div style="overflow-x:auto;"><table class="tbl" id="tbl-salaires"></table></div>
-      </div>
     </div>
   </div>
 
-  <!-- ════════════════ ÉTAT DES SALAIRES MENSUELS & ÉMARGEMENT (PLEINE LARGEUR 100%) ════════════════ -->
-  <div class="sep"></div>
 
-  <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
-    <div>
-      <div class="sec-title">📑 Édition &amp; Impression des États de Salaires Mensuels</div>
-      <div class="sec-sub" style="opacity:0.9;">Générez la fiche d'émargement de paie mensuelle du personnel avec le récapitulatif net à payer et la grille de signatures.</div>
-    </div>
-    <div style="display:flex; gap:0.6rem; align-items:center;">
-      <select id="salaires-mois-select" class="inp" onchange="syncMoisSalairesSelect(this.value)" style="background:var(--card); color:var(--text); border:1.5px solid var(--border); font-weight:700; padding:0.6rem 1rem;">
-        <option value="2026-10">Octobre 2026</option>
-        <option value="2026-11">Novembre 2026</option>
-        <option value="2026-12">Décembre 2026</option>
-        <option value="2027-01">Janvier 2027</option>
-        <option value="2027-02">Février 2027</option>
-        <option value="2027-03">Mars 2027</option>
-        <option value="2027-04">Avril 2027</option>
-        <option value="2027-05">Mai 2027</option>
-        <option value="2027-06">Juin 2027</option>
-      </select>
-      <button class="btn" style="background:linear-gradient(135deg,#00a8e0,#0078b4); color:#fff; font-weight:800; padding:0.65rem 1.2rem; border-radius:8px; border:none; box-shadow:0 4px 14px rgba(0,168,224,0.35); cursor:pointer;" onclick="imprimerEtatSalaires()">
-        🖨️ Imprimer la Fiche d'Émargement (PDF)
-      </button>
-    </div>
-  </div>
-
-  <div class="card" style="overflow:hidden; margin-bottom:2rem; width:100%;">
-    <div style="padding:1.2rem; background:rgba(0,168,224,0.08); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-      <div>
-        <h4 style="margin:0; font-size:1.05rem; color:var(--text);" id="etat-salaires-title">État de Paie du Personnel — Octobre 2026</h4>
-        <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
-        <div style="font-size:1.3rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net">0 FCFA</div>
-      </div>
-    </div>
-    <div style="overflow-x:auto;">
-      <table class="tbl" id="tbl-etat-salaires-mensuel">
-        <thead>
-          <tr>
-            <th>Poste / Employé</th>
-            <th class="r">Salaire de Base</th>
-            <th class="r" style="color:var(--green);">Primes / Bonus</th>
-            <th class="r" style="color:var(--red);">Retenues / Avances</th>
-            <th class="r" style="color:var(--blue);">Net à Payer</th>
-            <th>Mode de Règlement</th>
-            <th class="c">Statut</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-etat-salaires-mensuel"></tbody>
-      </table>
-    </div>
-  </div>
 </section>
 
 <!-- ════════════════ TAB: SALAIRES & PAIE (RH) (PLEINE LARGEUR) ════════════════ -->
@@ -4788,7 +4725,7 @@ function updateEtatSalairesItem(moisKey, idx, field, val) {
 }
 
 function imprimerEtatSalaires() {
-  const moisSelect = document.getElementById('salaires-mois-select');
+  const moisSelect = document.getElementById('salaires-mois-select') || document.getElementById('salaires-mois-select-rh');
   if (!moisSelect) return;
   const moisKey = moisSelect.value;
   const moisLabel = moisSelect.options[moisSelect.selectedIndex].text;
