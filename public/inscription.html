@@ -1444,6 +1444,9 @@ Merci de votre confiance.
             photoDataUrl = await fetchImageAsDataUrl(data.photo_url);
         }
 
+        // Charger le logo officiel de l'école
+        const logoDataUrl = await fetchImageAsDataUrl('/logo-ideal.png');
+
         // ══════════════════════════════════════════════════════
         // PALETTE INSTITUTIONNELLE SOBRE — Executive Legal Design
         // ══════════════════════════════════════════════════════
@@ -1522,21 +1525,31 @@ Merci de votre confiance.
             doc.text('PHOTO', PHOTO_X + PHOTO_W / 2, PHOTO_Y + PHOTO_H / 2, { align: 'center' });
         }
 
+        // Logo officiel de l'école (haut gauche)
+        const LOGO_W = 20, LOGO_H = 20;
+        let textX = ML;
+        if (logoDataUrl) {
+            try {
+                doc.addImage(logoDataUrl, 'PNG', ML, 9, LOGO_W, LOGO_H);
+                textX = ML + LOGO_W + 4;
+            } catch (e) {}
+        }
+
         // En-tête gauche (Titres institutionnels)
         doc.setTextColor(...GRIS_T);
         doc.setFontSize(7);
         doc.setFont('helvetica', 'bold');
-        doc.text('ÉCOLE INTERNATIONALE BILINGUE IDEAL', ML, 14);
+        doc.text('ÉCOLE INTERNATIONALE BILINGUE IDEAL', textX, 13);
 
-        doc.setFontSize(18);
+        doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...NAVY);
-        doc.text('FICHE D\'INSCRIPTION OFFICIELLE', ML, 23);
+        doc.text('FICHE D\'INSCRIPTION OFFICIELLE', textX, 21);
 
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...GRIS_T);
-        doc.text(`Année scolaire ${data.annee_scolaire || ''}   ·   Bamako, Mali   ·   Dossier édité le ${dateGen}`, ML, 29);
+        doc.text(`Année scolaire ${data.annee_scolaire || ''}   ·   Bamako, Mali   ·   Dossier édité le ${dateGen}`, textX, 27);
 
         // Cartouche de matricule sobre sous les titres
         doc.setFillColor(...NAVY);
