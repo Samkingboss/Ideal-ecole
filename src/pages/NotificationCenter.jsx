@@ -15,7 +15,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     loadNotifications()
     const timer = setInterval(() => {
       loadNotifications()
-    }, 8000) // Verification automatique toutes les 8s
+    }, 6000) // Verification automatique toutes les 6s
 
     return () => clearInterval(timer)
   }, [user?.id, role])
@@ -45,27 +45,17 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
 
   const loadNotifications = async () => {
     try {
-      const activeRole = role || user?.role || 'directeur'
-      const keysToFetch = [
-        'notifs_global',
-        `notifs_${activeRole}`,
-        user?.id ? `notifs_${user.id}` : null
-      ].filter(Boolean)
+      const activeRole = role || user?.role || 'prof'
+      const isDirector = activeRole === 'directeur' || activeRole === 'responsable_administratif'
+
+      // Clés ciblées de façon stricte par rôle
+      const keysToFetch = isDirector
+        ? ['notifs_directeur', 'notifs_responsable_administratif', 'notifs_global', user?.id ? `notifs_${user.id}` : null].filter(Boolean)
+        : ['notifs_prof', user?.id ? `notifs_${user.id}` : null].filter(Boolean)
 
       let mergedNotifs = []
 
-      // 1. Chargement local
-      for (const key of keysToFetch) {
-        const localData = localStorage.getItem(key)
-        if (localData) {
-          try {
-            const parsed = JSON.parse(localData)
-            if (Array.isArray(parsed)) mergedNotifs.push(...parsed)
-          } catch (e) {}
-        }
-      }
-
-      // 2. Chargement Supabase app_state
+      // 1. Chargement Supabase app_state
       const { data: rows } = await supabase
         .from('app_state')
         .select('key, value')
@@ -79,8 +69,19 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         })
       }
 
-      // 3. Pour la Direction & Admin: intégrer les demandes RH reçues de demandes_rh_global
-      if (activeRole === 'directeur' || activeRole === 'responsable_administratif') {
+      // 2. Chargement local complémentaire
+      for (const key of keysToFetch) {
+        const localData = localStorage.getItem(key)
+        if (localData) {
+          try {
+            const parsed = JSON.parse(localData)
+            if (Array.isArray(parsed)) mergedNotifs.push(...parsed)
+          } catch (e) {}
+        }
+      }
+
+      // 3. Pour la Direction & Admin uniquement : intégrer les demandes RH de demandes_rh_global
+      if (isDirector) {
         const { data: globalState } = await supabase
           .from('app_state')
           .select('value')
@@ -107,7 +108,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         }
       }
 
-      // Déduplication par ID et tri chronologique descendant
+      // Déduplication stricte par ID et tri chronologique dégressif
       const uniqueMap = new Map()
       mergedNotifs.forEach(n => {
         if (!uniqueMap.has(n.id)) {
@@ -121,20 +122,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         return dB - dA
       })
 
-      // Déclencher une alerte système si de nouvelles notifications non lues arrivent
       const currentUnread = sortedList.filter(n => !n.lu).length
-      if (currentUnread > unreadCount && unreadCount >= 0 && pushStatus === 'granted') {
-        const latest = sortedList.find(n => !n.lu)
-        if (latest) {
-          try {
-            new Notification(latest.titre, {
-              body: latest.message,
-              icon: '/logo-ideal.png'
-            })
-          } catch (e) {}
-        }
-      }
-
       setNotifications(sortedList)
       setUnreadCount(currentUnread)
     } catch (err) {
@@ -146,7 +134,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     const updated = notifications.map(n => n.id === id ? { ...n, lu: true } : n)
     setNotifications(updated)
     setUnreadCount(updated.filter(n => !n.lu).length)
-    const activeRole = role || user?.role || 'directeur'
+    const activeRole = role || user?.role || 'prof'
     const key = `notifs_${activeRole}`
     localStorage.setItem(key, JSON.stringify(updated))
   }
@@ -155,7 +143,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     const updated = notifications.map(n => ({ ...n, lu: true }))
     setNotifications(updated)
     setUnreadCount(0)
-    const activeRole = role || user?.role || 'directeur'
+    const activeRole = role || user?.role || 'prof'
     const key = `notifs_${activeRole}`
     localStorage.setItem(key, JSON.stringify(updated))
   }
@@ -163,8 +151,18 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
   const handleNotificationClick = (notif) => {
     handleMarkAsRead(notif.id)
     setOpen(false)
-    if (notif.tabTarget && onNavigateTab) {
-      onNavigateTab(notif.tabTarget)
+
+    let target = notif.tabTarget || 'dashboard'
+    const activeRole = role || user?.role || 'prof'
+
+    if (activeRole === 'prof') {
+      if (target === 'rh' || target === 'demande') target = 'demandes'
+    } else if (activeRole === 'directeur' || activeRole === 'responsable_administratif') {
+      if (target === 'demandes' || target === 'demande') target = 'rh'
+    }
+
+    if (onNavigateTab && target) {
+      onNavigateTab(target)
     }
   }
 
