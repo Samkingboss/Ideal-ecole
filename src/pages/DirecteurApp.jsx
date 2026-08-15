@@ -100,7 +100,8 @@ export default function DirecteurApp({ user, onLogout }) {
         supabase.from('preparations').select('*, users(prenom, nom), classes(nom)').order('heure_depot', { ascending: false }),
         supabase.from('checkpoints').select('*'),
         supabase.from('prof_classes').select('*'),
-        supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false })
+        supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false }),
+        supabase.from('inscriptions').select('*').order('created_at', { ascending: false })
       ])
 
       const u = results[0].data || []
@@ -113,16 +114,35 @@ export default function DirecteurApp({ user, onLogout }) {
       const cp = results[8].data || []
       const pc = results[9].data || []
       const disc = results[10].data || []
+      const inscs = results[11].data || []
+
+      // Convertir les inscriptions officielles en format élève pour affichage
+      const elInscs = inscs.map(i => {
+        const matchingCl = cl.find(c => (c.nom || '').toLowerCase().trim() === (i.classe_demandee || '').toLowerCase().trim());
+        return {
+          id: i.id,
+          nom: i.nom,
+          prenom: i.prenom,
+          matricule: i.matricule,
+          classe_id: matchingCl ? matchingCl.id : null,
+          classe_nom: i.classe_demandee,
+          points_discipline: 100,
+          actif: true,
+          is_inscription: true
+        };
+      });
+
+      const allCombinedEleves = [...el, ...elInscs];
 
       setDisciplines(disc)
       if (param) setJoursOuvresGlobal(param.jours_ouvres);
       setPreparations(prep)
 
-      setEleves(el)
+      setEleves(allCombinedEleves)
       setClasses(cl)
       setEvenements(ev)
       if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
-      setStats({ profs: u.length, eleves: el.length, checkpoints: cp.length })
+      setStats({ profs: u.length, eleves: allCombinedEleves.length, checkpoints: cp.length })
       setCheckpoints(cp)
       
       const enrichedProfs = u.map(p => ({
@@ -798,11 +818,11 @@ export default function DirecteurApp({ user, onLogout }) {
         {tab === 'eleves' && (
           <>
             <div className="section-head">
-              <div className="section-title">Gestion des Eleves</div>
-              <button className="btn-sm" onClick={()=>setShowModal('eleve')}>+ Ajouter un élève</button>
+              <div className="section-title">Gestion des Élèves</div>
+              <a href="/inscription.html" className="btn-sm" style={{textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700}}>+ Inscrire un nouvel élève</a>
             </div>
             {classes.map(cls => {
-              const clsEleves = eleves.filter(e => e.classe_id === cls.id)
+              const clsEleves = eleves.filter(e => e.classe_id === cls.id || (e.classe_nom && e.classe_nom.toLowerCase().trim() === cls.nom.toLowerCase().trim()))
               const isActive = activeEleveClass === cls.id
               return (
                 <div key={cls.id} className="card" style={{marginBottom:12, overflow:'hidden', borderRadius:16, border: isActive ? '1.5px solid var(--accent)' : '1px solid var(--border)', transition:'all 0.2s'}}>
