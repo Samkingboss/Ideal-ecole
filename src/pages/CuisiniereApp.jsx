@@ -96,24 +96,17 @@ const EMPTY_FICHE_MARCHE = {
 
 // Générateur ultra-robuste de titre de date pour l'affiche (Garantie de non-vacuité)
 const getPosterMenuDateTitle = (menu) => {
-  if (!menu) return 'MENU DU 12/01/2026 AU 16/01/2026'
+  const debut = (menu?.date_debut && String(menu.date_debut).trim()) || '12/01/2026'
+  const fin = (menu?.date_fin && String(menu.date_fin).trim()) || '16/01/2026'
 
-  const debut = menu.date_debut && String(menu.date_debut).trim() ? String(menu.date_debut).trim() : null
-  const fin = menu.date_fin && String(menu.date_fin).trim() ? String(menu.date_fin).trim() : null
-  const dates = menu.dates_semaine && String(menu.dates_semaine).trim() ? String(menu.dates_semaine).trim() : null
-
-  if (debut && fin) {
-    return `MENU DU ${debut} AU ${fin}`
-  }
-
-  if (dates) {
-    const uppercaseDates = dates.toUpperCase()
+  if (menu?.dates_semaine && String(menu.dates_semaine).trim() && !menu?.date_debut) {
+    const uppercaseDates = String(menu.dates_semaine).trim().toUpperCase()
     if (uppercaseDates.startsWith('MENU')) return uppercaseDates
     if (uppercaseDates.startsWith('DU')) return `MENU ${uppercaseDates}`
     return `MENU DU ${uppercaseDates}`
   }
 
-  return 'MENU DU 12/01/2026 AU 16/01/2026'
+  return `MENU DU ${debut} AU ${fin}`
 }
 
 // Données démo élèves cantine (chargées depuis Supabase si actives)
@@ -170,7 +163,17 @@ export default function CuisiniereApp({ user, onLogout }) {
 
       // Charger le menu de la semaine depuis Supabase
       const { data: stateMenu } = await supabase.from('app_state').select('value').eq('key', 'cantine_menu_semaine').single()
-      if (stateMenu && stateMenu.value) setMenuSemaine(stateMenu.value)
+      if (stateMenu && stateMenu.value) {
+        const mergedMenu = {
+          date_debut: stateMenu.value.date_debut || '12/01/2026',
+          date_fin: stateMenu.value.date_fin || '16/01/2026',
+          dates_semaine: stateMenu.value.dates_semaine || '12/01/2026 au 16/01/2026',
+          ...stateMenu.value
+        }
+        if (!mergedMenu.date_debut) mergedMenu.date_debut = '12/01/2026'
+        if (!mergedMenu.date_fin) mergedMenu.date_fin = '16/01/2026'
+        setMenuSemaine(mergedMenu)
+      }
 
       // Charger la fiche du marché depuis Supabase
       const { data: stateMarche } = await supabase.from('app_state').select('value').eq('key', 'cantine_fiche_marche').single()
