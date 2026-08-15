@@ -7,7 +7,9 @@ const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
 // Exemple officiel de menu hebdomadaire haute gastronomie
 const SAMPLE_MENU_SEMAINE = {
-  dates_semaine: "12 au 16 janvier 2026",
+  date_debut: "12/01/2026",
+  date_fin: "16/01/2026",
+  dates_semaine: "12/01/2026 au 16/01/2026",
   Lundi: {
     entreeTitre: "Croq'Concombre",
     entreeDesc: "Fines rondelles de concombre bien fraîches et croquantes, légèrement assaisonnées avec une vinaigrette douce.",
@@ -62,7 +64,9 @@ const SAMPLE_MENU_SEMAINE = {
 
 // Menus de la semaine vides par défaut
 const EMPTY_MENU_SEMAINE = {
-  dates_semaine: "",
+  date_debut: "12/01/2026",
+  date_fin: "16/01/2026",
+  dates_semaine: "12/01/2026 au 16/01/2026",
   Lundi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
   Mardi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
   Mercredi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
@@ -149,7 +153,7 @@ export default function CuisiniereApp({ user, onLogout }) {
   const exportMenuJpeg = async () => {
     const posterElem = document.getElementById('menu-whatsapp-poster')
     if (!posterElem) return
-    setMsg('⏳ Génération du visuel de restauration Ultra-Premium HD en cours...')
+    setMsg('⏳ Génération de l\'affiche du Menu Hebdomadaire HD en cours...')
     try {
       const canvas = await html2canvas(posterElem, {
         scale: 3, // Ultra Retina Quality 3x pour un rendu presse/magazine sur WhatsApp
@@ -159,10 +163,10 @@ export default function CuisiniereApp({ user, onLogout }) {
       })
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98)
       const link = document.createElement('a')
-      link.download = `Menu_Hebdomadaire_UltraPremium_IDEAL_${getTodayString()}.jpg`
+      link.download = `Menu_Service_Restauration_IDEAL_${getTodayString()}.jpg`
       link.href = dataUrl
       link.click()
-      setMsg('📸 Affiche Ultra-Premium JPEG téléchargée avec succès ! Prête pour diffusion WhatsApp.')
+      setMsg('📸 Affiche Service de Restauration JPEG téléchargée avec succès ! Prête pour diffusion WhatsApp.')
       setTimeout(() => setMsg(''), 4000)
     } catch (err) {
       console.error(err)
@@ -244,7 +248,7 @@ export default function CuisiniereApp({ user, onLogout }) {
   // Charger le modèle d'exemple officiel
   const loadSampleMenu = () => {
     saveMenuSemaine(SAMPLE_MENU_SEMAINE)
-    setMsg('✨ Modèle officiel de menu chargé avec succès !')
+    setMsg('✨ Modèle officiel du Service de Restauration chargé avec succès !')
     setTimeout(() => setMsg(''), 3000)
   }
 
@@ -412,7 +416,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       </div>
 
       {/* Main Content */}
-      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px', maxWidth: 1320, margin: '0 auto' }}>
+      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px', maxWidth: 1380, margin: '0 auto' }}>
         {msg && <div className="error-msg" style={{ background: 'rgba(123,193,66,0.15)', borderColor: '#7bc142', color: '#275204', marginBottom: 16, borderRadius: 12, padding: '12px 16px', fontWeight: 700 }} onClick={() => setMsg('')}>{msg}</div>}
 
         {/* ════════════════ SESSION 1 : ÉLÈVES INSCRITS & ALLERGIES ════════════════ */}
@@ -720,16 +724,31 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Saisie de la date de la semaine */}
-            <div className="card" style={{ padding: '16px', marginBottom: 20, background: '#fff' }}>
-              <label className="form-label" style={{ fontWeight: 900, color: '#d97706', fontSize: 14 }}>📅 Période de la Semaine (Affiche Officielle)</label>
-              <input
-                className="form-input"
-                value={menuSemaine.dates_semaine || ''}
-                onChange={e => setMenuSemaine({ ...menuSemaine, dates_semaine: e.target.value })}
-                placeholder="Ex: 12 au 16 janvier 2026"
-                style={{ fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}
-              />
+            {/* Saisie des dates de début et fin de la semaine */}
+            <div className="card" style={{ padding: '20px', marginBottom: 20, background: '#fff', borderRadius: 16 }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 900, color: '#d97706' }}>📅 Période du Menu de Restauration</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 800 }}>Date de Début (Lundi)</label>
+                  <input
+                    className="form-input"
+                    value={menuSemaine.date_debut || '12/01/2026'}
+                    onChange={e => setMenuSemaine({ ...menuSemaine, date_debut: e.target.value })}
+                    placeholder="Ex: 12/01/2026"
+                    style={{ fontWeight: 800 }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 800 }}>Date de Fin (Vendredi)</label>
+                  <input
+                    className="form-input"
+                    value={menuSemaine.date_fin || '16/01/2026'}
+                    onChange={e => setMenuSemaine({ ...menuSemaine, date_fin: e.target.value })}
+                    placeholder="Ex: 16/01/2026"
+                    style={{ fontWeight: 800 }}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Selecteur de Jour */}
@@ -881,13 +900,13 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE ULTRA-PREMIUM HAUTE GASTRONOMIE ════════════════ */}
+        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (AJUSTEMENT DESIGN PRECIS USER) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>👑 Session 4 : Affiche Gastronomique du Menu de la Semaine</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium d'exception conçu pour la publication officielle sur la chaîne WhatsApp de l'école.</p>
+                <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>👑 Session 4 : Service de Restauration — Affiche Officielle</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium ajusté sur 5 colonnes équilibrées pour diffusion WhatsApp.</p>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
@@ -907,7 +926,7 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
-            {/* AFFICHE INTÉGRALE HEBDOMADAIRE ULTRA-PREMIUM GASTRONOMIE IMPÉRIALE */}
+            {/* AFFICHE INTÉGRALE HEBDOMADAIRE SUR 5 COLONNES PARFAITES */}
             <div
               id="menu-whatsapp-poster"
               style={{
@@ -922,35 +941,34 @@ export default function CuisiniereApp({ user, onLogout }) {
                 fontFamily: 'system-ui, -apple-system, sans-serif'
               }}
             >
-              {/* Filigrane de fond couronne impériale */}
-              <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 260, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
+              {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE BIEN VISIBLE & NOUVEAUX TITRES */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
+                {/* Logo a gauche bien visible SANS cercle */}
+                <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 85, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
 
-              {/* EN-TÊTE ÉLÉGANT LUXE : LOGO OFFICIEL & BANNIÈRE SEMAINE */}
-              <div style={{ textAlign: 'center', borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 32, position: 'relative' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-                  <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', border: '2px solid #d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
-                    <img src="/logo-ideal.png" alt="IDEAL" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <div>
+                  {/* ECOLE INTERNATIONALE BILINGUE IDEAL plus grand */}
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    ÉCOLE INTERNATIONALE BILINGUE IDEAL
                   </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: '#d97706', letterSpacing: '3px', textTransform: 'uppercase' }}>
-                      🌿 ÉCOLE INTERNATIONALE BILINGUE IDEAL
-                    </div>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: '#0f172a', letterSpacing: '0.5px', marginTop: 2 }}>
-                      RESTAURATION GASTRONOMIQUE IMPÉRIALE
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pill Badge Semaine Doré */}
-                <div style={{ display: 'inline-block', marginTop: 10, background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: '#fff', padding: '10px 28px', borderRadius: 30, boxShadow: '0 4px 16px rgba(15,23,42,0.2)' }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: '#f59e0b', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-                    🍽️ MENU DE LA SEMAINE DU {menuSemaine.dates_semaine || '12 AU 16 JANVIER 2026'}
+                  {/* SERVICE DE RESTAURATION */}
+                  <div style={{ fontSize: 36, fontWeight: 900, color: '#0f172a', letterSpacing: '1px', marginTop: 2 }}>
+                    SERVICE DE RESTAURATION
                   </div>
                 </div>
               </div>
 
-              {/* GRILLE DES 5 JOURS GASTRONOMIQUES (LUNDI AU VENDREDI) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 18, marginBottom: 32 }}>
+              {/* BARRE BLEU FONCÉ : MENU DU ...../..... AU ...../...../...... */}
+              <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                <div style={{ display: 'inline-block', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: '#fff', padding: '12px 36px', borderRadius: 30, boxShadow: '0 6px 20px rgba(15,23,42,0.25)', border: '1.5px solid #d97706' }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                    MENU DU {menuSemaine.date_debut || '12/01/2026'} AU {menuSemaine.date_fin || '16/01/2026'}
+                  </div>
+                </div>
+              </div>
+
+              {/* GRILLE PARFAITE DES 5 JOURS EN 5 COLONNES ÉGALES (SANS AUCUN VIDE) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 32 }}>
                 {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(j => {
                   const item = menuSemaine[j] || {}
                   return (
@@ -958,70 +976,69 @@ export default function CuisiniereApp({ user, onLogout }) {
                       key={j}
                       style={{
                         background: '#ffffff',
-                        border: '1.5px solid rgba(217,119,6,0.25)',
+                        border: '1.5px solid rgba(217,119,6,0.3)',
                         borderRadius: 22,
-                        padding: '18px 16px',
+                        padding: '18px 14px',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 14,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
-                        transition: 'transform 0.2s'
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.04)'
                       }}
                     >
                       {/* Ruban de Titre du Jour */}
-                      <div style={{ background: 'linear-gradient(135deg, #065f46, #047857)', color: '#fff', padding: '8px 12px', borderRadius: 12, textAlign: 'center', fontWeight: 900, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 10px rgba(4,120,87,0.25)', border: '1px solid #10b981' }}>
+                      <div style={{ background: 'linear-gradient(135deg, #065f46, #047857)', color: '#fff', padding: '8px 10px', borderRadius: 12, textAlign: 'center', fontWeight: 900, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 10px rgba(4,120,87,0.25)', border: '1px solid #10b981' }}>
                         📅 {j}
                       </div>
 
                       {/* ENTRÉE */}
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 4 }}>
                           <span>🥗</span> ENTRÉE DU CHEF
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
                           “{item.entreeTitre || item.entree || 'Entrée fraîche' }”
                         </div>
-                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
                           <span style={{ color: '#d97706' }}>✦</span> {item.entreeDesc || 'Composition fraîcheur préparée le matin.'}
                         </div>
                       </div>
 
-                      {/* PLAT PRINCIPAL (EN EVIDENCE AVEC FOND VERT EMERAUDE DOUX) */}
-                      <div style={{ background: 'rgba(16,185,129,0.08)', padding: '10px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.25)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
+                      {/* PLAT PRINCIPAL CHAUD (VERT ÉMERAUDE) */}
+                      <div style={{ background: 'rgba(16,185,129,0.08)', padding: '10px 8px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
                           <span>🍲</span> PLAT PRINCIPAL CHAUD
                         </div>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: '#064e3b' }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: '#064e3b' }}>
                           “{item.platTitre || item.plat || 'Plat du Chef'}”
                         </div>
-                        <div style={{ fontSize: 11, color: '#334155', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+                        <div style={{ fontSize: 11, color: '#334155', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
                           <span style={{ color: '#047857' }}>✦</span> {item.platDesc || 'Recette gourmande adaptée à la nutrition infantile.'}
                         </div>
                       </div>
 
                       {/* DESSERT */}
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#d97706', textTransform: 'uppercase', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#d97706', textTransform: 'uppercase', marginBottom: 4 }}>
                           <span>🍎</span> DESSERT &amp; FRUITS
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
                           “{item.dessertTitre || item.dessert || 'Dessert du jour'}”
                         </div>
-                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
-                          <span style={{ color: '#d97706' }}>✦</span> {item.dessertDesc || 'Selection de fruits mûrs et naturels.'}
+                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
+                          <span style={{ color: '#d97706' }}>✦</span> {item.dessertDesc || 'Sélection de fruits mûrs et naturels.'}
                         </div>
                       </div>
 
                       {/* GOÛTER / COLLATION */}
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', marginBottom: 4 }}>
                           <span>🍪</span> GOÛTER &amp; COLLATION
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
                           “{item.gouterTitre || item.boisson || 'Collation douce'}”
                         </div>
-                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
-                          <span style={{ color: '#e11d48' }}>✦</span> {item.gouterDesc || 'Collation légère adaptée aux besoins de l\'après-midi.'}
+                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.35 }}>
+                          <span style={{ color: '#e11d48' }}>✦</span> {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
                         </div>
                       </div>
                     </div>
