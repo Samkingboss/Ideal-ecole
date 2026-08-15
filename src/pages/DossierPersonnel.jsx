@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 export default function DossierPersonnel({ user, profInfo }) {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showPrintModal, setShowPrintModal] = useState(false)
 
   // State du dossier RH
   const [formData, setFormData] = useState({
@@ -581,6 +582,172 @@ export default function DossierPersonnel({ user, profInfo }) {
           {loading ? '⏳ Enregistrement...' : '💾 Sauvegarder mon Dossier RH'}
         </button>
       </div>
+
+      {/* ── MODAL PRÉVISUALISATION & IMPRESSION OFFICIELLE (PDF) ── */}
+      {showPrintModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, overflowY: 'auto' }}>
+          <div className="no-print" style={{ position: 'sticky', top: 0, background: '#fff', padding: '15px 30px', borderBottom: '2px solid #00a8e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ fontWeight: 800, color: '#0d2a3b', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 10, height: 10, background: '#00a8e0', borderRadius: '50%' }}></div>
+              FICHE DOSSIER RH OFFICIELLE DE L'EMPLOYÉ (APERÇU OFFICIEL)
+            </div>
+            <div style={{ display: 'flex', gap: 15 }}>
+              <button onClick={() => window.print()} className="btn" style={{ background: '#00a8e0', color: '#fff', padding: '10px 20px', fontWeight: 'bold', borderRadius: 6, cursor: 'pointer', border: 'none' }}>
+                🖨️ Imprimer / Sauvegarder en PDF
+              </button>
+              <button onClick={() => setShowPrintModal(false)} className="btn" style={{ background: '#64748b', color: '#fff', padding: '10px 20px', fontWeight: 'bold', borderRadius: 6, cursor: 'pointer', border: 'none' }}>
+                ✖ Fermer
+              </button>
+            </div>
+          </div>
+
+          <div id="dossier-rh-print-content" style={{ maxWidth: 850, margin: '20px auto', border: '1px solid #cbd5e1', padding: '35px 45px', background: '#fff', position: 'relative', boxShadow: '0 15px 40px rgba(0,0,0,0.15)', borderRadius: 8, color: '#1e293b', fontFamily: 'sans-serif' }}>
+            
+            {/* Header officiel */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '2.5px solid #0d2a3b', paddingBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <img src="/logo-ideal.png" style={{ maxHeight: 65, display: 'block' }} alt="Logo IDEAL" />
+                <div>
+                  <div style={{ fontWeight: 900, color: '#0d2a3b', fontSize: '1.15rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>ÉCOLE INTERNATIONALE BILINGUE IDEAL</div>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: 2 }}>Faladiè Sema, Bamako, Mali · Tél: (+223) 97 73 14 07 / 90 19 00 07</div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Email: comptabilite.idealecole@gmail.com</div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.7rem', color: '#00a8e0', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DIRECTION DES RESSOURCES HUMAINES</div>
+                <div style={{ fontSize: '1.1rem', color: '#0d2a3b', fontWeight: 900, marginTop: 2 }}>FICHE DOSSIER RH</div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>N° Réf: RH-{user?.id?.slice(0, 6)?.toUpperCase() || '2026'}</div>
+              </div>
+            </div>
+
+            {/* Photo & Identité Principale */}
+            <div style={{ display: 'flex', gap: 20, marginBottom: 20, background: '#f8fafc', padding: 15, borderRadius: 10, border: '1px solid #e2e8f0', alignItems: 'center' }}>
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#cbd5e1', overflow: 'hidden', flexShrink: 0, border: '3px solid #0d2a3b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {formData.photo_url ? (
+                  <img src={formData.photo_url} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ fontSize: 36, color: '#475569' }}>👤</div>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 900, color: '#0d2a3b' }}>
+                  {formData.prenom || '—'} {formData.nom || '—'}
+                </h3>
+                <div style={{ fontSize: '0.85rem', color: '#00a8e0', fontWeight: 800, marginTop: 2 }}>
+                  {formData.specialite || 'Enseignant'} · Contrat {formData.type_contrat} (Prise de service: {formData.date_embauche || '2023'})
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: 4 }}>
+                  📍 Adresse: {formData.adresse || 'Bamako'} · 📞 Tel: {formData.telephone || '—'} · ✉️ {formData.email || '—'}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#fff', padding: '8px 14px', borderRadius: 8, border: '1px solid #cbd5e1' }}>
+                <div style={{ fontSize: 10, textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Dossier Validé à</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: percentComplete >= 80 ? '#166534' : '#d97706' }}>{percentComplete}%</div>
+              </div>
+            </div>
+
+            {/* Section 1: Etat Civil */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d2a3b', textTransform: 'uppercase', borderBottom: '1.5px solid #00a8e0', paddingBottom: 4, marginBottom: 8 }}>
+                1. État Civil &amp; Informations Personnelles
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, color: '#475569', width: '25%' }}>Date &amp; Lieu de Naissance:</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>{formData.date_naissance || '—'} à {formData.lieu_naissance || '—'}</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, color: '#475569', width: '25%' }}>Nationalité:</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>{formData.nationalite || 'Malienne'}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, color: '#475569' }}>N° NINA / CNI / Passeport:</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, color: '#0d2a3b' }}>{formData.numero_nina || '—'}</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, color: '#475569' }}>Situation Matrimoniale:</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>{formData.situation_matrimoniale || 'Célibataire'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Section 2: Famille & Enfants */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d2a3b', textTransform: 'uppercase', borderBottom: '1.5px solid #00a8e0', paddingBottom: 4, marginBottom: 8 }}>
+                2. Situation Familiale &amp; Enfants à Charge ({formData.enfants_liste?.length || 0} enfant(s) au total, {formData.nombre_enfants_mineurs || 0} mineur(s))
+              </div>
+              {(formData.enfants_liste || []).length === 0 ? (
+                <div style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#64748b' }}>Aucun enfant à charge enregistré.</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', border: '1px solid #cbd5e1' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', fontWeight: 800, textTransform: 'uppercase', fontSize: '0.72rem', color: '#475569' }}>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', border: '1px solid #cbd5e1' }}>Nom &amp; Prénom Enfant</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', border: '1px solid #cbd5e1' }}>Âge</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', border: '1px solid #cbd5e1' }}>Classe / Niveau</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', border: '1px solid #cbd5e1' }}>Élève IDEAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.enfants_liste.map((e, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>{e.nom_prenom || '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>{e.age ? `${e.age} ans` : '—'}</td>
+                        <td style={{ padding: '6px 8px' }}>{e.classe || '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 800, color: e.scolarise_ideal ? '#166534' : '#64748b' }}>
+                          {e.scolarise_ideal ? '✓ Oui (IDEAL)' : 'Non'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Section 3: Diplomes & Banque */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d2a3b', textTransform: 'uppercase', borderBottom: '1.5px solid #00a8e0', paddingBottom: 4, marginBottom: 8 }}>
+                  3. Qualification &amp; INPS
+                </div>
+                <div style={{ fontSize: '0.82rem', lineHeight: 1.6 }}>
+                  <div>🎓 Diplôme le plus élevé: <b>{formData.diplome_eleve || 'Licence'}</b></div>
+                  <div>💼 Spécialité: <b>{formData.specialite || 'Enseignement'}</b></div>
+                  <div>📑 N° INPS: <b>{formData.numero_inps || 'Non renseigné'}</b></div>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d2a3b', textTransform: 'uppercase', borderBottom: '1.5px solid #00a8e0', paddingBottom: 4, marginBottom: 8 }}>
+                  4. Mode de Paiement &amp; RIB
+                </div>
+                <div style={{ fontSize: '0.82rem', lineHeight: 1.6 }}>
+                  <div>💳 Mode de paiement: <b>{formData.mode_paiement || 'Espèces'}</b></div>
+                  {formData.mode_paiement === 'Virement Bancaire' && <div>🏦 Banque / Compte RIB: <b>{formData.banque_nom} - {formData.rib_compte}</b></div>}
+                  {formData.mobile_money_num && <div>📱 Mobile Money: <b>{formData.mobile_money_num}</b></div>}
+                  <div>🚨 Urgence: <b>{formData.contact_urgence_nom} ({formData.contact_urgence_parent}) — {formData.contact_urgence_tel}</b></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Signatures */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 35, paddingTop: 15, borderTop: '1px solid #cbd5e1' }}>
+              <div style={{ width: '45%', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Signature de l'Employé(e)</div>
+                <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', marginTop: 2 }}>« Lu et certifié exact »</div>
+                <div style={{ height: 50, margin: '8px 0', border: '1px dashed #cbd5e1', borderRadius: 6 }}></div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{formData.prenom} {formData.nom}</div>
+              </div>
+
+              <div style={{ width: '45%', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0d2a3b', textTransform: 'uppercase' }}>Le Directeur Général / DRH</div>
+                <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', marginTop: 2 }}>Visa &amp; Cachet de l'Établissement</div>
+                <div style={{ height: 50, margin: '8px 0', border: '1px dashed #cbd5e1', borderRadius: 6 }}></div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>Fait à Bamako, le {new Date().toLocaleDateString('fr-FR')}</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   )
