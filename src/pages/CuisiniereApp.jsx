@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import NotificationCenter from './NotificationCenter'
+import html2canvas from 'html2canvas'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
@@ -85,6 +86,31 @@ export default function CuisiniereApp({ user, onLogout }) {
       console.warn('Erreur chargement Supabase cantine :', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Télécharger le poster du menu au format JPEG HD pour la chaîne WhatsApp
+  const exportMenuJpeg = async () => {
+    const posterElem = document.getElementById('menu-whatsapp-poster')
+    if (!posterElem) return
+    setMsg('⏳ Génération du visuel de restauration HD en cours...')
+    try {
+      const canvas = await html2canvas(posterElem, {
+        scale: 2, // Ultra HD 2x for crisp text on phones
+        useCORS: true,
+        backgroundColor: '#071924',
+        logging: false
+      })
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+      const link = document.createElement('a')
+      link.download = `Menu_Restauration_IDEAL_${jourSelectionne}_${getTodayString()}.jpg`
+      link.href = dataUrl
+      link.click()
+      setMsg('📸 Visuel JPEG du menu téléchargé avec succès ! Prêt à diffuser sur la chaîne WhatsApp.')
+      setTimeout(() => setMsg(''), 4000)
+    } catch (err) {
+      console.error(err)
+      alert('Erreur lors de la création du JPEG : ' + err.message)
     }
   }
 
@@ -309,7 +335,7 @@ export default function CuisiniereApp({ user, onLogout }) {
             onClick={() => setTab('menu_jour')}
             style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            🍲 4. Menu du Jour
+            🍲 4. Menu du Jour (Affiche WhatsApp)
           </button>
           <button
             className={`top-nav-item ${tab === 'marche' ? 'active' : ''}`}
@@ -718,67 +744,121 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : MENU DU JOUR ════════════════ */}
+        {/* ════════════════ SESSION 4 : MENU DU JOUR (IMAGE HAUTE QUALITÉ JPEG WHATSAPP) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍲 Session 4 : Menu du Jour (Affiche Officielle)</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Détail et composition du repas servi aujourd'hui à la réfection des élèves.</p>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍲 Session 4 : Menu du Jour (Affiche Officielle JPEG WhatsApp)</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Générez et téléchargez le visuel de restauration haute définition au format JPEG prêt à être partagé sur WhatsApp.</p>
               </div>
-              <button
-                className="btn-sm"
-                onClick={() => window.print()}
-                style={{ background: '#0d2a3b', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 800 }}
-              >
-                🖨️ Imprimer la Fiche du Jour
-              </button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={exportMenuJpeg}
+                  style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', border: 'none', padding: '12px 22px', borderRadius: 12, fontWeight: 900, boxShadow: '0 4px 16px rgba(123,193,66,0.35)' }}
+                >
+                  📸 Télécharger Image JPEG (WhatsApp HD)
+                </button>
+                <button
+                  className="btn-sm"
+                  onClick={() => window.print()}
+                  style={{ background: '#0d2a3b', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 800 }}
+                >
+                  🖨️ Imprimer Affiche
+                </button>
+              </div>
             </div>
 
-            {/* Affiche Grand Format du Menu */}
-            <div className="card" style={{ padding: '2rem', background: 'linear-gradient(135deg, #0d2a3b 0%, #0f3854 100%)', color: '#fff', borderRadius: 20, boxShadow: '0 15px 35px rgba(13,42,59,0.3)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: -20, right: -20, fontSize: 180, opacity: 0.05, pointerEvents: 'none' }}>🍲</div>
+            {/* Affiche Grand Format du Menu RESTAURATION IMPÉRIALE (Formating pour html2canvas) */}
+            <div
+              id="menu-whatsapp-poster"
+              style={{
+                padding: '2.5rem 2rem',
+                background: 'linear-gradient(135deg, #071924 0%, #0d2a3b 50%, #0f3854 100%)',
+                color: '#fff',
+                borderRadius: 24,
+                boxShadow: '0 20px 50px rgba(13,42,59,0.35)',
+                border: '4px solid #7bc142',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <div style={{ position: 'absolute', top: -30, right: -30, fontSize: 200, opacity: 0.04, pointerEvents: 'none' }}>🍽️</div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: 16, marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 40, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '0.5px', color: '#7bc142' }}>CANTINE IMPÉRIALE IDEAL</div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>Menu officiel du {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              {/* En-tête officiel École IDEAL */}
+              <div style={{ borderBottom: '2px solid rgba(123,193,66,0.4)', paddingBottom: 20, marginBottom: 24, textAlign: 'center' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
+                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 48, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' }} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#7bc142', letterSpacing: '1px' }}>ÉCOLE INTERNATIONALE BILINGUE IDEAL</div>
+                    <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>CANTINE &amp; RESTAURATION IMPÉRIALE</div>
                   </div>
                 </div>
-                <div style={{ background: '#7bc142', color: '#0d2a3b', padding: '6px 14px', borderRadius: 20, fontWeight: 900, fontSize: 13 }}>
-                  {elevesInscrits.length} Élèves Inscrits
+
+                <div style={{ marginTop: 12, background: 'linear-gradient(90deg, transparent, rgba(123,193,66,0.2), transparent)', padding: '10px 16px', borderRadius: 20 }}>
+                  <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: '#fff', letterSpacing: '0.5px' }}>
+                    🍽️ MENU DE LA RESTAURATION — {jourSelectionne.toUpperCase()}
+                  </h2>
+                  <div style={{ fontSize: 13, color: '#7bc142', fontWeight: 800, marginTop: 4 }}>
+                    Date : {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} | Service de Midi
+                  </div>
                 </div>
               </div>
 
-              {/* Contenu du Menu */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginBottom: 24 }}>
-                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', marginBottom: 6 }}>🥗 ENTRÉE</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.entree || '— Non définie —'}</div>
+              {/* Grille des Plats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '18px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🥗 ENTRÉE DU CHEF
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>
+                    {menuSemaine[jourSelectionne]?.entree || '— Non définie —'}
+                  </div>
                 </div>
 
-                <div style={{ background: 'rgba(123,193,66,0.12)', borderRadius: 14, padding: '16px', border: '1px solid #7bc142' }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: '#7bc142', textTransform: 'uppercase', marginBottom: 6 }}>🍲 PLAT PRINCIPAL</div>
-                  <div style={{ fontSize: 16, fontWeight: 900 }}>{menuSemaine[jourSelectionne]?.plat || '— Non défini —'}</div>
+                <div style={{ background: 'rgba(123,193,66,0.18)', borderRadius: 16, padding: '18px', border: '2px solid #7bc142' }}>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#7bc142', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🍲 PLAT PRINCIPAL CHAUD
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>
+                    {menuSemaine[jourSelectionne]?.plat || '— Non défini —'}
+                  </div>
                 </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 6 }}>🍎 DESSERT</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.dessert || '— Non défini —'}</div>
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '18px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🍎 DESSERT &amp; DOUCEURS
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>
+                    {menuSemaine[jourSelectionne]?.dessert || '— Non défini —'}
+                  </div>
                 </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#ec4899', textTransform: 'uppercase', marginBottom: 6 }}>🥤 BOISSON</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.boisson || '— Non définie —'}</div>
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '18px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#ec4899', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🥤 BOISSON NATURELLE MAISON
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>
+                    {menuSemaine[jourSelectionne]?.boisson || '— Non définie —'}
+                  </div>
                 </div>
               </div>
 
-              {/* Substitution Consigne Cuisinière */}
-              <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', borderRadius: 12, padding: '14px', fontSize: 13 }}>
-                <span style={{ fontWeight: 900, color: '#fca5a5' }}>⚠️ REPAS DE SUBSTITUTION (ALLERGIES) :</span>
-                <div style={{ marginTop: 4, fontWeight: 700 }}>{menuSemaine[jourSelectionne]?.substitution || 'Aucune consigne spécifique renseignée.'}</div>
+              {/* Substitution & Consignes Allergies */}
+              <div style={{ background: 'rgba(239,68,68,0.15)', border: '1.5px solid #ef4444', borderRadius: 16, padding: '16px', marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#fca5a5', textTransform: 'uppercase' }}>
+                  ⚠️ REPAS DE SUBSTITUTION &amp; SÉCURITÉ ALLERGIES :
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginTop: 4 }}>
+                  {menuSemaine[jourSelectionne]?.substitution || 'Portion spécifique sans arachide, ni porc ni produits laitiers préparée à part.'}
+                </div>
+              </div>
+
+              {/* Pied de Page Affiche WhatsApp */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'rgba(255,255,255,0.7)', flexWrap: 'wrap', gap: 10 }}>
+                <div>✨ Équilibre, Hygiène &amp; Fraîcheur — École Internationale Bilingue IDEAL</div>
+                <div style={{ fontWeight: 800, color: '#7bc142' }}>📲 Diffusion Chaine WhatsApp Officielle</div>
               </div>
             </div>
           </div>

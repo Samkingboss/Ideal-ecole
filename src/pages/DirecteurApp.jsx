@@ -108,6 +108,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [journalOuvert, setJournalOuvert] = useState(false)
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
   const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
+  const [ficheMarcheCantine, setFicheMarcheCantine] = useState({ budget: 0, articles: [] })
 
   useEffect(() => { 
     loadData() 
@@ -217,6 +218,11 @@ export default function DirecteurApp({ user, onLogout }) {
       const { data: globalDem } = await supabase.from('app_state')
         .select('value').eq('key', 'demandes_rh_global').maybeSingle()
       if (globalDem && globalDem.value && Array.isArray(globalDem.value)) setDemandesRH(globalDem.value)
+
+      // Fiche du marché cantine de la Cuisinière
+      const { data: stateMarche } = await supabase.from('app_state')
+        .select('value').eq('key', 'cantine_fiche_marche').maybeSingle()
+      if (stateMarche && stateMarche.value) setFicheMarcheCantine(stateMarche.value)
 
       // ─── Points & prime d'été ───
       const [cfgRes, persRes, manRes, perfRes, rapRes] = await Promise.all([
@@ -532,11 +538,182 @@ export default function DirecteurApp({ user, onLogout }) {
                   <div style={{ fontWeight: 900, fontSize: 15 }}>Fiches &amp; Effectifs</div>
                   <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>{nbEleves} élèves actifs</div>
                 </div>
+                <div 
+                  onClick={() => setSubTabEleve('cantine')}
+                  style={{ background: subTabEleve === 'cantine' ? 'linear-gradient(135deg,#155e75,#0d2a3b)' : 'linear-gradient(135deg,#0d2a3b,#155e75)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(13,42,59,0.3)', cursor: 'pointer' }}
+                >
+                  <div style={{ fontSize: 26, marginBottom: 6 }}>🥗</div>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>Cantine &amp; Budget Cuisine</div>
+                  <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Synchronisé Cuisinière</div>
+                </div>
               </div>
 
               {/* Contenu dynamique du module actif dans Gestion Élèves */}
               {subTabEleve === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
               {subTabEleve === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} />}
+
+              {subTabEleve === 'cantine' && (
+                <div>
+                  <div style={{ marginBottom: 20 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🥗 Suivi Cantine, Inscriptions &amp; Budget de la Cuisine</h2>
+                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Panneau de gestion partagé avec la Cuisinière : allocation budgétaire, validation des achats du marché et suivi des allergies.</p>
+                  </div>
+
+                  {/* Section Budget & Fiche d'Utilisation du Marché */}
+                  <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid #7bc142' }}>
+                    <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>💵 Gestion du Budget &amp; Justificatif des Dépenses de la Cuisine</h3>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                      <div style={{ background: 'rgba(0,168,224,0.06)', border: '1px solid #00a8e0', borderRadius: 12, padding: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)' }}>BUDGET CANTINE ALLOUÉ (FCFA)</div>
+                        <input
+                          type="number"
+                          className="form-input"
+                          value={ficheMarcheCantine.budget || 0}
+                          onChange={async (e) => {
+                            const b = Number(e.target.value) || 0
+                            const updated = { ...ficheMarcheCantine, budget: b }
+                            setFicheMarcheCantine(updated)
+                            await supabase.from('app_state').upsert({ key: 'cantine_fiche_marche', value: updated, updated_at: new Date().toISOString() })
+                          }}
+                          style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}
+                        />
+                        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>Défini par le Responsable Administratif</div>
+                      </div>
+
+                      <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid #ef4444', borderRadius: 12, padding: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#dc2626' }}>DÉPENSES RÉELLES DU MARCHÉ</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: '#dc2626', margin: '4px 0' }}>
+                          {fcfa((ficheMarcheCantine.articles || []).reduce((s, a) => s + (Number(a.pu) * (parseFloat(a.quantite) || 1)), 0))}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{(ficheMarcheCantine.articles || []).length} achats saisis par la cuisinière</div>
+                      </div>
+
+                      <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid #10b981', borderRadius: 12, padding: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#16a34a' }}>SOLDE DISPONIBLE (RESTE)</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: '#16a34a', margin: '4px 0' }}>
+                          {fcfa((ficheMarcheCantine.budget || 0) - (ficheMarcheCantine.articles || []).reduce((s, a) => s + (Number(a.pu) * (parseFloat(a.quantite) || 1)), 0))}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>Synchronisé en temps réel</div>
+                      </div>
+                    </div>
+
+                    {/* Tableau des Ingrédients / Fiche d'Utilisation du Marché */}
+                    <div style={{ marginTop: 16 }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: 14, fontWeight: 800 }}>🧾 Fiche d'Utilisation du Budget (Achats de la Cuisinière)</h4>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                              <th style={{ textAlign: 'left', padding: '8px 10px' }}>Aliment / Ingrédient</th>
+                              <th style={{ textAlign: 'center', padding: '8px 10px' }}>Quantité</th>
+                              <th style={{ textAlign: 'right', padding: '8px 10px' }}>P.U (FCFA)</th>
+                              <th style={{ textAlign: 'right', padding: '8px 10px' }}>Total (FCFA)</th>
+                              <th style={{ textAlign: 'center', padding: '8px 10px' }}>Statut Payé</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(ficheMarcheCantine.articles || []).map((art, idx) => {
+                              const totalArt = Number(art.pu) * (parseFloat(art.quantite) || 1)
+                              return (
+                                <tr key={art.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                  <td style={{ padding: '8px 10px', fontWeight: 700 }}>{art.nom}</td>
+                                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>{art.quantite}</td>
+                                  <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fcfa(art.pu)}</td>
+                                  <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>{fcfa(totalArt)}</td>
+                                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                    <span className={`chip ${art.achete ? 'chip-green' : 'chip-amber'}`}>{art.achete ? '✓ Acheté' : 'À acheter'}</span>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                            {(ficheMarcheCantine.articles || []).length === 0 && (
+                              <tr>
+                                <td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--muted)' }}>Aucun achat saisi par la Cuisinière pour le moment.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section Inscriptions Cantine & Allergies */}
+                  <div className="card" style={{ padding: '1.2rem' }}>
+                    <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>🎒 Synchronisation des Inscriptions Cantine &amp; Allergies Élèves</h3>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                            <th style={{ textAlign: 'left', padding: '10px 12px' }}>Nom &amp; Prénom</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px' }}>Classe</th>
+                            <th style={{ textAlign: 'center', padding: '10px 12px' }}>Inscrit à la Cantine</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px' }}>Allergies Médicales</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px' }}>Restrictions Alimentaires</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {eleves.map(e => {
+                            const estInscrit = e.cantine !== false
+                            return (
+                              <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '10px 12px', fontWeight: 800 }}>{e.prenom} {e.nom}</td>
+                                <td style={{ padding: '10px 12px' }}>
+                                  <span className="chip chip-blue">{e.classe_nom || classes.find(c => c.id === e.classe_id)?.nom || '—'}</span>
+                                </td>
+                                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                  <button
+                                    onClick={async () => {
+                                      const updatedCantine = !estInscrit
+                                      const updatedEleves = eleves.map(x => x.id === e.id ? { ...x, cantine: updatedCantine } : x)
+                                      setEleves(updatedEleves)
+                                      await supabase.from('eleves').update({ cantine: updatedCantine }).eq('id', e.id)
+                                    }}
+                                    style={{
+                                      padding: '6px 14px',
+                                      borderRadius: 20,
+                                      fontWeight: 800,
+                                      fontSize: 11,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      background: estInscrit ? 'linear-gradient(135deg,#10b981,#059669)' : '#e2e8f0',
+                                      color: estInscrit ? '#fff' : '#64748b'
+                                    }}
+                                  >
+                                    {estInscrit ? '🟢 Inscrit' : '⚪ Non inscrit'}
+                                  </button>
+                                </td>
+                                <td style={{ padding: '10px 12px' }}>
+                                  <input
+                                    className="form-input"
+                                    style={{ fontSize: 12, padding: '4px 8px' }}
+                                    defaultValue={e.allergies || 'Aucune'}
+                                    onBlur={async (evt) => {
+                                      const val = evt.target.value
+                                      await supabase.from('eleves').update({ allergies: val }).eq('id', e.id)
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '10px 12px' }}>
+                                  <input
+                                    className="form-input"
+                                    style={{ fontSize: 12, padding: '4px 8px' }}
+                                    defaultValue={e.restrictions || 'Aucune'}
+                                    onBlur={async (evt) => {
+                                      const val = evt.target.value
+                                      await supabase.from('eleves').update({ restrictions: val }).eq('id', e.id)
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
               {(subTabEleve === 'liste' || subTabEleve === 'dossiers') && (
                 <div className="card" style={{ padding: '1.2rem' }}>
                   <h3 style={{ margin: '0 0 12px 0', fontSize: 16 }}>🎒 Effectifs et Liste des Élèves</h3>
