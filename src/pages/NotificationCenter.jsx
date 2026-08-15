@@ -177,90 +177,119 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         )}
       </button>
 
-      {/* Popover / Tiroir des Notifications */}
+      {/* Popover / Tiroir des Notifications (Parfaitement cadré sur Mobile & Desktop) */}
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 48,
-            right: 0,
-            width: 340,
-            maxWidth: '90vw',
-            background: '#ffffff',
-            borderRadius: 16,
-            boxShadow: '0 15px 35px rgba(0,0,0,0.25), 0 5px 15px rgba(0,0,0,0.1)',
-            border: '1px solid #e2e8f0',
-            zIndex: 9999,
-            overflow: 'hidden',
-            color: '#1e293b',
-            fontFamily: 'sans-serif'
-          }}
-        >
-          {/* Header Popover */}
-          <div style={{ background: '#0d2a3b', color: '#fff', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>🔔 Notifications</span>
-              {unreadCount > 0 && (
-                <span style={{ background: '#00a8e0', color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 12, fontWeight: 900 }}>
-                  {unreadCount} nouvelle(s)
-                </span>
+        <>
+          {/* Backdrop semi-transparent pour fermer au clic à l'extérieur */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.4)',
+              zIndex: 99990
+            }}
+          />
+
+          {/* Modal / Tiroir de notification centré & sans aucun tronquage */}
+          <div
+            style={{
+              position: 'fixed',
+              top: 70,
+              left: 12,
+              right: 12,
+              maxWidth: 400,
+              margin: '0 auto',
+              background: '#ffffff',
+              borderRadius: 18,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 5px 15px rgba(0,0,0,0.15)',
+              border: '1px solid #cbd5e1',
+              zIndex: 99999,
+              overflow: 'hidden',
+              color: '#1e293b',
+              fontFamily: 'sans-serif'
+            }}
+          >
+            {/* Header Popover */}
+            <div style={{ background: '#0d2a3b', color: '#fff', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>🔔 Notifications</span>
+                {unreadCount > 0 && (
+                  <span style={{ background: '#00a8e0', color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 12, fontWeight: 900 }}>
+                    {unreadCount} non lue(s)
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    style={{ background: 'rgba(56,189,248,0.15)', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, cursor: 'pointer' }}
+                  >
+                    Tout lire
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 16, fontWeight: 900, cursor: 'pointer', padding: 0 }}
+                  title="Fermer"
+                >
+                  ✖
+                </button>
+              </div>
+            </div>
+
+            {/* Liste des notifications */}
+            <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+              {notifications.length === 0 ? (
+                <div style={{ padding: '2.5rem 1rem', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+                  <div style={{ fontSize: 36, marginBottom: 6 }}>🔕</div>
+                  <b>Aucune notification pour le moment.</b>
+                  <p style={{ fontSize: 11, marginTop: 4 }}>Vous recevrez les alertes RH et scolaires ici.</p>
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    style={{
+                      padding: '13px 16px',
+                      borderBottom: '1px solid #f1f5f9',
+                      background: n.lu ? '#ffffff' : 'rgba(0,168,224,0.06)',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ fontWeight: n.lu ? 700 : 900, fontSize: 13, color: '#0d2a3b' }}>
+                        {!n.lu && <span style={{ display: 'inline-block', width: 8, height: 8, background: '#00a8e0', borderRadius: '50%', marginRight: 6 }}></span>}
+                        {n.titre}
+                      </div>
+                      <span style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', fontWeight: 600 }}>{formatTime(n.date)}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 1.4 }}>
+                      {n.message}
+                    </div>
+                  </div>
+                ))
               )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-              >
-                Tout lire
-              </button>
-            )}
-          </div>
 
-          {/* Liste des notifications */}
-          <div style={{ maxHeight: 350, overflowY: 'auto' }}>
-            {notifications.length === 0 ? (
-              <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
-                <div style={{ fontSize: 32, marginBottom: 4 }}>🔕</div>
-                Aucune notification pour le moment.
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => handleNotificationClick(n)}
-                  style={{
-                    padding: '12px 16px',
-                    borderBottom: '1px solid #f1f5f9',
-                    background: n.lu ? '#ffffff' : 'rgba(0,168,224,0.06)',
-                    cursor: 'pointer',
-                    transition: 'background 0.2s',
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
-                    <div style={{ fontWeight: n.lu ? 600 : 800, fontSize: 12.5, color: '#0d2a3b' }}>
-                      {!n.lu && <span style={{ display: 'inline-block', width: 7, height: 7, background: '#00a8e0', borderRadius: '50%', marginRight: 6 }}></span>}
-                      {n.titre}
-                    </div>
-                    <span style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatTime(n.date)}</span>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#475569', marginTop: 3, lineHeight: 1.4 }}>
-                    {n.message}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+            {/* Footer Popover */}
+            <div style={{ padding: '9px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                💡 Cliquez sur une alerte pour ouvrir le module concerné
+              </span>
+            </div>
 
-          {/* Footer Popover */}
-          <div style={{ padding: '8px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-            <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 600 }}>
-              💡 Notifications synchronisées en temps réel · IDEAL École
-            </span>
           </div>
-
-        </div>
+        </>
       )}
 
     </div>
