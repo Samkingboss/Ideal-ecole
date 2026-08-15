@@ -1175,35 +1175,16 @@ function deconnexionIdeal() {
   </div>
 
   <div class="g2">
-    <!-- NOUVEL ÉLÈVE -->
-    <div class="card">
-      <div class="card-head"><h3>➕ Ajouter un Nouvel Élève</h3></div>
+    <!-- NOUVEL ÉLÈVE OFFICIEL -->
+    <div class="card" style="background: linear-gradient(135deg, rgba(0,168,224,0.08), rgba(0,120,180,0.05)); border: 1.5px solid var(--blue);">
+      <div class="card-head"><h3 style="color:var(--blue-d);">📝 Inscription Officielle d'un Élève</h3></div>
       <div class="card-body">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
-          <input type="text" id="new-el-nom" class="inp" placeholder="Nom">
-          <input type="text" id="new-el-prenom" class="inp" placeholder="Prénom">
-        </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; margin-bottom:1.5rem;">
-          <select id="new-el-classe" class="inp">
-            <option value="ps">PS - Petite Section</option>
-            <option value="gs">GS - Grande Section</option>
-            <option value="cp1">CP 1</option>
-            <option value="cp2">CP 2</option>
-            <option value="ce1">CE 1</option>
-            <option value="ce2">CE 2</option>
-            <option value="cm1">CM 1</option>
-            <option value="cm2">CM 2</option>
-          </select>
-          <select id="new-el-plan" class="inp">
-            <option value="trimestre">Paiement Trimestriel</option>
-            <option value="mensuel">Paiement Mensualisé</option>
-          </select>
-          <div style="display:flex; align-items:center; gap:0.5rem; justify-content:center; border: 1px solid var(--border); border-radius:6px; padding:0.5rem;">
-            <input type="checkbox" id="new-el-cantine" checked style="transform: scale(1.3)">
-            <label for="new-el-cantine" style="font-size:0.85rem; cursor:pointer;">Prend la Cantine</label>
-          </div>
-        </div>
-        <button class="btn" style="width:100%; justify-content:center;" onclick="addStudent()">Enregistrer l'élève dans la base</button>
+        <p style="font-size:0.88rem; color:var(--text-dim); margin-bottom:1.25rem; line-height:1.5;">
+          Pour enregistrer un nouvel élève et constituer son dossier numérique (photos, signatures, pièces justificatives et QR code), utilisez la plateforme d'inscription officielle.
+        </p>
+        <a href="/inscription.html" class="btn" style="width:100%; justify-content:center; text-decoration:none; background:linear-gradient(135deg,#00a8e0,#0078b4); font-weight:700; padding:0.9rem; border-radius:8px;">
+          ✨ Accéder à la Plateforme d'Inscription
+        </a>
       </div>
     </div>
 
@@ -7265,6 +7246,11 @@ function autoLoad() {
     }
     // Élèves dont la classe est encore 'm' → bascule par défaut sur 'ps' (sera modifiable manuellement)
     if (Array.isArray(studentsData)) {
+      // Nettoyage automatique des élèves de démonstration / test
+      studentsData = studentsData.filter(st => {
+        const full = `${st.nom || ''} ${st.prenom || ''}`.toUpperCase();
+        return !full.includes('AG OK') && !full.includes('OGAKANE') && !full.includes('SANOGO PATRICK') && !full.includes('TEST');
+      });
       let migrated = 0;
       studentsData.forEach(st => {
         if (st.classe === 'm') { st.classe = 'ps'; migrated++; }
