@@ -576,6 +576,71 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
 
+              {/* 📂 DOSSIERS DU PERSONNEL */}
+              <div className="card" style={{ marginBottom: 20, padding: '1.2rem', borderLeft: '4px solid #8e44ad' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>📂 Dossiers du Personnel Enseignant &amp; Administratif</h3>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Fiches individuelles, informations renseignées, codes d'accès et classes attribuées</div>
+                  </div>
+                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setNewProf({ prenom: '', nom: '', role: 'professeur', langue: 'fr', code_acces: '', plafond_salaire: 180000, classe_ids: [] }); setShowModal('prof') }}>
+                    + Nouveau Dossier Personnel
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                  {(profs || []).map((p, i) => (
+                    <div key={p.id || i} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px', position: 'relative' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#8e44ad,#6c3483)', color: '#fff', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                          {(p.prenom?.[0] || '') + (p.nom?.[0] || '')}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            Rôle: <b style={{ color: 'var(--accent)' }}>{p.role}</b> {p.langue ? `(${p.langue.toUpperCase()})` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: 11, color: 'var(--text)', background: 'var(--card)', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 8 }}>
+                        🔑 Code d'accès : <b style={{ color: 'var(--accent)', fontFamily: 'monospace' }}>{p.code_acces}</b>
+                      </div>
+
+                      {p.role === 'professeur' && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Classes attribuées :</div>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {(p.classe_ids || []).map(cid => (
+                              <span key={cid} style={{ fontSize: 10, background: 'rgba(0,168,224,0.12)', color: '#00a8e0', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                {classes.find(c => c.id === cid)?.nom || cid}
+                              </span>
+                            ))}
+                            {(p.classe_ids || []).length === 0 && <span style={{ fontSize: 10, color: 'var(--red)', fontStyle: 'italic' }}>Aucune classe</span>}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 11 }}>
+                        <span style={{ color: 'var(--muted)' }}>Plafond: <b>{fcfa(p.plafond_salaire || 0)}</b></span>
+                        <button 
+                          className="btn-sm" 
+                          style={{ background: 'rgba(142,68,173,0.1)', color: '#8e44ad', border: '1px solid #8e44ad', padding: '3px 8px', fontSize: 10 }}
+                          onClick={() => alert(`Dossier complet de ${p.prenom} ${p.nom}\n- Code: ${p.code_acces}\n- Rôle: ${p.role}\n- Statut: Actif`)}
+                        >
+                          👁️ Voir Fiche
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {(profs || []).length === 0 && (
+                    <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center', padding: '2rem' }}>
+                      Aucun dossier personnel enregistré.
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Grille Salariale complète */}
               <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
