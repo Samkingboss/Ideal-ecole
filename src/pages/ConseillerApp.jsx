@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import AgendaCalendrier from './AgendaCalendrier'
+import NotificationCenter from './NotificationCenter'
 import { MINUTES_JOUR } from '../lib/sequences'
 
 // Horaires officiels : arrivée 08h00, départ 16h00
@@ -265,7 +266,8 @@ export default function ConseillerApp({ user, onLogout }) {
             <div className="topbar-sub">Conseiller Vie Scolaire</div>
           </div>
         </div>
-        <div className="topbar-user">
+        <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <NotificationCenter user={user} role="conseiller" onNavigateTab={setTab} />
           <span className="role-badge" style={{background:'var(--accent)', color:'#fff'}}>CVS</span>
           <button className="btn-logout" onClick={onLogout} style={{marginLeft:10}}>Déconnexion</button>
         </div>

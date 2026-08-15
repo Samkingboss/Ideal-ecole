@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { journaliser } from '../lib/audit'
+import NotificationCenter from './NotificationCenter'
+import { pushNotification } from '../lib/notifications'
 
 const RECREES = [
   { id:'r1', label:'9h40 - Recreation matin' },
@@ -213,7 +215,8 @@ export default function SurveillantApp({ user, onLogout }) {
             <div className="topbar-sub">Surveillant</div>
           </div>
         </div>
-        <div className="topbar-user">
+        <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <NotificationCenter user={user} role="surveillant" onNavigateTab={setTab} />
           <span className="role-badge role-surveillant">Surveillant</span>
           <button className="btn-logout" onClick={onLogout} style={{padding:'4px 12px', fontSize:11, borderRadius:8, width:'auto', height:'auto', marginLeft:10}}>Déconnexion</button>
         </div>

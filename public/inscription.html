@@ -1435,6 +1435,24 @@
             // adresses sont enregistrées telles quelles, rien ne se perd.
             lastSavedMatricule = inscData.matricule;
             lastSavedData = { ...inscData, responsable1: r1Data };
+
+            // Emission notification temps réel à la Direction
+            try {
+                const notifObj = {
+                    id: Date.now(),
+                    titre: `🎒 Nouvel élève inscrit: ${inscData.prenoms} ${inscData.nom}`,
+                    message: `Matricule: ${inscData.matricule} (${inscData.classe_demandee || 'Classe N/A'})`,
+                    date: new Date().toISOString(),
+                    lu: false,
+                    type: 'inscription',
+                    tabTarget: 'eleves'
+                };
+                const { data: curNotifs } = await _supa.from('app_state').select('value').eq('key', 'notifs_directeur').maybeSingle();
+                const list = (curNotifs && Array.isArray(curNotifs.value)) ? [notifObj, ...curNotifs.value] : [notifObj];
+                await _supa.from('app_state').upsert({ key: 'notifs_directeur', value: list, updated_at: new Date().toISOString() });
+                await _supa.from('app_state').upsert({ key: 'notifs_responsable_administratif', value: list, updated_at: new Date().toISOString() });
+            } catch (eNotif) { console.error("Notif error:", eNotif); }
+
             showSuccessScreen(inscData.matricule);
 
         } catch (err) {

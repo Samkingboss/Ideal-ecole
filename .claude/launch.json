@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ideal-ecole",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "/Users/macbookpro/Desktop/ideal-ecole",
+      "port": 5173
+    }
+  ]
+}
