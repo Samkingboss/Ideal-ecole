@@ -176,7 +176,17 @@ export default function DirecteurApp({ user, onLogout }) {
       // Référentiel Postes & salaires (partagé avec la comptabilité via app_state rh/postes)
       const { data: rhPostes } = await supabase.from('app_state')
         .select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle()
-      if (Array.isArray(rhPostes?.value) && rhPostes.value.length > 0) setPostes(rhPostes.value)
+      if (Array.isArray(rhPostes?.value) && rhPostes.value.length > 0) {
+        const cleaned = rhPostes.value.map(p => ({
+          ...p,
+          commentaire: (p.commentaire || '').replace(/Fati\s*DJIRÉ/gi, '').replace(/\(–\s*trilingue\)/gi, '').replace(/\(Fati\s*DJIRÉ\s*–\s*trilingue\)/gi, '').trim()
+        }))
+        setPostes(cleaned)
+        await supabase.from('app_state').upsert(
+          { app: 'rh', key: 'postes', value: cleaned, updated_at: new Date().toISOString() },
+          { onConflict: 'app,key' }
+        )
+      }
 
       // Demandes RH soumises par les enseignants
       const { data: globalDem } = await supabase.from('app_state')

@@ -7561,7 +7561,12 @@ async function loadPostesCloud() {
     const { data, error } = await _supa.from('app_state').select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle();
     if (error) { console.error('⚠️ Postes cloud:', error.message); return; }
     if (data && Array.isArray(data.value) && data.value.length) {
-      SALAIRES_DETAIL = data.value.map(p => ({ id: p.id, poste: p.label, mensuel: parseInt(p.mensuel) || 0, commentaire: p.commentaire || '' }));
+      SALAIRES_DETAIL = data.value.map(p => ({
+        id: p.id,
+        poste: p.label,
+        mensuel: parseInt(p.mensuel) || 0,
+        commentaire: (p.commentaire || '').replace(/Fati\s*DJIRÉ/gi, '').replace(/\(–\s*trilingue\)/gi, '').replace(/\(Fati\s*DJIRÉ\s*–\s*trilingue\)/gi, '').trim()
+      }));
       console.log('☁️ Référentiel postes chargé (' + SALAIRES_DETAIL.length + ' postes)');
     } else {
       await savePostesCloud(); // Premier lancement : on seede le référentiel depuis la liste locale
