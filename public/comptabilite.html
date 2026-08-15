@@ -3842,11 +3842,13 @@ function scolariteTot(t) { return t.scolarite.t1 + t.scolarite.t2 + t.scolarite.
 function inscripTot(t) { return t.inscription + t.fournitures + t.cotisation; }
 
 function compute() {
+  const DEFAULT_EFFECTIFS = { ps: 13, gs: 20, cp1: 22, cp2: 18, ce1: 7, ce2: 4, cm1: 3 };
   const tR = 1 - (pNum('taux-recouvrement') / 100); // Inverse du recouvrement (taux de perte/réduction)
   const tC = 1 - (pNum('taux-cantine-users') / 100); // Inverse de l'usage cantine
 
   const res = CLASSES.map(cl => {
-    const eff = +effectifs[cl.id] || 0;
+    const rawEff = +effectifs[cl.id];
+    const eff = (rawEff !== undefined && !isNaN(rawEff) && rawEff > 0) ? rawEff : (DEFAULT_EFFECTIFS[cl.id] || 0);
     const t = TARIFS[cl.groupe];
     const iB = inscripTot(t) * eff;
     const sB = scolariteTot(t) * eff;
@@ -7608,7 +7610,12 @@ function autoLoad() {
     const raw = localStorage.getItem('ideal-prevision-state');
     if (!raw) return;
     const s = JSON.parse(raw);
-    if (s.effectifs) effectifs = s.effectifs;
+    const DEFAULT_EFFECTIFS = { ps: 13, gs: 20, cp1: 22, cp2: 18, ce1: 7, ce2: 4, cm1: 3 };
+    if (s.effectifs && Object.keys(s.effectifs).length > 0) {
+      effectifs = { ...DEFAULT_EFFECTIFS, ...s.effectifs };
+    } else {
+      effectifs = { ...DEFAULT_EFFECTIFS };
+    }
     if (s.students) studentsData = s.students;
 
     // ─── Migration legacy 'm' (Maternelle unique) → 'ps' + 'gs' ───
