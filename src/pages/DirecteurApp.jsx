@@ -9,6 +9,7 @@ import {
 } from '../lib/points'
 import { lireJournal } from '../lib/audit'
 import AffectationsMatieres from './AffectationsMatieres'
+import CartesScolaires from './CartesScolaires'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -21,6 +22,7 @@ const TOP_TABS = [
   { id:'rh', icon:'💼', label:'RH & Paie' },
   { id:'points', icon:'🏆', label:'Points & prime' },
   { id:'eleves', icon:'🎒', label:'Élèves' },
+  { id:'cartes', icon:'💳', label:'Cartes Scolaires' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
   { id:'pedagogie', icon:'📚', label:'Pédagogie' },
@@ -817,6 +819,8 @@ export default function DirecteurApp({ user, onLogout }) {
             </div>
           </>
         )}
+
+        {tab === 'cartes' && <CartesScolaires />}
 
         {tab === 'points' && (() => {
           const maxAnnee = pointsMaxAnnee(pointsConfig)
