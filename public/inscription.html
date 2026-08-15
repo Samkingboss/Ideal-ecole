@@ -689,6 +689,21 @@
                     </div>
                     <div class="form-group"><label>Date de naissance</label><input type="date" id="el-date-naissance" required></div>
                     <div class="form-group"><label>Lieu de naissance</label><input type="text" id="el-lieu-naissance" required></div>
+                    <div class="form-group">
+                        <label>Groupe Sanguin 🩸</label>
+                        <select id="el-groupe-sanguin">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="O+">O positive (O+)</option>
+                            <option value="A+">A positive (A+)</option>
+                            <option value="B+">B positive (B+)</option>
+                            <option value="AB+">AB positive (AB+)</option>
+                            <option value="O-">O négative (O-)</option>
+                            <option value="A-">A négative (A-)</option>
+                            <option value="B-">B négative (B-)</option>
+                            <option value="AB-">AB négative (AB-)</option>
+                            <option value="Inconnu">Inconnu / Non déterminé</option>
+                        </select>
+                    </div>
                     <div class="form-group"><label>Nationalité</label><input type="text" id="el-nationalite" value="Malienne" required></div>
                     <div class="form-group"><label>Langue(s) parlée(s) à la maison</label><input type="text" id="el-langue" required></div>
                     <div class="form-group"><label>Ancienne école (si applicable)</label><input type="text" id="el-ancienne-ecole"></div>
@@ -1399,6 +1414,7 @@
                 sexe: document.getElementById('el-sexe').value,
                 date_naissance: document.getElementById('el-date-naissance').value,
                 lieu_naissance: document.getElementById('el-lieu-naissance').value.trim() || null,
+                groupe_sanguin: document.getElementById('el-groupe-sanguin').value || 'O+',
                 nationalite: document.getElementById('el-nationalite').value.trim() || null,
                 langue_maison: document.getElementById('el-langue').value.trim() || null,
                 ancienne_ecole: document.getElementById('el-ancienne-ecole').value.trim() || null,
@@ -1684,7 +1700,7 @@ Merci de votre confiance.
         let y = 49;
         y = section("1. Identité de l'élève", y);
         y = row([['Nom de famille', (data.nom || '').toUpperCase()], ['Prénoms', data.prenom], ['Sexe', data.sexe === 'M' ? 'Garçon' : 'Fille']], y, false);
-        y = row([['Date de naissance', data.date_naissance], ['Lieu de naissance', data.lieu_naissance], ['Nationalité', data.nationalite]], y, true);
+        y = row([['Date de naissance', data.date_naissance], ['Lieu de naissance', data.lieu_naissance], ['Groupe Sanguin', data.groupe_sanguin || 'Non précisé'], ['Nationalité', data.nationalite]], y, true);
         y = row([['Langue parlée à la maison', data.langue_maison], ['Adresse de résidence', data.adresse]], y, false);
         y += 1;
 
