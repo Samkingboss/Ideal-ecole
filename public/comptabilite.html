@@ -970,11 +970,14 @@ function deconnexionIdeal() {
 <section class="tab-pane" id="tab-charges">
   <div class="g2">
     <div>
-      <div class="sec-h">
+      <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
         <div>
-          <div class="sec-title">Charges de Fonctionnement</div>
-          <div class="sec-sub">14 postes budgétaires · modifiables</div>
+          <div class="sec-title">Détail des Salaires (Grille des Postes)</div>
+          <div class="sec-sub">Modifiez ou supprimez les postes salariaux — le total de la masse salariale se met à jour automatiquement.</div>
         </div>
+        <button class="btn" style="background:#00a8e0; color:#fff; font-weight:800; padding:0.6rem 1.1rem; border-radius:8px; border:none; cursor:pointer;" onclick="ajouterPoste()">
+          ➕ Ajouter un Poste
+        </button>
       </div>
       <div class="card" style="overflow:hidden;">
         <div style="overflow-x:auto;"><table class="tbl" id="tbl-charges"></table></div>
@@ -3837,7 +3840,7 @@ let cantineCharges = [
 let SALAIRES_DETAIL = [
   { poste: 'Directeur',                      mensuel: 400000, commentaire: 'Direction générale' },
   { poste: 'Responsable administratif',      mensuel: 150000, commentaire: 'Secrétariat et suivi' },
-  { poste: 'Conseillère de vie scolaire',    mensuel: 75000,  commentaire: '(Fati DJIRÉ – trilingue)' },
+  { poste: 'Conseillère de vie scolaire',    mensuel: 75000,  commentaire: 'Encadrement vie scolaire' },
   { poste: 'Surveillant(e)',                 mensuel: 75000,  commentaire: 'Sécurité et discipline' },
   { poste: 'Ménagères (× 3)',                mensuel: 150000, commentaire: '50 000 FCFA × 3' },
   { poste: 'Gardien',                        mensuel: 30000,  commentaire: 'Sécurité nocturne' },
@@ -4593,11 +4596,42 @@ function syncSalaires() {
   }
 }
 
+function supprimerPoste(index) {
+  const p = SALAIRES_DETAIL[index];
+  if (!p) return;
+  if (confirm(`Voulez-vous vraiment supprimer le poste "${p.poste}" de la masse salariale ?`)) {
+    SALAIRES_DETAIL.splice(index, 1);
+    _etatSalairesMensuelData = {};
+    syncSalaires();
+    if (typeof savePostesCloud === 'function') savePostesCloud();
+  }
+}
+
+function ajouterPoste() {
+  const intitule = prompt("Intitulé du nouveau poste (ex: Professeur d'Informatique) :");
+  if (!intitule || !intitule.trim()) return;
+  const salaireStr = prompt("Salaire mensuel en FCFA (ex: 125000) :", "125000");
+  const mensuel = parseInt(salaireStr, 10) || 0;
+  const comm = prompt("Commentaire / Précisions (optionnel) :", "") || "";
+
+  SALAIRES_DETAIL.push({
+    id: 'p-' + Date.now(),
+    poste: intitule.trim(),
+    mensuel: mensuel,
+    commentaire: comm.trim()
+  });
+
+  _etatSalairesMensuelData = {};
+  syncSalaires();
+  if (typeof savePostesCloud === 'function') savePostesCloud();
+}
+
 function renderSalairesTable() {
   let h = `<thead><tr>
     <th>Poste / Fonction</th>
     <th class="r">Salaire mensuel (FCFA)</th>
     <th class="r">Salaire annuel</th>
+    <th class="c" style="width:50px;">Action</th>
   </tr></thead><tbody>`;
   SALAIRES_DETAIL.forEach((s, i) => {
     h += `<tr>
@@ -4607,6 +4641,11 @@ function renderSalairesTable() {
           oninput="SALAIRES_DETAIL[${i}].mensuel=parseInt(this.value)||0; document.getElementById('sal-annuel-${i}').textContent=fc(SALAIRES_DETAIL[${i}].mensuel*12); syncSalaires();">
       </td>
       <td class="r" id="sal-annuel-${i}">${fc(s.mensuel * 12)}</td>
+      <td class="c">
+        <button class="btn-sm" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; padding:3px 8px; border-radius:6px; font-weight:800; cursor:pointer;" onclick="supprimerPoste(${i})" title="Supprimer ce poste">
+          🗑️
+        </button>
+      </td>
     </tr>`;
   });
   const totM = SALAIRES_DETAIL.reduce((s,r)=>s+r.mensuel, 0);
@@ -4614,6 +4653,7 @@ function renderSalairesTable() {
     <td>TOTAL MASSE SALARIALE</td>
     <td class="r" id="sal-total-mensuel">${fc(totM)}</td>
     <td class="r" id="sal-total-annuel">${fc(totM * 12)}</td>
+    <td></td>
   </tr></tbody>`;
   const t1 = document.getElementById('tbl-salaires');
   if (t1) t1.innerHTML = h;
