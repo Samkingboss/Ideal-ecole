@@ -4,69 +4,28 @@ import NotificationCenter from './NotificationCenter'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
-// Menus de démonstration par défaut
-const DEFAULT_MENU_SEMAINE = {
-  Lundi: {
-    entree: 'Salade fraîche de concombres et tomates au sésame',
-    plat: 'Riz gras au poulet braisé et petits légumes',
-    dessert: 'Mangue fraîche découpée',
-    boisson: 'Jus de Bissap maison',
-    substitution: 'Poulet grillé nature sans arachide ni sésame'
-  },
-  Mardi: {
-    entree: 'Soupe légère de légumes de saison',
-    plat: 'Ragoût de bœuf à la malienne & patates douces',
-    dessert: 'Bananes locales',
-    boisson: 'Eau minérale fraîche',
-    substitution: 'Portion végétale sans viande pour végétariens'
-  },
-  Mercredi: {
-    entree: 'Œufs durs mimosa sur lit de laitue',
-    plat: 'Capitaine grillé au four & Alloco (Bananes plantains)',
-    dessert: 'Compote de pommes faites maison',
-    boisson: 'Jus de Bouye (Pain de singe)',
-    substitution: 'Blanc de dinde sans poisson pour allergiques'
-  },
-  Jeudi: {
-    entree: 'Carottes râpées à la vinaigrette douce',
-    plat: 'Tchep au poulet et légumes variés',
-    dessert: 'Oranges tranchées',
-    boisson: 'Jus de Gingembre doux',
-    substitution: 'Riz blanc nature et poulet à la vapeur'
-  },
-  Vendredi: {
-    entree: 'Beignets de mérou croustillants',
-    plat: 'Couscous de mil au poulet fermier et sauce blé',
-    dessert: 'Salade de fruits de saison',
-    boisson: 'Eau de coco naturelle',
-    substitution: 'Plat sans gluten pour étudiants cœliaques'
-  }
+// Menus de la semaine vides par défaut
+const EMPTY_MENU_SEMAINE = {
+  Lundi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
+  Mardi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
+  Mercredi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
+  Jeudi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' },
+  Vendredi: { entree: '', plat: '', dessert: '', boisson: '', substitution: '' }
 }
 
-// Ingrédients du marché par défaut
-const DEFAULT_FICHE_MARCHE = {
-  budget: 150000,
-  articles: [
-    { id: 1, nom: 'Poulet fermier frais', quantite: '15 Kg', pu: 2500, achete: true },
-    { id: 2, nom: 'Riz parfumé de baguinéda (Sac 50kg)', quantite: '1 Sac', pu: 22500, achete: true },
-    { id: 3, nom: 'Huile de tournesol (Bidon 5L)', quantite: '2 Bidons', pu: 8500, achete: true },
-    { id: 4, nom: 'Oignons rouges & Ail', quantite: '10 Kg', pu: 600, achete: true },
-    { id: 5, nom: 'Tomates fraîches & Piments doux', quantite: '8 Kg', pu: 750, achete: false },
-    { id: 6, nom: 'Bananes plantains (Alloco)', quantite: '3 Régimes', pu: 4500, achete: false },
-    { id: 7, nom: 'Mangues & Fruits de saison', quantite: '20 Kg', pu: 500, achete: false },
-    { id: 8, nom: 'Fleurs de Hibiscus (Bissap)', quantite: '2 Kg', pu: 1500, achete: true }
-  ]
+// Ingrédients du marché vides par défaut
+const EMPTY_FICHE_MARCHE = {
+  budget: 0,
+  articles: []
 }
 
-// Données démo élèves cantine
+// Données démo élèves cantine (chargées depuis Supabase si actives)
 const DEMO_ELEVES_CANTINE = [
-  { id: 'el-1', nom: 'TRAORÉ', prenom: 'Aïcha', classe: 'CP1 Bilingue', cantine: true, allergies: 'Allergie sévère aux Arachides', restrictions: 'Sans Porc' },
-  { id: 'el-2', nom: 'SANOGO', prenom: 'Ibrahim', classe: 'CP1 Bilingue', cantine: true, allergies: 'Intolérance au Lactose', restrictions: 'Régime sans produits laitiers' },
+  { id: 'el-1', nom: 'TRAORÉ', prenom: 'Aïcha', classe: 'CP1 Bilingue', cantine: true, allergies: 'Allergie aux Arachides', restrictions: 'Sans Porc' },
+  { id: 'el-2', nom: 'SANOGO', prenom: 'Ibrahim', classe: 'CP1 Bilingue', cantine: true, allergies: 'Intolérance au Lactose', restrictions: 'Sans Lait' },
   { id: 'el-3', nom: 'COULIBALY', prenom: 'Fatoumata', classe: 'CP2 A', cantine: true, allergies: 'Aucune', restrictions: 'Sans Porc' },
-  { id: 'el-4', nom: 'DIARRA', prenom: 'Mamadou', classe: 'CE1 B', cantine: true, allergies: 'Allergie aux Poissons et Crustacés', restrictions: 'Végétarien strict' },
-  { id: 'el-5', nom: 'KEITA', prenom: 'Oumar', classe: 'CE2', cantine: true, allergies: 'Aucune', restrictions: 'Aucune' },
-  { id: 'el-6', nom: 'SISSOKO', prenom: 'Aminata', classe: 'CM1', cantine: true, allergies: 'Allergie au Gluten', restrictions: 'Sans Gluten' },
-  { id: 'el-7', nom: 'KONATÉ', prenom: 'Sékou', classe: 'CM2 Bilingue', cantine: true, allergies: 'Allergie aux Œufs', restrictions: 'Sans Porc' }
+  { id: 'el-4', nom: 'DIARRA', prenom: 'Mamadou', classe: 'CE1 B', cantine: true, allergies: 'Allergie au Poisson', restrictions: 'Végétarien' },
+  { id: 'el-5', nom: 'KEITA', prenom: 'Oumar', classe: 'CE2', cantine: true, allergies: 'Aucune', restrictions: 'Aucune' }
 ]
 
 const getTodayString = () => new Date().toISOString().split('T')[0]
@@ -74,8 +33,8 @@ const getTodayString = () => new Date().toISOString().split('T')[0]
 export default function CuisiniereApp({ user, onLogout }) {
   const [tab, setTab] = useState('eleves')
   const [eleves, setEleves] = useState(DEMO_ELEVES_CANTINE)
-  const [menuSemaine, setMenuSemaine] = useState(DEFAULT_MENU_SEMAINE)
-  const [ficheMarche, setFicheMarche] = useState(DEFAULT_FICHE_MARCHE)
+  const [menuSemaine, setMenuSemaine] = useState(EMPTY_MENU_SEMAINE)
+  const [ficheMarche, setFicheMarche] = useState(EMPTY_FICHE_MARCHE)
   const [jourSelectionne, setJourSelectionne] = useState('Lundi')
   const [searchEleve, setSearchEleve] = useState('')
   const [filterClasse, setFilterClasse] = useState('ALL')
@@ -84,9 +43,7 @@ export default function CuisiniereApp({ user, onLogout }) {
 
   // Pointage Repas (Matin, Midi, Goûter)
   const [datePointage, setDatePointage] = useState(getTodayString())
-  const [pointage, setPointage] = useState({
-    // 'el-1': { matin: true, midi: true, gouter: false }
-  })
+  const [pointage, setPointage] = useState({})
 
   // Modals & Édition
   const [editEleveModal, setEditEleveModal] = useState(null)
@@ -110,22 +67,22 @@ export default function CuisiniereApp({ user, onLogout }) {
         const cantineList = dataEleves.map(e => ({
           ...e,
           cantine: e.cantine !== false,
-          allergies: e.allergies || (e.id === 'el-1' ? 'Allergie aux Arachides' : 'Aucune'),
-          restrictions: e.restrictions || 'Sans Porc'
+          allergies: e.allergies || 'Aucune',
+          restrictions: e.restrictions || 'Aucune'
         }))
         setEleves(cantineList)
       }
 
-      // Charger le menu de la semaine
+      // Charger le menu de la semaine depuis Supabase
       const { data: stateMenu } = await supabase.from('app_state').select('value').eq('key', 'cantine_menu_semaine').single()
       if (stateMenu && stateMenu.value) setMenuSemaine(stateMenu.value)
 
-      // Charger la fiche du marché
+      // Charger la fiche du marché depuis Supabase
       const { data: stateMarche } = await supabase.from('app_state').select('value').eq('key', 'cantine_fiche_marche').single()
       if (stateMarche && stateMarche.value) setFicheMarche(stateMarche.value)
 
     } catch (e) {
-      console.warn('Utilisation des données locales de cantine :', e)
+      console.warn('Erreur chargement Supabase cantine :', e)
     } finally {
       setLoading(false)
     }
@@ -139,17 +96,16 @@ export default function CuisiniereApp({ user, onLogout }) {
       if (data && data.value) {
         setPointage(data.value)
       } else {
-        // Pointage par défaut si aucun enregistrement (Midi coché par défaut)
         const defaultPt = {}
-        DEMO_ELEVES_CANTINE.forEach(e => {
-          defaultPt[e.id] = { matin: false, midi: true, gouter: false }
+        eleves.forEach(e => {
+          defaultPt[e.id] = { matin: false, midi: false, gouter: false }
         })
         setPointage(defaultPt)
       }
     } catch (e) {
       const defaultPt = {}
       eleves.forEach(e => {
-        defaultPt[e.id] = { matin: false, midi: true, gouter: false }
+        defaultPt[e.id] = { matin: false, midi: false, gouter: false }
       })
       setPointage(defaultPt)
     }
@@ -195,10 +151,23 @@ export default function CuisiniereApp({ user, onLogout }) {
   const saveMenuSemaine = async () => {
     try {
       await supabase.from('app_state').upsert({ key: 'cantine_menu_semaine', value: menuSemaine, updated_at: new Date().toISOString() })
-      setMsg('✅ Menu de la semaine enregistré et publié avec succès !')
+      setMsg('✅ Menu de la semaine enregistré avec succès !')
       setTimeout(() => setMsg(''), 4000)
     } catch (e) {
       alert('Erreur enregistrement menu: ' + e.message)
+    }
+  }
+
+  // Effacer tout le menu de la semaine
+  const clearMenuSemaine = async () => {
+    if (!confirm('Voulez-vous effacer toutes les données du menu de la semaine ?')) return
+    setMenuSemaine(EMPTY_MENU_SEMAINE)
+    try {
+      await supabase.from('app_state').upsert({ key: 'cantine_menu_semaine', value: EMPTY_MENU_SEMAINE, updated_at: new Date().toISOString() })
+      setMsg('🗑️ Les menus de la semaine ont été entièrement effacés.')
+      setTimeout(() => setMsg(''), 3000)
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -212,13 +181,27 @@ export default function CuisiniereApp({ user, onLogout }) {
     }
   }
 
+  // Modification directe d'un champ d'aliment (Nom, Quantité, Prix unitaire)
+  const updateArticleField = (id, field, value) => {
+    const updatedArticles = ficheMarche.articles.map(a => a.id === id ? { ...a, [field]: value } : a)
+    saveFicheMarche({ ...ficheMarche, articles: updatedArticles })
+  }
+
+  // Effacer toutes les données de la fiche du marché
+  const clearFicheMarche = () => {
+    if (!confirm('Voulez-vous réinitialiser et effacer TOUS les articles du marché ?')) return
+    saveFicheMarche({ budget: 0, articles: [] })
+    setMsg('🗑️ La fiche du marché a été réinitialisée et vidée.')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
   // Ajouter un article au marché
   const handleAddArticle = () => {
     if (!newArticle.nom.trim()) return
     const article = {
       id: Date.now(),
       nom: newArticle.nom,
-      quantite: newArticle.quantite || '1 Unité',
+      quantite: newArticle.quantite || '1',
       pu: Number(newArticle.pu) || 0,
       achete: false
     }
@@ -226,7 +209,7 @@ export default function CuisiniereApp({ user, onLogout }) {
     saveFicheMarche(updated)
     setNewArticle({ nom: '', quantite: '', pu: 0 })
     setNewArticleModal(false)
-    setMsg('🛒 Aliment ajouté à la fiche du marché !')
+    setMsg('🛒 Aliment ajouté au marché !')
     setTimeout(() => setMsg(''), 3000)
   }
 
@@ -238,7 +221,6 @@ export default function CuisiniereApp({ user, onLogout }) {
 
   // Supprimer un article
   const deleteArticle = (id) => {
-    if (!confirm('Supprimer cet aliment du marché ?')) return
     const updatedArticles = ficheMarche.articles.filter(a => a.id !== id)
     saveFicheMarche({ ...ficheMarche, articles: updatedArticles })
   }
@@ -266,8 +248,13 @@ export default function CuisiniereApp({ user, onLogout }) {
 
   const classesUniques = Array.from(new Set(elevesInscrits.map(e => e.classe || 'CP1'))).sort()
   const nbAllergies = elevesInscrits.filter(e => e.allergies && e.allergies.toLowerCase() !== 'aucune').length
-  const totalDepense = ficheMarche.articles.reduce((s, a) => s + (Number(a.pu) * (parseInt(a.quantite) || 1)), 0)
-  const resteBudget = ficheMarche.budget - totalDepense
+
+  // Calcul dynamique du marché
+  const totalDepense = ficheMarche.articles.reduce((s, a) => {
+    const qty = parseFloat(a.quantite) || 1
+    return s + (Number(a.pu) * qty)
+  }, 0)
+  const resteBudget = (Number(ficheMarche.budget) || 0) - totalDepense
 
   // Décompte du pointage repas
   const countMatin = elevesInscrits.filter(e => pointage[e.id]?.matin).length
@@ -293,7 +280,7 @@ export default function CuisiniereApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Barre de navigation des SESSIONS CUISINIÈRE */}
+      {/* Navigation des Sessions */}
       <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: '#ffffff', borderBottom: '2px solid var(--border)', padding: '6px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', gap: 8, flex: 1, overflowX: 'auto' }}>
           <button
@@ -424,7 +411,7 @@ export default function CuisiniereApp({ user, onLogout }) {
               {elevesFiltres.length === 0 && (
                 <div className="card" style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', color: '#64748b' }}>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>🍽️</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>Aucun élève trouvé pour cette recherche.</div>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>Aucun élève trouvé.</div>
                 </div>
               )}
             </div>
@@ -453,7 +440,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                   onClick={() => window.print()}
                   style={{ background: '#0d2a3b', color: '#fff', padding: '9px 16px', borderRadius: 10, fontWeight: 800 }}
                 >
-                  🖨️ Imprimer la Liste
+                  🖨️ Imprimer
                 </button>
               </div>
             </div>
@@ -515,9 +502,9 @@ export default function CuisiniereApp({ user, onLogout }) {
                     <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)', fontSize: 12, textTransform: 'uppercase', color: '#64748b' }}>
                       <th style={{ textAlign: 'left', padding: '10px 12px' }}>Élève</th>
                       <th style={{ textAlign: 'left', padding: '10px 12px' }}>Classe</th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>🌅 Matin (Petit-Dég)</th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>☀️ Midi (Déjeuner)</th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>🍎 Goûter (Après-midi)</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>🌅 Matin</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>☀️ Midi</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>🍎 Goûter</th>
                       <th style={{ textAlign: 'left', padding: '10px 12px' }}>Allergies / Régime</th>
                     </tr>
                   </thead>
@@ -546,11 +533,10 @@ export default function CuisiniereApp({ user, onLogout }) {
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
                                 background: pt.matin ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#e2e8f0',
-                                color: pt.matin ? '#fff' : '#64748b',
-                                boxShadow: pt.matin ? '0 2px 8px rgba(245,158,11,0.3)' : 'none'
+                                color: pt.matin ? '#fff' : '#64748b'
                               }}
                             >
-                              {pt.matin ? '🟢 Mangé' : '⚪ Absant'}
+                              {pt.matin ? '🟢 Mangé' : '⚪ Absent'}
                             </button>
                           </td>
 
@@ -567,8 +553,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
                                 background: pt.midi ? 'linear-gradient(135deg, #10b981, #059669)' : '#e2e8f0',
-                                color: pt.midi ? '#fff' : '#64748b',
-                                boxShadow: pt.midi ? '0 2px 8px rgba(16,185,129,0.3)' : 'none'
+                                color: pt.midi ? '#fff' : '#64748b'
                               }}
                             >
                               {pt.midi ? '🟢 Mangé' : '⚪ Absent'}
@@ -588,8 +573,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
                                 background: pt.gouter ? 'linear-gradient(135deg, #ec4899, #db2777)' : '#e2e8f0',
-                                color: pt.gouter ? '#fff' : '#64748b',
-                                boxShadow: pt.gouter ? '0 2px 8px rgba(236,72,153,0.3)' : 'none'
+                                color: pt.gouter ? '#fff' : '#64748b'
                               }}
                             >
                               {pt.gouter ? '🟢 Servis' : '⚪ Non'}
@@ -621,13 +605,22 @@ export default function CuisiniereApp({ user, onLogout }) {
                 <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍳 Session 3 : Préparation du Menu de la Semaine</h1>
                 <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Conception et équilibre nutritionnel des repas servis du Lundi au Vendredi.</p>
               </div>
-              <button
-                className="btn btn-primary"
-                onClick={saveMenuSemaine}
-                style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 900, boxShadow: '0 4px 14px rgba(123,193,66,0.3)' }}
-              >
-                💾 Enregistrer &amp; Publier les Menus
-              </button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  className="btn-sm"
+                  onClick={clearMenuSemaine}
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', padding: '10px 16px', borderRadius: 10, fontWeight: 800 }}
+                >
+                  🗑️ Effacer Tout le Menu
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={saveMenuSemaine}
+                  style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 900, boxShadow: '0 4px 14px rgba(123,193,66,0.3)' }}
+                >
+                  💾 Enregistrer &amp; Publier
+                </button>
+              </div>
             </div>
 
             {/* Selecteur de Jour */}
@@ -650,7 +643,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                 <div style={{ fontSize: 28 }}>🍽️</div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0d2a3b' }}>Composition du Repas du {jourSelectionne}</h3>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Remplissez les différentes composantes du menu de ce jour.</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Saisissez librement le menu de ce jour.</div>
                 </div>
               </div>
 
@@ -664,7 +657,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                       ...menuSemaine,
                       [jourSelectionne]: { ...menuSemaine[jourSelectionne], entree: e.target.value }
                     })}
-                    placeholder="Ex: Salade de concombres et tomates"
+                    placeholder="Saisir l'entrée..."
                   />
                 </div>
 
@@ -677,7 +670,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                       ...menuSemaine,
                       [jourSelectionne]: { ...menuSemaine[jourSelectionne], plat: e.target.value }
                     })}
-                    placeholder="Ex: Riz gras au poulet braisé"
+                    placeholder="Saisir le plat chaud..."
                   />
                 </div>
 
@@ -690,7 +683,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                       ...menuSemaine,
                       [jourSelectionne]: { ...menuSemaine[jourSelectionne], dessert: e.target.value }
                     })}
-                    placeholder="Ex: Mangue fraîche découpée"
+                    placeholder="Saisir le dessert..."
                   />
                 </div>
 
@@ -703,7 +696,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                       ...menuSemaine,
                       [jourSelectionne]: { ...menuSemaine[jourSelectionne], boisson: e.target.value }
                     })}
-                    placeholder="Ex: Jus de Bissap naturel"
+                    placeholder="Saisir la boisson..."
                   />
                 </div>
               </div>
@@ -717,7 +710,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                     ...menuSemaine,
                     [jourSelectionne]: { ...menuSemaine[jourSelectionne], substitution: e.target.value }
                   })}
-                  placeholder="Ex: Poulet grillé nature sans arachides pour enfants allergiques"
+                  placeholder="Saisir le plat de substitution pour enfants allergiques..."
                   style={{ borderColor: '#fca5a5', background: '#fef2f2' }}
                 />
               </div>
@@ -755,7 +748,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                   </div>
                 </div>
                 <div style={{ background: '#7bc142', color: '#0d2a3b', padding: '6px 14px', borderRadius: 20, fontWeight: 900, fontSize: 13 }}>
-                  180 Portions Servies
+                  {elevesInscrits.length} Élèves Inscrits
                 </div>
               </div>
 
@@ -763,41 +756,41 @@ export default function CuisiniereApp({ user, onLogout }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginBottom: 24 }}>
                 <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', marginBottom: 6 }}>🥗 ENTRÉE</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.entree || 'Salade fraîche du chef'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.entree || '— Non définie —'}</div>
                 </div>
 
                 <div style={{ background: 'rgba(123,193,66,0.12)', borderRadius: 14, padding: '16px', border: '1px solid #7bc142' }}>
                   <div style={{ fontSize: 11, fontWeight: 900, color: '#7bc142', textTransform: 'uppercase', marginBottom: 6 }}>🍲 PLAT PRINCIPAL</div>
-                  <div style={{ fontSize: 16, fontWeight: 900 }}>{menuSemaine[jourSelectionne]?.plat || 'Plat chaud de saison'}</div>
+                  <div style={{ fontSize: 16, fontWeight: 900 }}>{menuSemaine[jourSelectionne]?.plat || '— Non défini —'}</div>
                 </div>
 
                 <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 6 }}>🍎 DESSERT</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.dessert || 'Fruits locaux frais'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.dessert || '— Non défini —'}</div>
                 </div>
 
                 <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: '#ec4899', textTransform: 'uppercase', marginBottom: 6 }}>🥤 BOISSON</div>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.boisson || 'Jus naturel maison'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800 }}>{menuSemaine[jourSelectionne]?.boisson || '— Non définie —'}</div>
                 </div>
               </div>
 
               {/* Substitution Consigne Cuisinière */}
               <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', borderRadius: 12, padding: '14px', fontSize: 13 }}>
                 <span style={{ fontWeight: 900, color: '#fca5a5' }}>⚠️ REPAS DE SUBSTITUTION (ALLERGIES) :</span>
-                <div style={{ marginTop: 4, fontWeight: 700 }}>{menuSemaine[jourSelectionne]?.substitution || 'Portion spécifique préparée sans arachide ni produits laitiers.'}</div>
+                <div style={{ marginTop: 4, fontWeight: 700 }}>{menuSemaine[jourSelectionne]?.substitution || 'Aucune consigne spécifique renseignée.'}</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (BUDGET & PRIX) ════════════════ */}
+        {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (100% MODIFIABLE) ════════════════ */}
         {tab === 'marche' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🛒 Session 5 : Fiche du Marché &amp; Budget Cantine</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Gestion des achats de la cuisine, suivi du budget alloué et décompte des prix alimentaires.</p>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🛒 Session 5 : Fiche du Marché (100% Modifiable)</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Saisissez et modifiez librement les aliments, leurs quantités et les prix unitaires du jour.</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
@@ -809,35 +802,39 @@ export default function CuisiniereApp({ user, onLogout }) {
                 </button>
                 <button
                   className="btn-sm"
+                  onClick={clearFicheMarche}
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', padding: '10px 16px', borderRadius: 10, fontWeight: 800 }}
+                >
+                  🗑️ Vider le Marché
+                </button>
+                <button
+                  className="btn-sm"
                   onClick={() => window.print()}
                   style={{ background: '#0d2a3b', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 800 }}
                 >
-                  🖨️ Imprimer la Fiche
+                  🖨️ Imprimer
                 </button>
               </div>
             </div>
 
             {/* KPI Cards Budget */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
               <div className="card" style={{ padding: '18px', background: 'rgba(0,168,224,0.06)', border: '1.5px solid #00a8e0', borderRadius: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>💵 BUDGET ALLOUÉ</div>
-                <div style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '4px 0' }}>{fcfa(ficheMarche.budget)}</div>
-                <button
-                  className="btn-sm"
-                  style={{ background: 'none', border: 'none', color: 'var(--accent)', padding: 0, fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => {
-                    const b = prompt('Modifier le budget total du marché (FCFA) :', ficheMarche.budget)
-                    if (b !== null) saveFicheMarche({ ...ficheMarche, budget: Number(b) || 0 })
-                  }}
-                >
-                  ✏️ Ajuster le Budget
-                </button>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', marginBottom: 6 }}>💵 BUDGET ALLOUÉ (FCFA)</div>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={ficheMarche.budget || ''}
+                  onChange={e => saveFicheMarche({ ...ficheMarche, budget: Number(e.target.value) || 0 })}
+                  placeholder="Saisir budget (ex: 150000)"
+                  style={{ fontSize: 20, fontWeight: 900, color: '#0d2a3b', background: '#fff', padding: '8px 12px' }}
+                />
               </div>
 
               <div className="card" style={{ padding: '18px', background: 'rgba(239,68,68,0.06)', border: '1.5px solid #ef4444', borderRadius: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#dc2626' }}>🛒 TOTAL DÉPENSÉ (ACHATS)</div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626', margin: '4px 0' }}>{fcfa(totalDepense)}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{ficheMarche.articles.length} articles répertoriés</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{ficheMarche.articles.length} aliments enregistrés</div>
               </div>
 
               <div className="card" style={{ padding: '18px', background: resteBudget >= 0 ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.08)', border: resteBudget >= 0 ? '1.5px solid #10b981' : '1.5px solid #ef4444', borderRadius: 14 }}>
@@ -847,50 +844,81 @@ export default function CuisiniereApp({ user, onLogout }) {
                 <div style={{ fontSize: 24, fontWeight: 900, color: resteBudget >= 0 ? '#16a34a' : '#dc2626', margin: '4px 0' }}>
                   {fcfa(resteBudget)}
                 </div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{resteBudget >= 0 ? 'Budget respecté' : 'Veuillez réajuster les quantités'}</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{resteBudget >= 0 ? 'Budget respecté' : 'Veuillez réajuster les montants'}</div>
               </div>
             </div>
 
-            {/* Tableau des Ingrédients du Marché */}
+            {/* Tableau Interactif Modifiable du Marché */}
             <div className="card" style={{ padding: '1.2rem', borderRadius: 16 }}>
-              <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>🛒 Liste des Achats Alimentaires</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>🛒 Saisie et Modification Directe des Ingrédients</h3>
+                <span style={{ fontSize: 11, color: '#64748b' }}>✏️ Cliquez directement dans les cases pour modifier les noms, quantités et prix.</span>
+              </div>
 
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)', fontSize: 12, textTransform: 'uppercase', color: '#64748b' }}>
-                      <th style={{ textAlign: 'center', padding: '10px 8px', width: 40 }}>Acheté</th>
-                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Aliment / Ingrédient</th>
-                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>Quantité</th>
-                      <th style={{ textAlign: 'right', padding: '10px 12px' }}>Prix Unitaire (P.U)</th>
-                      <th style={{ textAlign: 'right', padding: '10px 12px' }}>Prix Total (FCFA)</th>
-                      <th style={{ textAlign: 'center', padding: '10px 8px', width: 80 }}>Action</th>
+                      <th style={{ textAlign: 'center', padding: '10px 8px', width: 50 }}>Payé</th>
+                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Aliment / Ingrédient à payer</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px', width: 140 }}>Quantité</th>
+                      <th style={{ textAlign: 'right', padding: '10px 12px', width: 160 }}>Prix Unitaire (P.U FCFA)</th>
+                      <th style={{ textAlign: 'right', padding: '10px 12px', width: 160 }}>Prix Total (FCFA)</th>
+                      <th style={{ textAlign: 'center', padding: '10px 8px', width: 60 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ficheMarche.articles.map(art => {
-                      const totalArt = Number(art.pu) * (parseInt(art.quantite) || 1)
+                    {ficheMarche.articles.map((art, idx) => {
+                      const qty = parseFloat(art.quantite) || 1
+                      const totalArt = Number(art.pu) * qty
+
                       return (
-                        <tr key={art.id} style={{ borderBottom: '1px solid var(--border)', background: art.achete ? 'rgba(16,185,129,0.03)' : 'transparent' }}>
-                          <td style={{ textAlign: 'center', padding: '10px 8px' }}>
+                        <tr key={art.id || idx} style={{ borderBottom: '1px solid var(--border)', background: art.achete ? 'rgba(16,185,129,0.03)' : 'transparent' }}>
+                          <td style={{ textAlign: 'center', padding: '8px' }}>
                             <input
                               type="checkbox"
-                              checked={art.achete}
+                              checked={!!art.achete}
                               onChange={() => toggleArticleAchete(art.id)}
                               style={{ width: 18, height: 18, cursor: 'pointer' }}
                             />
                           </td>
-                          <td style={{ padding: '10px 12px', fontWeight: 700, textDecoration: art.achete ? 'line-through' : 'none', color: art.achete ? '#94a3b8' : '#0d2a3b' }}>
-                            {art.nom}
+                          <td style={{ padding: '6px 8px' }}>
+                            <input
+                              className="form-input"
+                              value={art.nom || ''}
+                              onChange={e => updateArticleField(art.id, 'nom', e.target.value)}
+                              placeholder="Nom de l'aliment à payer..."
+                              style={{ fontWeight: 700, textDecoration: art.achete ? 'line-through' : 'none', color: art.achete ? '#94a3b8' : '#0d2a3b' }}
+                            />
                           </td>
-                          <td style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600 }}>{art.quantite}</td>
-                          <td style={{ textAlign: 'right', padding: '10px 12px', color: '#64748b' }}>{fcfa(art.pu)}</td>
-                          <td style={{ textAlign: 'right', padding: '10px 12px', fontWeight: 900, color: '#16a34a' }}>{fcfa(totalArt)}</td>
-                          <td style={{ textAlign: 'center', padding: '10px 8px' }}>
+                          <td style={{ padding: '6px 8px' }}>
+                            <input
+                              className="form-input"
+                              value={art.quantite || ''}
+                              onChange={e => updateArticleField(art.id, 'quantite', e.target.value)}
+                              placeholder="ex: 15 Kg"
+                              style={{ textAlign: 'center', fontWeight: 700 }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={art.pu || ''}
+                              onChange={e => updateArticleField(art.id, 'pu', Number(e.target.value) || 0)}
+                              placeholder="P.U (FCFA)"
+                              style={{ textAlign: 'right', fontWeight: 800, color: 'var(--accent)' }}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '10px 12px', fontWeight: 900, color: '#16a34a', fontSize: 14 }}>
+                            {fcfa(totalArt)}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '8px' }}>
                             <button
-                              aria-label="Supprimer"
+                              aria-label="Supprimer cet aliment"
                               onClick={() => deleteArticle(art.id)}
                               style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 16, cursor: 'pointer' }}
+                              title="Supprimer cet aliment"
                             >
                               🗑️
                             </button>
@@ -898,14 +926,33 @@ export default function CuisiniereApp({ user, onLogout }) {
                         </tr>
                       )
                     })}
+
+                    {ficheMarche.articles.length === 0 && (
+                      <tr>
+                        <td colSpan={6} style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
+                          <div style={{ fontSize: 36, marginBottom: 6 }}>🛒</div>
+                          <div style={{ fontWeight: 800, fontSize: 14 }}>Aucun aliment répertorié pour le moment.</div>
+                          <div style={{ fontSize: 12, marginTop: 4 }}>Cliquez ci-dessous sur "+ Ajouter un Aliment" pour commencer les achats du jour.</div>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => setNewArticleModal(true)}
+                            style={{ marginTop: 12, background: 'linear-gradient(135deg, #00a8e0, #0078b4)', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: 8, fontWeight: 800 }}
+                          >
+                            + Ajouter le premier aliment
+                          </button>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
-                  <tfoot>
-                    <tr style={{ background: 'rgba(0,168,224,0.06)', fontWeight: 900, fontSize: 14 }}>
-                      <td colSpan={4} style={{ padding: '14px 12px', textAlign: 'right' }}>TOTAL GÉNÉRAL :</td>
-                      <td style={{ padding: '14px 12px', textAlign: 'right', color: '#dc2626', fontSize: 16 }}>{fcfa(totalDepense)}</td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
+                  {ficheMarche.articles.length > 0 && (
+                    <tfoot>
+                      <tr style={{ background: 'rgba(0,168,224,0.06)', fontWeight: 900, fontSize: 14 }}>
+                        <td colSpan={4} style={{ padding: '14px 12px', textAlign: 'right' }}>TOTAL GÉNÉRAL DU MARCHÉ :</td>
+                        <td style={{ padding: '14px 12px', textAlign: 'right', color: '#dc2626', fontSize: 16 }}>{fcfa(totalDepense)}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -953,7 +1000,7 @@ export default function CuisiniereApp({ user, onLogout }) {
         <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setNewArticleModal(false)}>
           <div className="modal">
             <div className="modal-handle"></div>
-            <div className="modal-title">🛒 Ajouter un Aliment / Ingrédient au Marché</div>
+            <div className="modal-title">🛒 Ajouter un Aliment / Ingrédient à Payer</div>
 
             <div className="form-group">
               <label className="form-label">Nom de l'aliment / Ingrédient</label>
@@ -976,7 +1023,7 @@ export default function CuisiniereApp({ user, onLogout }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Prix Unitaire (FCFA)</label>
+              <label className="form-label">Prix Unitaire (P.U FCFA)</label>
               <input
                 type="number"
                 className="form-input"
@@ -987,7 +1034,7 @@ export default function CuisiniereApp({ user, onLogout }) {
             </div>
 
             <button className="btn btn-primary" onClick={handleAddArticle}>
-              Ajouter au Marché
+              Ajouter à la Fiche du Marché
             </button>
             <button className="btn-cancel" onClick={() => setNewArticleModal(false)}>Annuler</button>
           </div>
