@@ -94,7 +94,18 @@ export default function DirecteurApp({ user, onLogout }) {
   const [journal, setJournal] = useState([])
   const [journalOuvert, setJournalOuvert] = useState(false)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { 
+    loadData() 
+    const handleWheelScroll = (e) => {
+      const scrollable = e.target.closest('.top-nav-secondary, .tab-nav, .table-wrap, .table-scroll, .scroll-horizontal')
+      if (scrollable && e.deltaY !== 0) {
+        scrollable.scrollLeft += e.deltaY * 1.3
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('wheel', handleWheelScroll, { passive: false })
+    return () => window.removeEventListener('wheel', handleWheelScroll)
+  }, [])
 
   const loadData = async () => {
     try {
