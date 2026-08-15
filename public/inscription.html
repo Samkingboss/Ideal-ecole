@@ -1197,14 +1197,17 @@
                 if (!r2Err) r2Id = r2.id;
             }
 
-            // 3. Générer le matricule
-            //
-            // Le numéro suit le PLUS GRAND matricule déjà attribué, jamais le
-            // nombre de lignes. Une inscription supprimée creuse un trou dans
-            // la numérotation : avec un simple comptage, le compteur retombait
-            // sur un matricule existant et l'enregistrement était refusé.
-            const annee = new Date().getFullYear() + 1;
-            const prefixe = `IDEAL-${annee}-`;
+            // 3. Générer le matricule automatique
+            // Format officiel : [AA-AA AXXX] (ex: 25-26 A105 pour l'année 2025-2026)
+            const now = new Date();
+            const yearNow = now.getFullYear();
+            const month = now.getMonth(); // 0 = Janvier, 7 = Août
+            // De Juin à Décembre, nous sommes dans la campagne de l'année scolaire suivante
+            const startYear = month >= 5 ? yearNow : yearNow - 1;
+            const endYear = startYear + 1;
+            const yy1 = String(startYear).slice(-2);
+            const yy2 = String(endYear).slice(-2);
+            const prefixe = `${yy1}-${yy2} A`;
             const matricule = await prochainMatricule(prefixe);
 
             // 4. Upload photo vers Supabase Storage
