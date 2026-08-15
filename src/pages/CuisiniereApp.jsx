@@ -5,13 +5,13 @@ import html2canvas from 'html2canvas'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
-// Palette de fonds colorés élégants sans bordures pour chaque jour
+// Palette de fonds colorés très distincts et élégants sans bordures pour chaque jour
 const DAY_COLOR_SCHEMES = {
-  Lundi: { cardBg: '#f0fdf4', headerBg: '#047857', headerText: '#ffffff' },
-  Mardi: { cardBg: '#fffbeb', headerBg: '#d97706', headerText: '#ffffff' },
-  Mercredi: { cardBg: '#f0f9ff', headerBg: '#0284c7', headerText: '#ffffff' },
-  Jeudi: { cardBg: '#fdf2f8', headerBg: '#db2777', headerText: '#ffffff' },
-  Vendredi: { cardBg: '#f1f5f9', headerBg: '#0f172a', headerText: '#ffffff' }
+  Lundi: { cardBg: '#dcfce7', headerBg: '#047857', headerText: '#ffffff' },
+  Mardi: { cardBg: '#fef3c7', headerBg: '#d97706', headerText: '#ffffff' },
+  Mercredi: { cardBg: '#e0f2fe', headerBg: '#0284c7', headerText: '#ffffff' },
+  Jeudi: { cardBg: '#fce7f3', headerBg: '#db2777', headerText: '#ffffff' },
+  Vendredi: { cardBg: '#e2e8f0', headerBg: '#0f172a', headerText: '#ffffff' }
 }
 
 // Exemple officiel de menu hebdomadaire haute gastronomie
