@@ -185,7 +185,8 @@ export default function CertificatScolarite() {
 
       {/* Rendu imprimable du Certificat de Scolarité */}
       {selectedEleve && (
-        <div style={{ display: 'flex', just          <div
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div
             id="certificat-print-area"
             style={{
               width: 680,
