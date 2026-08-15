@@ -422,7 +422,9 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={setTab} />
-          <span className="role-badge role-directeur">Directeur</span>
+          <span className="role-badge role-directeur" style={{ cursor: 'pointer' }} onClick={() => window.location.reload(true)} title="Cliquez pour forcer la mise à jour">
+            Directeur v2.5
+          </span>
           <button className="btn-logout" onClick={onLogout}>Deconnexion</button>
         </div>
       </div>
