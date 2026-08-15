@@ -69,6 +69,8 @@ const DEMO_ELEVES_CANTINE = [
   { id: 'el-7', nom: 'KONATÉ', prenom: 'Sékou', classe: 'CM2 Bilingue', cantine: true, allergies: 'Allergie aux Œufs', restrictions: 'Sans Porc' }
 ]
 
+const getTodayString = () => new Date().toISOString().split('T')[0]
+
 export default function CuisiniereApp({ user, onLogout }) {
   const [tab, setTab] = useState('eleves')
   const [eleves, setEleves] = useState(DEMO_ELEVES_CANTINE)
@@ -80,6 +82,12 @@ export default function CuisiniereApp({ user, onLogout }) {
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Pointage Repas (Matin, Midi, Goûter)
+  const [datePointage, setDatePointage] = useState(getTodayString())
+  const [pointage, setPointage] = useState({
+    // 'el-1': { matin: true, midi: true, gouter: false }
+  })
+
   // Modals & Édition
   const [editEleveModal, setEditEleveModal] = useState(null)
   const [newArticleModal, setNewArticleModal] = useState(false)
@@ -89,13 +97,16 @@ export default function CuisiniereApp({ user, onLogout }) {
     loadData()
   }, [])
 
+  useEffect(() => {
+    loadPointageForDate(datePointage)
+  }, [datePointage])
+
   const loadData = async () => {
     try {
       setLoading(true)
       // Charger les élèves depuis Supabase
       const { data: dataEleves } = await supabase.from('eleves').select('*').eq('actif', true)
       if (dataEleves && dataEleves.length > 0) {
-        // Associer cantine & allergies
         const cantineList = dataEleves.map(e => ({
           ...e,
           cantine: e.cantine !== false,
@@ -118,6 +129,66 @@ export default function CuisiniereApp({ user, onLogout }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Charger le pointage d'une date spécifique
+  const loadPointageForDate = async (dt) => {
+    try {
+      const key = `cantine_pointage_${dt}`
+      const { data } = await supabase.from('app_state').select('value').eq('key', key).single()
+      if (data && data.value) {
+        setPointage(data.value)
+      } else {
+        // Pointage par défaut si aucun enregistrement (Midi coché par défaut)
+        const defaultPt = {}
+        DEMO_ELEVES_CANTINE.forEach(e => {
+          defaultPt[e.id] = { matin: false, midi: true, gouter: false }
+        })
+        setPointage(defaultPt)
+      }
+    } catch (e) {
+      const defaultPt = {}
+      eleves.forEach(e => {
+        defaultPt[e.id] = { matin: false, midi: true, gouter: false }
+      })
+      setPointage(defaultPt)
+    }
+  }
+
+  // Sauvegarder le pointage du jour dans Supabase
+  const savePointage = async (updatedPt) => {
+    setPointage(updatedPt)
+    try {
+      const key = `cantine_pointage_${datePointage}`
+      await supabase.from('app_state').upsert({ key, value: updatedPt, updated_at: new Date().toISOString() })
+    } catch (e) {
+      console.error('Erreur sauvegarde pointage:', e)
+    }
+  }
+
+  // Toggle du repas (matin, midi, gouter) pour un élève
+  const toggleRepas = (eleveId, repasKey) => {
+    const current = pointage[eleveId] || { matin: false, midi: false, gouter: false }
+    const updated = {
+      ...pointage,
+      [eleveId]: {
+        ...current,
+        [repasKey]: !current[repasKey]
+      }
+    }
+    savePointage(updated)
+  }
+
+  // Action rapide : Cocher / Décocher tout un repas pour la sélection affichée
+  const toggleAllRepasForMeal = (repasKey, value) => {
+    const updated = { ...pointage }
+    elevesFiltres.forEach(e => {
+      const current = updated[e.id] || { matin: false, midi: false, gouter: false }
+      updated[e.id] = { ...current, [repasKey]: value }
+    })
+    savePointage(updated)
+    setMsg(`✅ Repas ${repasKey.toUpperCase()} mis à jour pour ${elevesFiltres.length} élève(s).`)
+    setTimeout(() => setMsg(''), 3000)
   }
 
   // Sauvegarder le menu de la semaine
@@ -198,6 +269,11 @@ export default function CuisiniereApp({ user, onLogout }) {
   const totalDepense = ficheMarche.articles.reduce((s, a) => s + (Number(a.pu) * (parseInt(a.quantite) || 1)), 0)
   const resteBudget = ficheMarche.budget - totalDepense
 
+  // Décompte du pointage repas
+  const countMatin = elevesInscrits.filter(e => pointage[e.id]?.matin).length
+  const countMidi = elevesInscrits.filter(e => pointage[e.id]?.midi).length
+  const countGouter = elevesInscrits.filter(e => pointage[e.id]?.gouter).length
+
   return (
     <div className="app-shell" style={{ background: '#f8fafc', minHeight: '100vh' }}>
       {/* Topbar Cuisinière */}
@@ -217,7 +293,7 @@ export default function CuisiniereApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Barre de navigation des 4 SESSIONS CUISINIÈRE */}
+      {/* Barre de navigation des SESSIONS CUISINIÈRE */}
       <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: '#ffffff', borderBottom: '2px solid var(--border)', padding: '6px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', gap: 8, flex: 1, overflowX: 'auto' }}>
           <button
@@ -228,25 +304,32 @@ export default function CuisiniereApp({ user, onLogout }) {
             🥗 1. Élèves Cantine &amp; Allergies ({elevesInscrits.length})
           </button>
           <button
+            className={`top-nav-item ${tab === 'checking' ? 'active' : ''}`}
+            onClick={() => setTab('checking')}
+            style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, background: tab==='checking' ? '#0d2a3b' : '', color: tab==='checking' ? '#7bc142' : '' }}
+          >
+            📋 2. Checking Repas (Matin, Midi, Goûter)
+          </button>
+          <button
             className={`top-nav-item ${tab === 'preparation' ? 'active' : ''}`}
             onClick={() => setTab('preparation')}
             style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            🍳 2. Préparation du Menu
+            🍳 3. Préparation du Menu
           </button>
           <button
             className={`top-nav-item ${tab === 'menu_jour' ? 'active' : ''}`}
             onClick={() => setTab('menu_jour')}
             style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            🍲 3. Menu du Jour
+            🍲 4. Menu du Jour
           </button>
           <button
             className={`top-nav-item ${tab === 'marche' ? 'active' : ''}`}
             onClick={() => setTab('marche')}
             style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            🛒 4. Fiche du Marché
+            🛒 5. Fiche du Marché
           </button>
         </div>
       </div>
@@ -348,12 +431,194 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 2 : PRÉPARATION DU MENU ════════════════ */}
+        {/* ════════════════ SESSION 2 : CHECKING REPAS (MATIN, MIDI, GOÛTER) ════════════════ */}
+        {tab === 'checking' && (
+          <div>
+            <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>📋 Session 2 : Checking &amp; Pointage des Repas Servis</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Émargement en direct des élèves ayant pris leur repas le matin, le midi et au goûter.</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b' }}>📅 Date :</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={datePointage}
+                  onChange={e => setDatePointage(e.target.value)}
+                  style={{ width: 160, fontWeight: 800 }}
+                />
+                <button
+                  className="btn-sm"
+                  onClick={() => window.print()}
+                  style={{ background: '#0d2a3b', color: '#fff', padding: '9px 16px', borderRadius: 10, fontWeight: 800 }}
+                >
+                  🖨️ Imprimer la Liste
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Cards Pointage */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
+              <div className="card" style={{ padding: '16px', background: 'rgba(245,158,11,0.08)', border: '1.5px solid #f59e0b', borderRadius: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#b45309' }}>🌅 PETIT-DÉJEUNER (MATIN)</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#b45309', margin: '4px 0' }}>{countMatin} / {elevesInscrits.length}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button className="btn-sm" style={{ background: '#f59e0b', color: '#fff', fontSize: 10, padding: '3px 8px', border: 'none', borderRadius: 6, fontWeight: 800 }} onClick={() => toggleAllRepasForMeal('matin', true)}>+ Cocher Tous</button>
+                  <button className="btn-sm" style={{ background: 'none', border: '1px solid #b45309', color: '#b45309', fontSize: 10, padding: '3px 8px', borderRadius: 6 }} onClick={() => toggleAllRepasForMeal('matin', false)}>Décocher</button>
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: '16px', background: 'rgba(16,185,129,0.08)', border: '1.5px solid #10b981', borderRadius: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#047857' }}>☀️ DÉJEUNER (MIDI)</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#047857', margin: '4px 0' }}>{countMidi} / {elevesInscrits.length}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button className="btn-sm" style={{ background: '#10b981', color: '#fff', fontSize: 10, padding: '3px 8px', border: 'none', borderRadius: 6, fontWeight: 800 }} onClick={() => toggleAllRepasForMeal('midi', true)}>+ Cocher Tous</button>
+                  <button className="btn-sm" style={{ background: 'none', border: '1px solid #047857', color: '#047857', fontSize: 10, padding: '3px 8px', borderRadius: 6 }} onClick={() => toggleAllRepasForMeal('midi', false)}>Décocher</button>
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: '16px', background: 'rgba(236,72,153,0.08)', border: '1.5px solid #ec4899', borderRadius: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#be185d' }}>🍎 GOÛTER (APRÈS-MIDI)</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#be185d', margin: '4px 0' }}>{countGouter} / {elevesInscrits.length}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button className="btn-sm" style={{ background: '#ec4899', color: '#fff', fontSize: 10, padding: '3px 8px', border: 'none', borderRadius: 6, fontWeight: 800 }} onClick={() => toggleAllRepasForMeal('gouter', true)}>+ Cocher Tous</button>
+                  <button className="btn-sm" style={{ background: 'none', border: '1px solid #be185d', color: '#be185d', fontSize: 10, padding: '3px 8px', borderRadius: 6 }} onClick={() => toggleAllRepasForMeal('gouter', false)}>Décocher</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Barre de Recherche & Filtre par classe */}
+            <div className="card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                className="form-input"
+                placeholder="🔍 Filtrer les élèves par nom..."
+                value={searchEleve}
+                onChange={e => setSearchEleve(e.target.value)}
+                style={{ flex: 1, minWidth: 200 }}
+              />
+              <select className="form-select" value={filterClasse} onChange={e => setFilterClasse(e.target.value)} style={{ width: 180 }}>
+                <option value="ALL">🏫 Toutes les classes</option>
+                {classesUniques.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* Tableau de Checking des Repas */}
+            <div className="card" style={{ padding: '1.2rem', borderRadius: 16 }}>
+              <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>
+                📋 Feuille d'Émargement des Repas ({new Date(datePointage).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })})
+              </h3>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)', fontSize: 12, textTransform: 'uppercase', color: '#64748b' }}>
+                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Élève</th>
+                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Classe</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>🌅 Matin (Petit-Dég)</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>☀️ Midi (Déjeuner)</th>
+                      <th style={{ textAlign: 'center', padding: '10px 12px' }}>🍎 Goûter (Après-midi)</th>
+                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Allergies / Régime</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {elevesFiltres.map(el => {
+                      const pt = pointage[el.id] || { matin: false, midi: false, gouter: false }
+                      const aAllergie = el.allergies && el.allergies.toLowerCase() !== 'aucune'
+
+                      return (
+                        <tr key={el.id} style={{ borderBottom: '1px solid var(--border)', background: aAllergie ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0d2a3b' }}>
+                            {(el.nom || '').toUpperCase()} {el.prenom}
+                          </td>
+                          <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--accent)' }}>{el.classe}</td>
+                          
+                          {/* MATIN */}
+                          <td style={{ textAlign: 'center', padding: '10px 12px' }}>
+                            <button
+                              onClick={() => toggleRepas(el.id, 'matin')}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: 20,
+                                fontWeight: 800,
+                                fontSize: 12,
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: pt.matin ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#e2e8f0',
+                                color: pt.matin ? '#fff' : '#64748b',
+                                boxShadow: pt.matin ? '0 2px 8px rgba(245,158,11,0.3)' : 'none'
+                              }}
+                            >
+                              {pt.matin ? '🟢 Mangé' : '⚪ Absant'}
+                            </button>
+                          </td>
+
+                          {/* MIDI */}
+                          <td style={{ textAlign: 'center', padding: '10px 12px' }}>
+                            <button
+                              onClick={() => toggleRepas(el.id, 'midi')}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: 20,
+                                fontWeight: 800,
+                                fontSize: 12,
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: pt.midi ? 'linear-gradient(135deg, #10b981, #059669)' : '#e2e8f0',
+                                color: pt.midi ? '#fff' : '#64748b',
+                                boxShadow: pt.midi ? '0 2px 8px rgba(16,185,129,0.3)' : 'none'
+                              }}
+                            >
+                              {pt.midi ? '🟢 Mangé' : '⚪ Absent'}
+                            </button>
+                          </td>
+
+                          {/* GOÛTER */}
+                          <td style={{ textAlign: 'center', padding: '10px 12px' }}>
+                            <button
+                              onClick={() => toggleRepas(el.id, 'gouter')}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: 20,
+                                fontWeight: 800,
+                                fontSize: 12,
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: pt.gouter ? 'linear-gradient(135deg, #ec4899, #db2777)' : '#e2e8f0',
+                                color: pt.gouter ? '#fff' : '#64748b',
+                                boxShadow: pt.gouter ? '0 2px 8px rgba(236,72,153,0.3)' : 'none'
+                              }}
+                            >
+                              {pt.gouter ? '🟢 Servis' : '⚪ Non'}
+                            </button>
+                          </td>
+
+                          <td style={{ padding: '10px 12px', fontSize: 11 }}>
+                            {aAllergie ? (
+                              <span style={{ color: '#dc2626', fontWeight: 800 }}>⚠️ {el.allergies}</span>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>Standard ({el.restrictions || 'Aucune'})</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ SESSION 3 : PRÉPARATION DU MENU ════════════════ */}
         {tab === 'preparation' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍳 Session 2 : Préparation du Menu de la Semaine</h1>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍳 Session 3 : Préparation du Menu de la Semaine</h1>
                 <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Conception et équilibre nutritionnel des repas servis du Lundi au Vendredi.</p>
               </div>
               <button
@@ -460,12 +725,12 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 3 : MENU DU JOUR ════════════════ */}
+        {/* ════════════════ SESSION 4 : MENU DU JOUR ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍲 Session 3 : Menu du Jour (Affiche Officielle)</h1>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍲 Session 4 : Menu du Jour (Affiche Officielle)</h1>
                 <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Détail et composition du repas servi aujourd'hui à la réfection des élèves.</p>
               </div>
               <button
@@ -526,12 +791,12 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : FICHE DU MARCHÉ (BUDGET & PRIX) ════════════════ */}
+        {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (BUDGET & PRIX) ════════════════ */}
         {tab === 'marche' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🛒 Session 4 : Fiche du Marché &amp; Budget Cantine</h1>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🛒 Session 5 : Fiche du Marché &amp; Budget Cantine</h1>
                 <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Gestion des achats de la cuisine, suivi du budget alloué et décompte des prix alimentaires.</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
