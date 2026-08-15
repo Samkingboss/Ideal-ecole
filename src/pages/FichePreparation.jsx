@@ -2,120 +2,249 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 
-// Fiche de préparation d'une séance.
+// Fiche de préparation d'une notion.
 //
-// Structure reprise du plan de séance international (objectif → prérequis →
-// déroulement en temps → différenciation → vérification), resserrée sur une
-// séquence de 30 minutes : au-delà de six ou sept champs, une fiche cesse
-// d'être remplie honnêtement et devient une formalité.
+// Une notion n'est plus enfermée dans 30 minutes : l'enseignant déclare
+// combien de séquences elle demande (1 à 6). La fiche se déplie en autant de
+// blocs de déroulement minutés, et chaque séquence est enregistrée comme une
+// préparation distincte dans la table — elle compte donc dans les points.
 //
-// Le déroulement est minuté et sa somme est contrôlée : c'est le champ qui
-// distingue une vraie préparation d'une intention.
+// Les rubriques pédagogiques (objectif, prérequis, matériel, différenciation,
+// évaluation, trace) sont communes à toutes les séquences de la même notion :
+// on ne redéfinit pas l'objectif à chaque demi-heure. Seul le déroulement
+// minuté est propre à chaque séquence.
 
 export const RUBRIQUES = [
-  { id: 'objectif', label: "Objectif de la séance", obligatoire: true, lignes: 2,
+  { id: 'objectif', label: 'Objectif de la notion', obligatoire: true, lignes: 2,
     aide: "Ce que l'élève saura faire à la fin. Un verbe d'action : reconnaître, écrire, calculer…" },
   { id: 'prerequis', label: 'Prérequis', lignes: 2,
-    aide: 'Ce qui doit déjà être acquis pour suivre cette séance.' },
+    aide: 'Ce qui doit déjà être acquis pour suivre cette notion.' },
   { id: 'materiel', label: 'Matériel et supports', lignes: 2,
     aide: 'Manuel, ardoises, images, objets à manipuler…' },
   { id: 'differenciation', label: 'Différenciation', lignes: 3,
     aide: "Ce que je prévois pour l'élève en difficulté, et pour celui qui va vite." },
   { id: 'evaluation', label: "Comment je vérifie que c'est acquis", obligatoire: true, lignes: 2,
-    aide: "La question, l'exercice ou l'observation qui me le dira avant la fin de la séance." },
+    aide: "La question, l'exercice ou l'observation qui me le dira avant la fin de la notion." },
   { id: 'trace', label: 'Trace écrite et devoir', lignes: 2,
     aide: "Ce que l'élève garde dans son cahier, ce qu'il emporte à la maison." },
 ]
 
 // Déroulement type d'une séquence de 30 minutes.
 export const ETAPES = [
-  { id: 'mise_en_route', label: 'Mise en route', minutes: 5, aide: 'Rappel, mise en situation, annonce de l’objectif.' },
-  { id: 'decouverte', label: 'Découverte / explication', minutes: 10, aide: 'Le cœur de la notion, montrée ou construite avec la classe.' },
-  { id: 'pratique', label: 'Pratique guidée', minutes: 10, aide: 'Les élèves s’exercent, je circule et je corrige.' },
-  { id: 'cloture', label: 'Clôture', minutes: 5, aide: 'Ce qu’on retient, vérification rapide.' },
+  { id: 'mise_en_route',  label: 'Mise en route',          minutes: 5,  aide: 'Rappel, mise en situation, annonce de l\u2019objectif.' },
+  { id: 'decouverte',     label: 'Découverte / explication', minutes: 10, aide: 'Le cœur de la notion, montrée ou construite avec la classe.' },
+  { id: 'pratique',       label: 'Pratique guidée',          minutes: 10, aide: 'Les élèves s\u2019exercent, je circule et je corrige.' },
+  { id: 'cloture',        label: 'Clôture',                  minutes: 5,  aide: 'Ce qu\u2019on retient, vérification rapide.' },
 ]
 
-const vide = () => ({
-  ...Object.fromEntries(RUBRIQUES.map(r => [r.id, ''])),
+// Options de durée proposées à l'enseignant.
+const DUREES = [
+  { nb: 1, label: '30 min' },
+  { nb: 2, label: '1 h' },
+  { nb: 3, label: '1 h 30' },
+  { nb: 4, label: '2 h' },
+  { nb: 6, label: '3 h' },
+]
+
+// ─── Usine à états vides ─────────────────────────────────────────────────────
+
+const videSeq = () => ({
   etapes: Object.fromEntries(ETAPES.map(e => [e.id, { minutes: e.minutes, texte: '' }])),
 })
 
+const vide = (nb = 1) => ({
+  ...Object.fromEntries(RUBRIQUES.map(r => [r.id, ''])),
+  nb_sequences: nb,
+  sequences: Array.from({ length: nb }, () => videSeq()),
+})
+
+// Rétrocompatibilité : ancien format (etapes à plat) → nouveau (sequences[]).
+const migrer = (contenu) => {
+  if (!contenu) return vide()
+  if (Array.isArray(contenu.sequences)) return contenu
+  return {
+    ...vide(),
+    ...Object.fromEntries(RUBRIQUES.map(r => [r.id, contenu[r.id] || ''])),
+    nb_sequences: 1,
+    sequences: [{ etapes: contenu.etapes || videSeq().etapes }],
+  }
+}
+
+// ─── Utilitaires ─────────────────────────────────────────────────────────────
+
 const horaireDe = seq => {
   const s = SEQUENCES.find(x => x.n === seq)
-  if (!s) return '08:00'
+  if (!s) return null
   return `${String(Math.floor(s.debut / 60)).padStart(2, '0')}:${String(s.debut % 60).padStart(2, '0')}`
 }
 
+const heureAff = seq => (horaireDe(seq) || '').replace(':', 'h')
+
 const dateLisible = iso =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
-export default function FichePreparation({ user, creneau, dateCours, lectureSeule = false, onFerme, onEnregistre }) {
-  const [fiche, setFiche] = useState(vide())
-  const [enCours, setEnCours] = useState(false)
-  const [message, setMessage] = useState(null)
-  const [existante, setExistante] = useState(null)
+// ─── Composant ───────────────────────────────────────────────────────────────
 
-  const heure = horaireDe(creneau.sequence)
+export default function FichePreparation({
+  user, creneau, dateCours,
+  lectureSeule = false,
+  onFerme, onEnregistre,
+}) {
+  const [fiche, setFiche]         = useState(vide())
+  const [enCours, setEnCours]     = useState(false)
+  const [message, setMessage]     = useState(null)
+  // existantes : liste des rows déjà en base pour cette notion (une par séquence)
+  const [existantes, setExistantes] = useState([])
 
+  // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
     let annule = false
     ;(async () => {
-      const { data, error } = await supabase.from('preparations')
-        .select('id, contenu, heure_depot')
-        .eq('user_id', user.id).eq('date_cours', dateCours).eq('sequence', creneau.sequence)
+      const { data, error } = await supabase
+        .from('preparations')
+        .select('id, contenu, heure_depot, sequence')
+        .eq('user_id', user.id)
+        .eq('date_cours', dateCours)
+        .eq('sequence', creneau.sequence)
         .maybeSingle()
+
       if (annule || error) return
-      if (data) {
-        setExistante(data)
-        if (data.contenu) setFiche({ ...vide(), ...data.contenu })
+      if (!data) return
+
+      const contenu = migrer(data.contenu)
+      setFiche(contenu)
+
+      const nb = contenu.nb_sequences || 1
+      if (nb > 1) {
+        const numeros = Array.from({ length: nb }, (_, i) => creneau.sequence + i)
+        const { data: all } = await supabase
+          .from('preparations')
+          .select('id, sequence')
+          .eq('user_id', user.id)
+          .eq('date_cours', dateCours)
+          .in('sequence', numeros)
+        if (!annule && all) setExistantes(all)
+      } else {
+        setExistantes([data])
       }
     })()
     return () => { annule = true }
   }, [user.id, dateCours, creneau.sequence])
 
-  const majEtape = (id, champ, valeur) => setFiche(f => ({
-    ...f, etapes: { ...f.etapes, [id]: { ...f.etapes[id], [champ]: valeur } },
-  }))
+  // ── Mutateurs ──────────────────────────────────────────────────────────────
 
-  const totalMinutes = ETAPES.reduce((s, e) => s + Number(fiche.etapes[e.id]?.minutes || 0), 0)
-  const manquants = RUBRIQUES.filter(r => r.obligatoire && !String(fiche[r.id] || '').trim())
+  const majEtape = (seqIdx, id, champ, valeur) =>
+    setFiche(f => {
+      const sequences = (f.sequences || []).map((s, i) =>
+        i !== seqIdx ? s : {
+          ...s,
+          etapes: { ...s.etapes, [id]: { ...s.etapes[id], [champ]: valeur } },
+        }
+      )
+      return { ...f, sequences }
+    })
+
+  const changerNbSeq = nb =>
+    setFiche(f => {
+      const seqs = [...(f.sequences || [])]
+      while (seqs.length < nb) seqs.push(videSeq())
+      return { ...f, nb_sequences: nb, sequences: seqs.slice(0, nb) }
+    })
+
+  // ── Validation ─────────────────────────────────────────────────────────────
+
+  const manquants = RUBRIQUES.filter(
+    r => r.obligatoire && !String(fiche[r.id] || '').trim()
+  )
+
+  // ── Enregistrement ─────────────────────────────────────────────────────────
+  //
+  // On insère (ou corrige) une ligne par séquence dans `preparations`.
+  // Chaque ligne porte le même contenu partagé + _seq_index pour l'identifier.
+  // Ainsi le moteur de points compte N préparations sans modification.
 
   async function enregistrer() {
     if (manquants.length) {
-      setMessage({ type: 'err', texte: 'À renseigner : ' + manquants.map(m => m.label.toLowerCase()).join(', ') + '.' })
+      setMessage({
+        type: 'err',
+        texte: 'À renseigner : ' + manquants.map(m => m.label.toLowerCase()).join(', ') + '.',
+      })
       return
     }
-    setEnCours(true); setMessage(null)
+    setEnCours(true)
+    setMessage(null)
 
-    const ligne = {
-      user_id: user.id,
-      classe_id: creneau.classe_id || null,
-      date_cours: dateCours,
-      heure_cours: heure + ':00',
-      matiere: creneau.matiere,
-      groupe: creneau.groupe,
-      sequence: creneau.sequence,
-      contenu: fiche,
-      heure_depot: new Date().toISOString(),
-      status: 'depose',
+    const nb       = fiche.nb_sequences || 1
+    const maintenant = new Date().toISOString()
+
+    for (let i = 0; i < nb; i++) {
+      const seqNum = creneau.sequence + i
+      const h = horaireDe(seqNum) ?? horaireDe(creneau.sequence) ?? '08:00'
+
+      const ligne = {
+        user_id:    user.id,
+        classe_id:  creneau.classe_id || null,
+        date_cours: dateCours,
+        heure_cours: h + ':00',
+        matiere:    creneau.matiere,
+        groupe:     creneau.groupe,
+        sequence:   seqNum,
+        contenu:    { ...fiche, _seq_index: i },
+        heure_depot: maintenant,
+        status:     'depose',
+      }
+
+      const ex  = existantes.find(e => e.sequence === seqNum)
+      const req = ex
+        ? supabase.from('preparations').update(ligne).eq('id', ex.id)
+        : supabase.from('preparations').insert(ligne)
+
+      const { error } = await req
+      if (error) {
+        setEnCours(false)
+        setMessage({ type: 'err', texte: `Erreur séquence ${i + 1} : ${error.message}` })
+        return
+      }
     }
-    // On corrige la fiche existante plutôt que d'en créer une seconde, qui
-    // compterait deux fois dans les points.
-    const req = existante
-      ? supabase.from('preparations').update(ligne).eq('id', existante.id)
-      : supabase.from('preparations').insert(ligne)
-    const { error } = await req
+
     setEnCours(false)
-    if (error) { setMessage({ type: 'err', texte: 'Enregistrement refusé : ' + error.message }); return }
-    setMessage({ type: 'ok', texte: 'Préparation enregistrée.' })
+    setMessage({
+      type: 'ok',
+      texte: nb > 1 ? `${nb} séquences enregistrées ✓` : 'Préparation enregistrée ✓',
+    })
     onEnregistre && onEnregistre()
   }
+
+  // ── Impression ─────────────────────────────────────────────────────────────
 
   function imprimer() {
     const w = window.open('', '_blank')
     if (!w) return
+    const esc = s => String(s).replace(/</g, '&lt;').replace(/\n/g, '<br>')
     const bloc = (titre, texte) => texte
-      ? `<div class="b"><div class="t">${titre}</div><div class="c">${String(texte).replace(/</g, '&lt;').replace(/\n/g, '<br>')}</div></div>` : ''
+      ? `<div class="b"><div class="t">${titre}</div><div class="c">${esc(texte)}</div></div>` : ''
+    const nb = fiche.nb_sequences || 1
+    const seqs = fiche.sequences || [videSeq()]
+
+    const blocsSeq = seqs.map((seq, idx) => {
+      const total = ETAPES.reduce((s, e) => s + Number(seq.etapes?.[e.id]?.minutes || 0), 0)
+      const seqNum = creneau.sequence + idx
+      const h = horaireDe(seqNum) ?? ''
+      return `
+        <div class="seq-titre">
+          ${nb > 1 ? `Séquence ${idx + 1}/${nb} · S${seqNum}${h ? ' · ' + h.replace(':', 'h') : ''}` : 'Déroulement'}
+          <span class="total ${total === DUREE_SEQUENCE ? 'ok' : 'warn'}">${total} min sur ${DUREE_SEQUENCE}</span>
+        </div>
+        <table><thead><tr><th style="width:32%">Étape</th><th style="width:12%">Durée</th><th>Ce que je fais, ce que font les élèves</th></tr></thead><tbody>
+        ${ETAPES.map(e =>
+          `<tr><td><b>${e.label}</b></td><td>${seq.etapes?.[e.id]?.minutes ?? 0} min</td>
+           <td>${esc(seq.etapes?.[e.id]?.texte || '')}</td></tr>`
+        ).join('')}
+        </tbody></table>`
+    }).join('')
+
     w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
       <title>Préparation ${creneau.matiere} — ${creneau.groupe}</title>
       <style>
@@ -126,6 +255,8 @@ export default function FichePreparation({ user, creneau, dateCours, lectureSeul
         .b{margin-bottom:14px}
         .t{font-weight:800;font-size:10pt;color:#0d2a3b;border-left:4px solid #1AAFE0;padding-left:8px;margin-bottom:4px;text-transform:uppercase}
         .c{font-size:11pt;line-height:1.5;white-space:pre-wrap}
+        .seq-titre{font-weight:800;font-size:10pt;color:#0d2a3b;background:#f0f9ff;border-left:4px solid #1AAFE0;padding:6px 10px;margin:18px 0 6px;display:flex;justify-content:space-between;text-transform:uppercase}
+        .total{font-size:9pt;font-weight:400}.ok{color:#16a34a}.warn{color:#d97706}
         table{width:100%;border-collapse:collapse;font-size:11pt;margin-top:4px}
         th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left;vertical-align:top}
         th{background:#0d2a3b;color:#fff;font-size:9pt;text-transform:uppercase}
@@ -136,17 +267,14 @@ export default function FichePreparation({ user, creneau, dateCours, lectureSeul
       <div class="sub">École Internationale Bilingue IDEAL · Bamako</div>
       <div class="meta">
         <div><b>Matière :</b> ${creneau.matiere}</div><div><b>Classe :</b> ${creneau.groupe}</div>
-        <div><b>Date :</b> ${dateLisible(dateCours)}</div><div><b>Séquence :</b> S${creneau.sequence} — ${heure} (${DUREE_SEQUENCE} min)</div>
+        <div><b>Date :</b> ${dateLisible(dateCours)}</div>
+        <div><b>Durée :</b> ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min</div>
         <div><b>Enseignant :</b> ${[user.prenom, user.nom].filter(Boolean).join(' ')}</div>
       </div>
-      ${bloc("Objectif de la séance", fiche.objectif)}
+      ${bloc('Objectif de la notion', fiche.objectif)}
       ${bloc('Prérequis', fiche.prerequis)}
       ${bloc('Matériel et supports', fiche.materiel)}
-      <div class="b"><div class="t">Déroulement</div>
-        <table><thead><tr><th style="width:32%">Étape</th><th style="width:12%">Durée</th><th>Ce que je fais, ce que font les élèves</th></tr></thead><tbody>
-        ${ETAPES.map(e => `<tr><td><b>${e.label}</b></td><td>${fiche.etapes[e.id]?.minutes || 0} min</td>
-           <td>${String(fiche.etapes[e.id]?.texte || '').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</td></tr>`).join('')}
-        </tbody></table></div>
+      ${blocsSeq}
       ${bloc('Différenciation', fiche.differenciation)}
       ${bloc("Comment je vérifie que c'est acquis", fiche.evaluation)}
       ${bloc('Trace écrite et devoir', fiche.trace)}
@@ -156,16 +284,26 @@ export default function FichePreparation({ user, creneau, dateCours, lectureSeul
     setTimeout(() => w.print(), 300)
   }
 
+  // ── Téléchargement TXT ─────────────────────────────────────────────────────
+
   function telecharger() {
+    const nb = fiche.nb_sequences || 1
+    const seqs = fiche.sequences || [videSeq()]
     const l = []
     l.push(`FICHE DE PRÉPARATION — École IDEAL`, '')
-    l.push(`Matière   : ${creneau.matiere}`, `Classe    : ${creneau.groupe}`)
-    l.push(`Date      : ${dateLisible(dateCours)}`, `Séquence  : S${creneau.sequence} — ${heure} (${DUREE_SEQUENCE} min)`)
-    l.push(`Enseignant: ${[user.prenom, user.nom].filter(Boolean).join(' ')}`, '')
+    l.push(`Matière    : ${creneau.matiere}`, `Classe     : ${creneau.groupe}`)
+    l.push(`Date       : ${dateLisible(dateCours)}`)
+    l.push(`Durée      : ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min`)
+    l.push(`Enseignant : ${[user.prenom, user.nom].filter(Boolean).join(' ')}`, '')
     RUBRIQUES.slice(0, 3).forEach(r => { if (fiche[r.id]) l.push(r.label.toUpperCase(), fiche[r.id], '') })
-    l.push('DÉROULEMENT')
-    ETAPES.forEach(e => l.push(`  ${e.label} (${fiche.etapes[e.id]?.minutes || 0} min) : ${fiche.etapes[e.id]?.texte || ''}`))
-    l.push('')
+    seqs.forEach((seq, idx) => {
+      const seqNum = creneau.sequence + idx
+      l.push(nb > 1 ? `DÉROULEMENT — SÉQUENCE ${idx + 1}/${nb} (S${seqNum})` : 'DÉROULEMENT')
+      ETAPES.forEach(e => l.push(
+        `  ${e.label} (${seq.etapes?.[e.id]?.minutes ?? 0} min) : ${seq.etapes?.[e.id]?.texte || ''}`
+      ))
+      l.push('')
+    })
     RUBRIQUES.slice(3).forEach(r => { if (fiche[r.id]) l.push(r.label.toUpperCase(), fiche[r.id], '') })
     const net = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-')
     const a = document.createElement('a')
@@ -175,86 +313,228 @@ export default function FichePreparation({ user, creneau, dateCours, lectureSeul
     setTimeout(() => URL.revokeObjectURL(a.href), 4000)
   }
 
-  const champ = { width: '100%', marginTop: 4, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, fontFamily: 'inherit' }
+  // ── Rendu ──────────────────────────────────────────────────────────────────
+
+  const nb   = fiche.nb_sequences || 1
+  const seqs = fiche.sequences || [videSeq()]
+
+  const champ = {
+    width: '100%', marginTop: 4, padding: '8px 10px',
+    borderRadius: 8, border: '1px solid var(--border)',
+    fontSize: 13, fontFamily: 'inherit',
+  }
+
+  const estDejaPreparee = existantes.length > 0
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(6,16,24,.94)', zIndex: 9000, overflowY: 'auto', padding: '18px 12px' }}>
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(6,16,24,.94)',
+      zIndex: 9000, overflowY: 'auto', padding: '18px 12px',
+    }}>
       <div style={{ maxWidth: 640, margin: '0 auto', background: 'var(--bg)', borderRadius: 16, padding: '18px 16px' }}>
+
+        {/* ── En-tête ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800 }}>{creneau.matiere} — {creneau.groupe}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-              {dateLisible(dateCours)} · S{creneau.sequence} à {heure.replace(':', 'h')} ({DUREE_SEQUENCE} min)
+              {dateLisible(dateCours)} · à partir de S{creneau.sequence}
+              {horaireDe(creneau.sequence) ? ` · ${heureAff(creneau.sequence)}` : ''}
             </div>
           </div>
           <button className="btn-sm" onClick={onFerme}>Fermer</button>
         </div>
 
+        {/* ── Sélecteur de durée ── */}
+        {!lectureSeule && (
+          <div style={{
+            marginTop: 14, background: 'var(--card)',
+            border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>
+              DURÉE DE LA NOTION
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {DUREES.map(({ nb: n, label }) => (
+                <button key={n} onClick={() => changerNbSeq(n)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer', transition: 'all .15s',
+                    border: `2px solid ${nb === n ? '#1AAFE0' : 'var(--border)'}`,
+                    background: nb === n ? 'rgba(26,175,224,.12)' : 'transparent',
+                    color: nb === n ? '#1AAFE0' : 'var(--muted)',
+                  }}>
+                  {label}
+                  <div style={{ fontSize: 10, fontWeight: 400, marginTop: 1 }}>
+                    {n} séq.
+                  </div>
+                </button>
+              ))}
+            </div>
+            {nb > 1 && (
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
+                ✅ Cette notion occupe {nb} séquences consécutives de {creneau.matiere} —
+                chacune compte séparément dans vos points.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Bannière état ── */}
         {lectureSeule ? (
           <div style={{ background: 'rgba(100,116,139,.12)', border: '1px solid rgba(100,116,139,.35)', borderRadius: 10, padding: '8px 12px', fontSize: 12, marginTop: 12 }}>
             Semaine archivée : cette fiche ne se modifie plus. Vous pouvez la relire,
-            l’imprimer ou la télécharger.
+            l'imprimer ou la télécharger.
           </div>
-        ) : existante && (
+        ) : estDejaPreparee && (
           <div style={{ background: 'rgba(46,158,79,.10)', border: '1px solid rgba(46,158,79,.35)', borderRadius: 10, padding: '8px 12px', fontSize: 12, marginTop: 12 }}>
-            Séance déjà préparée. Vos modifications corrigeront la fiche existante.
+            Notion déjà préparée ({nb} séquence{nb > 1 ? 's' : ''}).
+            Vos modifications corrigeront la fiche existante.
           </div>
         )}
 
+        {/* ── Rubriques communes — partie 1 (objectif, prérequis, matériel) ── */}
         {RUBRIQUES.slice(0, 3).map(r => (
           <label key={r.id} style={{ display: 'block', marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
-            {r.label}{r.obligatoire && <span style={{ color: 'var(--red)' }}> *</span>}
-            <textarea rows={r.lignes} value={fiche[r.id]} placeholder={r.aide}
-              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })} readOnly={lectureSeule} style={champ} />
+            {r.label}
+            {r.obligatoire && <span style={{ color: 'var(--red)' }}> *</span>}
+            <textarea
+              rows={r.lignes}
+              value={fiche[r.id]}
+              placeholder={r.aide}
+              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })}
+              readOnly={lectureSeule}
+              style={champ}
+            />
           </label>
         ))}
 
-        <div style={{ marginTop: 16, fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
-          <span>DÉROULEMENT</span>
-          <span style={{ color: totalMinutes === DUREE_SEQUENCE ? 'var(--green)' : 'var(--amber)' }}>
-            {totalMinutes} min sur {DUREE_SEQUENCE}
-          </span>
-        </div>
-        {ETAPES.map(e => (
-          <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px', marginTop: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{e.label}</div>
-              <input type="number" min="0" max="30" value={fiche.etapes[e.id]?.minutes ?? 0}
-                onChange={ev => majEtape(e.id, 'minutes', Math.max(0, Math.min(30, Number(ev.target.value) || 0)))} readOnly={lectureSeule}
-                style={{ width: 58, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', textAlign: 'center', fontWeight: 700 }} />
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>min</span>
-            </div>
-            <textarea rows={2} value={fiche.etapes[e.id]?.texte || ''} placeholder={e.aide}
-              onChange={ev => majEtape(e.id, 'texte', ev.target.value)} readOnly={lectureSeule} style={{ ...champ, marginTop: 6 }} />
-          </div>
-        ))}
+        {/* ── Blocs de déroulement — un par séquence ── */}
+        {seqs.map((seq, idx) => {
+          const totalSeq = ETAPES.reduce((s, e) => s + Number(seq.etapes?.[e.id]?.minutes || 0), 0)
+          const seqNum   = creneau.sequence + idx
+          const h        = heureAff(seqNum)
 
+          return (
+            <div key={idx} style={{
+              marginTop: 16,
+              border: nb > 1 ? '1px solid var(--border)' : 'none',
+              borderRadius: nb > 1 ? 12 : 0,
+              padding: nb > 1 ? '10px 12px' : 0,
+              background: nb > 1 ? 'var(--card)' : 'transparent',
+            }}>
+              {/* Titre du bloc */}
+              <div style={{
+                fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span>
+                  {nb > 1
+                    ? <>
+                        <span style={{
+                          background: '#1AAFE0', color: '#fff',
+                          borderRadius: 5, padding: '1px 7px', marginRight: 8, fontSize: 10,
+                        }}>
+                          S{idx + 1}/{nb}
+                        </span>
+                        DÉROULEMENT · S{seqNum}{h ? ` · ${h}` : ''}
+                      </>
+                    : 'DÉROULEMENT'
+                  }
+                </span>
+                <span style={{ color: totalSeq === DUREE_SEQUENCE ? 'var(--green)' : 'var(--amber)', fontVariantNumeric: 'tabular-nums' }}>
+                  {totalSeq} / {DUREE_SEQUENCE} min
+                </span>
+              </div>
+
+              {/* Étapes */}
+              {ETAPES.map(e => (
+                <div key={e.id} style={{
+                  background: nb > 1 ? 'var(--bg)' : 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10, padding: '8px 10px', marginTop: 6,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{e.label}</div>
+                    <input
+                      type="number" min="0" max="30"
+                      value={seq.etapes?.[e.id]?.minutes ?? 0}
+                      onChange={ev => majEtape(idx, e.id, 'minutes',
+                        Math.max(0, Math.min(30, Number(ev.target.value) || 0))
+                      )}
+                      readOnly={lectureSeule}
+                      style={{
+                        width: 58, padding: '4px 6px', borderRadius: 6,
+                        border: '1px solid var(--border)', textAlign: 'center', fontWeight: 700,
+                      }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>min</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={seq.etapes?.[e.id]?.texte || ''}
+                    placeholder={e.aide}
+                    onChange={ev => majEtape(idx, e.id, 'texte', ev.target.value)}
+                    readOnly={lectureSeule}
+                    style={{ ...champ, marginTop: 6 }}
+                  />
+                </div>
+              ))}
+            </div>
+          )
+        })}
+
+        {/* ── Rubriques communes — partie 2 (différenciation, évaluation, trace) ── */}
         {RUBRIQUES.slice(3).map(r => (
           <label key={r.id} style={{ display: 'block', marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
-            {r.label}{r.obligatoire && <span style={{ color: 'var(--red)' }}> *</span>}
-            <textarea rows={r.lignes} value={fiche[r.id]} placeholder={r.aide}
-              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })} readOnly={lectureSeule} style={champ} />
+            {r.label}
+            {r.obligatoire && <span style={{ color: 'var(--red)' }}> *</span>}
+            <textarea
+              rows={r.lignes}
+              value={fiche[r.id]}
+              placeholder={r.aide}
+              onChange={e => setFiche({ ...fiche, [r.id]: e.target.value })}
+              readOnly={lectureSeule}
+              style={champ}
+            />
           </label>
         ))}
 
+        {/* ── Message ── */}
         {message && (
           <div style={{
-            marginTop: 12, padding: '9px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+            marginTop: 12, padding: '9px 12px', borderRadius: 10,
+            fontSize: 13, fontWeight: 600,
             background: message.type === 'ok' ? 'rgba(46,158,79,.10)' : 'rgba(220,53,69,.10)',
             color: message.type === 'ok' ? 'var(--green)' : 'var(--red)',
-          }}>{message.texte}</div>
+          }}>
+            {message.texte}
+          </div>
         )}
 
+        {/* ── Actions ── */}
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           {!lectureSeule && (
-            <button className="btn btn-primary" onClick={enregistrer} disabled={enCours}
-              style={{ flex: 2, minWidth: 180, padding: 12, borderRadius: 12, fontWeight: 800 }}>
-              {enCours ? 'Enregistrement…' : (existante ? 'Enregistrer les modifications' : 'Valider la préparation')}
+            <button
+              className="btn btn-primary"
+              onClick={enregistrer}
+              disabled={enCours}
+              style={{ flex: 2, minWidth: 180, padding: 12, borderRadius: 12, fontWeight: 800 }}
+            >
+              {enCours
+                ? 'Enregistrement…'
+                : estDejaPreparee
+                  ? 'Enregistrer les modifications'
+                  : nb > 1
+                    ? `Valider les ${nb} séquences`
+                    : 'Valider la préparation'
+              }
             </button>
           )}
           <button className="btn-sm" onClick={imprimer} style={{ flex: 1, minWidth: 90 }}>🖨️ Imprimer</button>
           <button className="btn-sm" onClick={telecharger} style={{ flex: 1, minWidth: 110 }}>⬇️ Télécharger</button>
         </div>
+
       </div>
     </div>
   )
