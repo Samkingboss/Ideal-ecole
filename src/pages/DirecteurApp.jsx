@@ -444,7 +444,15 @@ export default function DirecteurApp({ user, onLogout }) {
         </button>
 
         <div className="top-nav-secondary" style={{ flex: 1, borderBottom: 'none', top: 0, boxShadow: 'none' }}>
-          {TOP_TABS.map(t => (
+          {TOP_TABS
+            .filter(t => {
+              if (user.role === 'responsable_administratif') {
+                const allowed = ['profs', 'rh', 'points', 'eleves', 'cartes', 'certificat']
+                return allowed.includes(t.id)
+              }
+              return true
+            })
+            .map(t => (
             <button 
               key={t.id} 
               className={`top-nav-item ${tab===t.id?'active':''}`} 
@@ -545,8 +553,8 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Alerte discipline */}
-              {disciplinesGraves.length > 0 && (
+              {/* Alerte discipline — Directeur uniquement */}
+              {user.role !== 'responsable_administratif' && disciplinesGraves.length > 0 && (
                 <div className="card" style={{borderLeft:'4px solid var(--red)', marginBottom:16}}>
                   <div className="card-header" style={{background:'rgba(255,0,0,0.07)', color:'var(--red)', fontWeight:900, fontSize:12}}>
                     ⚠️ {disciplinesGraves.length} ALERTE{disciplinesGraves.length > 1 ? 'S' : ''} DISCIPLINE GRAVE
@@ -565,8 +573,8 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               )}
 
-              {/* Performance par classe */}
-              {avgParClasse.length > 0 && (
+              {/* Performance par classe — Directeur uniquement */}
+              {user.role !== 'responsable_administratif' && avgParClasse.length > 0 && (
                 <div className="card" style={{marginBottom:16}}>
                   <div className="card-header">📊 Performance par classe</div>
                   <div className="card-body" style={{padding:'1rem'}}>
@@ -602,7 +610,8 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               )}
 
-              {/* Check-points + Événements côte à côte */}
+              {/* Check-points + Événements côte à côte — Directeur uniquement */}
+              {user.role !== 'responsable_administratif' && (
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16}}>
                 {/* Check-points par classe */}
                 <div className="card">
@@ -644,8 +653,10 @@ export default function DirecteurApp({ user, onLogout }) {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* Préparations récentes */}
+              {/* Préparations récentes — Directeur uniquement */}
+              {user.role !== 'responsable_administratif' && (
               <div className="card">
                 <div className="card-header">📝 Préparations récentes</div>
                 <div className="card-body" style={{padding:'0'}}>
@@ -662,6 +673,7 @@ export default function DirecteurApp({ user, onLogout }) {
                   ))}
                 </div>
               </div>
+              )}
             </>
           )
         })()}
@@ -1216,7 +1228,14 @@ export default function DirecteurApp({ user, onLogout }) {
       </div>
 
       <div className="bottom-nav" role="tablist">
-        {BOTTOM_TABS.map(t => (
+        {BOTTOM_TABS
+          .filter(t => {
+            if (user.role === 'responsable_administratif') {
+              return t.id !== 'agenda'
+            }
+            return true
+          })
+          .map(t => (
           <button 
             key={t.id} 
             className={`nav-item ${tab===t.id?'active':''}`} 
