@@ -7885,6 +7885,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       // 3. Fermer le modal d'impression du reçu si visible
       const pm = document.getElementById('print-receipt-modal');
       if (pm && pm.style.display === 'block') pm.style.display = 'none';
+    }
+  });
+});
+
 function renderCartesTabCompta() {
   const container = document.getElementById('cartes-preview-container-compta');
   const select = document.getElementById('cartes-eleve-select-compta');
@@ -7989,8 +7993,6 @@ function renderCartePreviewCompta(eleveId) {
     </div>
   `;
 }
-
-});
 </script>
 </body>
 </html>
