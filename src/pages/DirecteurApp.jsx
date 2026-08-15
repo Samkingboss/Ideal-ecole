@@ -403,22 +403,203 @@ export default function DirecteurApp({ user, onLogout }) {
     loadData()
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF
+  // ═══════════════════════════════════════════════════════════════════
+  if (user.role === 'responsable_administratif') {
+    const masseSalariale = (postes || []).reduce((s, p) => s + (p.mensuel || 0), 0)
+    const nbInscrits = eleves.filter(e => e.is_inscription).length
+    const nbEleves = eleves.filter(e => !e.is_inscription).length
+
+    return (
+      <div className="app-shell">
+        <div className="topbar">
+          <div className="topbar-brand">
+            <div>
+              <div className="topbar-logo">IDEAL</div>
+              <div className="topbar-sub">ADMINISTRATION & GESTION</div>
+            </div>
+          </div>
+          <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <NotificationCenter user={user} role={user.role} onNavigateTab={() => {}} />
+            <span className="role-badge" style={{ background: 'rgba(0,168,224,0.18)', color: '#00a8e0', border: '1px solid #00a8e0', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+              Responsable Admin
+            </span>
+            <button className="btn-logout" onClick={onLogout}>Déconnexion</button>
+          </div>
+        </div>
+
+        <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px' }}>
+
+          {/* En-tête de bienvenue */}
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>Tableau de bord administratif</h1>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gérez les inscriptions, la paie du personnel et la comptabilité de l'établissement.</p>
+          </div>
+
+          {/* ═══ SECTION 1 : INSCRIPTIONS ═══ */}
+          <div className="card" style={{ marginBottom: 20, overflow: 'hidden', borderLeft: '4px solid #00a8e0' }}>
+            <div style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#00a8e0,#0078b4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📝</div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>Inscriptions & Dossiers</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Gestion des inscriptions et dossiers numériques des élèves</div>
+                </div>
+              </div>
+              <a href="/inscription.html" style={{ textDecoration: 'none' }}>
+                <button style={{ background: 'linear-gradient(135deg,#00a8e0,#0078b4)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,168,224,0.3)' }}>
+                  Ouvrir les Inscriptions →
+                </button>
+              </a>
+            </div>
+            <div style={{ padding: '1rem 1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                <div style={{ background: 'rgba(0,168,224,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#00a8e0' }}>{nbInscrits}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Nouvelles inscriptions</div>
+                </div>
+                <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--green)' }}>{nbEleves}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Élèves inscrits</div>
+                </div>
+                <div style={{ background: 'rgba(247,148,29,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--amber)' }}>{classes.length}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Classes ouvertes</div>
+                </div>
+              </div>
+              {/* Dernières inscriptions */}
+              {nbInscrits > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>Dernières inscriptions</div>
+                  {eleves.filter(e => e.is_inscription).slice(0, 4).map((e, i) => (
+                    <div key={e.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{e.prenom} {e.nom}</div>
+                      <span style={{ fontSize: 10, background: 'rgba(0,168,224,0.1)', color: '#00a8e0', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>{e.classe_nom || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ SECTION 2 : RH & PAIE ═══ */}
+          <div className="card" style={{ marginBottom: 20, overflow: 'hidden', borderLeft: '4px solid #8e44ad' }}>
+            <div style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#8e44ad,#6c3483)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💼</div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>RH & Paie du Personnel</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Grille salariale, émargement et gestion du personnel</div>
+                </div>
+              </div>
+              <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
+                <button style={{ background: 'linear-gradient(135deg,#8e44ad,#6c3483)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(142,68,173,0.3)' }}>
+                  Ouvrir la Paie →
+                </button>
+              </a>
+            </div>
+            <div style={{ padding: '1rem 1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
+                <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}>{stats.profs}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
+                </div>
+                <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--green)' }}>{fcfa(masseSalariale)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / mois</div>
+                </div>
+                <div style={{ background: 'rgba(236,0,140,0.08)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--pink)' }}>{fcfa(masseSalariale * 12)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / an</div>
+                </div>
+              </div>
+              {/* Grille résumée des postes */}
+              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>Référentiel des postes</div>
+              <div style={{ maxHeight: 220, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg)', position: 'sticky', top: 0 }}>
+                      <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 800, fontSize: 10, textTransform: 'uppercase', color: 'var(--muted)' }}>Poste</th>
+                      <th style={{ textAlign: 'right', padding: '8px 12px', fontWeight: 800, fontSize: 10, textTransform: 'uppercase', color: 'var(--muted)' }}>Mensuel</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(postes || []).map((p, i) => (
+                      <tr key={p.id || i} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '7px 12px', fontWeight: 600 }}>{p.label}</td>
+                        <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{fcfa(p.mensuel)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ SECTION 3 : COMPTABILITÉ ═══ */}
+          <div className="card" style={{ marginBottom: 20, overflow: 'hidden', borderLeft: '4px solid #7bc142' }}>
+            <div style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#7bc142,#5a9a2e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💰</div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>Comptabilité & Finances</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Frais de scolarité, paiements, reçus, dépenses et trésorerie</div>
+                </div>
+              </div>
+              <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
+                <button style={{ background: 'linear-gradient(135deg,#7bc142,#5a9a2e)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(123,193,66,0.3)' }}>
+                  Ouvrir la Comptabilité →
+                </button>
+              </a>
+            </div>
+            <div style={{ padding: '1rem 1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: 'rgba(123,193,66,0.06)', borderRadius: 12, padding: '16px', border: '1px solid rgba(123,193,66,0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}>
+                    <div style={{ fontSize: 20, marginBottom: 6 }}>💵</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--dark)' }}>Effectifs & Recettes</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Recettes prévisionnelles par classe</div>
+                  </div>
+                </a>
+                <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: 'rgba(0,168,224,0.06)', borderRadius: 12, padding: '16px', border: '1px solid rgba(0,168,224,0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}>
+                    <div style={{ fontSize: 20, marginBottom: 6 }}>📋</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--dark)' }}>Charges & Dépenses</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Salaires, cantine et frais fixes</div>
+                  </div>
+                </a>
+                <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: 'rgba(236,0,140,0.06)', borderRadius: 12, padding: '16px', border: '1px solid rgba(236,0,140,0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}>
+                    <div style={{ fontSize: 20, marginBottom: 6 }}>📅</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--dark)' }}>Trésorerie Mensuelle</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Flux d'entrées et sorties</div>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    )
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // INTERFACE DIRECTEUR (inchangée)
+  // ═══════════════════════════════════════════════════════════════════
   return (
     <div className="app-shell">
       <div className="topbar">
         <div className="topbar-brand">
           <div>
             <div className="topbar-logo">IDEAL</div>
-            <div className="topbar-sub">
-              {user.role === 'responsable_administratif' ? 'ADMINISTRATION & GESTION' : 'ÉCOLE INTERNATIONALE BILINGUE'}
-            </div>
+            <div className="topbar-sub">ÉCOLE INTERNATIONALE BILINGUE</div>
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={setTab} />
-          <span className="role-badge role-directeur" style={{ cursor: 'pointer', background: user.role === 'responsable_administratif' ? 'rgba(0,168,224,0.18)' : undefined, color: user.role === 'responsable_administratif' ? '#00a8e0' : undefined, border: user.role === 'responsable_administratif' ? '1px solid #00a8e0' : undefined }} onClick={() => window.location.reload(true)} title="Cliquez pour forcer la mise à jour">
-            {user.role === 'responsable_administratif' ? 'Responsable Admin v2.5' : 'Directeur v2.5'}
-          </span>
+          <span className="role-badge role-directeur">Directeur v2.5</span>
           <button className="btn-logout" onClick={onLogout}>Deconnexion</button>
         </div>
       </div>
