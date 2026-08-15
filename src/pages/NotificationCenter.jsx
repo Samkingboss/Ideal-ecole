@@ -5,105 +5,159 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [pushStatus, setPushStatus] = useState('default') // 'default' | 'granted' | 'denied'
 
   useEffect(() => {
+    if ('Notification' in window) {
+      setPushStatus(Notification.permission)
+    }
+
     loadNotifications()
     const timer = setInterval(() => {
       loadNotifications()
-    }, 15000) // Polling discret toutes les 15s
+    }, 8000) // Verification automatique toutes les 8s
+
     return () => clearInterval(timer)
   }, [user?.id, role])
 
+  const requestPushPermission = async () => {
+    if (!('Notification' in window)) {
+      alert('⚠️ Les notifications push ne sont pas supportées par ce navigateur.')
+      return
+    }
+
+    try {
+      const perm = await Notification.requestPermission()
+      setPushStatus(perm)
+      if (perm === 'granted') {
+        alert('✅ Notifications push activées avec succès sur cet appareil !')
+        new Notification('IDEAL École', {
+          body: 'Vous recevrez désormais les alertes directement sur votre écran !',
+          icon: '/logo-ideal.png'
+        })
+      } else {
+        alert('⚠️ Permission refusée ou restreinte par le navigateur.')
+      }
+    } catch (e) {
+      console.error('Erreur demande permission push:', e)
+    }
+  }
+
   const loadNotifications = async () => {
     try {
-      const userKey = `notifs_${user?.id || 'guest'}`
-      let list = []
+      const activeRole = role || user?.role || 'directeur'
+      const keysToFetch = [
+        'notifs_global',
+        `notifs_${activeRole}`,
+        user?.id ? `notifs_${user.id}` : null
+      ].filter(Boolean)
 
-      const localData = localStorage.getItem(userKey)
-      if (localData) list = JSON.parse(localData)
+      let mergedNotifs = []
 
-      // Supabase fetch
-      const { data } = await supabase
-        .from('app_state')
-        .select('value')
-        .eq('key', userKey)
-        .maybeSingle()
-
-      if (data && data.value && Array.isArray(data.value)) {
-        list = data.value
-      } else if (list.length === 0) {
-        // Exemples de démarrage personnalisés par rôle
-        if (role === 'directeur' || role === 'responsable_administratif') {
-          list = [
-            {
-              id: 1,
-              titre: '🚀 Plateforme IDEAL Prête',
-              message: 'Bienvenue sur le centre de pilotage global d\'IDEAL École.',
-              date: new Date().toISOString(),
-              lu: false,
-              type: 'systeme',
-              tabTarget: 'dashboard'
-            },
-            {
-              id: 2,
-              titre: '💼 Module RH & Paie Disponible',
-              message: 'Les états de salaires mensuels et dossiers du personnel sont prêts.',
-              date: new Date(Date.now() - 3600000).toISOString(),
-              lu: false,
-              type: 'rh',
-              tabTarget: 'rh'
-            }
-          ]
-        } else {
-          list = [
-            {
-              id: 101,
-              titre: '📂 Mon Dossier RH & Maternité',
-              message: 'Remplissez votre dossier du personnel et vos demandes dans l\'onglet RH.',
-              date: new Date().toISOString(),
-              lu: false,
-              type: 'rh',
-              tabTarget: 'dossier'
-            }
-          ]
+      // 1. Chargement local
+      for (const key of keysToFetch) {
+        const localData = localStorage.getItem(key)
+        if (localData) {
+          try {
+            const parsed = JSON.parse(localData)
+            if (Array.isArray(parsed)) mergedNotifs.push(...parsed)
+          } catch (e) {}
         }
       }
 
-      setNotifications(list)
-      const count = list.filter(n => !n.lu).length
-      setUnreadCount(count)
+      // 2. Chargement Supabase app_state
+      const { data: rows } = await supabase
+        .from('app_state')
+        .select('key, value')
+        .in('key', keysToFetch)
+
+      if (rows && rows.length > 0) {
+        rows.forEach(r => {
+          if (r.value && Array.isArray(r.value)) {
+            mergedNotifs.push(...r.value)
+          }
+        })
+      }
+
+      // 3. Pour la Direction & Admin: intégrer les demandes RH reçues de demandes_rh_global
+      if (activeRole === 'directeur' || activeRole === 'responsable_administratif') {
+        const { data: globalState } = await supabase
+          .from('app_state')
+          .select('value')
+          .eq('key', 'demandes_rh_global')
+          .maybeSingle()
+
+        if (globalState && globalState.value && Array.isArray(globalState.value)) {
+          globalState.value.forEach(d => {
+            const typeLabel = d.type === 'avance' ? 'Avance de salaire' :
+                              d.type === 'pret' ? 'Prêt' :
+                              d.type === 'maternite' ? 'Congé Maternité' :
+                              d.type === 'permission' ? 'Permission' : 'Demande RH'
+
+            mergedNotifs.push({
+              id: `dem_${d.id}`,
+              titre: `📩 ${typeLabel} en attente`,
+              message: `${d.user_name} a soumis une demande (${d.statut}).`,
+              date: d.date_soumission,
+              lu: d.statut !== 'En attente',
+              type: 'rh',
+              tabTarget: 'rh'
+            })
+          })
+        }
+      }
+
+      // Déduplication par ID et tri chronologique descendant
+      const uniqueMap = new Map()
+      mergedNotifs.forEach(n => {
+        if (!uniqueMap.has(n.id)) {
+          uniqueMap.set(n.id, n)
+        }
+      })
+
+      const sortedList = Array.from(uniqueMap.values()).sort((a, b) => {
+        const dA = new Date(a.date || 0).getTime()
+        const dB = new Date(b.date || 0).getTime()
+        return dB - dA
+      })
+
+      // Déclencher une alerte système si de nouvelles notifications non lues arrivent
+      const currentUnread = sortedList.filter(n => !n.lu).length
+      if (currentUnread > unreadCount && unreadCount >= 0 && pushStatus === 'granted') {
+        const latest = sortedList.find(n => !n.lu)
+        if (latest) {
+          try {
+            new Notification(latest.titre, {
+              body: latest.message,
+              icon: '/logo-ideal.png'
+            })
+          } catch (e) {}
+        }
+      }
+
+      setNotifications(sortedList)
+      setUnreadCount(currentUnread)
     } catch (err) {
       console.error('Erreur chargement notifications:', err)
     }
   }
 
-  const saveNotifications = async (newList) => {
-    setNotifications(newList)
-    setUnreadCount(newList.filter(n => !n.lu).length)
-    const userKey = `notifs_${user?.id || 'guest'}`
-    localStorage.setItem(userKey, JSON.stringify(newList))
-
-    try {
-      await supabase
-        .from('app_state')
-        .upsert({
-          key: userKey,
-          value: newList,
-          updated_at: new Date().toISOString()
-        })
-    } catch (e) {
-      console.error('Erreur sync notifs:', e)
-    }
-  }
-
-  const handleMarkAsRead = (id) => {
+  const handleMarkAsRead = async (id) => {
     const updated = notifications.map(n => n.id === id ? { ...n, lu: true } : n)
-    saveNotifications(updated)
+    setNotifications(updated)
+    setUnreadCount(updated.filter(n => !n.lu).length)
+    const activeRole = role || user?.role || 'directeur'
+    const key = `notifs_${activeRole}`
+    localStorage.setItem(key, JSON.stringify(updated))
   }
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
     const updated = notifications.map(n => ({ ...n, lu: true }))
-    saveNotifications(updated)
+    setNotifications(updated)
+    setUnreadCount(0)
+    const activeRole = role || user?.role || 'directeur'
+    const key = `notifs_${activeRole}`
+    localStorage.setItem(key, JSON.stringify(updated))
   }
 
   const handleNotificationClick = (notif) => {
@@ -134,17 +188,17 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         onClick={() => setOpen(!open)}
         style={{
           position: 'relative',
-          background: 'rgba(255,255,255,0.12)',
-          border: '1px solid rgba(255,255,255,0.25)',
+          background: 'rgba(255,255,255,0.15)',
+          border: '1px solid rgba(255,255,255,0.3)',
           borderRadius: '50%',
-          width: 38,
-          height: 38,
+          width: 40,
+          height: 40,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           color: '#fff',
-          fontSize: 18,
+          fontSize: 19,
           transition: 'all 0.2s',
           outline: 'none'
         }}
@@ -168,8 +222,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 8px rgba(239,68,68,0.8)',
-              animation: 'pulse 2s infinite'
+              boxShadow: '0 0 8px rgba(239,68,68,0.9)'
             }}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -177,10 +230,10 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         )}
       </button>
 
-      {/* Popover / Tiroir des Notifications (Parfaitement cadré sur Mobile & Desktop) */}
+      {/* Popover / Tiroir des Notifications */}
       {open && (
         <>
-          {/* Backdrop semi-transparent pour fermer au clic à l'extérieur */}
+          {/* Backdrop semi-transparent */}
           <div
             onClick={() => setOpen(false)}
             style={{
@@ -189,19 +242,19 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(0, 0, 0, 0.4)',
+              background: 'rgba(0, 0, 0, 0.45)',
               zIndex: 99990
             }}
           />
 
-          {/* Modal / Tiroir de notification centré & sans aucun tronquage */}
+          {/* Modal / Tiroir de notification centré sur mobile */}
           <div
             style={{
               position: 'fixed',
               top: 70,
               left: 12,
               right: 12,
-              maxWidth: 400,
+              maxWidth: 420,
               margin: '0 auto',
               background: '#ffffff',
               borderRadius: 18,
@@ -244,13 +297,29 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
               </div>
             </div>
 
+            {/* Bannière activation push téléphone */}
+            {pushStatus !== 'granted' && (
+              <div style={{ background: 'rgba(0,168,224,0.08)', padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>
+                  📲 Recevoir les bannières sur l'écran verrouillé du téléphone ?
+                </div>
+                <button
+                  type="button"
+                  onClick={requestPushPermission}
+                  style={{ background: '#00a8e0', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  Activer
+                </button>
+              </div>
+            )}
+
             {/* Liste des notifications */}
             <div style={{ maxHeight: 360, overflowY: 'auto' }}>
               {notifications.length === 0 ? (
                 <div style={{ padding: '2.5rem 1rem', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
                   <div style={{ fontSize: 36, marginBottom: 6 }}>🔕</div>
                   <b>Aucune notification pour le moment.</b>
-                  <p style={{ fontSize: 11, marginTop: 4 }}>Vous recevrez les alertes RH et scolaires ici.</p>
+                  <p style={{ fontSize: 11, marginTop: 4 }}>Les demandes RH et alertes scolaires apparaîtront ici.</p>
                 </div>
               ) : (
                 notifications.map((n) => (
