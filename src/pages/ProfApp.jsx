@@ -5,6 +5,7 @@ import PreparationIA from './PreparationIA'
 import MaPrime from './MaPrime'
 import FinDeCours from './FinDeCours'
 import MonEmploiDuTemps from './MonEmploiDuTemps'
+import DossierPersonnel from './DossierPersonnel'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -18,7 +19,8 @@ const RECREE_CHECKS = [
 ]
 
 const TABS = [
-  { id:'programme', icon:'📚', label:'Programme' },  { id:'progression', icon:'📈', label:'Progression' },
+  { id:'programme', icon:'📚', label:'Programme' },
+  { id:'progression', icon:'📈', label:'Progression' },
   { id:'fincours', icon:'🎯', label:'Fin de cours' },
   { id:'classe', icon:'🏫', label:'Classe' },
   { id:'discipline', icon:'⚖️', label:'Discipline' },
@@ -28,6 +30,7 @@ const TOP_TABS = [
   { id:'edt', icon:'🗓️', label:'Mon emploi du temps' },
   { id:'agenda', icon:'📅', label:'Agenda' },
   { id:'prime', icon:'🏆', label:'Ma prime' },
+  { id:'dossier', icon:'📂', label:'Mon dossier RH' },
   { id:'messages', icon:'💬', label:'Messages' },
   { id:'perfs', icon:'⭐', label:'Mes Perfs' },
 ]
@@ -577,12 +580,14 @@ export default function ProfApp({ user, onLogout }) {
 
         {tab === 'prime' && <MaPrime user={user} />}
 
+        {tab === 'dossier' && <DossierPersonnel user={user} profInfo={user} />}
+
         {tab === 'agenda' && (
           <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} anniversaires={eleves} />
         )}
 
         {/* Filters */}
-        {!loading && classes.length > 0 && tab !== 'agenda' && tab !== 'messages' && tab !== 'perfs' && (
+        {!loading && classes.length > 0 && tab !== 'agenda' && tab !== 'messages' && tab !== 'perfs' && tab !== 'dossier' && (
           <div style={{display:'flex',gap:8,marginBottom:'1rem',flexWrap:'wrap'}}>
             <select className="form-select" style={{flex:1,minWidth:120}} value={selectedClasse?.id||''} onChange={e=>setSelectedClasse(classes.find(c=>c.id===e.target.value))}>
               {classes.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
