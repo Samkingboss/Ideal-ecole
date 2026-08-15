@@ -153,20 +153,20 @@ export default function CuisiniereApp({ user, onLogout }) {
   const exportMenuJpeg = async () => {
     const posterElem = document.getElementById('menu-whatsapp-poster')
     if (!posterElem) return
-    setMsg('⏳ Génération de l\'affiche du Menu Hebdomadaire HD en cours...')
+    setMsg('⏳ Génération du visuel de restauration Ultra-Premium HD en cours...')
     try {
       const canvas = await html2canvas(posterElem, {
         scale: 3, // Ultra Retina Quality 3x pour un rendu presse/magazine sur WhatsApp
         useCORS: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#fffdfa',
         logging: false
       })
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98)
       const link = document.createElement('a')
-      link.download = `Menu_Service_Restauration_IDEAL_${getTodayString()}.jpg`
+      link.download = `Menu_Service_Restauration_UltraPremium_IDEAL_${getTodayString()}.jpg`
       link.href = dataUrl
       link.click()
-      setMsg('📸 Affiche Service de Restauration JPEG téléchargée avec succès ! Prête pour diffusion WhatsApp.')
+      setMsg('📸 Affiche Ultra-Premium JPEG téléchargée avec succès ! Prête pour diffusion WhatsApp.')
       setTimeout(() => setMsg(''), 4000)
     } catch (err) {
       console.error(err)
@@ -355,7 +355,7 @@ export default function CuisiniereApp({ user, onLogout }) {
   const countMidi = elevesInscrits.filter(e => pointage[e.id]?.midi).length
   const countGouter = elevesInscrits.filter(e => pointage[e.id]?.gouter).length
 
-  // Rendu de la carte d'un jour (style maqueté fidèle à 100%)
+  // Rendu de la carte d'un jour (Combine l'Ancien Design Ultra-Premium et la Nouvelle Organisation 2-Rangées sans vide)
   const renderDayCard = (j) => {
     const item = menuSemaine[j] || {}
     return (
@@ -363,57 +363,69 @@ export default function CuisiniereApp({ user, onLogout }) {
         key={j}
         style={{
           background: '#ffffff',
-          border: '2.5px dashed #ea580c',
-          borderRadius: 26,
-          padding: '20px 22px',
+          border: '1.5px solid rgba(217,119,6,0.3)',
+          borderRadius: 24,
+          padding: '20px 20px',
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
-          boxShadow: '0 6px 20px rgba(0,0,0,0.03)'
+          boxShadow: '0 8px 24px rgba(0,0,0,0.04)'
         }}
       >
-        {/* En-tête du jour pointillé */}
-        <div style={{ textAlign: 'center', fontSize: 18, fontWeight: 900, color: '#ea580c', letterSpacing: '2px', textTransform: 'uppercase' }}>
-          ---------------- {j.toUpperCase()} ----------------
+        {/* Ruban de Titre du Jour (Vert Émeraude Impérial) */}
+        <div style={{ background: 'linear-gradient(135deg, #065f46, #047857)', color: '#fff', padding: '10px 14px', borderRadius: 14, textAlign: 'center', fontWeight: 900, fontSize: 16, textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 12px rgba(4,120,87,0.25)', border: '1px solid #10b981' }}>
+          📅 {j.toUpperCase()}
         </div>
 
-        {/* ENTRÉE */}
+        {/* ENTRÉE DU CHEF */}
         <div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 4 }}>
+            <span>🥗</span> ENTRÉE DU CHEF
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
             “{item.entreeTitre || item.entree || 'Entrée fraîche'}”
           </div>
-          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
-            • {item.entreeDesc || 'Composition fraîcheur préparée le matin.'}
+          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+            <span style={{ color: '#d97706' }}>✦</span> {item.entreeDesc || 'Composition fraîcheur préparée le matin.'}
           </div>
         </div>
 
-        {/* PLAT PRINCIPAL */}
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7' }}>
+        {/* PLAT PRINCIPAL CHAUD (MISE EN ÉVIDENCE EMERAUDE) */}
+        <div style={{ background: 'rgba(16,185,129,0.08)', padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(16,185,129,0.25)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
+            <span>🍲</span> PLAT PRINCIPAL CHAUD
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#064e3b' }}>
             “{item.platTitre || item.plat || 'Plat du Chef'}”
           </div>
-          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
-            • {item.platDesc || 'Plat chaud mijoté, tendre et équilibré pour les enfants.'}
+          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+            <span style={{ color: '#047857' }}>✦</span> {item.platDesc || 'Recette gourmande adaptée à la nutrition infantile.'}
           </div>
         </div>
 
-        {/* DESSERT */}
+        {/* DESSERT & FRUITS */}
         <div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#ea580c' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#d97706', textTransform: 'uppercase', marginBottom: 4 }}>
+            <span>🍎</span> DESSERT &amp; FRUITS
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
             “{item.dessertTitre || item.dessert || 'Dessert du jour'}”
           </div>
-          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
-            • {item.dessertDesc || 'Fruits locaux frais naturellement sucrés.'}
+          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+            <span style={{ color: '#d97706' }}>✦</span> {item.dessertDesc || 'Sélection de fruits mûrs et naturels.'}
           </div>
         </div>
 
-        {/* GOÛTER / COLLATION */}
+        {/* GOÛTER & COLLATION */}
         <div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#e11d48' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', marginBottom: 4 }}>
+            <span>🍪</span> GOÛTER &amp; COLLATION
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
             “{item.gouterTitre || item.boisson || 'Collation douce'}”
           </div>
-          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, paddingLeft: 12, lineHeight: 1.4 }}>
-            • {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
+          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+            <span style={{ color: '#e11d48' }}>✦</span> {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
           </div>
         </div>
       </div>
@@ -965,19 +977,19 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (DISPOSITION PARFAITE 2 RANGÉES ÉQUILIBRÉES) ════════════════ */}
+        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (DESIGN ULTRA-PREMIUM + ORGANISATION 2 RANGÉES) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>👑 Session 4 : Service de Restauration — Affiche Officielle</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium parfaitement équilibré sans aucun vide pour diffusion WhatsApp.</p>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium d'exception parfaitement équilibré sans aucun vide pour diffusion WhatsApp.</p>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
                   className="btn btn-primary"
                   onClick={exportMenuJpeg}
-                  style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)', color: '#fff', border: 'none', padding: '13px 26px', borderRadius: 14, fontWeight: 900, boxShadow: '0 6px 20px rgba(234,88,12,0.4)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}
+                  style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: '#fff', border: 'none', padding: '13px 26px', borderRadius: 14, fontWeight: 900, boxShadow: '0 6px 20px rgba(217,119,6,0.4)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}
                 >
                   📸 Télécharger Image JPEG HD (WhatsApp Retina 3x)
                 </button>
@@ -991,22 +1003,25 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
-            {/* AFFICHE INTÉGRALE HEBDOMADAIRE REPRODUISANT FIDÈLEMENT LE DESIGN PARENTS (SANS AUCUN VIDE) */}
+            {/* AFFICHE INTÉGRALE HEBDOMADAIRE (DESIGN ULTRA-PREMIUM PRESTIGE + NOUVELLE ORGANISATION SANS VIDE) */}
             <div
               id="menu-whatsapp-poster"
               style={{
                 padding: '3rem 2.5rem',
-                background: '#ffffff',
+                background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
                 color: '#0f172a',
                 borderRadius: 32,
-                boxShadow: '0 25px 60px rgba(0,0,0,0.1)',
-                border: '2px solid #e2e8f0',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
+                border: '3px double #d97706',
                 position: 'relative',
                 overflow: 'hidden',
                 fontFamily: 'system-ui, -apple-system, sans-serif'
               }}
             >
-              {/* EN-TÊTE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & SERVICE DE RESTAURATION */}
+              {/* Filigrane de sécurité couronne impériale */}
+              <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 260, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
+
+              {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & SERVICE DE RESTAURATION */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
                 {/* Logo a gauche bien visible SANS cercle */}
                 <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 95, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
@@ -1046,11 +1061,8 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
 
               {/* PIED DE PAGE HAUTE QUALITÉ AVEC SCEAU DE GARANTIE */}
-              <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ fontSize: 32 }}>🥪</div>
-                  <div style={{ fontSize: 32 }}>🍅</div>
-                  <div style={{ fontSize: 32 }}>🥗</div>
+              <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, color: '#b45309', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>🏅</span> CERTIFIÉ QUALITÉ &amp; NUTRITION GASTRONOMIQUE
                   </div>
@@ -1059,7 +1071,7 @@ export default function CuisiniereApp({ user, onLogout }) {
                   </div>
                 </div>
 
-                <div style={{ fontSize: 13, fontWeight: 900, color: '#ea580c', background: '#fff7ed', padding: '10px 22px', borderRadius: 24, border: '1.5px solid #ffedd5' }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a', background: 'linear-gradient(135deg, #fef3c7, #fde68a)', padding: '10px 22px', borderRadius: 24, border: '1px solid #f59e0b' }}>
                   📲 Diffusion Officielle WhatsApp Parents
                 </div>
               </div>
