@@ -94,6 +94,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [journal, setJournal] = useState([])
   const [journalOuvert, setJournalOuvert] = useState(false)
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
+  const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
 
   useEffect(() => { 
     loadData() 
@@ -680,7 +681,6 @@ export default function DirecteurApp({ user, onLogout }) {
                 <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>💰 Session : Comptabilité &amp; Finances</h1>
                 <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Plateforme financière : gestion des frais de scolarité, reçus, dépenses et trésorerie prévisionnelle (séparée de la paie et des élèves).</p>
               </div>
-
               <div className="card" style={{ padding: '2.5rem 1.5rem', textAlign: 'center', background: 'linear-gradient(135deg, #0d2a3b, #1565a0)', color: '#fff', borderRadius: 16 }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
                 <h2 style={{ fontSize: 22, fontWeight: 900, margin: '0 0 8px 0' }}>Plateforme Comptabilité Financière Purifiée</h2>
@@ -702,10 +702,24 @@ export default function DirecteurApp({ user, onLogout }) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // INTERFACE DIRECTEUR (inchangée)
+  // INTERFACE DIRECTEUR (Organisée en 6 sessions distinctes et structurées)
   // ═══════════════════════════════════════════════════════════════════
+  const DIRECTOR_SESSIONS = [
+    { id: 'agenda',     icon: '🗓️', label: 'Emploi du temps & Agenda' },
+    { id: 'rh',         icon: '💼', label: 'RH' },
+    { id: 'personnel',  icon: '👥', label: 'Gestion du Personnel' },
+    { id: 'pedagogie',  icon: '📚', label: 'Pédagogie' },
+    { id: 'discipline', icon: '⚖️', label: 'Discipline' },
+    { id: 'synthese',   icon: '📊', label: 'Synthèse' },
+  ]
+
+  const activeDirectorTab = ['agenda', 'rh', 'personnel', 'profs', 'points', 'pedagogie', 'discipline', 'synthese', 'dashboard', 'emploi'].includes(tab)
+    ? tab
+    : 'synthese'
+
   return (
     <div className="app-shell">
+      {/* Topbar */}
       <div className="topbar">
         <div className="topbar-brand">
           <div>
@@ -720,62 +734,353 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: 'var(--card)', borderBottom: '1px solid var(--border)', padding: '0 4px' }}>
-        <button 
-          onClick={() => {
-            const el = document.querySelector('.top-nav-secondary')
-            if (el) el.scrollBy({ left: -220, behavior: 'smooth' })
-          }}
-          style={{ background: 'rgba(0,168,224,0.1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontWeight: 900, marginRight: 4 }}
-          title="Défiler vers la gauche"
-        >
-          ◀
-        </button>
+      {/* Barre de navigation des 6 SESSIONS DIRECTEUR */}
+      <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px' }}>
+        <div className="top-nav-secondary" style={{ flex: 1, borderBottom: 'none', top: 0, boxShadow: 'none', display: 'flex', gap: 6 }}>
+          {DIRECTOR_SESSIONS.map(t => {
+            const isActive = activeDirectorTab === t.id ||
+              (t.id === 'agenda' && activeDirectorTab === 'emploi') ||
+              (t.id === 'personnel' && (activeDirectorTab === 'profs' || activeDirectorTab === 'points')) ||
+              (t.id === 'synthese' && activeDirectorTab === 'dashboard')
 
-        <div className="top-nav-secondary" style={{ flex: 1, borderBottom: 'none', top: 0, boxShadow: 'none' }}>
-          {TOP_TABS
-            .filter(t => {
-              if (user.role === 'responsable_administratif') {
-                const allowed = ['profs', 'rh', 'points', 'eleves', 'cartes', 'certificat']
-                return allowed.includes(t.id)
-              }
-              return true
-            })
-            .map(t => (
-            <button 
-              key={t.id} 
-              className={`top-nav-item ${tab===t.id?'active':''}`} 
-              onClick={()=>setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
+            return (
+              <button 
+                key={t.id} 
+                className={`top-nav-item ${isActive ? 'active' : ''}`} 
+                onClick={() => setTab(t.id)}
+                style={{ flex: 1, padding: '10px 12px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                {t.icon} {t.label}
+              </button>
+            )
+          })}
         </div>
-
-        <button 
-          onClick={() => {
-            const el = document.querySelector('.top-nav-secondary')
-            if (el) el.scrollBy({ left: 220, behavior: 'smooth' })
-          }}
-          style={{ background: 'rgba(0,168,224,0.1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontWeight: 900, marginLeft: 4 }}
-          title="Défiler vers la droite"
-        >
-          ▶
-        </button>
       </div>
 
-      <div className="page-content">
+      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px' }}>
         {msg && <div className="error-msg" style={{background:'rgba(141,198,63,.1)',borderColor:'var(--green)',color:'var(--green)',marginBottom:'1rem'}} onClick={()=>setMsg('')}>{msg}</div>}
 
-        {tab === 'dashboard' && (() => {
-          // Calculs pour le dashboard
-          const avgParClasse = syntheseData.map(cl => {
-            const avg = cl.stats.length
-              ? Math.round(cl.stats.reduce((s, m) => s + m.avg, 0) / cl.stats.length)
-              : 0
-            return { classe: cl.classe, avg }
-          }).sort((a, b) => b.avg - a.avg)
+        {/* ════════════════ 1. EMPLOI DU TEMPS & AGENDA ════════════════ */}
+        {(activeDirectorTab === 'agenda' || activeDirectorTab === 'emploi') && (
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🗓️ Session : Emploi du Temps &amp; Agenda</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gestion de l'agenda de l'établissement, événements, calendrier scolaire et plannings des cours.</p>
+            </div>
 
+            {/* Agenda & Événements */}
+            <div style={{ marginBottom: 20 }}>
+              <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} anniversaires={eleves} />
+            </div>
+
+            {/* Emplois du temps par classe */}
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 800 }}>🗓️ Emplois du Temps par Classe</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                {classes.map(c => (
+                  <div key={c.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)', marginBottom: 6 }}>🏫 Classe : {c.nom}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Planning &amp; enseignants référents</div>
+                    <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff', marginTop: 10, width: '100%' }} onClick={() => alert(`Emploi du temps officiel de la classe ${c.nom}`)}>
+                      👁️ Voir Planning
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ 2. RH ════════════════ */}
+        {activeDirectorTab === 'rh' && (
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>💼 Session : Ressources Humaines (RH)</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Référentiel des postes, masse salariale, indemnités et émargement mensuel du personnel.</p>
+            </div>
+
+            {/* KPI Masse Salariale */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+              <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}>{stats.profs}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
+              </div>
+              <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(141,198,63,0.2)' }}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--green)' }}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0))}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / mois</div>
+              </div>
+              <div style={{ background: 'rgba(236,0,140,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(236,0,140,0.2)' }}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--pink)' }}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0) * 12)}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / an</div>
+              </div>
+            </div>
+
+            {/* Demandes RH en attente */}
+            <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📑 Demandes RH &amp; Congés du Personnel</h3>
+                <span className="badge" style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', fontWeight: 700, padding: '4px 10px', borderRadius: 20, fontSize: 11 }}>{(demandesRH || []).filter(d => d.statut === 'En attente').length} En attente</span>
+              </div>
+              {(demandesRH || []).length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '1.5rem' }}>Aucune demande RH soumise.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Employé</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Type</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Motif</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px' }}>Statut</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px' }}>Décision</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(demandesRH || []).map(d => (
+                        <tr key={d.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>{d.prof_nom || 'Enseignant'}</td>
+                          <td style={{ padding: '10px 12px' }}>{d.type}</td>
+                          <td style={{ padding: '10px 12px' }}>{d.motif}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, fontWeight: 700, background: d.statut === 'Approuvée' ? 'rgba(16,185,129,0.1)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)' }}>
+                              {d.statut}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            {d.statut === 'En attente' ? (
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                                <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if(rep !== null) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Approuvée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }); } }}>✓ Approuver</button>
+                                <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if(rep) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Refusée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }); } }}>✖ Refuser</button>
+                              </div>
+                            ) : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Traitée</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Référentiel des Postes */}
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel Salarial du Personnel</h3>
+                <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setPosteDraft(postes.map(p => ({ ...p }))); setShowModal('postes') }}>
+                  ✏️ Éditer les Postes
+                </button>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Poste / Fonction</th>
+                      <th style={{ textAlign: 'right', padding: '10px 12px' }}>Salaire Mensuel</th>
+                      <th style={{ textAlign: 'right', padding: '10px 12px' }}>Cumul Annuel (12 mois)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(postes || []).map((p, i) => (
+                      <tr key={p.id || i} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>{p.label}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{fcfa(p.mensuel)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{fcfa((p.mensuel || 0) * 12)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ 3. GESTION DU PERSONNEL ════════════════ */}
+        {(activeDirectorTab === 'personnel' || activeDirectorTab === 'profs' || activeDirectorTab === 'points') && (
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>👥 Session : Gestion du Personnel</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gestion de l'équipe enseignante, affectations des matières/classes et système de points de performance.</p>
+            </div>
+
+            {/* Sous-onglets de Gestion du Personnel */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+              <button 
+                className={`btn-sm ${subTabPersonnel === 'profs' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setSubTabPersonnel('profs')}
+                style={{ padding: '8px 16px', fontWeight: 800 }}
+              >
+                👥 Équipe &amp; Fiches Staff
+              </button>
+              <button 
+                className={`btn-sm ${subTabPersonnel === 'matieres' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setSubTabPersonnel('matieres')}
+                style={{ padding: '8px 16px', fontWeight: 800 }}
+              >
+                📚 Affectations des Matières
+              </button>
+              <button 
+                className={`btn-sm ${subTabPersonnel === 'points' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setSubTabPersonnel('points')}
+                style={{ padding: '8px 16px', fontWeight: 800 }}
+              >
+                🏆 Points &amp; Primes
+              </button>
+            </div>
+
+            {/* Sous-module Équipe */}
+            {subTabPersonnel === 'profs' && (
+              <div className="card" style={{ padding: '1.2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>👥 Équipe Enseignante &amp; Personnel ({profs.length})</h3>
+                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setShowModal('prof')}>
+                    + Ajouter un membre
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                  {profs.map(p => (
+                    <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Rôle: <b style={{ color: 'var(--accent)' }}>{p.role}</b></div>
+                      <div style={{ fontSize: 11, background: 'var(--card)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>
+                        🔑 Code : <b style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{p.code_acces}</b>
+                      </div>
+                      <button className="btn-sm" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', border: '1px solid var(--red)', width: '100%' }} onClick={() => deleteProf(p.id)}>
+                        Supprimer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sous-module Affectations */}
+            {subTabPersonnel === 'matieres' && (
+              <AffectationsMatieres classes={classes} profs={profs} disciplines={disciplines} />
+            )}
+
+            {/* Sous-module Points & Primes */}
+            {subTabPersonnel === 'points' && (() => {
+              const maxAnnee = pointsMaxAnnee(pointsConfig)
+              const n = equipePoints.length
+              const moyenne = n ? equipePoints.reduce((s, e) => s + e.calc.pourcentage, 0) / n : 0
+              const coutActuel = equipePoints.reduce((s, e) => s + e.ete.total, 0)
+              const plafond = n * pointsConfig.enveloppeEte
+              return (
+                <div>
+                  <div className="section-head" style={{ marginBottom: 14 }}>
+                    <div className="section-title">Points &amp; prime d'été</div>
+                    <button className="btn-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }} onClick={() => setShowModal('bareme')}>⚙️ Barème</button>
+                  </div>
+
+                  <div className="kpi-grid" style={{ marginBottom: 16 }}>
+                    <div className="kpi-card kpi-accent">
+                      <div className="kpi-value">{Math.round(moyenne)}%</div>
+                      <div className="kpi-label">Moyenne de l'équipe</div>
+                    </div>
+                    <div className="kpi-card kpi-green">
+                      <div className="kpi-value" style={{ fontSize: 18 }}>{fcfa(coutActuel)}</div>
+                      <div className="kpi-label">Prime d'été actuelle</div>
+                    </div>
+                    <div className="kpi-card kpi-amber">
+                      <div className="kpi-value" style={{ fontSize: 18 }}>{fcfa(plafond)}</div>
+                      <div className="kpi-label">Plafond à 100 %</div>
+                    </div>
+                    <div className="kpi-card kpi-pink">
+                      <div className="kpi-value">{maxAnnee}</div>
+                      <div className="kpi-label">Points max / an</div>
+                    </div>
+                  </div>
+
+                  {/* Classement des enseignants */}
+                  {equipePoints.map((e, i) => (
+                    <div key={e.prof.id} className="card" style={{ marginBottom: 10, padding: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14 }}>{e.nomComplet}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{e.calc.total} / {e.calc.max} pts · {e.calc.pourcentage}%</div>
+                        </div>
+                        <span className="chip chip-green" style={{ fontSize: 12, fontWeight: 800 }}>{fcfa(e.ete.total)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
+        {/* ════════════════ 4. PÉDAGOGIE ════════════════ */}
+        {activeDirectorTab === 'pedagogie' && (
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>📚 Session : Suivi Pédagogique</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Fiches de préparations de cours déposées par les professeurs et avancement des programmes.</p>
+            </div>
+
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800 }}>📚 Fiches de Préparation Déposées ({preparations.length})</h3>
+              {preparations.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>Aucune préparation de cours enregistrée.</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                  {preparations.map((prep, i) => (
+                    <div key={prep.id || i} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)' }}>{prep.titre || 'Préparation sans titre'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Classe: <b>{prep.classe_nom || '—'}</b> · Matière: <b>{prep.matiere || '—'}</b></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ 5. DISCIPLINE ════════════════ */}
+        {activeDirectorTab === 'discipline' && (
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>⚖️ Session : Discipline &amp; Suivi de Conduite</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Registre des fautes, alertes pour fautes graves et avertissements de conduite.</p>
+            </div>
+
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800 }}>⚖️ Registre des Signalements &amp; Incidents</h3>
+              {disciplines.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>Aucun incident disciplinaire signalé.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Élève</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Motif</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px' }}>Gravité</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px' }}>Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {disciplines.map(d => (
+                        <tr key={d.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>{d.eleve_nom || 'Élève'}</td>
+                          <td style={{ padding: '10px 12px' }}>{d.description || d.motif}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, fontWeight: 700, background: d.gravite === 'grave' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: d.gravite === 'grave' ? 'var(--red)' : 'var(--amber)' }}>
+                              {d.gravite}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>{d.statut}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ 6. SYNTHÈSE ════════════════ */}
+        {(activeDirectorTab === 'synthese' || activeDirectorTab === 'dashboard') && (() => {
           const cpParClasse = classes.map(cl => {
             const elevesCl = eleves.filter(e => e.classe_id === cl.id)
             const cpCl = checkpoints.filter(cp => elevesCl.some(e => e.id === cp.eleve_id))
@@ -784,18 +1089,15 @@ export default function DirecteurApp({ user, onLogout }) {
             return { classe: cl.nom, pct: total > 0 ? Math.round(fait / total * 100) : 0, fait, total: elevesCl.length }
           })
 
-          const evAVenir = evenements
-            .filter(e => new Date(e.date_event) >= new Date())
-            .slice(0, 3)
-
-          const disciplinesGraves = disciplines.filter(d =>
-            (d.gravite === 'grave' || d.gravite === 'exclusion') && d.statut === 'signalé'
-          )
-
           return (
-            <>
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>📊 Session : Synthèse &amp; Bilan Global</h1>
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Tableau de bord général de l'établissement et indicateurs clés de performance.</p>
+              </div>
+
               {/* KPI Cards */}
-              <div className="kpi-grid" style={{marginBottom: 16}}>
+              <div className="kpi-grid" style={{ marginBottom: 20 }}>
                 <div className="kpi-card kpi-accent">
                   <div className="kpi-value">{stats.profs}</div>
                   <div className="kpi-label">Enseignants</div>
@@ -814,706 +1116,26 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Modules administratifs */}
-              <div className="card" style={{marginBottom:16}}>
-                <h3 style={{margin:'0 0 12px 0', fontSize:15}}>Gestion administrative</h3>
-                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12}}>
-                  <a href="/inscription.html" style={{textDecoration:'none'}}>
-                    <div style={{background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', borderRadius:14, padding:'18px 16px', height:'100%'}}>
-                      <div style={{fontSize:28}} aria-hidden="true">📝</div>
-                      <div style={{fontWeight:700, marginTop:6}}>Inscriptions</div>
-                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Inscriptions &amp; dossiers numériques</div>
-                    </div>
-                  </a>
-                  <a href="/comptabilite.html" style={{textDecoration:'none'}}>
-                    <div style={{background:'linear-gradient(135deg,#7bc142,#5a9a2e)', color:'#fff', borderRadius:14, padding:'18px 16px', height:'100%'}}>
-                      <div style={{fontSize:28}} aria-hidden="true">💰</div>
-                      <div style={{fontWeight:700, marginTop:6}}>Comptabilité</div>
-                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Frais, paiements, reçus &amp; dépenses</div>
-                    </div>
-                  </a>
-                  <a href="/comptabilite.html" style={{textDecoration:'none'}}>
-                    <div style={{background:'linear-gradient(135deg,#8e44ad,#6c3483)', color:'#fff', borderRadius:14, padding:'18px 16px', height:'100%'}}>
-                      <div style={{fontSize:28}} aria-hidden="true">💼</div>
-                      <div style={{fontWeight:700, marginTop:6}}>RH &amp; Paie</div>
-                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Grille salariale &amp; Émargement (PDF)</div>
-                    </div>
-                  </a>
-                </div>
-              </div>
-
-              {/* Alerte discipline — Directeur uniquement */}
-              {user.role !== 'responsable_administratif' && disciplinesGraves.length > 0 && (
-                <div className="card" style={{borderLeft:'4px solid var(--red)', marginBottom:16}}>
-                  <div className="card-header" style={{background:'rgba(255,0,0,0.07)', color:'var(--red)', fontWeight:900, fontSize:12}}>
-                    ⚠️ {disciplinesGraves.length} ALERTE{disciplinesGraves.length > 1 ? 'S' : ''} DISCIPLINE GRAVE
-                  </div>
-                  <div style={{padding:'0.75rem 1rem'}}>
-                    {disciplinesGraves.slice(0, 3).map(d => (
-                      <div key={d.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
-                        <div>
-                          <div style={{fontSize:13, fontWeight:800}}>{d.eleves?.prenom} {d.eleves?.nom} <span style={{color:'var(--muted)', fontWeight:400}}>({d.eleves?.classes?.nom})</span></div>
-                          <div style={{fontSize:11, color:'var(--muted)', marginTop:2}}>{d.motif}</div>
-                        </div>
-                        <span className="chip chip-red" style={{fontSize:9}}>{d.gravite}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Performance par classe — Directeur uniquement */}
-              {user.role !== 'responsable_administratif' && avgParClasse.length > 0 && (
-                <div className="card" style={{marginBottom:16}}>
-                  <div className="card-header">📊 Performance par classe</div>
-                  <div className="card-body" style={{padding:'1rem'}}>
-                    {avgParClasse.map((cl, i) => (
-                      <div key={cl.classe} style={{marginBottom: i < avgParClasse.length - 1 ? 14 : 0}}>
-                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5}}>
-                          <span style={{fontSize:13, fontWeight:700}}>{cl.classe}</span>
-                          <span style={{
-                            fontSize:12, fontWeight:800,
-                            color: cl.avg >= 70 ? 'var(--green)' : cl.avg >= 40 ? 'var(--amber, #f59e0b)' : 'var(--red)'
-                          }}>{cl.avg}%</span>
-                        </div>
-                        <div style={{height:8, background:'var(--border)', borderRadius:99, overflow:'hidden'}}>
-                          <div style={{
-                            height:'100%', borderRadius:99,
-                            width: `${cl.avg}%`,
-                            background: cl.avg >= 70
-                              ? 'linear-gradient(90deg, #10b981, #34d399)'
-                              : cl.avg >= 40
-                              ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
-                              : 'linear-gradient(90deg, #ef4444, #f87171)',
-                            transition: 'width 0.6s ease'
-                          }} />
-                        </div>
-                      </div>
-                    ))}
-                    {avgParClasse.length === 0 && (
-                      <div style={{color:'var(--muted)', fontSize:12, textAlign:'center', padding:'1rem'}}>
-                        Aucune donnée de progression disponible.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Check-points + Événements côte à côte — Directeur uniquement */}
-              {user.role !== 'responsable_administratif' && (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16}}>
-                {/* Check-points par classe */}
-                <div className="card">
-                  <div className="card-header">✅ Check-points par classe</div>
-                  <div className="card-body" style={{padding:'1rem'}}>
-                    {cpParClasse.map(cl => (
-                      <div key={cl.classe} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid var(--border)'}}>
-                        <span style={{fontSize:12, fontWeight:600}}>{cl.classe}</span>
-                        <div style={{display:'flex', alignItems:'center', gap:8}}>
-                          <span style={{fontSize:11, color:'var(--muted)'}}>{cl.total} élèves</span>
-                          <span style={{
-                            fontSize:12, fontWeight:800, minWidth:36, textAlign:'right',
-                            color: cl.pct >= 70 ? 'var(--green)' : cl.pct >= 40 ? '#f59e0b' : 'var(--red)'
-                          }}>{cl.pct}%</span>
-                        </div>
-                      </div>
-                    ))}
-                    {cpParClasse.length === 0 && (
-                      <div style={{color:'var(--muted)', fontSize:12, textAlign:'center', padding:'1rem'}}>Aucun check-point</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Événements à venir */}
-                <div className="card">
-                  <div className="card-header">📅 Prochains événements</div>
-                  <div className="card-body" style={{padding:'1rem'}}>
-                    {evAVenir.length === 0 ? (
-                      <div style={{color:'var(--muted)', fontSize:12, textAlign:'center', padding:'1rem'}}>Aucun événement prévu</div>
-                    ) : evAVenir.map(ev => (
-                      <div key={ev.id} style={{padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
-                        <div style={{fontSize:12, fontWeight:700}}>{ev.titre}</div>
-                        <div style={{fontSize:11, color:'var(--accent)', marginTop:2}}>
-                          📅 {new Date(ev.date_event).toLocaleDateString('fr-FR', {weekday:'short', day:'numeric', month:'short'})}
-                        </div>
-                        {ev.description && <div style={{fontSize:10, color:'var(--muted)', marginTop:2}}>{ev.description}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              )}
-
-              {/* Préparations récentes — Directeur uniquement */}
-              {user.role !== 'responsable_administratif' && (
-              <div className="card">
-                <div className="card-header">📝 Préparations récentes</div>
-                <div className="card-body" style={{padding:'0'}}>
-                  {(preparations || []).length === 0 ? (
-                    <div className="empty-state"><div className="empty-icon">📝</div><p>Aucune préparation de cours déposée.</p></div>
-                  ) : preparations.slice(0, 5).map(pre => (
-                    <div key={pre.id} className="user-row">
-                      <div className="avatar av-amber">{(pre.users?.prenom?.[0]||'')+(pre.users?.nom?.[0]||'')}</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:600,fontSize:13}}>{pre.users?.prenom} {pre.users?.nom}</div>
-                        <div style={{fontSize:11,color:'var(--muted)'}}>Déposé le {new Date(pre.heure_depot).toLocaleDateString('fr-FR')} · {pre.classes?.nom}</div>
-                      </div>
+              {/* Avancement des Check-points */}
+              <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
+                <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800 }}>📌 Avancement des Check-points par Classe</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                  {cpParClasse.map(c => (
+                    <div key={c.classe} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>{c.classe}</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--accent)', margin: '4px 0' }}>{c.pct}%</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.fait} check-points validés</div>
                     </div>
                   ))}
                 </div>
               </div>
-              )}
-            </>
+
+              {/* Performance Globale */}
+              <PerformancesDirecteur />
+            </div>
           )
         })()}
 
-
-        {tab === 'profs' && (
-          <>
-            <div className="section-head">
-              <div className="section-title">Equipe</div>
-              <div style={{display:'flex', gap:8}}>
-                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft(postes.map(p=>({...p})));setShowModal('postes')}}>💼 Postes & salaires</button>
-                <button className="btn-sm" onClick={()=>{setNewProf({prenom:'',nom:'',role:'professeur',langue:'fr',code_acces:'', plafond_salaire: 180000, classe_ids: []});setShowModal('prof')}}>+ Ajouter</button>
-              </div>
-            </div>
-            {profs.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">👥</div><p>Aucun membre. Ajoutez des professeurs et surveillants.</p></div>
-            ) : profs.map((p, i) => (
-              <div key={p.id} className="card" style={{marginBottom:10}}>
-                <div className="user-row">
-                  <div className={`avatar ${['av-blue','av-green','av-amber','av-pink'][i%4]}`}>{(p.prenom[0]||'')+((p.nom||'')[0]||'')}</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:600,fontSize:13}}>{p.prenom} {p.nom}</div>
-                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
-                      Code: <b style={{color:'var(--accent)'}}>{p.code_acces}</b> &middot; {p.role}
-                    </div>
-                    {p.role === 'professeur' && (
-                      <div style={{display:'flex', gap:4, flexWrap:'wrap', marginTop:6}}>
-                        {(p.classe_ids || []).map(cid => (
-                          <span key={cid} style={{fontSize:9, background:'rgba(26,175,224,.1)', color:'var(--accent)', padding:'2px 6px', borderRadius:6, fontWeight:700}}>
-                            {classes.find(c => c.id === cid)?.nom}
-                          </span>
-                        ))}
-                        {(p.classe_ids || []).length === 0 && <span style={{fontSize:9, color:'var(--red)', fontStyle:'italic'}}>Aucune classe attribuée</span>}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                    <div style={{display:'flex',gap:6,flexDirection:'column',alignItems:'flex-end'}}>
-                      <span className={`chip ${p.role==='professeur'?'chip-blue':'chip-amber'}`}>{p.role}</span>
-                      {p.langue && <span className="chip chip-green">{p.langue==='fr'?'FR':p.langue==='en'?'EN':'FR+EN'}</span>}
-                    </div>
-                    <div style={{display:'flex', gap:8}}>
-                      <button aria-label="Modifier" className="btn-sm" onClick={() => {setNewProf({...p}); setShowModal('prof')}} style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', padding:'6px'}}>✏️</button>
-                      <button aria-label="Supprimer" className="btn-sm" onClick={() => {if(confirm('Supprimer ce compte?')) deleteProf(p.id)}} style={{background:'rgba(237,28,36,.1)', border:'1px solid var(--red)', color:'var(--red)', padding:'6px'}}>🗑️</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {tab === 'rh' && (
-          <>
-            <div className="section-head">
-              <div className="section-title">Gestion RH, Paie &amp; Demandes du Personnel</div>
-              <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft((postes||[]).map(p=>({...p})));setShowModal('postes')}}>💼 Grille des Postes &amp; Salaires</button>
-                <a href="/comptabilite.html#salaires-rh" className="btn-sm" style={{textDecoration:'none', background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6}}>🖨️ Éditer l'État des Salaires (PDF)</a>
-              </div>
-            </div>
-
-            {/* Demandes RH des enseignants à valider */}
-            <div className="card" style={{marginBottom:20}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
-                <h4 style={{margin:0, fontSize:15, color:'var(--text)', display:'flex', alignItems:'center', gap:8}}>
-                  <span>📩 Demandes du Personnel (Prêts, Avances, Congés, Permissions)</span>
-                </h4>
-                <span className="badge" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', fontWeight:800, padding:'4px 10px', borderRadius:20, fontSize:11}}>
-                  {(demandesRH || []).filter(d => d && d.statut === 'En attente').length} En attente
-                </span>
-              </div>
-
-              {(!demandesRH || demandesRH.length === 0) ? (
-                <div style={{padding:'2rem', textAlign:'center', color:'var(--muted)', fontSize:13}}>
-                  📬 Aucune demande reçue du personnel pour le moment.
-                </div>
-              ) : (
-                <div style={{overflowX:'auto'}}>
-                  <table className="tbl" style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
-                    <thead>
-                      <tr style={{background:'var(--bg)', color:'var(--muted)', textTransform:'uppercase', fontSize:11}}>
-                        <th style={{textAlign:'left', padding:'10px 12px'}}>Enseignant</th>
-                        <th style={{textAlign:'left', padding:'10px 12px'}}>Type de Demande</th>
-                        <th style={{textAlign:'left', padding:'10px 12px'}}>Détails &amp; Période</th>
-                        <th style={{textAlign:'center', padding:'10px 12px'}}>Statut</th>
-                        <th style={{textAlign:'center', padding:'10px 12px'}}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(demandesRH || []).map(d => d && (
-                        <tr key={d.id || Math.random()} style={{borderBottom:'1px solid var(--border)'}}>
-                          <td style={{padding:'12px', fontWeight:800, color:'var(--text)'}}>
-                            {d.user_name || 'Enseignant'}
-                            <div style={{fontSize:10, color:'var(--muted)', fontWeight:400}}>
-                              {d.date_soumission ? new Date(d.date_soumission).toLocaleDateString('fr-FR') : ''}
-                            </div>
-                          </td>
-                          <td style={{padding:'12px'}}>
-                            <span style={{fontWeight:800, color:'var(--accent)'}}>
-                              {d.type === 'avance' ? '💵 Avance sur salaire' :
-                               d.type === 'pret' ? '🏦 Demande de prêt' :
-                               d.type === 'maternite' ? '🤰 Congé Maternité' :
-                               d.type === 'permission' ? '📝 Permission' :
-                               d.type === 'absence' ? '🗂️ Justificatif d\'absence' : '📦 Achat matériel'}
-                            </span>
-                          </td>
-                          <td style={{padding:'12px', fontSize:12, color:'var(--text)'}}>
-                            {d.details?.montant && <div>Montant: <b>{fcfa(d.details.montant)}</b> ({d.details.duree_mois ? `${d.details.duree_mois} mois` : d.details.mois_paie})</div>}
-                            {d.details?.dpa && <div>DPA: <b>{d.details.dpa}</b> ({d.details.grossesse_multiple ? 'Multiple' : 'Simple'})</div>}
-                            {d.details?.date_debut && <div>Du {d.details.date_debut} au {d.details.date_fin}</div>}
-                            {d.details?.motif && <div style={{fontStyle:'italic', color:'var(--muted)'}}>Motif: {d.details.motif}</div>}
-                          </td>
-                          <td style={{padding:'12px', textAlign:'center'}}>
-                            <span style={{
-                              fontSize:11,
-                              fontWeight:800,
-                              padding:'4px 10px',
-                              borderRadius:12,
-                              background: d.statut === 'Approuvée' ? 'rgba(34,197,94,0.15)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)',
-                              color: d.statut === 'Approuvée' ? '#22c55e' : d.statut === 'Refusée' ? '#ef4444' : '#eab308'
-                            }}>
-                              {d.statut || 'En attente'}
-                            </span>
-                          </td>
-                          <td style={{padding:'12px', textAlign:'center'}}>
-                            {d.statut === 'En attente' ? (
-                              <div style={{display:'flex', gap:6, justifyContent:'center'}}>
-                                <button
-                                  className="btn-sm"
-                                  style={{background:'#22c55e', color:'#fff', border:'none', padding:'5px 10px', borderRadius:6, fontWeight:800, fontSize:11, cursor:'pointer'}}
-                                  onClick={async () => {
-                                    const rep = prompt('Confirmation / Message pour l\'enseignant (optionnel) :', 'Demande approuvée par la Direction.')
-                                    if (rep === null) return
-                                    const updated = (demandesRH || []).map(x => x.id === d.id ? { ...x, statut:'Approuvée', reponse_direction: rep } : x)
-                                    setDemandesRH(updated)
-                                    await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() })
-                                    alert('✅ Demande approuvée avec succès !')
-                                  }}
-                                >
-                                  ✓ Approuver
-                                </button>
-                                <button
-                                  className="btn-sm"
-                                  style={{background:'#ef4444', color:'#fff', border:'none', padding:'5px 10px', borderRadius:6, fontWeight:800, fontSize:11, cursor:'pointer'}}
-                                  onClick={async () => {
-                                    const rep = prompt('Motif du refus :', 'Refusé')
-                                    if (!rep) return
-                                    const updated = (demandesRH || []).map(x => x.id === d.id ? { ...x, statut:'Refusée', reponse_direction: rep } : x)
-                                    setDemandesRH(updated)
-                                    await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() })
-                                    alert('❌ Demande refusée.')
-                                  }}
-                                >
-                                  ✖ Refuser
-                                </button>
-                              </div>
-                            ) : (
-                              <span style={{fontSize:11, color:'var(--muted)'}}>Traitée</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="card" style={{marginBottom:16}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
-                <h4 style={{margin:0, fontSize:14, color:'var(--text)'}}>Référentiel Salarial du Personnel</h4>
-                <span className="badge" style={{background:'rgba(26,175,224,0.1)', color:'var(--accent)', fontWeight:700, padding:'4px 10px', borderRadius:20, fontSize:11}}>{(postes || []).length} Postes configurés</span>
-              </div>
-              <div style={{overflowX:'auto'}}>
-                <table className="tbl" style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
-                  <thead>
-                    <tr style={{background:'var(--bg)', color:'var(--muted)', textTransform:'uppercase', fontSize:11}}>
-                      <th style={{textAlign:'left', padding:'10px 12px'}}>Poste / Fonction</th>
-                      <th style={{textAlign:'right', padding:'10px 12px'}}>Salaire Mensuel</th>
-                      <th style={{textAlign:'right', padding:'10px 12px'}}>Masse Annuelle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(postes || []).map(p => (
-                      <tr key={p.id || Math.random()} style={{borderBottom:'1px solid var(--border)'}}>
-                        <td style={{padding:'10px 12px', fontWeight:600}}>{p.label} {p.commentaire ? <small style={{color:'var(--muted)', display:'block', fontWeight:400, fontSize:11}}>{p.commentaire}</small> : ''}</td>
-                        <td style={{padding:'10px 12px', textAlign:'right', fontWeight:700, color:'var(--green)'}}>{fcfa(p.mensuel)}</td>
-                        <td style={{padding:'10px 12px', textAlign:'right', fontWeight: 600, color:'var(--text)'}}>{fcfa((p.mensuel || 0) * 12)}</td>
-                      </tr>
-                    ))}
-                    <tr style={{background:'rgba(0,168,224,0.06)', fontWeight:900}}>
-                      <td style={{padding:'12px'}}>MASSE SALARIALE TOTALE</td>
-                      <td style={{padding:'12px', textAlign:'right', color:'var(--green)'}}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0))} / mois</td>
-                      <td style={{padding:'12px', textAlign:'right', color:'var(--accent)'}}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0) * 12)} / an</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        )}
-
-        {tab === 'cartes' && <CartesScolaires />}
-
-        {tab === 'certificat' && <CertificatScolarite />}
-
-        {tab === 'points' && (() => {
-          const maxAnnee = pointsMaxAnnee(pointsConfig)
-          const n = equipePoints.length
-          const moyenne = n ? equipePoints.reduce((s, e) => s + e.calc.pourcentage, 0) / n : 0
-          const coutActuel = equipePoints.reduce((s, e) => s + e.ete.total, 0)
-          const plafond = n * pointsConfig.enveloppeEte
-          return (
-            <>
-              <div className="section-head">
-                <div className="section-title">Points & prime d'été</div>
-                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>setShowModal('bareme')}>⚙️ Barème</button>
-              </div>
-
-              <div className="kpi-grid">
-                <div className="kpi-card kpi-accent">
-                  <div className="kpi-value">{Math.round(moyenne)}%</div>
-                  <div className="kpi-label">Moyenne de l'équipe</div>
-                </div>
-                <div className="kpi-card kpi-green">
-                  <div className="kpi-value" style={{fontSize:18}}>{fcfa(coutActuel)}</div>
-                  <div className="kpi-label">Prime d'été au rythme actuel</div>
-                </div>
-                <div className="kpi-card kpi-amber">
-                  <div className="kpi-value" style={{fontSize:18}}>{fcfa(plafond)}</div>
-                  <div className="kpi-label">Plafond si tous à 100 %</div>
-                </div>
-                <div className="kpi-card kpi-pink">
-                  <div className="kpi-value">{maxAnnee}</div>
-                  <div className="kpi-label">Points maximum sur l'année</div>
-                </div>
-              </div>
-
-              <div style={{background:'rgba(26,175,224,.08)', border:'1px solid var(--border)', borderRadius:12, padding:'.8rem 1rem', fontSize:12, color:'var(--muted)', marginBottom:'1rem', lineHeight:1.5}}>
-                Coefficients par trimestre : {pointsConfig.trimestres.map(t => `${t.label} ×${t.coef}`).join(' · ')}.
-                Un point gagné au 3<sup>e</sup> trimestre vaut {(pointsConfig.trimestres[2]?.coef / (pointsConfig.trimestres[0]?.coef || 1)).toFixed(1)} fois un point du 1<sup>er</sup>.
-              </div>
-
-              <div className="card" style={{marginBottom:'1rem'}}>
-                <div className="card-header" style={{cursor:'pointer'}} onClick={async () => {
-                  const ouvrir = !journalOuvert
-                  setJournalOuvert(ouvrir)
-                  if (ouvrir && journal.length === 0) setJournal(await lireJournal({ limite: 80 }))
-                }}>
-                  {journalOuvert ? '▾' : '▸'} 🔒 Journal des modifications
-                </div>
-                {journalOuvert && (
-                  <div className="card-body">
-                    <div style={{fontSize:11, color:'var(--muted)', marginBottom:8, lineHeight:1.5}}>
-                      Toute correction de préparation et tout pointage sont consignés ici avec leur auteur.
-                      Les entrées ne peuvent être ni modifiées ni supprimées.
-                    </div>
-                    {journal.filter(e => e.table_cible !== 'AUDIT_TEST').length === 0 ? (
-                      <div style={{fontSize:12, color:'var(--muted)', fontStyle:'italic'}}>Aucune modification enregistrée pour l'instant.</div>
-                    ) : journal.filter(e => e.table_cible !== 'AUDIT_TEST').map(e => (
-                      <div key={e.id} style={{borderBottom:'1px solid var(--border)', padding:'6px 0', fontSize:11}}>
-                        <div style={{display:'flex', justifyContent:'space-between', gap:8}}>
-                          <b>{e.action}</b>
-                          <span style={{color:'var(--muted)', whiteSpace:'nowrap'}}>
-                            {new Date(e.created_at).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
-                          </span>
-                        </div>
-                        <div style={{color:'var(--muted)'}}>
-                          {e.champ} : <s>{e.ancienne_valeur ?? '—'}</s> → <b style={{color:'var(--text)'}}>{e.nouvelle_valeur ?? '—'}</b>
-                        </div>
-                        <div style={{color:'var(--muted)'}}>par {e.auteur_nom || 'auteur inconnu'}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {equipePoints.length === 0 ? (
-                <div className="empty-state"><div className="empty-icon">🏆</div><p>Aucun enseignant enregistré.</p></div>
-              ) : equipePoints.map((e, i) => {
-                const ouvert = profSelectionne === e.prof.id
-                const ans = e.av.anciennete
-                return (
-                  <div key={e.prof.id} className="card" style={{marginBottom:10}}>
-                    <div className="user-row" style={{cursor:'pointer'}} onClick={()=>setProfSelectionne(ouvert ? null : e.prof.id)}>
-                      <div className={`avatar ${['av-blue','av-green','av-amber','av-pink'][i%4]}`}>{(e.prof.prenom?.[0]||'')+(e.prof.nom?.[0]||'')}</div>
-                      <div style={{flex:1, minWidth:0}}>
-                        <div style={{fontWeight:600, fontSize:13}}>{e.nomComplet}</div>
-                        <div style={{fontSize:11, color:'var(--muted)', marginTop:2}}>
-                          {e.calc.total} / {e.calc.max} pts · {ans === null ? 'ancienneté à renseigner' : `${ans} an${ans>1?'s':''} d'ancienneté`}
-                        </div>
-                        <div className="progress-wrap" style={{marginTop:6}}>
-                          <div className="progress-fill" style={{width:`${e.calc.pourcentage}%`, background: e.calc.pourcentage>=80?'var(--green)':e.calc.pourcentage>=50?'var(--amber)':'var(--red)'}}></div>
-                        </div>
-                      </div>
-                      <div style={{textAlign:'right'}}>
-                        <div style={{fontWeight:800, fontSize:15, color:'var(--green)'}}>{fcfa(e.ete.total)}</div>
-                        <div style={{fontSize:10, color:'var(--muted)'}}>{e.calc.pourcentage}%</div>
-                        {e.av.palier && <span className="chip chip-green" style={{marginTop:4, display:'inline-block'}}>{e.av.palier.label}</span>}
-                      </div>
-                    </div>
-
-                    {ouvert && (
-                      <div className="card-body" style={{borderTop:'1px solid var(--border)', paddingTop:12}}>
-                        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12}}>
-                          {e.ete.mois.map(m => (
-                            <div key={m.mois} style={{background:'var(--bg)', borderRadius:10, padding:'8px 6px', textAlign:'center'}}>
-                              <div style={{fontSize:10, color:'var(--muted)'}}>{m.mois}</div>
-                              <div style={{fontSize:13, fontWeight:700}}>{fcfa(m.montant)}</div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {e.calc.parTrimestre.map(t => (
-                          <div key={t.id} style={{marginBottom:10}}>
-                            <div style={{fontSize:11, fontWeight:700, marginBottom:4}}>
-                              {t.label} <span style={{color:'var(--accent)'}}>×{t.coef}</span>
-                              <span style={{float:'right', color:'var(--muted)'}}>{t.pondere} / {t.pondereMax} pts</span>
-                            </div>
-                            {t.detail.map(d => (
-                              <div key={d.id} style={{display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'2px 0'}}>
-                                <span style={{flex:1, color:'var(--muted)'}}>{d.label}</span>
-                                {d.id === 'reunions' ? (
-                                  <input type="number" min="0" max={d.cible} defaultValue={d.realise}
-                                    onBlur={ev=>majSaisie(e.prof.id, t.id, 'reunions', ev.target.value)}
-                                    style={{width:46, padding:'2px 4px', fontSize:11, border:'1px solid var(--border)', borderRadius:6, background:'var(--bg)', color:'var(--text)'}} />
-                                ) : (
-                                  <span style={{fontWeight:600}}>{d.realise}</span>
-                                )}
-                                <span style={{color:'var(--muted)', minWidth:52, textAlign:'right'}}>/ {d.cible} → {d.points} pt</span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-
-                        <div style={{borderTop:'1px solid var(--border)', paddingTop:10, marginTop:6}}>
-                          <div className="form-group" style={{marginBottom:8}}>
-                            <label className="form-label">Date d'embauche</label>
-                            <input type="date" className="form-input" defaultValue={(personnelRH[e.prof.id]||{}).dateEmbauche || ''}
-                              onBlur={ev=>majPersonnel(e.prof.id, { dateEmbauche: ev.target.value })} />
-                          </div>
-                          <div style={{display:'flex', gap:14, flexWrap:'wrap', fontSize:12, marginBottom:8}}>
-                            <label style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer'}}>
-                              <input type="checkbox" checked={!!(personnelRH[e.prof.id]||{}).declarationEtudes}
-                                onChange={ev=>majPersonnel(e.prof.id, { declarationEtudes: ev.target.checked })} />
-                              Bourse d'études déclarée
-                            </label>
-                            <label style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer'}}>
-                              <input type="checkbox" checked={!!(personnelRH[e.prof.id]||{}).incident}
-                                onChange={ev=>majPersonnel(e.prof.id, { incident: ev.target.checked })} />
-                              Incident enregistré
-                            </label>
-                          </div>
-                          {e.av.choixOuvert && (
-                            <div className="form-group" style={{marginBottom:8}}>
-                              <label className="form-label">Option choisie (5 ans et +)</label>
-                              <select className="form-select" value={(personnelRH[e.prof.id]||{}).optionChoisie || 'enfant'}
-                                onChange={ev=>majPersonnel(e.prof.id, { optionChoisie: ev.target.value })}>
-                                <option value="enfant">Bourse enfant 100 %</option>
-                                <option value="etudes">Bourse d'études</option>
-                              </select>
-                            </div>
-                          )}
-                          <div style={{fontSize:12, lineHeight:1.6}}>
-                            {e.av.bourseEnfant > 0 && <div>🎓 Bourse enfant : <b style={{color:'var(--green)'}}>{e.av.bourseEnfant} %</b></div>}
-                            {e.av.bourseEtudes > 0 && <div>📚 Bourse d'études : <b style={{color:'var(--green)'}}>{e.av.bourseEtudes} %</b> (plafond {fcfa(pointsConfig.bourseEtudesPlafond)})</div>}
-                            {e.av.messages.map((m, k) => <div key={k} style={{color:'var(--muted)', fontStyle:'italic'}}>{m}</div>)}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </>
-          )
-        })()}
-
-        {tab === 'eleves' && (
-          <>
-            <div className="section-head">
-              <div className="section-title">Gestion des Élèves</div>
-              <a href="/inscription.html" className="btn-sm" style={{textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700}}>+ Inscrire un nouvel élève</a>
-            </div>
-            {classes.map(cls => {
-              const clsEleves = eleves.filter(e => e.classe_id === cls.id || (e.classe_nom && e.classe_nom.toLowerCase().trim() === cls.nom.toLowerCase().trim()))
-              const isActive = activeEleveClass === cls.id
-              return (
-                <div key={cls.id} className="card" style={{marginBottom:12, overflow:'hidden', borderRadius:16, border: isActive ? '1.5px solid var(--accent)' : '1px solid var(--border)', transition:'all 0.2s'}}>
-                  <div 
-                    onClick={() => setActiveEleveClass(isActive ? null : cls.id)}
-                    style={{padding:'14px 18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', background: isActive ? 'rgba(26,175,224,.05)' : 'var(--bg)'}}
-                  >
-                    <div style={{display:'flex', alignItems:'center', gap:12}}>
-                      <div className="avatar av-blue" style={{width:32, height:32, fontSize:12}}>{cls.nom.slice(0,2)}</div>
-                      <div style={{display:'flex', flexDirection:'column'}}>
-                        <span style={{fontWeight:800, fontSize:14, color: isActive ? 'var(--accent)' : 'var(--text)'}}>{cls.nom}</span>
-                        <span style={{fontSize:11, color:'var(--muted)'}}>{clsEleves.length} élève{clsEleves.length>1?'s':''}</span>
-                      </div>
-                    </div>
-                    <span style={{fontSize:18, color:'var(--muted)', transform: isActive ? 'rotate(180deg)' : 'none', transition:'0.3s'}}>⌄</span>
-                  </div>
-                  
-                  {isActive && (
-                    <div style={{padding:'0', borderTop:'1px solid var(--border)'}}>
-                      {clsEleves.length === 0 ? (
-                        <div style={{fontSize:12, color:'var(--muted)', textAlign:'center', padding:'2rem'}}>Aucun élève dans cette classe.</div>
-                      ) : clsEleves.map(el => (
-                        <div key={el.id} className="user-row" style={{borderBottom:'1px solid var(--border)', padding:'10px 18px'}}>
-                          <div className="avatar av-blue" style={{width:28, height:28, fontSize:10}}>{(el.prenom[0]||'')+(el.nom[0]||'')}</div>
-                          <div style={{flex:1, fontWeight:600, fontSize:13}}>{el.prenom} {el.nom}</div>
-                          <button aria-label="Désactiver" onClick={async () => { if(confirm('Sûr ?')) { await supabase.from('eleves').update({actif:false}).eq('id', el.id); loadData() } }} style={{background:'none', border:'none', color:'var(--red)', fontSize:18, cursor:'pointer'}}>×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-            {eleves.length === 0 && <div className="empty-state"><div className="empty-icon">🎒</div><p>Aucun eleve enregistré</p></div>}
-          </>
-        )}
-
-
-        {tab === 'agenda' && (
-          <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} anniversaires={eleves} />
-        )}
-
-
-        {tab === 'perfs' && (
-          <PerformancesDirecteur />
-        )}
-
-        {tab === 'synthese' && (
-          <>
-            <div className="section-head"><div className="section-title">Synthèse des Programmes</div></div>
-            {syntheseData.map(c => {
-              const isActive = activeSyntheseClass === c.classe
-              return (
-                <div key={c.classe} className="card" style={{marginBottom:12, overflow:'hidden', borderRadius:16, border: isActive ? '1.5px solid var(--accent)' : '1px solid var(--border)', transition:'all 0.2s'}}>
-                  <div 
-                    onClick={() => setActiveSyntheseClass(isActive ? null : c.classe)}
-                    style={{padding:'14px 18px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', background: isActive ? 'rgba(26,175,224,.05)' : 'var(--bg)'}}
-                  >
-                    <div style={{display:'flex', alignItems:'center', gap:12}}>
-                      <div className="avatar av-blue" style={{width:32, height:32, fontSize:12}}>{c.classe.slice(0,2)}</div>
-                      <span style={{fontWeight:800, fontSize:14, color: isActive ? 'var(--accent)' : 'var(--text)'}}>{c.classe} — Performance par matière</span>
-                    </div>
-                    <span style={{fontSize:18, color:'var(--muted)', transform: isActive ? 'rotate(180deg)' : 'none', transition:'0.3s'}}>⌄</span>
-                  </div>
-                  
-                  {isActive && (
-                    <div style={{padding:'1rem', borderTop:'1px solid var(--border)', background:'rgba(255,255,255,0.02)'}}>
-                      {c.stats.length === 0 ? (
-                        <div style={{fontSize:12, color:'var(--muted)', textAlign:'center', padding:'1rem'}}>Aucune donnée pour cette classe.</div>
-                      ) : (
-                        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12}}>
-                          {c.stats.map(s => {
-                            const col = s.avg >= 75 ? 'var(--green)' : s.avg >= 50 ? 'var(--amber)' : 'var(--red)'
-                            return (
-                              <div key={s.nom} style={{background:'var(--card)', borderRadius:12, padding:12, border:'1px solid var(--border)', boxShadow:'0 2px 5px rgba(0,0,0,0.02)'}}>
-                                <div style={{display:'flex', justifyContent:'space-between', marginBottom:8}}>
-                                  <span style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{s.nom}</span>
-                                  <span style={{fontSize:12, fontWeight:900, color:col}}>{s.avg}%</span>
-                                </div>
-                                <div style={{height:6, background:'rgba(0,0,0,0.05)', borderRadius:10, overflow:'hidden'}}>
-                                  <div style={{height:'100%', width:s.avg+'%', background:col}}></div>
-                                </div>
-                                <div style={{fontSize:10, color:col, marginTop:6, fontWeight:700, display:'flex', alignItems:'center', gap:4}}>
-                                  {s.avg >= 75 ? '🌟 Excellence' : s.avg >= 50 ? '📈 En progrès' : '⚠️ Difficultés'}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </>
-        )}
-
-        {tab === 'emploi' && <AffectationsMatieres user={user} />}
-
-        {tab === 'pedagogie' && (
-          <div>
-            <div className="section-title" style={{marginBottom:12}}>Outils pédagogiques</div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
-              <a href="/pedago-archive/" style={{textDecoration:'none'}}>
-                <div style={{background:'linear-gradient(135deg,#1AAFE0,#0d6fa8)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
-                  <div style={{fontSize:28}} aria-hidden="true">🗂️</div>
-                  <div style={{fontWeight:700, marginTop:6}}>Pédago-Archive</div>
-                  <div style={{fontSize:12, opacity:.85, marginTop:2}}>Devoirs, fiches et archives pédagogiques</div>
-                </div>
-              </a>
-              <a href="/rapports.html" style={{textDecoration:'none'}}>
-                <div style={{background:'linear-gradient(135deg,#F7941D,#d97706)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
-                  <div style={{fontSize:28}} aria-hidden="true">📄</div>
-                  <div style={{fontWeight:700, marginTop:6}}>Rapports hebdomadaires élèves</div>
-                  <div style={{fontSize:12, opacity:.85, marginTop:2}}>Bulletin de suivi hebdomadaire à transmettre aux parents</div>
-                </div>
-              </a>
-            </div>
-          </div>
-        )}
-
-        {tab === 'discipline' && (
-          <>
-            <div className="section-head"><div className="section-title">⚖️ Registre de Discipline</div></div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
-              <div className="kpi-card kpi-pink" style={{padding:15}}>
-                <div style={{fontSize:24, fontWeight:900}}>{eleves.filter(e => e.points_discipline <= 20).length}</div>
-                <div style={{fontSize:11}}>Élèves sous le seuil critique (Samedi)</div>
-              </div>
-              <div className="kpi-card kpi-amber" style={{padding:15}}>
-                <div style={{fontSize:24, fontWeight:900}}>{eleves.filter(e => e.points_discipline < 100).length}</div>
-                <div style={{fontSize:11}}>Total élèves avec signalements</div>
-              </div>
-            </div>
-
-            <div className="card-header" style={{background:'transparent', padding:'0 0 10px 4px', fontSize:13, fontWeight:800}}>📜 Historique des Sanctions (Toutes classes)</div>
-            {disciplines.length === 0 ? (
-              <div className="empty-state">Aucun incident enregistré.</div>
-            ) : disciplines.map(d => (
-              <div key={d.id} className="card" style={{marginBottom:10, padding:15, borderLeft: `4px solid ${d.statut==='validé'?'#4caf50':'#ff9800'}`}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
-                  <div>
-                    <span style={{fontSize:14, fontWeight:800}}>{d.eleves?.prenom} {d.eleves?.nom}</span>
-                    <div style={{fontSize:11, color:'var(--muted)'}}>Classe: {d.eleves?.classes?.nom}</div>
-                  </div>
-                  <div className={`chip ${d.statut==='validé'?'chip-green':'chip-amber'}`}>{d.statut === 'validé' ? 'Validé' : 'En attente'}</div>
-                </div>
-                <div style={{background:'rgba(0,0,0,0.03)', padding:10, borderRadius:10, fontSize:12, marginBottom:10}}>
-                  <b>Motif:</b> {d.motif}
-                  {d.statut === 'validé' && (
-                    <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed #ccc', color:'var(--accent)', fontWeight:600}}>
-                      Sanction: {d.sanction_type} {d.sanction_duree ? `(${d.sanction_duree} min)` : ''} - Détails: {d.sanction_details || 'RAS'}
-                    </div>
-                  )}
-                </div>
-                <div style={{display:'flex', justifyContent:'space-between', fontSize:10, color:'var(--muted)'}}>
-                  <span>Prof: {(d.users?.prenom || '') + ' ' + (d.users?.nom || '')}</span>
-                  <span>{new Date(d.created_at).toLocaleDateString('fr-FR')} {new Date(d.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
       </div>
 
       <div className="bottom-nav" role="tablist">
