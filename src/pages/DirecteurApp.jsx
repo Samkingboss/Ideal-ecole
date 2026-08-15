@@ -17,6 +17,7 @@ const BOTTOM_TABS = [
 
 const TOP_TABS = [
   { id:'profs', icon:'👥', label:'Équipe' },
+  { id:'rh', icon:'💼', label:'RH & Paie' },
   { id:'points', icon:'🏆', label:'Points & prime' },
   { id:'eleves', icon:'🎒', label:'Élèves' },
   { id:'synthese', icon:'📊', label:'Synthèse' },
@@ -456,19 +457,26 @@ export default function DirecteurApp({ user, onLogout }) {
               {/* Modules administratifs */}
               <div className="card" style={{marginBottom:16}}>
                 <h3 style={{margin:'0 0 12px 0', fontSize:15}}>Gestion administrative</h3>
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12}}>
                   <a href="/inscription.html" style={{textDecoration:'none'}}>
-                    <div style={{background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
+                    <div style={{background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', borderRadius:14, padding:'18px 16px', height:'100%'}}>
                       <div style={{fontSize:28}} aria-hidden="true">📝</div>
                       <div style={{fontWeight:700, marginTop:6}}>Inscriptions</div>
-                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Inscriptions et dossiers numériques des élèves</div>
+                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Inscriptions &amp; dossiers numériques</div>
                     </div>
                   </a>
                   <a href="/comptabilite.html" style={{textDecoration:'none'}}>
-                    <div style={{background:'linear-gradient(135deg,#7bc142,#5a9a2e)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
+                    <div style={{background:'linear-gradient(135deg,#7bc142,#5a9a2e)', color:'#fff', borderRadius:14, padding:'18px 16px', height:'100%'}}>
                       <div style={{fontSize:28}} aria-hidden="true">💰</div>
                       <div style={{fontWeight:700, marginTop:6}}>Comptabilité</div>
-                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Frais, paiements, reçus, dépenses</div>
+                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Frais, paiements, reçus &amp; dépenses</div>
+                    </div>
+                  </a>
+                  <a href="/comptabilite.html" style={{textDecoration:'none'}}>
+                    <div style={{background:'linear-gradient(135deg,#8e44ad,#6c3483)', color:'#fff', borderRadius:14, padding:'18px 16px', height:'100%'}}>
+                      <div style={{fontSize:28}} aria-hidden="true">💼</div>
+                      <div style={{fontWeight:700, marginTop:6}}>RH &amp; Paie</div>
+                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Grille salariale &amp; Émargement (PDF)</div>
                     </div>
                   </a>
                 </div>
@@ -640,6 +648,50 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
             ))}
+          </>
+        )}
+
+        {tab === 'rh' && (
+          <>
+            <div className="section-head">
+              <div className="section-title">Gestion RH &amp; États de Paie</div>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft(postes.map(p=>({...p})));setShowModal('postes')}}>💼 Grille des Postes &amp; Salaires</button>
+                <a href="/comptabilite.html" className="btn-sm" style={{textDecoration:'none', background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6}}>🖨️ Éditer l'État des Salaires (PDF)</a>
+              </div>
+            </div>
+
+            <div className="card" style={{marginBottom:16}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+                <h4 style={{margin:0, fontSize:14, color:'var(--text)'}}>Référentiel Salarial du Personnel</h4>
+                <span className="badge" style={{background:'rgba(26,175,224,0.1)', color:'var(--accent)', fontWeight:700, padding:'4px 10px', borderRadius:20, fontSize:11}}>{postes.length} Postes configurés</span>
+              </div>
+              <div style={{overflowX:'auto'}}>
+                <table className="tbl" style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'var(--bg)', color:'var(--muted)', textTransform:'uppercase', fontSize:11}}>
+                      <th style={{textAlign:'left', padding:'10px 12px'}}>Poste / Fonction</th>
+                      <th style={{textAlign:'right', padding:'10px 12px'}}>Salaire Mensuel</th>
+                      <th style={{textAlign:'right', padding:'10px 12px'}}>Masse Annuelle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {postes.map(p => (
+                      <tr key={p.id} style={{borderBottom:'1px solid var(--border)'}}>
+                        <td style={{padding:'10px 12px', fontWeight:600}}>{p.label} {p.commentaire ? <small style={{color:'var(--muted)', display:'block', fontWeight:400, fontSize:11}}>{p.commentaire}</small> : ''}</td>
+                        <td style={{padding:'10px 12px', textAlign:'right', fontWeight:700, color:'var(--green)'}}>{fcfa(p.mensuel)}</td>
+                        <td style={{padding:'10px 12px', textAlign:'right', fontWeight600, color:'var(--text)'}}>{fcfa((p.mensuel || 0) * 12)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{background:'rgba(0,168,224,0.06)', fontWeight:900}}>
+                      <td style={{padding:'12px'}}>MASSE SALARIALE TOTALE</td>
+                      <td style={{padding:'12px', textAlign:'right', color:'var(--green)'}}>{fcfa(postes.reduce((s, x) => s + (Number(x.mensuel) || 0), 0))} / mois</td>
+                      <td style={{padding:'12px', textAlign:'right', color:'var(--accent)'}}>{fcfa(postes.reduce((s, x) => s + (Number(x.mensuel) || 0), 0) * 12)} / an</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </>
         )}
 
