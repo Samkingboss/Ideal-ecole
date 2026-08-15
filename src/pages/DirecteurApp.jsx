@@ -97,13 +97,12 @@ export default function DirecteurApp({ user, onLogout }) {
   useEffect(() => { 
     loadData() 
     const handleWheelScroll = (e) => {
-      const scrollable = e.target.closest('.top-nav-secondary, .tab-nav, .table-wrap, .table-scroll, .scroll-horizontal')
-      if (scrollable && e.deltaY !== 0) {
-        scrollable.scrollLeft += e.deltaY * 1.3
-        e.preventDefault()
+      const scrollable = e.target.closest('.top-nav-secondary, .tab-nav')
+      if (scrollable && scrollable.scrollWidth > scrollable.clientWidth && e.deltaY !== 0) {
+        scrollable.scrollLeft += e.deltaY * 1.5
       }
     }
-    window.addEventListener('wheel', handleWheelScroll, { passive: false })
+    window.addEventListener('wheel', handleWheelScroll, { passive: true })
     return () => window.removeEventListener('wheel', handleWheelScroll)
   }, [])
 
@@ -428,16 +427,40 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
       </div>
 
-      <div className="top-nav-secondary">
-        {TOP_TABS.map(t => (
-          <button 
-            key={t.id} 
-            className={`top-nav-item ${tab===t.id?'active':''}`} 
-            onClick={()=>setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: 'var(--card)', borderBottom: '1px solid var(--border)', padding: '0 4px' }}>
+        <button 
+          onClick={() => {
+            const el = document.querySelector('.top-nav-secondary')
+            if (el) el.scrollBy({ left: -220, behavior: 'smooth' })
+          }}
+          style={{ background: 'rgba(0,168,224,0.1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontWeight: 900, marginRight: 4 }}
+          title="Défiler vers la gauche"
+        >
+          ◀
+        </button>
+
+        <div className="top-nav-secondary" style={{ flex: 1, borderBottom: 'none', top: 0, boxShadow: 'none' }}>
+          {TOP_TABS.map(t => (
+            <button 
+              key={t.id} 
+              className={`top-nav-item ${tab===t.id?'active':''}`} 
+              onClick={()=>setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <button 
+          onClick={() => {
+            const el = document.querySelector('.top-nav-secondary')
+            if (el) el.scrollBy({ left: 220, behavior: 'smooth' })
+          }}
+          style={{ background: 'rgba(0,168,224,0.1)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontWeight: 900, marginLeft: 4 }}
+          title="Défiler vers la droite"
+        >
+          ▶
+        </button>
       </div>
 
       <div className="page-content">
