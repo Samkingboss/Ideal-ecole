@@ -1002,78 +1002,78 @@ function deconnexionIdeal() {
       <div class="card" style="overflow:hidden;">
         <div style="overflow-x:auto;"><table class="tbl" id="tbl-salaires"></table></div>
       </div>
+    </div>
+  </div>
 
-      <!-- ════════════════ ÉTAT DES SALAIRES MENSUELS & ÉMARGEMENT ════════════════ -->
-      <div class="sep"></div>
+  <!-- ════════════════ ÉTAT DES SALAIRES MENSUELS & ÉMARGEMENT (PLEINE LARGEUR 100%) ════════════════ -->
+  <div class="sep"></div>
 
-      <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-        <div>
-          <div class="sec-title">📑 Édition & Impression des États de Salaires Mensuels</div>
-          <div class="sec-sub">Générez la fiche d'émargement de paie mensuelle du personnel avec le récapitulatif net à payer et la grille de signatures.</div>
-        </div>
-        <div style="display:flex; gap:0.6rem; align-items:center;">
-          <select id="salaires-mois-select" class="inp" onchange="renderEtatSalairesMensuel()" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
-            <option value="2026-10">Octobre 2026</option>
-            <option value="2026-11">Novembre 2026</option>
-            <option value="2026-12">Décembre 2026</option>
-            <option value="2027-01">Janvier 2027</option>
-            <option value="2027-02">Février 2027</option>
-            <option value="2027-03">Mars 2027</option>
-            <option value="2027-04">Avril 2027</option>
-            <option value="2027-05">Mai 2027</option>
-            <option value="2027-06">Juin 2027</option>
-          </select>
-          <button class="btn btn-outline" style="color:var(--blue); border-color:var(--blue); font-weight:700; padding:0.6rem 1rem;" onclick="imprimerEtatSalaires()">
-            🖨️ Imprimer la Fiche d'Émargement (PDF)
-          </button>
-        </div>
+  <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+    <div>
+      <div class="sec-title">📑 Édition &amp; Impression des États de Salaires Mensuels</div>
+      <div class="sec-sub" style="opacity:0.9;">Générez la fiche d'émargement de paie mensuelle du personnel avec le récapitulatif net à payer et la grille de signatures.</div>
+    </div>
+    <div style="display:flex; gap:0.6rem; align-items:center;">
+      <select id="salaires-mois-select" class="inp" onchange="syncMoisSalairesSelect(this.value)" style="background:var(--card); color:var(--text); border:1.5px solid var(--border); font-weight:700; padding:0.6rem 1rem;">
+        <option value="2026-10">Octobre 2026</option>
+        <option value="2026-11">Novembre 2026</option>
+        <option value="2026-12">Décembre 2026</option>
+        <option value="2027-01">Janvier 2027</option>
+        <option value="2027-02">Février 2027</option>
+        <option value="2027-03">Mars 2027</option>
+        <option value="2027-04">Avril 2027</option>
+        <option value="2027-05">Mai 2027</option>
+        <option value="2027-06">Juin 2027</option>
+      </select>
+      <button class="btn" style="background:linear-gradient(135deg,#00a8e0,#0078b4); color:#fff; font-weight:800; padding:0.65rem 1.2rem; border-radius:8px; border:none; box-shadow:0 4px 14px rgba(0,168,224,0.35); cursor:pointer;" onclick="imprimerEtatSalaires()">
+        🖨️ Imprimer la Fiche d'Émargement (PDF)
+      </button>
+    </div>
+  </div>
+
+  <div class="card" style="overflow:hidden; margin-bottom:2rem; width:100%;">
+    <div style="padding:1.2rem; background:rgba(0,168,224,0.08); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h4 style="margin:0; font-size:1.05rem; color:var(--text);" id="etat-salaires-title">État de Paie du Personnel — Octobre 2026</h4>
+        <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
       </div>
-
-      <div class="card" style="overflow:hidden; margin-bottom:2rem;">
-        <div style="padding:1.2rem; background:rgba(0,168,224,0.04); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <h4 style="margin:0; font-size:1.05rem; color:var(--text);" id="etat-salaires-title">État de Paie du Personnel — Octobre 2026</h4>
-            <div style="font-size:0.8rem; color:var(--text-dim); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
-            <div style="font-size:1.3rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net">0 FCFA</div>
-          </div>
-        </div>
-        <div style="overflow-x:auto;">
-          <table class="tbl" id="tbl-etat-salaires-mensuel">
-            <thead>
-              <tr>
-                <th>Poste / Employé</th>
-                <th class="r">Salaire de Base</th>
-                <th class="r">Primes / Bonus</th>
-                <th class="r">Retenues / Avances</th>
-                <th class="r">Net à Payer</th>
-                <th>Mode de Règlement</th>
-                <th class="c">Statut</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-etat-salaires-mensuel"></tbody>
-          </table>
-        </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
+        <div style="font-size:1.3rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net">0 FCFA</div>
       </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="tbl" id="tbl-etat-salaires-mensuel">
+        <thead>
+          <tr>
+            <th>Poste / Employé</th>
+            <th class="r">Salaire de Base</th>
+            <th class="r" style="color:var(--green);">Primes / Bonus</th>
+            <th class="r" style="color:var(--red);">Retenues / Avances</th>
+            <th class="r" style="color:var(--blue);">Net à Payer</th>
+            <th>Mode de Règlement</th>
+            <th class="c">Statut</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-etat-salaires-mensuel"></tbody>
+      </table>
     </div>
   </div>
 </section>
 
-<!-- ════════════════ TAB: SALAIRES & PAIE (RH) ════════════════ -->
+<!-- ════════════════ TAB: SALAIRES & PAIE (RH) (PLEINE LARGEUR) ════════════════ -->
 <section class="tab-pane" id="tab-salaires-rh">
   <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
     <div>
       <div class="sec-title">👥 Gestion des Salaires &amp; Paie du Personnel (RH)</div>
       <div class="sec-sub">Référentiel des postes, grilles salariales et édition des fiches d'émargement mensuelles.</div>
     </div>
-    <button class="btn" style="background:linear-gradient(135deg,#00a8e0,#0078b4); color:#fff; font-weight:700; padding:0.75rem 1.25rem; border-radius:8px; cursor:pointer;" onclick="imprimerEtatSalaires()">
+    <button class="btn" style="background:linear-gradient(135deg,#00a8e0,#0078b4); color:#fff; font-weight:800; padding:0.75rem 1.3rem; border-radius:8px; border:none; box-shadow:0 4px 14px rgba(0,168,224,0.35); cursor:pointer;" onclick="imprimerEtatSalaires()">
       🖨️ Imprimer la Fiche d'Émargement Mensuelle (PDF)
     </button>
   </div>
 
-  <div class="card" style="margin-bottom:1.5rem; overflow:hidden;">
+  <div class="card" style="margin-bottom:1.5rem; overflow:hidden; width:100%;">
     <div class="card-head" style="padding:1.2rem; border-bottom:1px solid var(--border);">
       <h3 style="margin:0; font-size:1.05rem;">💼 Grille des Salaires du Personnel</h3>
     </div>
@@ -1082,14 +1082,14 @@ function deconnexionIdeal() {
     </div>
   </div>
 
-  <div class="card" style="overflow:hidden; margin-bottom:2rem;">
-    <div style="padding:1.2rem; background:rgba(0,168,224,0.06); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+  <div class="card" style="overflow:hidden; margin-bottom:2rem; width:100%;">
+    <div style="padding:1.2rem; background:rgba(0,168,224,0.08); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
       <div>
         <h4 style="margin:0; font-size:1.05rem; color:var(--text);" id="etat-salaires-title-rh">État de Paie du Personnel — Octobre 2026</h4>
-        <div style="font-size:0.8rem; color:var(--text-dim); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
+        <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
       </div>
       <div style="display:flex; gap:0.8rem; align-items:center;">
-        <select id="salaires-mois-select-rh" class="inp" onchange="syncMoisSalairesSelect(this.value)" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
+        <select id="salaires-mois-select-rh" class="inp" onchange="syncMoisSalairesSelect(this.value)" style="background:var(--card); color:var(--text); border:1.5px solid var(--border); font-weight:700; padding:0.6rem 1rem;">
           <option value="2026-10">Octobre 2026</option>
           <option value="2026-11">Novembre 2026</option>
           <option value="2026-12">Décembre 2026</option>
@@ -1101,8 +1101,8 @@ function deconnexionIdeal() {
           <option value="2027-06">Juin 2027</option>
         </select>
         <div style="text-align:right;">
-          <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
-          <div style="font-size:1.2rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net-rh">0 FCFA</div>
+          <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
+          <div style="font-size:1.3rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net-rh">0 FCFA</div>
         </div>
       </div>
     </div>
@@ -1112,9 +1112,9 @@ function deconnexionIdeal() {
           <tr>
             <th>Poste / Employé</th>
             <th class="r">Salaire de Base</th>
-            <th class="r">Primes / Bonus</th>
-            <th class="r">Retenues / Avances</th>
-            <th class="r">Net à Payer</th>
+            <th class="r" style="color:var(--green);">Primes / Bonus</th>
+            <th class="r" style="color:var(--red);">Retenues / Avances</th>
+            <th class="r" style="color:var(--blue);">Net à Payer</th>
             <th>Mode de Règlement</th>
             <th class="c">Statut</th>
           </tr>
@@ -4671,17 +4671,17 @@ function renderEtatSalairesMensuel() {
     totNet += net;
 
     html += `<tr>
-      <td><b>${item.poste}</b></td>
-      <td class="r" style="font-weight:600;">${fc(item.base)}</td>
+      <td><b style="font-size:0.9rem;">${item.poste}</b></td>
+      <td class="r" style="font-weight:700; font-size:0.9rem;">${fc(item.base)}</td>
       <td class="r">
-        <input class="inp" type="number" min="0" value="${item.primes || 0}" style="width:100px; text-align:right; padding:4px 8px; font-weight:700; color:var(--green);" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'primes', this.value)">
+        <input class="inp" type="number" min="0" value="${item.primes || 0}" style="width:105px; text-align:right; padding:6px 10px; font-weight:800; color:var(--green); background:var(--card); border:1.5px solid var(--border); border-radius:6px;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'primes', this.value)">
       </td>
       <td class="r">
-        <input class="inp" type="number" min="0" value="${item.retenues || 0}" style="width:100px; text-align:right; padding:4px 8px; font-weight:700; color:var(--red);" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'retenues', this.value)">
+        <input class="inp" type="number" min="0" value="${item.retenues || 0}" style="width:105px; text-align:right; padding:6px 10px; font-weight:800; color:var(--red); background:var(--card); border:1.5px solid var(--border); border-radius:6px;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'retenues', this.value)">
       </td>
-      <td class="r" style="font-weight:900; color:var(--blue);">${fc(net)}</td>
+      <td class="r" style="font-weight:900; color:var(--blue); font-size:0.95rem;">${fc(net)}</td>
       <td>
-        <select class="inp" style="padding:4px 8px;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'mode', this.value)">
+        <select class="inp" style="padding:6px 10px; font-weight:600; background:var(--card); border:1.5px solid var(--border); color:var(--text); border-radius:6px;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'mode', this.value)">
           <option value="Espèces" ${item.mode === 'Espèces' ? 'selected' : ''}>Espèces</option>
           <option value="Virement" ${item.mode === 'Virement' ? 'selected' : ''}>Virement bancaire</option>
           <option value="Orange Money" ${item.mode === 'Orange Money' ? 'selected' : ''}>Orange Money</option>
@@ -4689,7 +4689,7 @@ function renderEtatSalairesMensuel() {
         </select>
       </td>
       <td class="c">
-        <select class="inp" style="padding:4px 8px; font-weight:700;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'statut', this.value)">
+        <select class="inp" style="padding:6px 10px; font-weight:800; background:var(--card); border:1.5px solid var(--border); color:${item.statut === 'Payé' ? 'var(--green)' : 'var(--orange)'}; border-radius:6px;" onchange="updateEtatSalairesItem('${moisKey}', ${idx}, 'statut', this.value)">
           <option value="Payé" ${item.statut === 'Payé' ? 'selected' : ''}>✓ Payé</option>
           <option value="En attente" ${item.statut === 'En attente' ? 'selected' : ''}>⏳ En attente</option>
         </select>
