@@ -5,6 +5,7 @@ import DirecteurApp from './pages/DirecteurApp'
 import ProfApp from './pages/ProfApp'
 import SurveillantApp from './pages/SurveillantApp'
 import ConseillerApp from './pages/ConseillerApp'
+import CuisiniereApp from './pages/CuisiniereApp'
 import './App.css'
 
 class ErrorBoundary extends Component {
@@ -68,7 +69,8 @@ export default function App() {
         'professeur': 'Espace Enseignant',
         'surveillant': 'Surveillance',
         'conseiller_vie_scolaire': 'Vie Scolaire',
-        'responsable_administratif': 'Administration'
+        'responsable_administratif': 'Administration',
+        'cuisiniere': 'Cuisine & Cantine'
       }
       document.title = `${roleMap[user.role] || 'Portail'} - IDEAL EcoleApp`
     }
@@ -99,6 +101,7 @@ export default function App() {
     if (user.role === 'professeur') return <ProfApp user={user} onLogout={handleLogout} />
     if (user.role === 'surveillant') return <SurveillantApp user={user} onLogout={handleLogout} />
     if (user.role === 'conseiller_vie_scolaire') return <ConseillerApp user={user} onLogout={handleLogout} />
+    if (user.role === 'cuisiniere') return <CuisiniereApp user={user} onLogout={handleLogout} />
     return <LoginPage onLogin={handleLogin} />
   }
 

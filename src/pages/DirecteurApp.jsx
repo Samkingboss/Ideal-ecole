@@ -1174,6 +1174,7 @@ export default function DirecteurApp({ user, onLogout }) {
                 <option value="surveillant">Surveillant</option>
                 <option value="conseiller_vie_scolaire">Conseiller de vie scolaire</option>
                 <option value="responsable_administratif">Responsable administratif</option>
+                <option value="cuisiniere">Chef Cuisinière / Cantine</option>
               </select>
             </div>
 
