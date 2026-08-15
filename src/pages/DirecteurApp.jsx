@@ -561,7 +561,12 @@ export default function DirecteurApp({ user, onLogout }) {
 
                   {/* Section Budget & Fiche d'Utilisation du Marché */}
                   <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid #7bc142' }}>
-                    <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>💵 Gestion du Budget &amp; Justificatif des Dépenses de la Cuisine</h3>
+                    <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <span>💵 Gestion du Budget &amp; Justificatif des Dépenses de la Cuisine</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, background: 'rgba(0,168,224,0.12)', color: 'var(--accent)', padding: '4px 12px', borderRadius: 8 }}>
+                        {(ficheMarcheCantine.type_periode || 'journalier') === 'journalier' ? `📅 Budget Journalier (${ficheMarcheCantine.date_du_jour || 'Aujourd\'hui'})` : `🗓️ Budget Hebdomadaire (${ficheMarcheCantine.periode_semaine || 'Semaine'})`}
+                      </span>
+                    </h3>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
                       <div style={{ background: 'rgba(0,168,224,0.06)', border: '1px solid #00a8e0', borderRadius: 12, padding: 14 }}>

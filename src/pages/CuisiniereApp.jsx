@@ -25,7 +25,7 @@ const SAMPLE_MENU_SEMAINE = {
     platTitre: "Arachide'Poulet Bonheur",
     platDesc: "Riz blanc bien moelleux accompagné d'une sauce arachide onctueuse, préparée avec des morceaux de poulet tendres et peu épicée.",
     dessertTitre: "Banana'Doux",
-    dessertDesc: "Banane bien mûre, naturally sucrée et facile à manger.",
+    dessertDesc: "Banane bien mûre, naturellement sucrée et facile à manger.",
     gouterTitre: "Beignet'Nuage",
     gouterDesc: "Beignet léger, doré et moelleux à l'intérieur, légèrement sucré."
   },
@@ -83,8 +83,13 @@ const EMPTY_MENU_SEMAINE = {
   Vendredi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' }
 }
 
+const getTodayString = () => new Date().toISOString().split('T')[0]
+
 // Ingrédients du marché vides par défaut
 const EMPTY_FICHE_MARCHE = {
+  type_periode: 'journalier',
+  date_du_jour: getTodayString(),
+  periode_semaine: 'Semaine du 12 au 16 Janvier 2026',
   budget: 0,
   articles: []
 }
@@ -97,8 +102,6 @@ const DEMO_ELEVES_CANTINE = [
   { id: 'el-4', nom: 'DIARRA', prenom: 'Mamadou', classe: 'CE1 B', cantine: true, allergies: 'Allergie au Poisson', restrictions: 'Végétarien' },
   { id: 'el-5', nom: 'KEITA', prenom: 'Oumar', classe: 'CE2', cantine: true, allergies: 'Aucune', restrictions: 'Aucune' }
 ]
-
-const getTodayString = () => new Date().toISOString().split('T')[0]
 
 export default function CuisiniereApp({ user, onLogout }) {
   const [tab, setTab] = useState('eleves')
@@ -293,7 +296,7 @@ export default function CuisiniereApp({ user, onLogout }) {
   // Effacer toutes les données de la fiche du marché
   const clearFicheMarche = () => {
     if (!confirm('Voulez-vous réinitialiser et effacer TOUS les articles du marché ?')) return
-    saveFicheMarche({ budget: 0, articles: [] })
+    saveFicheMarche({ ...EMPTY_FICHE_MARCHE, budget: 0, articles: [] })
     setMsg('🗑️ La fiche du marché a été réinitialisée et vidée.')
     setTimeout(() => setMsg(''), 3000)
   }
@@ -1090,13 +1093,13 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (100% MODIFIABLE) ════════════════ */}
+        {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (100% MODIFIABLE & CHOIX PÉRIODE) ════════════════ */}
         {tab === 'marche' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🛒 Session 5 : Fiche du Marché (100% Modifiable)</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Saisissez et modifiez librement les aliments, leurs quantités et les prix unitaires du jour.</p>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Gestion du budget et émargement des achats d'aliments du jour ou de la semaine.</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
@@ -1123,10 +1126,95 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
+            {/* SECTEUR DU TYPE DE BUDGET (JOURNALIER vs HEBDOMADAIRE) */}
+            <div className="card" style={{ padding: '16px 20px', marginBottom: 20, background: '#fff', borderRadius: 16, borderLeft: '5px solid #00a8e0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#0d2a3b' }}>📅 Période &amp; Type du Budget Cuisine</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Précisez si ce budget est alloué pour une **journée spécifique** ou pour **toute la semaine**.</div>
+                </div>
+
+                {/* Segmented Control Toggle */}
+                <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                  <button
+                    type="button"
+                    onClick={() => saveFicheMarche({ ...ficheMarche, type_periode: 'journalier' })}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      border: 'none',
+                      fontWeight: 800,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      background: (ficheMarche.type_periode || 'journalier') === 'journalier' ? '#00a8e0' : 'transparent',
+                      color: (ficheMarche.type_periode || 'journalier') === 'journalier' ? '#ffffff' : '#64748b',
+                      boxShadow: (ficheMarche.type_periode || 'journalier') === 'journalier' ? '0 2px 8px rgba(0,168,224,0.3)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    📅 Budget Journalier (Par Jour)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveFicheMarche({ ...ficheMarche, type_periode: 'hebdomadaire' })}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      border: 'none',
+                      fontWeight: 800,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      background: ficheMarche.type_periode === 'hebdomadaire' ? '#00a8e0' : 'transparent',
+                      color: ficheMarche.type_periode === 'hebdomadaire' ? '#ffffff' : '#64748b',
+                      boxShadow: ficheMarche.type_periode === 'hebdomadaire' ? '0 2px 8px rgba(0,168,224,0.3)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    🗓️ Budget Hebdomadaire (Par Semaine)
+                  </button>
+                </div>
+              </div>
+
+              {/* Saisie de la date du jour ou de la semaine selon l'option choisie */}
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                {(ficheMarche.type_periode || 'journalier') === 'journalier' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b', minWidth: 140 }}>📅 Date du jour :</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={ficheMarche.date_du_jour || getTodayString()}
+                      onChange={e => saveFicheMarche({ ...ficheMarche, date_du_jour: e.target.value })}
+                      style={{ width: 220, fontWeight: 800, color: '#0d2a3b' }}
+                    />
+                    <span style={{ fontSize: 12, color: '#047857', fontWeight: 800, background: '#f0fdf4', padding: '6px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                      ℹ️ Fiche de Marché enregistrée pour le {new Date(ficheMarche.date_du_jour || getTodayString()).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b', minWidth: 140 }}>🗓️ Semaine / Période :</label>
+                    <input
+                      className="form-input"
+                      value={ficheMarche.periode_semaine || 'Semaine du 12 au 16 Janvier 2026'}
+                      onChange={e => saveFicheMarche({ ...ficheMarche, periode_semaine: e.target.value })}
+                      placeholder="Ex: Semaine du 12 au 16 Janvier 2026"
+                      style={{ width: 320, fontWeight: 800, color: '#0d2a3b' }}
+                    />
+                    <span style={{ fontSize: 12, color: '#b45309', fontWeight: 800, background: '#fffbeb', padding: '6px 14px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                      ℹ️ Fiche de Marché globale pour toute la semaine
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* KPI Cards Budget */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
               <div className="card" style={{ padding: '18px', background: 'rgba(0,168,224,0.06)', border: '1.5px solid #00a8e0', borderRadius: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', marginBottom: 6 }}>💵 BUDGET ALLOUÉ (FCFA)</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', marginBottom: 6 }}>
+                  💵 {(ficheMarche.type_periode || 'journalier') === 'journalier' ? 'BUDGET JOURNALIER ALLOUÉ (FCFA)' : 'BUDGET HEBDOMADAIRE ALLOUÉ (FCFA)'}
+                </div>
                 <input
                   type="number"
                   className="form-input"
@@ -1157,7 +1245,12 @@ export default function CuisiniereApp({ user, onLogout }) {
             {/* Tableau Interactif Modifiable du Marché */}
             <div className="card" style={{ padding: '1.2rem', borderRadius: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>🛒 Saisie et Modification Directe des Ingrédients</h3>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>
+                  🛒 Saisie et Modification Directe des Ingrédients
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginLeft: 8 }}>
+                    ({(ficheMarche.type_periode || 'journalier') === 'journalier' ? `Du ${new Date(ficheMarche.date_du_jour || getTodayString()).toLocaleDateString('fr-FR')}` : ficheMarche.periode_semaine || 'Semaine'})
+                  </span>
+                </h3>
                 <span style={{ fontSize: 11, color: '#64748b' }}>✏️ Cliquez directement dans les cases pour modifier les noms, quantités et prix.</span>
               </div>
 
