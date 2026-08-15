@@ -441,7 +441,7 @@ export default function DirecteurApp({ user, onLogout }) {
                     <div style={{background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', borderRadius:14, padding:'18px 16px'}}>
                       <div style={{fontSize:28}} aria-hidden="true">📝</div>
                       <div style={{fontWeight:700, marginTop:6}}>Inscriptions</div>
-                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Nouvelles &amp; réinscriptions, dossiers élèves</div>
+                      <div style={{fontSize:12, opacity:.85, marginTop:2}}>Inscriptions et dossiers numériques des élèves</div>
                     </div>
                   </a>
                   <a href="/comptabilite.html" style={{textDecoration:'none'}}>
