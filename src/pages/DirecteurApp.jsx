@@ -79,6 +79,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [disciplines, setDisciplines] = useState([])
   const [postes, setPostes] = useState(DEFAULT_POSTES)
   const [posteDraft, setPosteDraft] = useState([])
+  const [demandesRH, setDemandesRH] = useState([])
   const [pointsConfig, setPointsConfig] = useState(CONFIG_DEFAUT)
   const [personnelRH, setPersonnelRH] = useState({})
   const [sourcesPoints, setSourcesPoints] = useState({ preparations: [], checkpoints: [], performances: [], rapports: [], saisieManuelle: {} })
@@ -176,6 +177,11 @@ export default function DirecteurApp({ user, onLogout }) {
       const { data: rhPostes } = await supabase.from('app_state')
         .select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle()
       if (Array.isArray(rhPostes?.value) && rhPostes.value.length > 0) setPostes(rhPostes.value)
+
+      // Demandes RH soumises par les enseignants
+      const { data: globalDem } = await supabase.from('app_state')
+        .select('value').eq('key', 'demandes_rh_global').maybeSingle()
+      if (globalDem && globalDem.value && Array.isArray(globalDem.value)) setDemandesRH(globalDem.value)
 
       // ─── Points & prime d'été ───
       const [cfgRes, persRes, manRes, perfRes, rapRes] = await Promise.all([
@@ -656,11 +662,116 @@ export default function DirecteurApp({ user, onLogout }) {
         {tab === 'rh' && (
           <>
             <div className="section-head">
-              <div className="section-title">Gestion RH &amp; États de Paie</div>
+              <div className="section-title">Gestion RH, Paie &amp; Demandes du Personnel</div>
               <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
                 <button className="btn-sm" style={{background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)'}} onClick={()=>{setPosteDraft(postes.map(p=>({...p})));setShowModal('postes')}}>💼 Grille des Postes &amp; Salaires</button>
-                <a href="/comptabilite.html" className="btn-sm" style={{textDecoration:'none', background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6}}>🖨️ Éditer l'État des Salaires (PDF)</a>
+                <a href="/comptabilite.html#salaires-rh" className="btn-sm" style={{textDecoration:'none', background:'linear-gradient(135deg,#00a8e0,#0078b4)', color:'#fff', padding:'8px 14px', borderRadius:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6}}>🖨️ Éditer l'État des Salaires (PDF)</a>
               </div>
+            </div>
+
+            {/* Demandes RH des enseignants à valider */}
+            <div className="card" style={{marginBottom:20}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+                <h4 style={{margin:0, fontSize:15, color:'var(--text)', display:'flex', alignItems:'center', gap:8}}>
+                  <span>📩 Demandes du Personnel (Prêts, Avances, Congés, Permissions)</span>
+                </h4>
+                <span className="badge" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', fontWeight:800, padding:'4px 10px', borderRadius:20, fontSize:11}}>
+                  {demandesRH.filter(d => d.statut === 'En attente').length} En attente
+                </span>
+              </div>
+
+              {demandesRH.length === 0 ? (
+                <div style={{padding:'2rem', textAlign:'center', color:'var(--muted)', fontSize:13}}>
+                  📬 Aucune demande reçue du personnel pour le moment.
+                </div>
+              ) : (
+                <div style={{overflowX:'auto'}}>
+                  <table className="tbl" style={{width:'100%', fontSize:13, borderCollapse:'collapse'}}>
+                    <thead>
+                      <tr style={{background:'var(--bg)', color:'var(--muted)', textTransform:'uppercase', fontSize:11}}>
+                        <th style={{textAlign:'left', padding:'10px 12px'}}>Enseignant</th>
+                        <th style={{textAlign:'left', padding:'10px 12px'}}>Type de Demande</th>
+                        <th style={{textAlign:'left', padding:'10px 12px'}}>Détails &amp; Période</th>
+                        <th style={{textAlign:'center', padding:'10px 12px'}}>Statut</th>
+                        <th style={{textAlign:'center', padding:'10px 12px'}}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {demandesRH.map(d => (
+                        <tr key={d.id} style={{borderBottom:'1px solid var(--border)'}}>
+                          <td style={{padding:'12px', fontWeight:800, color:'var(--text)'}}>
+                            {d.user_name}
+                            <div style={{fontSize:10, color:'var(--muted)', fontWeight:400}}>{new Date(d.date_soumission).toLocaleDateString('fr-FR')}</div>
+                          </td>
+                          <td style={{padding:'12px'}}>
+                            <span style={{fontWeight:800, color:'var(--accent)'}}>
+                              {d.type === 'avance' ? '💵 Avance sur salaire' :
+                               d.type === 'pret' ? '🏦 Demande de prêt' :
+                               d.type === 'maternite' ? '🤰 Congé Maternité' :
+                               d.type === 'permission' ? '📝 Permission' :
+                               d.type === 'absence' ? '🗂️ Justificatif d\'absence' : '📦 Achat matériel'}
+                            </span>
+                          </td>
+                          <td style={{padding:'12px', fontSize:12, color:'var(--text)'}}>
+                            {d.details?.montant && <div>Montant: <b>{fcfa(d.details.montant)}</b> ({d.details.duree_mois ? `${d.details.duree_mois} mois` : d.details.mois_paie})</div>}
+                            {d.details?.dpa && <div>DPA: <b>{d.details.dpa}</b> ({d.details.grossesse_multiple ? 'Multiple' : 'Simple'})</div>}
+                            {d.details?.date_debut && <div>Du {d.details.date_debut} au {d.details.date_fin}</div>}
+                            {d.details?.motif && <div style={{fontStyle:'italic', color:'var(--muted)'}}>Motif: {d.details.motif}</div>}
+                          </td>
+                          <td style={{padding:'12px', textAlign:'center'}}>
+                            <span style={{
+                              fontSize:11,
+                              fontWeight:800,
+                              padding:'4px 10px',
+                              borderRadius:12,
+                              background: d.statut === 'Approuvée' ? 'rgba(34,197,94,0.15)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)',
+                              color: d.statut === 'Approuvée' ? '#22c55e' : d.statut === 'Refusée' ? '#ef4444' : '#eab308'
+                            }}>
+                              {d.statut}
+                            </span>
+                          </td>
+                          <td style={{padding:'12px', textAlign:'center'}}>
+                            {d.statut === 'En attente' ? (
+                              <div style={{display:'flex', gap:6, justifyContent:'center'}}>
+                                <button
+                                  className="btn-sm"
+                                  style={{background:'#22c55e', color:'#fff', border:'none', padding:'5px 10px', borderRadius:6, fontWeight:800, fontSize:11, cursor:'pointer'}}
+                                  onClick={async () => {
+                                    const rep = prompt('Confirmation / Message pour l\'enseignant (optionnel) :', 'Demande approuvée par la Direction.')
+                                    if (rep === null) return
+                                    const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut:'Approuvée', reponse_direction: rep } : x)
+                                    setDemandesRH(updated)
+                                    await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() })
+                                    alert('✅ Demande approuvée avec succès !')
+                                  }}
+                                >
+                                  ✓ Approuver
+                                </button>
+                                <button
+                                  className="btn-sm"
+                                  style={{background:'#ef4444', color:'#fff', border:'none', padding:'5px 10px', borderRadius:6, fontWeight:800, fontSize:11, cursor:'pointer'}}
+                                  onClick={async () => {
+                                    const rep = prompt('Motif du refus :', 'Refusé')
+                                    if (!rep) return
+                                    const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut:'Refusée', reponse_direction: rep } : x)
+                                    setDemandesRH(updated)
+                                    await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() })
+                                    alert('❌ Demande refusée.')
+                                  }}
+                                >
+                                  ✖ Refuser
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{fontSize:11, color:'var(--muted)'}}>Traitée</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             <div className="card" style={{marginBottom:16}}>
