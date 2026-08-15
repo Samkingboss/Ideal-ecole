@@ -96,14 +96,6 @@ export default function DirecteurApp({ user, onLogout }) {
 
   useEffect(() => { 
     loadData() 
-    const handleWheelScroll = (e) => {
-      const scrollable = e.target.closest('.top-nav-secondary, .tab-nav')
-      if (scrollable && scrollable.scrollWidth > scrollable.clientWidth && e.deltaY !== 0) {
-        scrollable.scrollLeft += e.deltaY * 1.5
-      }
-    }
-    window.addEventListener('wheel', handleWheelScroll, { passive: true })
-    return () => window.removeEventListener('wheel', handleWheelScroll)
   }, [])
 
   const loadData = async () => {

@@ -16,7 +16,6 @@
 }
 html {
   scroll-behavior: smooth;
-  overflow-y: auto !important;
 }
 
 body {
@@ -24,8 +23,6 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  overflow-y: auto !important;
-  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -55,7 +52,9 @@ body {
   padding: 10px 1.2rem; 
   background: var(--card); 
   border-bottom: 1px solid var(--border); 
-  overflow-x: auto !important; 
+  overflow-x: auto; 
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   position: sticky; 
   top: 51px; /* Juste sous la topbar */
   z-index: 99; 
@@ -85,7 +84,7 @@ body {
   box-shadow: 0 4px 12px rgba(26, 175, 224, 0.35); 
   transform: translateY(-1px);
 }
-.bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:var(--card); border-top:1px solid var(--border); display:flex; justify-content:space-around; padding:.5rem 0 .8rem; z-index:100; }
+.bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:1400px; background:var(--card); border-top:1px solid var(--border); display:flex; justify-content:space-around; padding:.5rem 0 .8rem; z-index:100; }
 .nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:9px; font-weight:600; color:var(--muted); cursor:pointer; padding:4px 10px; transition:color .2s; border:none; background:none; }
 .nav-item.active { color:var(--accent); }
 .nav-icon { font-size:22px; line-height:1; }
