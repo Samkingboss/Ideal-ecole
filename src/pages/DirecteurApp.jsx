@@ -111,6 +111,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
   const [ficheMarcheCantine, setFicheMarcheCantine] = useState({ budget: 0, articles: [] })
   const [justificatifsCuisine, setJustificatifsCuisine] = useState([])
+  const [selectedJustificatif, setSelectedJustificatif] = useState(null)
 
   useEffect(() => { 
     loadData() 
