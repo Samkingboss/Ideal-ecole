@@ -302,7 +302,7 @@ export default function ProfApp({ user, onLogout }) {
         )}
       </div>
 
-      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px' }}>
+      <div className="page-content" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
         {/* Bandeau permanent prime d'été */}
         {tab !== 'prime' && <MaPrime user={user} compact onOuvrir={() => { setActiveProfSession('perfs'); setTab('prime'); }} />}
 

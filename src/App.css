@@ -42,9 +42,9 @@ body {
 .role-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .role-directeur { background:rgba(192,86,33,.1); color:#C05621; } /* Amélioré de #F7941D */
 .role-professeur { background:rgba(0,119,162,.1); color:#0077A2; } /* Amélioré de #1AAFE0 */
-.role-surveillant { background:rgba(47,133,90,.1); color:#2F855A; } /* Amélioré de #8DC63F */
+.role-surveillant { background:rgba(47,133,90,.1); color:#2F855A; }
 .btn-logout { background:rgba(255,255,255,.15); border:none; border-radius:20px; padding:5px 12px; color:rgba(255,255,255,.7); font-size:11px; cursor:pointer; }
-.page-content { flex:1; padding:0.5rem 1.2rem 80px; }
+.page-content { flex:1; padding:0.5rem 1.2rem calc(130px + env(safe-area-inset-bottom)) !important; }
 
 .top-nav-secondary { 
   display: flex; 

@@ -591,7 +591,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       </div>
 
       {/* Main Content */}
-      <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px', maxWidth: 1380, margin: '0 auto' }}>
+      <div className="page-content" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))', maxWidth: 1380, margin: '0 auto' }}>
         {msg && <div className="error-msg" style={{ background: 'rgba(123,193,66,0.15)', borderColor: '#7bc142', color: '#275204', marginBottom: 16, borderRadius: 12, padding: '12px 16px', fontWeight: 700 }} onClick={() => setMsg('')}>{msg}</div>}
 
         {/* ════════════════ SESSION 1 : ÉLÈVES INSCRITS & ALLERGIES ════════════════ */}
