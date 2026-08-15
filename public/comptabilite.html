@@ -791,6 +791,7 @@ function deconnexionIdeal() {
   <button class="tab-btn active" onclick="showTab('dashboard',this)">📊 Vue d'ensemble</button>
   <button class="tab-btn" onclick="showTab('recettes',this)">💵 Effectifs & Recettes</button>
   <button class="tab-btn" onclick="showTab('charges',this)">📋 Charges</button>
+  <button class="tab-btn" id="btn-tab-salaires" onclick="showTab('salaires-rh',this)" style="background:rgba(0,168,224,0.12); color:var(--blue); font-weight:800;">👥 Salaires & Paie (RH)</button>
   <button class="tab-btn" onclick="showTab('eleves',this)">🎓 Gestion Élèves</button>
   <button class="tab-btn" onclick="showTab('recouvrement',this)">📲 Recouvrement WhatsApp</button>
   <button class="tab-btn" onclick="showTab('pilotage',this)">🚀 Pilotage & Alertes</button>
@@ -1056,6 +1057,70 @@ function deconnexionIdeal() {
           </table>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ TAB: SALAIRES & PAIE (RH) ════════════════ -->
+<section class="tab-pane" id="tab-salaires-rh">
+  <div class="sec-h" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+    <div>
+      <div class="sec-title">👥 Gestion des Salaires &amp; Paie du Personnel (RH)</div>
+      <div class="sec-sub">Référentiel des postes, grilles salariales et édition des fiches d'émargement mensuelles.</div>
+    </div>
+    <button class="btn" style="background:linear-gradient(135deg,#00a8e0,#0078b4); color:#fff; font-weight:700; padding:0.75rem 1.25rem; border-radius:8px; cursor:pointer;" onclick="imprimerEtatSalaires()">
+      🖨️ Imprimer la Fiche d'Émargement Mensuelle (PDF)
+    </button>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem; overflow:hidden;">
+    <div class="card-head" style="padding:1.2rem; border-bottom:1px solid var(--border);">
+      <h3 style="margin:0; font-size:1.05rem;">💼 Grille des Salaires du Personnel</h3>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="tbl" id="tbl-salaires-rh-pane"></table>
+    </div>
+  </div>
+
+  <div class="card" style="overflow:hidden; margin-bottom:2rem;">
+    <div style="padding:1.2rem; background:rgba(0,168,224,0.06); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h4 style="margin:0; font-size:1.05rem; color:var(--text);" id="etat-salaires-title-rh">État de Paie du Personnel — Octobre 2026</h4>
+        <div style="font-size:0.8rem; color:var(--text-dim); margin-top:2px;">Ajustez les primes et retenues mensuelles éventuelles avant impression.</div>
+      </div>
+      <div style="display:flex; gap:0.8rem; align-items:center;">
+        <select id="salaires-mois-select-rh" class="inp" onchange="syncMoisSalairesSelect(this.value)" style="background:var(--bg); border:1px solid var(--border); font-weight:700;">
+          <option value="2026-10">Octobre 2026</option>
+          <option value="2026-11">Novembre 2026</option>
+          <option value="2026-12">Décembre 2026</option>
+          <option value="2027-01">Janvier 2027</option>
+          <option value="2027-02">Février 2027</option>
+          <option value="2027-03">Mars 2027</option>
+          <option value="2027-04">Avril 2027</option>
+          <option value="2027-05">Mai 2027</option>
+          <option value="2027-06">Juin 2027</option>
+        </select>
+        <div style="text-align:right;">
+          <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Masse Salariale Nette</div>
+          <div style="font-size:1.2rem; font-weight:900; color:var(--green);" id="etat-salaires-total-net-rh">0 FCFA</div>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Poste / Employé</th>
+            <th class="r">Salaire de Base</th>
+            <th class="r">Primes / Bonus</th>
+            <th class="r">Retenues / Avances</th>
+            <th class="r">Net à Payer</th>
+            <th>Mode de Règlement</th>
+            <th class="c">Statut</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-etat-salaires-mensuel-rh"></tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -4550,14 +4615,25 @@ function renderSalairesTable() {
     <td class="r" id="sal-total-mensuel">${fc(totM)}</td>
     <td class="r" id="sal-total-annuel">${fc(totM * 12)}</td>
   </tr></tbody>`;
-  document.getElementById('tbl-salaires').innerHTML = h;
+  const t1 = document.getElementById('tbl-salaires');
+  if (t1) t1.innerHTML = h;
+  const t2 = document.getElementById('tbl-salaires-rh-pane');
+  if (t2) t2.innerHTML = h;
+  renderEtatSalairesMensuel();
+}
+
+function syncMoisSalairesSelect(val) {
+  const s1 = document.getElementById('salaires-mois-select');
+  const s2 = document.getElementById('salaires-mois-select-rh');
+  if (s1) s1.value = val;
+  if (s2) s2.value = val;
   renderEtatSalairesMensuel();
 }
 
 let _etatSalairesMensuelData = {};
 
 function initEtatSalairesMensuel() {
-  const moisSelect = document.getElementById('salaires-mois-select');
+  const moisSelect = document.getElementById('salaires-mois-select') || document.getElementById('salaires-mois-select-rh');
   if (!moisSelect) return;
   const currentMois = moisSelect.value || '2026-10';
   
@@ -4576,16 +4652,15 @@ function initEtatSalairesMensuel() {
 
 function renderEtatSalairesMensuel() {
   initEtatSalairesMensuel();
-  const moisSelect = document.getElementById('salaires-mois-select');
+  const moisSelect = document.getElementById('salaires-mois-select') || document.getElementById('salaires-mois-select-rh');
   if (!moisSelect) return;
   const moisKey = moisSelect.value;
   const moisLabel = moisSelect.options[moisSelect.selectedIndex].text;
 
-  const titleEl = document.getElementById('etat-salaires-title');
-  if (titleEl) titleEl.textContent = `État de Paie du Personnel — ${moisLabel}`;
-
-  const tbody = document.getElementById('tbody-etat-salaires-mensuel');
-  if (!tbody) return;
+  const title1 = document.getElementById('etat-salaires-title');
+  if (title1) title1.textContent = `État de Paie du Personnel — ${moisLabel}`;
+  const title2 = document.getElementById('etat-salaires-title-rh');
+  if (title2) title2.textContent = `État de Paie du Personnel — ${moisLabel}`;
 
   const items = _etatSalairesMensuelData[moisKey] || [];
   let html = '';
@@ -4622,9 +4697,15 @@ function renderEtatSalairesMensuel() {
     </tr>`;
   });
 
-  tbody.innerHTML = html;
-  const totNetEl = document.getElementById('etat-salaires-total-net');
-  if (totNetEl) totNetEl.textContent = fc(totNet);
+  const tb1 = document.getElementById('tbody-etat-salaires-mensuel');
+  if (tb1) tb1.innerHTML = html;
+  const tb2 = document.getElementById('tbody-etat-salaires-mensuel-rh');
+  if (tb2) tb2.innerHTML = html;
+
+  const tot1 = document.getElementById('etat-salaires-total-net');
+  if (tot1) tot1.textContent = fc(totNet);
+  const tot2 = document.getElementById('etat-salaires-total-net-rh');
+  if (tot2) tot2.textContent = fc(totNet);
 }
 
 function updateEtatSalairesItem(moisKey, idx, field, val) {
@@ -6616,11 +6697,13 @@ function showTab(name, btn) {
   // Re-render Eleves before showing
   if (name === 'eleves') renderElevesTab();
   if (name === 'recouvrement') renderRecouvrement();
+  if (name === 'salaires-rh' || name === 'charges') { renderSalairesTable(); renderEtatSalairesMensuel(); }
 
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  btn.classList.add('active');
+  const targetPane = document.getElementById('tab-' + name);
+  if (targetPane) targetPane.classList.add('active');
+  if (btn) btn.classList.add('active');
   // Re-render charts after layout settles
   setTimeout(() => {
     const d = compute();
@@ -7588,6 +7671,10 @@ function autoLoad() {
       if (s.pctMensualise !== undefined) document.getElementById('pct-mensualise').value = s.pctMensualise;
       if (s.encaissementReel !== undefined) document.getElementById('encaissement-reel').value = s.encaissementReel;
       recalculate(); // Apply these UI inputs gracefully
+      if (window.location.hash.includes('rh') || window.location.hash.includes('salaires')) {
+        const btn = document.getElementById('btn-tab-salaires');
+        if (btn) showTab('salaires-rh', btn);
+      }
     }, 50);
 
   } catch (e) {
