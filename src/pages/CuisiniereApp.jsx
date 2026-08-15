@@ -549,43 +549,43 @@ export default function CuisiniereApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Navigation des Sessions */}
-      <div style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 51, zIndex: 99, background: '#ffffff', borderBottom: '2px solid var(--border)', padding: '6px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', gap: 8, flex: 1, overflowX: 'auto' }}>
+      {/* Navigation des Sessions (Mobile-friendly Scroll horizontal sans chevauchement) */}
+      <div style={{ background: '#ffffff', borderBottom: '2px solid var(--border)', padding: '6px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div className="top-nav-secondary" style={{ borderBottom: 'none', boxShadow: 'none', display: 'flex', gap: 8, width: 'max-content' }}>
           <button
             className={`top-nav-item ${tab === 'eleves' ? 'active' : ''}`}
             onClick={() => setTab('eleves')}
-            style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            🥗 1. Élèves Cantine &amp; Allergies ({elevesInscrits.length})
+            <span>🥗 1. Élèves Cantine &amp; Allergies ({elevesInscrits.length})</span>
           </button>
           <button
             className={`top-nav-item ${tab === 'checking' ? 'active' : ''}`}
             onClick={() => setTab('checking')}
-            style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, background: tab==='checking' ? '#0d2a3b' : '', color: tab==='checking' ? '#7bc142' : '' }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: tab==='checking' ? '#0d2a3b' : '', color: tab==='checking' ? '#7bc142' : '' }}
           >
-            📋 2. Checking Repas (Matin, Midi, Goûter)
+            <span>📋 2. Checking Repas</span>
           </button>
           <button
             className={`top-nav-item ${tab === 'preparation' ? 'active' : ''}`}
             onClick={() => setTab('preparation')}
-            style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            🍳 3. Préparation du Menu
+            <span>🍳 3. Préparation du Menu</span>
           </button>
           <button
             className={`top-nav-item ${tab === 'menu_jour' ? 'active' : ''}`}
             onClick={() => setTab('menu_jour')}
-            style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            👑 4. Affiche Menu Hebdo (WhatsApp HD)
+            <span>👑 4. Affiche Menu Hebdo (WhatsApp HD)</span>
           </button>
           <button
             className={`top-nav-item ${tab === 'marche' ? 'active' : ''}`}
             onClick={() => setTab('marche')}
-            style={{ padding: '10px 16px', borderRadius: 10, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            🛒 5. Fiche du Marché
+            <span>🛒 5. Fiche du Marché</span>
           </button>
         </div>
       </div>
@@ -1258,12 +1258,14 @@ export default function CuisiniereApp({ user, onLogout }) {
                 </div>
 
                 {/* Segmented Control Toggle */}
-                <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', width: '100%', maxWidth: 420, background: '#f1f5f9', padding: 4, borderRadius: 12, border: '1px solid #e2e8f0', gap: 4 }}>
                   <button
                     type="button"
                     onClick={() => saveFicheMarche({ ...ficheMarche, type_periode: 'journalier' })}
                     style={{
-                      padding: '8px 18px',
+                      flex: 1,
+                      minWidth: 140,
+                      padding: '8px 12px',
                       borderRadius: 8,
                       border: 'none',
                       fontWeight: 800,
@@ -1281,7 +1283,9 @@ export default function CuisiniereApp({ user, onLogout }) {
                     type="button"
                     onClick={() => saveFicheMarche({ ...ficheMarche, type_periode: 'hebdomadaire' })}
                     style={{
-                      padding: '8px 18px',
+                      flex: 1,
+                      minWidth: 140,
+                      padding: '8px 12px',
                       borderRadius: 8,
                       border: 'none',
                       fontWeight: 800,
@@ -1302,29 +1306,29 @@ export default function CuisiniereApp({ user, onLogout }) {
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                 {(ficheMarche.type_periode || 'journalier') === 'journalier' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b', minWidth: 140 }}>📅 Date du jour :</label>
+                    <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b' }}>📅 Date du jour :</label>
                     <input
                       type="date"
                       className="form-input"
                       value={ficheMarche.date_du_jour || getTodayString()}
                       onChange={e => saveFicheMarche({ ...ficheMarche, date_du_jour: e.target.value })}
-                      style={{ width: 220, fontWeight: 800, color: '#0d2a3b' }}
+                      style={{ width: '100%', maxWidth: 220, fontWeight: 800, color: '#0d2a3b' }}
                     />
-                    <span style={{ fontSize: 12, color: '#047857', fontWeight: 800, background: '#f0fdf4', padding: '6px 14px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                    <span style={{ fontSize: 12, color: '#047857', fontWeight: 800, background: '#f0fdf4', padding: '6px 14px', borderRadius: 8, border: '1px solid #bbf7d0', maxWidth: '100%' }}>
                       ℹ️ Fiche de Marché enregistrée pour le {new Date(ficheMarche.date_du_jour || getTodayString()).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b', minWidth: 140 }}>🗓️ Semaine / Période :</label>
+                    <label style={{ fontSize: 13, fontWeight: 800, color: '#0d2a3b' }}>🗓️ Semaine / Période :</label>
                     <input
                       className="form-input"
                       value={ficheMarche.periode_semaine || 'Semaine du 12 au 16 Janvier 2026'}
                       onChange={e => saveFicheMarche({ ...ficheMarche, periode_semaine: e.target.value })}
                       placeholder="Ex: Semaine du 12 au 16 Janvier 2026"
-                      style={{ width: 320, fontWeight: 800, color: '#0d2a3b' }}
+                      style={{ width: '100%', maxWidth: 320, fontWeight: 800, color: '#0d2a3b' }}
                     />
-                    <span style={{ fontSize: 12, color: '#b45309', fontWeight: 800, background: '#fffbeb', padding: '6px 14px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                    <span style={{ fontSize: 12, color: '#b45309', fontWeight: 800, background: '#fffbeb', padding: '6px 14px', borderRadius: 8, border: '1px solid #fde68a', maxWidth: '100%' }}>
                       ℹ️ Fiche de Marché globale pour toute la semaine
                     </span>
                   </div>
