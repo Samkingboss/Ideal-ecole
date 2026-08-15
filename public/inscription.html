@@ -520,7 +520,7 @@
             <img src="logo-ideal.svg" alt="Logo IDEAL" style="position:absolute; top:1.2rem; right:1.5rem; height:90px; width:auto; filter:brightness(0) invert(1) opacity(.25); z-index:1; pointer-events:none;">
             <div class="hero-eyebrow"><span></span> Année scolaire 2026 – 2027</div>
             <h1>Bienvenue sur la<br>Plateforme IDEAL</h1>
-            <p>Inscriptions, réinscriptions et dossiers numériques des élèves — rapides, sécurisés, professionnels.</p>
+            <p>Inscriptions et dossiers numériques des élèves — rapides, sécurisés, professionnels.</p>
             <button class="btn btn-primary" onclick="startWizard('nouvelle')" style="font-size:1rem; padding:.9rem 2.2rem; background:#fff; color:var(--blue); font-weight:800; box-shadow:0 4px 16px rgba(0,0,0,.15);">
                 ✦ Commencer une inscription
             </button>
@@ -533,24 +533,14 @@
                     <div class="hero-stat-value" id="stat-cantine">—</div>
                     <div class="hero-stat-label">À la cantine</div>
                 </div>
-                <div>
-                    <div class="hero-stat-value" id="stat-reinsc">—</div>
-                    <div class="hero-stat-label">Réinscriptions</div>
-                </div>
             </div>
         </div>
 
         <div class="home-actions">
             <div class="action-card" onclick="startWizard('nouvelle')">
                 <div class="action-card-icon icon-blue">📝</div>
-                <div class="action-title">Nouvelle Inscription</div>
+                <div class="action-title">Inscription</div>
                 <div class="action-desc">Créer un dossier élève complet en 8 étapes guidées — responsables, photo, documents, cantine, signature.</div>
-                <div class="action-arrow">→</div>
-            </div>
-            <div class="action-card" onclick="startReinscription()">
-                <div class="action-card-icon icon-orange">🔄</div>
-                <div class="action-title">Réinscription</div>
-                <div class="action-desc">Rechercher un élève par matricule ou nom pour le réinscrire avec toutes ses informations pré-remplies.</div>
                 <div class="action-arrow">→</div>
             </div>
             <div class="action-card" onclick="showScreen('dashboard-screen')">
@@ -814,10 +804,6 @@
                 <div class="kpi-label">Inscriptions totales</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-value" style="color: var(--green);" id="kpi-reinscriptions">–</div>
-                <div class="kpi-label">Réinscriptions</div>
-            </div>
-            <div class="kpi-card">
                 <div class="kpi-value" style="color: var(--amber);" id="kpi-cantine">–</div>
                 <div class="kpi-label">À la cantine</div>
             </div>
@@ -827,19 +813,6 @@
             <div id="dashboard-table-container" style="overflow-x:auto;">
                 <div style="padding: 2rem; text-align: center; color: var(--muted);">Chargement...</div>
             </div>
-        </div>
-    </div>
-
-    <!-- RÉINSCRIPTION SEARCH -->
-    <div id="reinscription-screen" class="hidden">
-        <h2 style="font-size: 2rem; font-weight: 800; margin-bottom:1.5rem;">Réinscription</h2>
-        <div class="card">
-            <p style="color:var(--muted); margin-bottom:1.5rem;">Recherchez l'élève par son matricule ou son nom pour pré-remplir le formulaire.</p>
-            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-                <input type="text" id="reinscription-search" placeholder="Ex: IDEAL-2027-001 ou Nom de l'élève" style="flex:1; min-width:200px;">
-                <button class="btn" onclick="searchForReinscription()">Rechercher</button>
-            </div>
-            <div id="reinscription-results" style="margin-top:1.5rem;"></div>
         </div>
     </div>
 
@@ -1559,7 +1532,7 @@ Merci de votre confiance.
         doc.setFont('helvetica', 'bold');
         doc.text(`MATRICULE : ${matricule}`, ML + 4, 38.3);
 
-        const typeLabel = data.type_inscription === 'reinscription' ? 'RÉINSCRIPTION' : 'NOUVELLE INSCRIPTION';
+        const typeLabel = 'DOSSIER D\'INSCRIPTION';
         doc.setFillColor(...NAVY_BG);
         doc.setDrawColor(...GRIS_L);
         doc.roundedRect(ML + 80, 33, 50, 8, 1, 1, 'FD');
