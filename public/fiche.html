@@ -206,6 +206,9 @@
         </div>
         <div class="fiche-footer">
             Document officiel · <strong>École IDEAL</strong> · Bamako, Mali
+            <div id="badge-confiance-qr" style="display:none; color:var(--blue); font-weight:800; margin-top:.4rem; font-size:.85rem;">
+                ✨ Merci pour votre confiance renouvelée envers l'École IDEAL !
+            </div>
         </div>
     </div>
 </div>
@@ -348,6 +351,12 @@ window.addEventListener('load', async () => {
             document.getElementById('allergies-zone').style.display = 'block';
             set('f-allergies', ins.allergies || 'Aucune');
             set('f-restrictions', ins.restrictions || 'Aucune');
+        }
+
+        // Message de confiance renouvelée
+        if (ins.type_inscription === 'reinscription' || (ins.matricule && !ins.matricule.startsWith('25-26'))) {
+            const bq = document.getElementById('badge-confiance-qr');
+            if (bq) bq.style.display = 'block';
         }
 
     } catch(e) {
