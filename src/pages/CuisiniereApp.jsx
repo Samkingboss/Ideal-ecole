@@ -5,6 +5,15 @@ import html2canvas from 'html2canvas'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
 
+// Palette de fonds colorés élégants sans bordures pour chaque jour
+const DAY_COLOR_SCHEMES = {
+  Lundi: { cardBg: '#f0fdf4', headerBg: '#047857', headerText: '#ffffff' },
+  Mardi: { cardBg: '#fffbeb', headerBg: '#d97706', headerText: '#ffffff' },
+  Mercredi: { cardBg: '#f0f9ff', headerBg: '#0284c7', headerText: '#ffffff' },
+  Jeudi: { cardBg: '#fdf2f8', headerBg: '#db2777', headerText: '#ffffff' },
+  Vendredi: { cardBg: '#f1f5f9', headerBg: '#0f172a', headerText: '#ffffff' }
+}
+
 // Exemple officiel de menu hebdomadaire haute gastronomie
 const SAMPLE_MENU_SEMAINE = {
   date_debut: "12/01/2026",
@@ -16,7 +25,7 @@ const SAMPLE_MENU_SEMAINE = {
     platTitre: "Arachide'Poulet Bonheur",
     platDesc: "Riz blanc bien moelleux accompagné d'une sauce arachide onctueuse, préparée avec des morceaux de poulet tendres et peu épicée.",
     dessertTitre: "Banana'Doux",
-    dessertDesc: "Banane bien mûre, naturellement sucrée et facile à manger.",
+    dessertDesc: "Banane bien mûre, naturally sucrée et facile à manger.",
     gouterTitre: "Beignet'Nuage",
     gouterDesc: "Beignet léger, doré et moelleux à l'intérieur, légèrement sucré."
   },
@@ -163,7 +172,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       })
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98)
       const link = document.createElement('a')
-      link.download = `Menu_Service_Restauration_UltraPremium_IDEAL_${getTodayString()}.jpg`
+      link.download = `Menu_Service_Restauration_IDEAL_${getTodayString()}.jpg`
       link.href = dataUrl
       link.click()
       setMsg('📸 Affiche Ultra-Premium JPEG téléchargée avec succès ! Prête pour diffusion WhatsApp.')
@@ -355,26 +364,28 @@ export default function CuisiniereApp({ user, onLogout }) {
   const countMidi = elevesInscrits.filter(e => pointage[e.id]?.midi).length
   const countGouter = elevesInscrits.filter(e => pointage[e.id]?.gouter).length
 
-  // Rendu de la carte d'un jour (Combine l'Ancien Design Ultra-Premium et la Nouvelle Organisation 2-Rangées sans vide)
+  // Rendu de la carte d'un jour (Fond coloré SANS BORDURES, Cadre simple pour le jour SANS pointillés)
   const renderDayCard = (j) => {
     const item = menuSemaine[j] || {}
+    const scheme = DAY_COLOR_SCHEMES[j] || { cardBg: '#f8fafc', headerBg: '#047857', headerText: '#ffffff' }
+
     return (
       <div
         key={j}
         style={{
-          background: '#ffffff',
-          border: '1.5px solid rgba(217,119,6,0.3)',
+          background: scheme.cardBg,
+          border: 'none', // SANS BORDURE
           borderRadius: 24,
-          padding: '20px 20px',
+          padding: '22px 20px',
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
           boxShadow: '0 8px 24px rgba(0,0,0,0.04)'
         }}
       >
-        {/* Ruban de Titre du Jour (Vert Émeraude Impérial) */}
-        <div style={{ background: 'linear-gradient(135deg, #065f46, #047857)', color: '#fff', padding: '10px 14px', borderRadius: 14, textAlign: 'center', fontWeight: 900, fontSize: 16, textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 12px rgba(4,120,87,0.25)', border: '1px solid #10b981' }}>
-          📅 {j.toUpperCase()}
+        {/* En-tête Cadre simple avec juste le jour dedans (SANS POINTILLÉS ET SANS TIRETS) */}
+        <div style={{ background: scheme.headerBg, color: scheme.headerText, padding: '10px 16px', borderRadius: 14, textAlign: 'center', fontWeight: 900, fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+          {j}
         </div>
 
         {/* ENTRÉE DU CHEF */}
@@ -390,8 +401,8 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         </div>
 
-        {/* PLAT PRINCIPAL CHAUD (MISE EN ÉVIDENCE EMERAUDE) */}
-        <div style={{ background: 'rgba(16,185,129,0.08)', padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(16,185,129,0.25)' }}>
+        {/* PLAT PRINCIPAL CHAUD (FOND BLANC ÉLÉGANT) */}
+        <div style={{ background: 'rgba(255,255,255,0.85)', padding: '12px 14px', borderRadius: 14, border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
             <span>🍲</span> PLAT PRINCIPAL CHAUD
           </div>
@@ -977,13 +988,13 @@ export default function CuisiniereApp({ user, onLogout }) {
           </div>
         )}
 
-        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (DESIGN ULTRA-PREMIUM + ORGANISATION 2 RANGÉES) ════════════════ */}
+        {/* ════════════════ SESSION 4 : AFFICHE HEBDOMADAIRE OFFICIELLE (FONDS COLORÉS SANS BORDURES NI POINTILLÉS) ════════════════ */}
         {tab === 'menu_jour' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>👑 Session 4 : Service de Restauration — Affiche Officielle</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Visuel Ultra-Premium d'exception parfaitement équilibré sans aucun vide pour diffusion WhatsApp.</p>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Fonds colorés élégants sans bordures &amp; en-têtes épurés pour les jours de la semaine.</p>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
@@ -1003,7 +1014,7 @@ export default function CuisiniereApp({ user, onLogout }) {
               </div>
             </div>
 
-            {/* AFFICHE INTÉGRALE HEBDOMADAIRE (DESIGN ULTRA-PREMIUM PRESTIGE + NOUVELLE ORGANISATION SANS VIDE) */}
+            {/* AFFICHE INTÉGRALE HEBDOMADAIRE (FONDS COLORÉS SANS BORDURES NI POINTILLÉS) */}
             <div
               id="menu-whatsapp-poster"
               style={{
