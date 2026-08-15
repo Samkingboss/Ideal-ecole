@@ -59,7 +59,10 @@ const DEFAULT_POSTES = [
 const fmtFCFA = n => (parseInt(n, 10) || 0).toLocaleString('fr-FR') + ' FCFA'
 
 export default function DirecteurApp({ user, onLogout }) {
-  const [tab, setTab] = useState('dashboard')
+  const [tab, setTab] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    return urlParams.get('tab') || 'dashboard'
+  })
   const [stats, setStats] = useState({ profs:0, eleves:0, checkpoints:0 })
   const [profs, setProfs] = useState([])
   const [eleves, setEleves] = useState([])
