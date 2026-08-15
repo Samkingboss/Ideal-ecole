@@ -53,6 +53,45 @@ export default function DemandesEnseignant({ user }) {
     }
   }
 
+  // ⚖️ CALCUL DU CONGÉ DE MATERNITÉ CONFORME AU CODE DU TRAVAIL DU MALI (Loi n° 92-020, Art. L.179 & INPS)
+  // 14 semaines au total : 6 semaines pré-natales (-42 jours) + 8 semaines post-natales (+56 jours).
+  // +3 semaines supplémentaires (+21 jours) en cas de naissances multiples ou complications médicales.
+  const calculerDatesMaterniteMali = (dpaStr, estMultiple = false) => {
+    if (!dpaStr) return { debut: '', fin: '', dureeJours: 0, dureeSemaines: 14 }
+    const dpaDate = new Date(dpaStr + 'T00:00:00')
+    if (isNaN(dpaDate.getTime())) return { debut: '', fin: '', dureeJours: 0, dureeSemaines: 14 }
+
+    // 6 semaines pré-natales (42 jours avant la DPA)
+    const debutDate = new Date(dpaDate)
+    debutDate.setDate(debutDate.getDate() - 42)
+
+    // 8 semaines post-natales (56 jours après DPA) ou 11 semaines (77 jours) si complications/multiples
+    const postNatalJours = estMultiple ? (8 + 3) * 7 : 8 * 7
+    const finDate = new Date(dpaDate)
+    finDate.setDate(finDate.getDate() + postNatalJours)
+
+    const dureeJours = 42 + postNatalJours
+    const dureeSemaines = dureeJours / 7
+
+    return {
+      debut: debutDate.toISOString().slice(0, 10),
+      fin: finDate.toISOString().slice(0, 10),
+      dureeJours,
+      dureeSemaines
+    }
+  }
+
+  const handleDPAChange = (dpaValue, isMultiple = formData.complications_grossesse) => {
+    const calc = calculerDatesMaterniteMali(dpaValue, isMultiple)
+    setFormData(prev => ({
+      ...prev,
+      date_dpa: dpaValue,
+      complications_grossesse: isMultiple,
+      date_debut: calc.debut || prev.date_debut,
+      date_fin: calc.fin || prev.date_fin
+    }))
+  }
+
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -395,8 +434,9 @@ export default function DemandesEnseignant({ user }) {
             {typeDemande === 'maternite' && (
               <div style={{ background: 'rgba(236,72,153,0.04)', padding: '1.2rem', borderRadius: 12, border: '1px solid rgba(236,72,153,0.3)' }}>
                 <div style={{ fontWeight: 800, fontSize: 14, color: '#be185d', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  🤰 Déclaration &amp; Demande de Congé de Maternité
+                  🤰 Déclaration &amp; Demande de Congé de Maternité (Code du Travail du Mali - Art. L.179)
                 </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Stade actuel de la grossesse *</label>
@@ -414,18 +454,38 @@ export default function DemandesEnseignant({ user }) {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date Présumée d'Accouchement (DPA) *</label>
-                    <input type="date" required value={formData.date_dpa} onChange={(e) => setFormData({ ...formData, date_dpa: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700, color: '#be185d' }} />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#be185d', display: 'block', marginBottom: 2 }}>Date Présumée d'Accouchement (DPA) *</label>
+                    <input type="date" required value={formData.date_dpa} onChange={(e) => handleDPAChange(e.target.value)} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1.5px solid #be185d', fontWeight: 800, color: '#be185d' }} />
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', background: 'rgba(236,72,153,0.08)', padding: '0.8rem 1rem', borderRadius: 8, border: '1px solid rgba(236,72,153,0.2)', fontSize: 12, color: '#9d174d' }}>
+                    ⚖️ <b>Réglementation République du Mali (INPS &amp; Code du Travail) :</b>
+                    <div style={{ fontSize: 11, marginTop: 4, opacity: 0.9 }}>
+                      Durée légale totale : <b>14 semaines (98 jours)</b> — 6 semaines pré-natales (-42 jours avant la DPA) + 8 semaines post-natales (+56 jours après la DPA).
+                    </div>
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      id="chk-multiple"
+                      checked={formData.complications_grossesse || false}
+                      onChange={(e) => handleDPAChange(formData.date_dpa, e.target.checked)}
+                      style={{ cursor: 'pointer', width: 16, height: 16 }}
+                    />
+                    <label htmlFor="chk-multiple" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer' }}>
+                      Grossesse multiple (jumeaux/triplés) ou prolongation médicale (+3 semaines post-natales)
+                    </label>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date de début de congé pré-natal *</label>
-                    <input type="date" required value={formData.date_debut} onChange={(e) => setFormData({ ...formData, date_debut: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)' }} />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date début de congé (Pré-natal - 6 sem) *</label>
+                    <input type="date" required value={formData.date_debut} onChange={(e) => setFormData({ ...formData, date_debut: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700, color: 'var(--accent)' }} />
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date prévisionnelle de reprise *</label>
-                    <input type="date" required value={formData.date_fin} onChange={(e) => setFormData({ ...formData, date_fin: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)' }} />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Date reprise de service (Post-natal) *</label>
+                    <input type="date" required value={formData.date_fin} onChange={(e) => setFormData({ ...formData, date_fin: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700, color: 'var(--green)' }} />
                   </div>
 
                   <div style={{ gridColumn: '1 / -1', background: '#fff', padding: '0.9rem', borderRadius: 8, border: '1px dashed #f472b6' }}>
