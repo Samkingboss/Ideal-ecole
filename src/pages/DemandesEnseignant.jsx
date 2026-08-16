@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+const APP_RH = 'rh'
+
 import { pushNotification } from '../lib/notifications'
 
 export default function DemandesEnseignant({ user }) {
@@ -143,6 +145,7 @@ export default function DemandesEnseignant({ user }) {
       const { data: globalState } = await supabase
         .from('app_state')
         .select('value')
+        .eq('app', APP_RH)
         .eq('key', 'demandes_rh_global')
         .maybeSingle()
 
@@ -152,10 +155,13 @@ export default function DemandesEnseignant({ user }) {
       await supabase
         .from('app_state')
         .upsert({
+          // `app` fait partie de la cle primaire et ne peut etre nulle :
+          // sans elle l'ecriture etait refusee et la demande perdue.
+          app: APP_RH,
           key: 'demandes_rh_global',
           value: updatedGlobal,
-          updated_at: new Date().toISOString()
-        })
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'app,key' })
 
       // Push notification au Directeur & Admin
       await pushNotification('directeur', {

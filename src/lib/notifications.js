@@ -1,5 +1,9 @@
 import { supabase } from './supabase'
 
+// `app_state` a une clé primaire composite (app, key). Toutes les
+// notifications vivent sous ce même `app`.
+export const APP_NOTIFS = 'notifications'
+
 /**
  * Envoie une notification ciblée à un rôle ou un utilisateur spécifique
  * @param {string|string[]} target - Rôle ('directeur', 'responsable_administratif', 'prof') ou ID utilisateur
@@ -28,6 +32,7 @@ export async function pushNotification(target, notifData) {
       tabTarget: notifData.tabTarget || 'dashboard'
     }
 
+    let echec = null
     for (const tgt of targets) {
       if (!tgt) continue
       const userKey = `notifs_${tgt}`
@@ -37,6 +42,7 @@ export async function pushNotification(target, notifData) {
       const { data } = await supabase
         .from('app_state')
         .select('value')
+        .eq('app', APP_NOTIFS)
         .eq('key', userKey)
         .maybeSingle()
 
@@ -56,15 +62,26 @@ export async function pushNotification(target, notifData) {
         localStorage.setItem(userKey, JSON.stringify(updatedList))
       }
 
-      // Upsert Supabase
-      await supabase
+      // Upsert Supabase. `app` fait partie de la clé primaire et ne peut être
+      // nulle : sans elle, chaque envoi était refusé en 400 et la
+      // notification ne quittait jamais l'appareil de l'expéditeur.
+      const { error } = await supabase
         .from('app_state')
         .upsert({
+          app: APP_NOTIFS,
           key: userKey,
           value: updatedList,
-          updated_at: new Date().toISOString()
-        })
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'app,key' })
+
+      // Une notification perdue en silence est pire que pas de notification :
+      // l'expéditeur croit avoir prévenu.
+      if (error) {
+        console.error('Notification non transmise à', tgt, ':', error.message)
+        echec = error
+      }
     }
+    if (echec) return false
 
     // Si le compte courant fait partie des destinataires, déclencher la notification système
     const isRecipient = targets.includes(currentRole) || targets.includes(currentUserId) || targets.includes('global')

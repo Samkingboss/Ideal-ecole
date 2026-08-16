@@ -219,7 +219,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
       // Demandes RH soumises par les enseignants
       const { data: globalDem } = await supabase.from('app_state')
-        .select('value').eq('key', 'demandes_rh_global').maybeSingle()
+        .select('value').eq('app', 'rh').eq('key', 'demandes_rh_global').maybeSingle()
       if (globalDem && globalDem.value && Array.isArray(globalDem.value)) setDemandesRH(globalDem.value)
 
       // Fiche du marché cantine de la Cuisinière
@@ -1159,8 +1159,8 @@ export default function DirecteurApp({ user, onLogout }) {
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                             {d.statut === 'En attente' ? (
                               <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                                <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if(rep !== null) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Approuvée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }); } }}>✓ Approuver</button>
-                                <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if(rep) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Refusée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }); } }}>✖ Refuser</button>
+                                <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if(rep !== null) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Approuvée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ app: 'rh', key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' }); } }}>✓ Approuver</button>
+                                <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if(rep) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Refusée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ app: 'rh', key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' }); } }}>✖ Refuser</button>
                               </div>
                             ) : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Traitée</span>}
                           </td>

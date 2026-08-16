@@ -1,5 +1,23 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { APP_NOTIFS } from '../lib/notifications'
+
+// Les notifications lues sont mémorisées par utilisateur, sur son appareil.
+// Sans cela, la relecture toutes les 6 secondes recharge la version stockée
+// en base — où la notification est encore « non lue » — et la pastille
+// rouge revenait aussitôt après avoir été effacée.
+const cleLues = user => `notifs_lus_${user?.id || 'anonyme'}`
+
+const lireLues = user => {
+  try { return new Set(JSON.parse(localStorage.getItem(cleLues(user)) || '[]')) }
+  catch (e) { return new Set() }
+}
+
+const marquerLue = (user, ids) => {
+  const s = lireLues(user)
+  ids.forEach(id => s.add(String(id)))
+  localStorage.setItem(cleLues(user), JSON.stringify([...s]))
+}
 
 export default function NotificationCenter({ user, role, onNavigateTab }) {
   const [open, setOpen] = useState(false)
@@ -48,10 +66,22 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
       const activeRole = role || user?.role || 'prof'
       const isDirector = activeRole === 'directeur' || activeRole === 'responsable_administratif'
 
-      // Clés ciblées de façon stricte par rôle
-      const keysToFetch = isDirector
-        ? ['notifs_directeur', 'notifs_responsable_administratif', 'notifs_global', user?.id ? `notifs_${user.id}` : null].filter(Boolean)
-        : ['notifs_prof', user?.id ? `notifs_${user.id}` : null].filter(Boolean)
+      // Clés écoutées : celle de son propre rôle, la sienne en propre, et le
+      // canal général. Auparavant tout rôle autre que la direction lisait
+      // `notifs_prof` : le surveillant, la cuisinière et le conseiller
+      // recevaient les messages des enseignants et jamais les leurs.
+      // Deux façons de nommer un même rôle cohabitent : le libellé court passé
+      // par l'écran (« prof », « conseiller ») et le rôle canonique du compte
+      // (« professeur », « conseiller_vie_scolaire »). On écoute les deux,
+      // sinon un message adressé à l'un serait invisible à l'autre.
+      const keysToFetch = [...new Set([
+        `notifs_${activeRole}`,
+        user?.role ? `notifs_${user.role}` : null,
+        'notifs_global',
+        user?.id ? `notifs_${user.id}` : null,
+        // La direction et l'administratif se relaient mutuellement.
+        ...(isDirector ? ['notifs_directeur', 'notifs_responsable_administratif'] : []),
+      ].filter(Boolean))]
 
       let mergedNotifs = []
 
@@ -59,6 +89,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
       const { data: rows } = await supabase
         .from('app_state')
         .select('key, value')
+        .eq('app', APP_NOTIFS)
         .in('key', keysToFetch)
 
       if (rows && rows.length > 0) {
@@ -85,6 +116,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         const { data: globalState } = await supabase
           .from('app_state')
           .select('value')
+          .eq('app', 'rh')
           .eq('key', 'demandes_rh_global')
           .maybeSingle()
 
@@ -122,30 +154,32 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         return dB - dA
       })
 
-      const currentUnread = sortedList.filter(n => !n.lu).length
-      setNotifications(sortedList)
-      setUnreadCount(currentUnread)
+      // On applique l'état de lecture propre à cet utilisateur, qui prime sur
+      // le `lu` stocké en base — celui-ci est commun à tous les destinataires.
+      const lues = lireLues(user)
+      const avecLecture = sortedList.map(n => ({ ...n, lu: n.lu || lues.has(String(n.id)) }))
+
+      setNotifications(avecLecture)
+      setUnreadCount(avecLecture.filter(n => !n.lu).length)
     } catch (err) {
       console.error('Erreur chargement notifications:', err)
     }
   }
 
+  // On enregistre uniquement l'identifiant lu, pas la liste entière : écrire
+  // la liste fusionnée dans la clé de son propre rôle y recopiait les
+  // notifications des autres canaux, qui se dupliquaient à chaque relecture.
   const handleMarkAsRead = async (id) => {
+    marquerLue(user, [id])
     const updated = notifications.map(n => n.id === id ? { ...n, lu: true } : n)
     setNotifications(updated)
     setUnreadCount(updated.filter(n => !n.lu).length)
-    const activeRole = role || user?.role || 'prof'
-    const key = `notifs_${activeRole}`
-    localStorage.setItem(key, JSON.stringify(updated))
   }
 
   const handleMarkAllRead = async () => {
-    const updated = notifications.map(n => ({ ...n, lu: true }))
-    setNotifications(updated)
+    marquerLue(user, notifications.map(n => n.id))
+    setNotifications(notifications.map(n => ({ ...n, lu: true })))
     setUnreadCount(0)
-    const activeRole = role || user?.role || 'prof'
-    const key = `notifs_${activeRole}`
-    localStorage.setItem(key, JSON.stringify(updated))
   }
 
   const handleNotificationClick = (notif) => {
