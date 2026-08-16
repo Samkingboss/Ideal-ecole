@@ -43,6 +43,7 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
   const avecDemandes = magasin === 'pedagogique'
   const [vue, setVue] = useState(magasin === 'pedagogique' ? 'demandes' : 'stock')
   const [materiels, setMateriels] = useState([])
+  const [retires, setRetires] = useState([])   // articles désactivés, réactivables
   const [demandes, setDemandes] = useState([])
   const [mouvements, setMouvements] = useState([])
   const [chargement, setChargement] = useState(true)
@@ -63,7 +64,11 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
   async function charger() {
     setChargement(true); setErreur(null)
     const [mat, dem, mvt] = await Promise.all([
-      supabase.from('materiels').select('*').eq('actif', true).eq('magasin', magasin).order('nom'),
+      // On charge aussi les articles retirés : ils ne s'affichent pas dans le
+      // catalogue, mais il faut pouvoir en reprendre un qu'on a retiré par
+      // mégarde — sans quoi on en recrée un presque identique, et le stock du
+      // premier reste bloqué dans un article invisible.
+      supabase.from('materiels').select('*').eq('magasin', magasin).order('nom'),
       avecDemandes
         ? supabase.from('demandes_materiel').select('*, users:demandeur_id(prenom, nom)').order('created_at', { ascending: false })
         : Promise.resolve({ data: [], error: null }),
@@ -81,7 +86,8 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
     const echec = [mat, dem, mvt].find(r => r.error)
     if (echec) { setErreur('Chargement impossible : ' + echec.error.message); setChargement(false); return }
 
-    setMateriels(mat.data || [])
+    setMateriels((mat.data || []).filter(m => m.actif !== false))
+    setRetires((mat.data || []).filter(m => m.actif === false))
     setDemandes(dem.data || [])
     // Les mouvements des deux magasins vivent dans la même table : chacun ne
     // voit que le sien, sinon la cuisinière lirait les sorties de crayons.
@@ -293,11 +299,22 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
   // Retirer un article : on le désactive, on ne l'efface pas. Ses mouvements
   // passés doivent rester lisibles, sinon l'historique du stock ment.
   async function retirerArticle(m) {
-    if (m.quantite !== 0 && !confirm(`Il reste ${m.quantite} ${m.unite} de « ${m.nom} » en stock. Le retirer quand même du catalogue ?`)) return
+    if (m.quantite !== 0 && !confirm(
+      `Il reste ${m.quantite} ${m.unite} de « ${m.nom} » en stock.\n\n` +
+      `En le retirant, ce stock disparaît du catalogue sans être perdu : l'article ira dans « Articles retirés », d'où vous pourrez le reprendre.\n\nLe retirer quand même ?`
+    )) return
     setEnCours(m.id)
     const { error } = await supabase.from('materiels').update({ actif: false }).eq('id', m.id)
     setEnCours(null)
     if (error) { alert('Retrait impossible : ' + error.message); return }
+    charger()
+  }
+
+  async function reactiverArticle(m) {
+    setEnCours(m.id)
+    const { error } = await supabase.from('materiels').update({ actif: true }).eq('id', m.id)
+    setEnCours(null)
+    if (error) { alert('Réactivation impossible : ' + error.message); return }
     charger()
   }
 
@@ -326,7 +343,11 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
   const enAttente = demandes.filter(d => d.statut === 'en_attente')
   const aLivrer   = demandes.filter(d => d.statut === 'validee')
   const closes    = demandes.filter(d => d.statut === 'livree' || d.statut === 'refusee')
-  const sousSeuil = materiels.filter(m => m.quantite <= m.seuil_alerte)
+  // Un seuil à zéro signifie « aucune alerte réglée », pas « alerte dès que
+  // c'est vide » : sinon tout article neuf, forcément à zéro, sonne l'alarme,
+  // et la liste des choses à réapprovisionner devient un bruit qu'on n'écoute
+  // plus. Les quatorze denrées créées d'un coup l'ont montré aussitôt.
+  const sousSeuil = materiels.filter(m => m.seuil_alerte > 0 && m.quantite <= m.seuil_alerte)
 
   const onglet = (id, libelle, compte) => (
     <button key={id} onClick={() => setVue(id)}
@@ -445,6 +466,28 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
               </div>
             ))}
           </div>
+
+          {retires.length > 0 && (
+            <div style={carte}>
+              <div style={bandeau}>Articles retirés · {retires.length}</div>
+              <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--muted)' }}>
+                Ils n'apparaissent plus au catalogue, mais leur stock et leur historique sont conservés.
+              </div>
+              {retires.map(m => (
+                <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 14px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>{m.nom}</div>
+                    {m.quantite > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--amber)' }}>
+                        {m.quantite} {m.unite} encore en stock — réactivez-le pour les récupérer
+                      </div>
+                    )}
+                  </div>
+                  <button disabled={enCours === m.id} style={btn('var(--green)')} onClick={() => reactiverArticle(m)}>Réactiver</button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <form onSubmit={ajouterAuCatalogue} style={{ ...carte, padding: '12px 14px' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase' }}>
