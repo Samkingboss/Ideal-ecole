@@ -47,6 +47,12 @@ export default function SuiviStock({ user }) {
   // Formulaire d'ajout au catalogue
   const [nouveau, setNouveau] = useState({ nom: '', unite: 'unité', seuil_alerte: '0' })
 
+  // Comptage physique en cours : identifiant d'article -> quantité comptée,
+  // gardée en texte tant que le surveillant saisit. Une case vide veut dire
+  // « pas encore compté », ce qui n'est pas la même chose que zéro.
+  const [compte, setCompte] = useState({})
+  const [inventaireEnCours, setInventaireEnCours] = useState(false)
+
   useEffect(() => { charger() }, [])
 
   async function charger() {
@@ -195,6 +201,62 @@ export default function SuiviStock({ user }) {
     charger()
   }
 
+  // ── Inventaire ─────────────────────────────────────────────────────────
+  //
+  // Un inventaire n'écrase pas le stock : il enregistre l'écart constaté,
+  // article par article, comme n'importe quel autre mouvement. On garde donc
+  // la trace de ce qui manquait et de quand on s'en est aperçu, au lieu de
+  // faire disparaître le problème en réécrivant le chiffre.
+  //
+  // Les lignes laissées vides sont ignorées : un inventaire interrompu ne doit
+  // pas remettre à zéro les articles qu'on n'a pas eu le temps de compter.
+
+  const lignesInventaire = () => materiels
+    .map(m => ({ m, saisi: compte[m.id] }))
+    .filter(({ saisi }) => saisi !== undefined && String(saisi).trim() !== '')
+    .map(({ m, saisi }) => ({ m, reel: parseInt(saisi, 10) }))
+    .filter(({ reel }) => Number.isFinite(reel) && reel >= 0)
+    .map(({ m, reel }) => ({ m, reel, ecart: reel - m.quantite }))
+
+  async function enregistrerInventaire() {
+    const lignes = lignesInventaire()
+    const ecarts = lignes.filter(l => l.ecart !== 0)
+
+    if (lignes.length === 0) { alert('Aucun article compté.'); return }
+    if (ecarts.length === 0) {
+      alert(`${lignes.length} article(s) compté(s), aucun écart. Rien à enregistrer : le stock était juste.`)
+      setCompte({})
+      return
+    }
+
+    const resume = ecarts.map(l => `· ${l.m.nom} : ${l.m.quantite} → ${l.reel} (${l.ecart > 0 ? '+' : ''}${l.ecart})`).join('\n')
+    if (!confirm(`${ecarts.length} écart(s) à enregistrer :\n\n${resume}\n\nConfirmer ?`)) return
+
+    const raison = prompt("Commentaire pour cet inventaire (ce qui explique les écarts) :", '')
+    if (raison === null) return
+
+    // Une référence commune à toutes les lignes : c'est elle qui permettra de
+    // relire un inventaire comme un tout dans l'historique des mouvements.
+    const reference = `Inventaire du ${new Date().toLocaleDateString('fr-FR')}`
+
+    setInventaireEnCours(true)
+    const { error } = await supabase.from('mouvements_stock').insert(
+      ecarts.map(l => ({
+        materiel_id: l.m.id,
+        quantite: l.ecart,
+        motif: 'inventaire',
+        commentaire: raison ? `${reference} — ${raison}` : reference,
+        saisi_par: user.id,
+      }))
+    )
+    setInventaireEnCours(false)
+
+    if (error) { alert("Inventaire non enregistré : " + error.message); return }
+    setCompte({})
+    alert(`${ecarts.length} écart(s) enregistré(s). Le stock est à jour.`)
+    charger()
+  }
+
   async function ajouterAuCatalogue(e) {
     e.preventDefault()
     if (!nouveau.nom.trim()) return
@@ -243,6 +305,7 @@ export default function SuiviStock({ user }) {
         <div style={{ display: 'flex', gap: 8, width: 'max-content', whiteSpace: 'nowrap' }}>
           {onglet('demandes', '📥 Demandes', enAttente.length + aLivrer.length)}
           {onglet('stock', '📦 Stock', sousSeuil.length)}
+          {onglet('inventaire', '🔢 Inventaire', 0)}
           {onglet('mouvements', '🧾 Mouvements', 0)}
         </div>
       </div>
@@ -331,7 +394,7 @@ export default function SuiviStock({ user }) {
                   {m.quantite} <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{m.unite}</span>
                 </div>
                 <button disabled={enCours === m.id} style={btn('var(--green)')} onClick={() => receptionner(m)}>+ Réception</button>
-                <button disabled={enCours === m.id} style={btn('#64748b')} onClick={() => corriger(m)}>Inventaire</button>
+                <button disabled={enCours === m.id} style={btn('#64748b')} onClick={() => corriger(m)}>Corriger</button>
               </div>
             ))}
           </div>
@@ -355,6 +418,106 @@ export default function SuiviStock({ user }) {
           </form>
         </>
       )}
+
+      {/* ── Inventaire ── */}
+      {vue === 'inventaire' && (() => {
+        const lignes = lignesInventaire()
+        const ecarts = lignes.filter(l => l.ecart !== 0)
+        const restants = materiels.length - lignes.length
+        return (
+          <>
+            <div style={{ background: 'rgba(26,175,224,.08)', border: '1px solid rgba(26,175,224,.4)', borderRadius: 12, padding: '10px 14px', fontSize: 12, marginBottom: 12, lineHeight: 1.5 }}>
+              Comptez l’armoire article par article et notez ce que vous trouvez.
+              Les cases laissées vides sont ignorées : vous pouvez compter en plusieurs fois.
+              L’écart s’enregistre comme un mouvement, il ne remplace pas le stock —
+              on garde ainsi la trace de ce qui manquait et du jour où on s’en est aperçu.
+            </div>
+
+            {materiels.length === 0 && (
+              <div className="empty-state"><div className="empty-icon">📦</div><p>Le catalogue est vide : rien à compter.</p></div>
+            )}
+
+            {materiels.length > 0 && (
+              <div style={carte}>
+                <div style={{ ...bandeau, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Comptage</span>
+                  <span style={{ opacity: .75 }}>{lignes.length}/{materiels.length} compté{lignes.length > 1 ? 's' : ''}</span>
+                </div>
+                {materiels.map(m => {
+                  const saisi = compte[m.id]
+                  const reel = parseInt(saisi, 10)
+                  const compteFait = saisi !== undefined && String(saisi).trim() !== '' && Number.isFinite(reel) && reel >= 0
+                  const ecart = compteFait ? reel - m.quantite : null
+                  return (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{m.nom}</div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>en stock : {m.quantite} {m.unite}</div>
+                      </div>
+                      <input
+                        type="number" min="0" inputMode="numeric"
+                        value={saisi ?? ''}
+                        placeholder="compté"
+                        onChange={e => setCompte({ ...compte, [m.id]: e.target.value })}
+                        style={{ width: 92, padding: '7px 10px', borderRadius: 8, textAlign: 'center', fontWeight: 700,
+                                 border: '1.5px solid ' + (compteFait ? (ecart === 0 ? 'var(--green)' : 'var(--amber)') : 'var(--border)') }}
+                      />
+                      <div style={{ width: 62, textAlign: 'right', fontSize: 13, fontWeight: 800,
+                                    color: ecart === null ? 'var(--border)' : ecart === 0 ? 'var(--green)' : 'var(--amber)' }}>
+                        {ecart === null ? '—' : ecart === 0 ? 'juste' : `${ecart > 0 ? '+' : ''}${ecart}`}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {lignes.length > 0 && (
+              <div style={{ ...carte, padding: '12px 14px' }}>
+                <div style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.6 }}>
+                  <b>{lignes.length}</b> article{lignes.length > 1 ? 's' : ''} compté{lignes.length > 1 ? 's' : ''},
+                  {' '}<b style={{ color: ecarts.length ? 'var(--amber)' : 'var(--green)' }}>{ecarts.length} écart{ecarts.length > 1 ? 's' : ''}</b>.
+                  {restants > 0 && <> Il reste {restants} article{restants > 1 ? 's' : ''} à compter.</>}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button disabled={inventaireEnCours} style={{ ...btn('var(--accent)'), flex: 2, minWidth: 180, padding: 11 }} onClick={enregistrerInventaire}>
+                    {inventaireEnCours ? 'Enregistrement…' : 'Enregistrer l’inventaire'}
+                  </button>
+                  <button disabled={inventaireEnCours} style={{ ...btn('#64748b'), flex: 1, minWidth: 110, padding: 11 }} onClick={() => setCompte({})}>
+                    Effacer le comptage
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Inventaires passés, relus depuis les mouvements qu'ils ont produits */}
+            {(() => {
+              const passes = mouvements.filter(m => m.motif === 'inventaire')
+              if (!passes.length) return null
+              const parJour = {}
+              passes.forEach(m => {
+                const j = new Date(m.created_at).toLocaleDateString('fr-FR')
+                ;(parJour[j] = parJour[j] || []).push(m)
+              })
+              return (
+                <div style={carte}>
+                  <div style={bandeau}>Inventaires passés</div>
+                  {Object.entries(parJour).map(([jour, lignesJour]) => (
+                    <div key={jour} style={{ padding: '9px 14px', borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>
+                        {jour} — {lignesJour.length} écart{lignesJour.length > 1 ? 's' : ''}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                        {lignesJour.map(l => `${l.materiels?.nom || '(article retiré)'} ${l.quantite > 0 ? '+' : ''}${l.quantite}`).join(' · ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </>
+        )
+      })()}
 
       {/* ── Mouvements ── */}
       {vue === 'mouvements' && (
