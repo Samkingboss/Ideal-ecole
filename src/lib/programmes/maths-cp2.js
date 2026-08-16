@@ -10,8 +10,8 @@
 // « Ce que j'ai appris », qui tient ici le rôle du bilan.
 //
 // Le livre classe ses unités en trois domaines, signalés par une couleur dans
-// le sommaire imprimé. On les conserve : c'est un repère utile à l'enseignant,
-// et il figure sur la page que l'élève a sous les yeux.
+// le sommaire imprimé. On les conserve dans `rubrique` — le champ que tout
+// manuel utilise pour la mention imprimée au-dessus de ses unités.
 
 const NOMBRES = 'Nombres et calculs'
 const MESURES = 'Grandeurs et mesures'
@@ -28,7 +28,7 @@ export default {
     {
       numero: 8,
       titre: 'La longueur',
-      domaine: MESURES,
+      rubrique: MESURES,
       lecons: [
         { numero: 65, titre: "Observons l'image", page: 7 },
         { numero: 66, titre: 'Comparons et ordonnons des longueurs', page: 8 },
@@ -42,7 +42,7 @@ export default {
     {
       numero: 9,
       titre: "Les nombres jusqu'à 69",
-      domaine: NOMBRES,
+      rubrique: NOMBRES,
       lecons: [
         { numero: 72, titre: "Observons l'image", page: 19 },
         { numero: 73, titre: 'Les nombres de 20 à 40', page: 20 },
@@ -58,7 +58,7 @@ export default {
     {
       numero: 10,
       titre: 'La masse',
-      domaine: MESURES,
+      rubrique: MESURES,
       lecons: [
         { numero: 81, titre: "Observons l'image", page: 35 },
         { numero: 82, titre: 'Comparons des masses', page: 36 },
@@ -69,7 +69,7 @@ export default {
     {
       numero: 11,
       titre: "L'addition et la soustraction jusqu'à 69",
-      domaine: NOMBRES,
+      rubrique: NOMBRES,
       lecons: [
         { numero: 85, titre: "Observons l'image", page: 41 },
         { numero: 86, titre: 'Additionnons des unités', page: 42 },
@@ -86,7 +86,7 @@ export default {
     {
       numero: 12,
       titre: "Le repérage dans l'espace",
-      domaine: ESPACE,
+      rubrique: ESPACE,
       lecons: [
         { numero: 95, titre: "Observons l'image", page: 59 },
         { numero: 96, titre: 'Repérons-nous sur un plan ou sur un dessin', page: 60 },
@@ -98,7 +98,7 @@ export default {
     {
       numero: 13,
       titre: "Les nombres jusqu'à 100",
-      domaine: NOMBRES,
+      rubrique: NOMBRES,
       lecons: [
         { numero: 100, titre: "Observons l'image", page: 67 },
         { numero: 101, titre: 'Les nombres de 70 à 100', page: 68 },
@@ -113,7 +113,7 @@ export default {
     {
       numero: 14,
       titre: "L'heure",
-      domaine: MESURES,
+      rubrique: MESURES,
       lecons: [
         { numero: 108, titre: "Observons l'image", page: 81 },
         { numero: 109, titre: "Lisons l'heure (1)", page: 82 },
@@ -125,7 +125,7 @@ export default {
     {
       numero: 15,
       titre: 'La multiplication et la division',
-      domaine: NOMBRES,
+      rubrique: NOMBRES,
       lecons: [
         { numero: 113, titre: "Observons l'image", page: 89 },
         { numero: 114, titre: 'Additionnons des groupes égaux', page: 90 },
@@ -139,7 +139,7 @@ export default {
     {
       numero: 16,
       titre: 'Les euros',
-      domaine: MESURES,
+      rubrique: MESURES,
       lecons: [
         { numero: 120, titre: "Observons l'image", page: 101 },
         { numero: 121, titre: 'Les pièces et les billets', page: 102 },
@@ -150,7 +150,7 @@ export default {
     {
       numero: 17,
       titre: 'Les tableaux',
-      domaine: NOMBRES,
+      rubrique: NOMBRES,
       lecons: [
         { numero: 124, titre: "Observons l'image", page: 107 },
         { numero: 125, titre: 'Découvrons les tableaux', page: 108 },

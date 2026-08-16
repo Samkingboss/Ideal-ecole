@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
-import { manuelPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe } from '../lib/programmes'
+import { manuelPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe } from '../lib/programmes'
 
 // Fiche de préparation d'une notion.
 //
@@ -367,9 +367,7 @@ export default function FichePreparation({
         <div><b>Date :</b> ${dateLisible(dateCours)}</div>
         <div><b>Durée :</b> ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min</div>
         <div><b>Enseignant :</b> ${[user.prenom, user.nom].filter(Boolean).join(' ')}</div>
-        ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — ${
-          fiche.programme.unite ? `unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon} ` : ''
-        }${esc(fiche.programme.titre)}, ${pagesDe(fiche.programme)}</div>` : ''}
+        ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — ${esc(fiche.programme.titre)} · ${situationDe(manuel, fiche.programme)}</div>` : ''}
       </div>
       ${bloc('Objectif de la notion', fiche.objectif)}
       ${bloc('Prérequis', fiche.prerequis)}
@@ -396,9 +394,8 @@ export default function FichePreparation({
     l.push(`Durée      : ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min`)
     l.push(`Enseignant : ${[user.prenom, user.nom].filter(Boolean).join(' ')}`)
     if (fiche.programme) {
-      l.push(`Manuel     : ${manuel?.titre || ''}${fiche.programme.unite
-        ? ` — unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon}` : ''}`)
-      l.push(`             ${fiche.programme.titre}, ${pagesDe(fiche.programme)}`)
+      l.push(`Manuel     : ${manuel?.titre || ''}`)
+      l.push(`             ${fiche.programme.titre} · ${situationDe(manuel, fiche.programme)}`)
     }
     l.push('')
     RUBRIQUES.slice(0, 3).forEach(r => { if (fiche[r.id]) l.push(r.label.toUpperCase(), fiche[r.id], '') })
@@ -480,10 +477,7 @@ export default function FichePreparation({
               <div style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{fiche.programme.titre}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  {fiche.programme.unite
-                    ? `Unité ${fiche.programme.unite} · leçon ${fiche.programme.lecon} · manuel `
-                    : 'Manuel '}
-                  {pagesDe(fiche.programme)}
+                  {situationDe(manuel, fiche.programme)}
                 </div>
               </div>
             )}

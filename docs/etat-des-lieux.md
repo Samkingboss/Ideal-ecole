@@ -85,13 +85,28 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
   - **Pas à Pas, je lis — CP1**, pour Lecture CP1 (`lecture-cp1.js`) —
     24 étapes dont 2 mots outils, pages 5 à 129 sans trou. Enseignante :
     Ornella MOGADZI, 11 séquences/semaine.
+  - **Méthode Boscher — La journée des tout petits**, pour Lecture CP2
+    (`lecture-cp2.js`) — 6 phases, 69 entrées, **une par page**, de la page 4
+    à la page 72. Les pages 1 à 3 (titre, crédits, préface) n'y sont pas :
+    ce ne sont pas des séances, et le sommaire de l'école porte lui-même le
+    programme sur les pages 4 à 72. Enseignante : Ornella MOGADZI,
+    8 séquences/semaine.
 - **Deux structures de livre sont admises**, parce que deux livres ne se
   ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
   en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
   numérote pas ses étapes pose `numerote: false` ; ses étapes sont alors
   identifiées par leur **page de début**, pas par un rang. Cet identifiant est
   stable : corriger une plage plus tard ne renumérote pas les étapes déjà
-  visées par des préparations déposées.
+  visées par des préparations déposées. Les deux réglages se combinent —
+  Boscher est découpé en phases sans numéroter ses leçons.
+- `situationDe()` produit la phrase qui situe une étape, et elle seule :
+  « Unité 1 · leçon 2 · manuel p. 6 » chez Singapour, « Unité 1 · manuel p. 4 »
+  chez Boscher, « manuel p. 36–41 » chez Pas à Pas. Ne jamais réécrire ce
+  libellé à la main dans un écran : annoncer « leçon 4 » là où 4 est un numéro
+  de page trompe l'enseignant.
+- `rubrique` porte la mention imprimée au-dessus d'une unité : un domaine chez
+  Singapour (Nombres et calculs…), une partie chez Boscher (Première partie —
+  l'apprentissage syllabique).
 - La fiche de préparation d'une matière à manuel **exige** une leçon, proposée
   par défaut à la suivante du livre. Le choix est écrit dans
   `preparations.contenu.programme` — donc **aucune migration** : la colonne

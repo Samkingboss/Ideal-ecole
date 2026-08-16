@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { manuelPour, leconsDe, avancement, aDesUnites, pagesDe } from '../lib/programmes'
+import { manuelPour, leconsDe, avancement, aDesUnites, pagesDe, situationDe } from '../lib/programmes'
 
 // Le programme de l'enseignant, tel qu'il est imprimé dans le manuel.
 //
@@ -93,17 +93,22 @@ export default function ProgrammeManuel({ user }) {
   const lecons = leconsDe(manuel)
   const av = avancement(manuel, preparations)
 
-  // Une ligne du sommaire. Rendue à l'identique dans les deux mises en page,
-  // pour qu'un enseignant qui change de matière retrouve les mêmes repères.
-  // `rang` n'a de sens que pour un livre qui ne numérote pas ses étapes : la
-  // pastille montre alors la position, pas la page de début qui sert d'identifiant.
   // Unité dépliée : celle où la classe en est tant que l'enseignant n'a rien
   // ouvert lui-même, la sienne ensuite.
   const uniteVisible = uniteOuverte === undefined
     ? (av.prochaine?.unite ?? manuel.unites?.[0]?.numero ?? null)
     : uniteOuverte
 
-  const ligneLecon = (l, rang) => {
+  // Rang de chaque entrée dans le livre entier, calculé sur la liste à plat et
+  // non sur la position dans l'unité : chez Boscher, la 3ᵉ page de la phase 2
+  // est la 13ᵉ du manuel, et c'est ce second chiffre qui situe la classe.
+  const rangs = new Map(lecons.map((l, i) => [l.numero, i + 1]))
+
+  // Une ligne du sommaire. Rendue à l'identique dans les deux mises en page,
+  // pour qu'un enseignant qui change de matière retrouve les mêmes repères.
+  // La pastille porte le numéro imprimé du livre quand il en a un, et sinon le
+  // rang — jamais la page, qui est déjà écrite juste en dessous.
+  const ligneLecon = l => {
     const seq = av.seances[l.numero]?.length || 0
     const estProchaine = av.prochaine?.numero === l.numero
     return (
@@ -113,7 +118,7 @@ export default function ProgrammeManuel({ user }) {
         background: estProchaine ? 'rgba(26,175,224,.06)' : 'transparent',
       }}>
         <span style={pastille(seq ? 'rgba(46,158,79,.15)' : 'var(--bg)', seq ? 'var(--green)' : 'var(--muted)')}>
-          {manuel.numerote === false ? rang + 1 : l.numero}
+          {manuel.numerote === false ? rangs.get(l.numero) : l.numero}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: l.bilan || l.motOutil ? 800 : 600 }}>
@@ -162,9 +167,13 @@ export default function ProgrammeManuel({ user }) {
         <div style={{ fontSize: 11, opacity: .75, fontWeight: 700, textTransform: 'uppercase' }}>Où en est la classe</div>
         <div style={{ fontSize: 15, fontWeight: 800, marginTop: 6, lineHeight: 1.35 }}>
           {av.courante
-            ? av.courante.unite
-              ? <>Unité {av.courante.unite} — {av.courante.uniteTitre}<div style={{ fontSize: 13, fontWeight: 600, opacity: .9 }}>Leçon {av.courante.numero} · {av.courante.titre} · page {av.courante.page}</div></>
-              : <>{av.courante.titre}<div style={{ fontSize: 13, fontWeight: 600, opacity: .9 }}>manuel {pagesDe(av.courante)}</div></>
+            ? <>
+                {av.courante.uniteTitre || av.courante.titre}
+                <div style={{ fontSize: 13, fontWeight: 600, opacity: .9 }}>
+                  {av.courante.uniteTitre ? `${av.courante.titre} · ` : ''}
+                  {situationDe(manuel, av.courante)}
+                </div>
+              </>
             : 'Le programme n’a pas encore commencé.'}
         </div>
 
@@ -184,10 +193,8 @@ export default function ProgrammeManuel({ user }) {
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{av.prochaine.titre}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-            {av.prochaine.unite
-              ? `Unité ${av.prochaine.unite} · leçon ${av.prochaine.numero} · manuel ${pagesDe(av.prochaine)}`
-              : `Manuel ${pagesDe(av.prochaine)}`}
-            {av.prochaine.bilan && ` · Explorons p. ${av.prochaine.page}, Mon journal p. ${av.prochaine.journal}`}
+            {situationDe(manuel, av.prochaine)}
+            {av.prochaine.journal && ` · Explorons p. ${av.prochaine.page}, Mon journal p. ${av.prochaine.journal}`}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
             C'est elle qui sera proposée par défaut à votre prochaine préparation de {choix.matiere}.
@@ -217,8 +224,9 @@ export default function ProgrammeManuel({ user }) {
               <span style={pastille('#0d2a3b', '#fff')}>U{u.numero}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 13 }}>{u.titre}</div>
-                {/* Domaine tel qu'il est imprimé dans le sommaire du livre. */}
-                {u.domaine && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.domaine}</div>}
+                {/* Mention imprimée au-dessus de l'unité dans le sommaire :
+                    un domaine chez Singapour, une partie chez Boscher. */}
+                {u.rubrique && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.rubrique}</div>}
               </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: faits === u.lecons.length ? 'var(--green)' : 'var(--muted)' }}>
                 {faits}/{u.lecons.length}

@@ -11,8 +11,9 @@
 import mathsCP1 from './maths-cp1'
 import mathsCP2 from './maths-cp2'
 import lectureCP1 from './lecture-cp1'
+import lectureCP2 from './lecture-cp2'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -49,6 +50,24 @@ export const aDesUnites = manuel => Boolean(manuel?.unites?.length)
 // Pages d'une étape : « p. 40 » ou « p. 36–41 » selon le livre.
 export const pagesDe = l =>
   !l ? '' : l.pageFin && l.pageFin !== l.page ? `p. ${l.page}–${l.pageFin}` : `p. ${l.page}`
+
+// Où se situe une étape dans son livre. Trois livres, trois phrases :
+//   « Unité 1 · leçon 2 · manuel p. 6 »   Singapour, découpé et numéroté
+//   « Unité 1 · manuel p. 4 »             Boscher, découpé mais non numéroté
+//   « manuel p. 36–41 »                   Pas à Pas, ni l'un ni l'autre
+// Annoncer « leçon 4 » là où 4 est un numéro de page tromperait l'enseignant :
+// d'où le passage par le manuel, qui seul sait s'il numérote.
+//
+// Accepte aussi bien une entrée du sommaire (`numero`) que la référence
+// enregistrée dans une préparation (`lecon`).
+export const situationDe = (manuel, l) => {
+  if (!l) return ''
+  const bouts = []
+  if (l.unite) bouts.push(`Unité ${l.unite}`)
+  if (manuel?.numerote !== false) bouts.push(`leçon ${l.numero ?? l.lecon}`)
+  bouts.push(`manuel ${pagesDe(l)}`)
+  return bouts.join(' · ')
+}
 
 export const leconParNumero = (manuel, numero) =>
   leconsDe(manuel).find(l => l.numero === Number(numero)) || null
