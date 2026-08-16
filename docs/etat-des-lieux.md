@@ -70,10 +70,21 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
   le couple `(groupe, matière)` de l'emploi du temps. Pas de table : le
   sommaire d'un livre imprimé ne se saisit pas et ne doit pas pouvoir être
   supprimé. Ajouter un manuel = un fichier + une ligne dans `MANUELS`.
-- Premier manuel enregistré : **Math CP — La méthode de Singapour**, pour
-  Maths CP1 (`maths-cp1.js`) — 7 unités,
-  57 entrées dont 7 bilans, pages 6 à 139. La numérotation est celle du livre,
-  trous compris (8, 14, 24, 35, 43, 53 sont des ouvertures d'unité).
+- Manuels enregistrés :
+  - **Math CP — La méthode de Singapour**, pour Maths CP1 (`maths-cp1.js`) —
+    7 unités, 57 entrées dont 7 bilans, pages 6 à 139. La numérotation est
+    celle du livre, trous compris (8, 14, 24, 35, 43, 53 sont des ouvertures
+    d'unité). Enseignant : Yacouba OUANG, 9 séquences/semaine.
+  - **Pas à Pas, je lis — CP1**, pour Lecture CP1 (`lecture-cp1.js`) —
+    24 étapes dont 2 mots outils, pages 5 à 129 sans trou. Enseignante :
+    Ornella MOGADZI, 11 séquences/semaine.
+- **Deux structures de livre sont admises**, parce que deux livres ne se
+  ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
+  en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
+  numérote pas ses étapes pose `numerote: false` ; ses étapes sont alors
+  identifiées par leur **page de début**, pas par un rang. Cet identifiant est
+  stable : corriger une plage plus tard ne renumérote pas les étapes déjà
+  visées par des préparations déposées.
 - La fiche de préparation d'une matière à manuel **exige** une leçon, proposée
   par défaut à la suivante du livre. Le choix est écrit dans
   `preparations.contenu.programme` — donc **aucune migration** : la colonne

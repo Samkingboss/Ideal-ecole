@@ -9,8 +9,9 @@
 // MANUELS. Rien d'autre à toucher.
 
 import mathsCP1 from './maths-cp1'
+import lectureCP1 from './lecture-cp1'
 
-export const MANUELS = [mathsCP1]
+export const MANUELS = [mathsCP1, lectureCP1]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -27,10 +28,26 @@ export const manuelParCle = cle => MANUELS.find(m => m.cle === cle) || null
 
 // Liste à plat, dans l'ordre du livre. C'est cet ordre qui fait foi : la leçon
 // suivante est la suivante du manuel, pas une date au calendrier.
-export const leconsDe = manuel =>
-  (manuel?.unites || []).flatMap(u =>
-    u.lecons.map(l => ({ ...l, unite: u.numero, uniteTitre: u.titre }))
-  )
+//
+// Deux structures coexistent, parce que deux livres ne se ressemblent pas :
+// « Math CP » est découpé en unités numérotées, « Pas à Pas, je lis » est une
+// progression continue. Un manuel déclare donc soit `unites`, soit `lecons`.
+export const leconsDe = manuel => {
+  if (manuel?.unites) {
+    return manuel.unites.flatMap(u =>
+      u.lecons.map(l => ({ ...l, unite: u.numero, uniteTitre: u.titre }))
+    )
+  }
+  return manuel?.lecons ? [...manuel.lecons] : []
+}
+
+// Le manuel est-il découpé en unités ? L'écran s'y adapte : accordéon d'un
+// côté, liste continue de l'autre.
+export const aDesUnites = manuel => Boolean(manuel?.unites?.length)
+
+// Pages d'une étape : « p. 40 » ou « p. 36–41 » selon le livre.
+export const pagesDe = l =>
+  !l ? '' : l.pageFin && l.pageFin !== l.page ? `p. ${l.page}–${l.pageFin}` : `p. ${l.page}`
 
 export const leconParNumero = (manuel, numero) =>
   leconsDe(manuel).find(l => l.numero === Number(numero)) || null
@@ -53,10 +70,16 @@ export const prochaineLecon = (manuel, numerosFaits = []) => {
   return lecons[dernier] || null
 }
 
-// Libellé court pour une fiche ou un rapport :
-// « U3 · L19 — Additionnons sur la bande numérique (p. 40) ».
-export const libelleLecon = l =>
-  l ? `U${l.unite} · L${l.numero} — ${l.titre} (p. ${l.page})` : ''
+// Libellé court pour une fiche ou un rapport. Un livre numéroté se cite par sa
+// leçon — « U3 · L19 — Additionnons sur la bande numérique (p. 40) » ; un livre
+// qui ne numérote pas se cite par ses pages — « Syllabation avec P (p. 36–41) ».
+export const libelleLecon = (l, manuel) => {
+  if (!l) return ''
+  const pages = pagesDe(l)
+  if (manuel && manuel.numerote === false) return `${l.titre} (${pages})`
+  const prefixe = l.unite ? `U${l.unite} · L${l.numero} — ` : `L${l.numero} — `
+  return `${prefixe}${l.titre} (${pages})`
+}
 
 // ─── Avancement lu dans les préparations ─────────────────────────────────────
 

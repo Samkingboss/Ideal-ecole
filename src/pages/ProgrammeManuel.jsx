@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { manuelPour, leconsDe, avancement } from '../lib/programmes'
+import { manuelPour, leconsDe, avancement, aDesUnites, pagesDe } from '../lib/programmes'
 
 // Le programme de l'enseignant, tel qu'il est imprimé dans le manuel.
 //
@@ -90,6 +90,37 @@ export default function ProgrammeManuel({ user }) {
   const lecons = leconsDe(manuel)
   const av = avancement(manuel, preparations)
 
+  // Une ligne du sommaire. Rendue à l'identique dans les deux mises en page,
+  // pour qu'un enseignant qui change de matière retrouve les mêmes repères.
+  // `rang` n'a de sens que pour un livre qui ne numérote pas ses étapes : la
+  // pastille montre alors la position, pas la page de début qui sert d'identifiant.
+  const ligneLecon = (l, rang) => {
+    const seq = av.seances[l.numero]?.length || 0
+    const estProchaine = av.prochaine?.numero === l.numero
+    return (
+      <div key={l.numero} style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 14px', borderTop: '1px solid var(--border)',
+        background: estProchaine ? 'rgba(26,175,224,.06)' : 'transparent',
+      }}>
+        <span style={pastille(seq ? 'rgba(46,158,79,.15)' : 'var(--bg)', seq ? 'var(--green)' : 'var(--muted)')}>
+          {manuel.numerote === false ? rang + 1 : l.numero}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: l.bilan || l.motOutil ? 800 : 600 }}>
+            {l.titre}
+            {estProchaine && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 800, marginLeft: 6 }}>À VENIR</span>}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+            {pagesDe(l)}{l.bilan ? ` · Mon journal p. ${l.journal}` : ''}
+            {seq > 0 && ` · ${seq} séquence${seq > 1 ? 's' : ''} préparée${seq > 1 ? 's' : ''}`}
+          </div>
+        </div>
+        <span style={{ fontSize: 15, color: seq ? 'var(--green)' : 'var(--border)' }}>{seq ? '✓' : '○'}</span>
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Choix de la matière, seulement si l'enseignant en a plusieurs à manuel */}
@@ -122,7 +153,9 @@ export default function ProgrammeManuel({ user }) {
         <div style={{ fontSize: 11, opacity: .75, fontWeight: 700, textTransform: 'uppercase' }}>Où en est la classe</div>
         <div style={{ fontSize: 15, fontWeight: 800, marginTop: 6, lineHeight: 1.35 }}>
           {av.courante
-            ? <>Unité {av.courante.unite} — {av.courante.uniteTitre}<div style={{ fontSize: 13, fontWeight: 600, opacity: .9 }}>Leçon {av.courante.numero} · {av.courante.titre} · page {av.courante.page}</div></>
+            ? av.courante.unite
+              ? <>Unité {av.courante.unite} — {av.courante.uniteTitre}<div style={{ fontSize: 13, fontWeight: 600, opacity: .9 }}>Leçon {av.courante.numero} · {av.courante.titre} · page {av.courante.page}</div></>
+              : <>{av.courante.titre}<div style={{ fontSize: 13, fontWeight: 600, opacity: .9 }}>manuel {pagesDe(av.courante)}</div></>
             : 'Le programme n’a pas encore commencé.'}
         </div>
 
@@ -137,10 +170,14 @@ export default function ProgrammeManuel({ user }) {
       {/* ── Prochaine leçon ── */}
       {av.prochaine && (
         <div style={{ background: 'rgba(26,175,224,.08)', border: '1px solid rgba(26,175,224,.4)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>Prochaine leçon</div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>
+            {av.prochaine.motOutil ? 'Prochaine étape · mot outil' : 'Prochaine leçon'}
+          </div>
           <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{av.prochaine.titre}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-            Unité {av.prochaine.unite} · leçon {av.prochaine.numero} · manuel page {av.prochaine.page}
+            {av.prochaine.unite
+              ? `Unité ${av.prochaine.unite} · leçon ${av.prochaine.numero} · manuel ${pagesDe(av.prochaine)}`
+              : `Manuel ${pagesDe(av.prochaine)}`}
             {av.prochaine.bilan && ` · Explorons p. ${av.prochaine.page}, Mon journal p. ${av.prochaine.journal}`}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
@@ -149,8 +186,19 @@ export default function ProgrammeManuel({ user }) {
         </div>
       )}
 
+      {/* ── Le manuel : liste continue, pour un livre sans unités ── */}
+      {!aDesUnites(manuel) && (
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', marginBottom: 10 }}>
+          <div style={{ background: '#0d2a3b', color: '#fff', padding: '8px 14px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between' }}>
+            <span>Progression du manuel</span>
+            <span style={{ opacity: .7 }}>{av.nbFaits}/{av.total}</span>
+          </div>
+          {lecons.map(ligneLecon)}
+        </div>
+      )}
+
       {/* ── Le manuel, unité par unité ── */}
-      {manuel.unites.map(u => {
+      {aDesUnites(manuel) && manuel.unites.map(u => {
         const ouvert = uniteOuverte === u.numero
         const faits = u.lecons.filter(l => av.faits.includes(l.numero)).length
         return (
@@ -165,32 +213,7 @@ export default function ProgrammeManuel({ user }) {
               <span style={{ color: 'var(--muted)', transform: ouvert ? 'rotate(180deg)' : 'none', transition: '.2s' }}>⌄</span>
             </div>
 
-            {ouvert && u.lecons.map(l => {
-              const seq = av.seances[l.numero]?.length || 0
-              const estProchaine = av.prochaine?.numero === l.numero
-              return (
-                <div key={l.numero} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 14px', borderTop: '1px solid var(--border)',
-                  background: estProchaine ? 'rgba(26,175,224,.06)' : 'transparent',
-                }}>
-                  <span style={pastille(seq ? 'rgba(46,158,79,.15)' : 'var(--bg)', seq ? 'var(--green)' : 'var(--muted)')}>
-                    {l.numero}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: l.bilan ? 800 : 600 }}>
-                      {l.titre}
-                      {estProchaine && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 800, marginLeft: 6 }}>À VENIR</span>}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                      page {l.page}{l.bilan ? ` · Mon journal p. ${l.journal}` : ''}
-                      {seq > 0 && ` · ${seq} séquence${seq > 1 ? 's' : ''} préparée${seq > 1 ? 's' : ''}`}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 15, color: seq ? 'var(--green)' : 'var(--border)' }}>{seq ? '✓' : '○'}</span>
-                </div>
-              )
-            })}
+            {ouvert && u.lecons.map(ligneLecon)}
           </div>
         )
       })}
@@ -198,7 +221,9 @@ export default function ProgrammeManuel({ user }) {
       <div style={{ fontSize: 11, color: 'var(--muted)', padding: '4px 2px 10px', lineHeight: 1.5 }}>
         Une leçon est marquée traitée dès qu'une fiche de préparation la vise. Le compte de
         séquences est celui des demi-heures réellement préparées pour cette leçon.
-        {lecons.length} entrées au sommaire, dont {lecons.filter(l => l.bilan).length} bilans.
+        {' '}{lecons.length} entrées au sommaire
+        {lecons.some(l => l.bilan) && `, dont ${lecons.filter(l => l.bilan).length} bilans`}
+        {lecons.some(l => l.motOutil) && `, dont ${lecons.filter(l => l.motOutil).length} mots outils`}.
       </div>
 
       {sansManuel.length > 0 && (

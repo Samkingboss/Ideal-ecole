@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
-import { manuelPour, avancement, leconParNumero } from '../lib/programmes'
+import { manuelPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe } from '../lib/programmes'
 
 // Fiche de préparation d'une notion.
 //
@@ -184,7 +184,10 @@ export default function FichePreparation({
     setFiche(f => ({
       ...f,
       programme: l
-        ? { cle: manuel.cle, lecon: l.numero, unite: l.unite, titre: l.titre, page: l.page }
+        ? {
+            cle: manuel.cle, lecon: l.numero, unite: l.unite || null,
+            titre: l.titre, page: l.page, pageFin: l.pageFin || null,
+          }
         : null,
     }))
   }
@@ -364,7 +367,9 @@ export default function FichePreparation({
         <div><b>Date :</b> ${dateLisible(dateCours)}</div>
         <div><b>Durée :</b> ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min</div>
         <div><b>Enseignant :</b> ${[user.prenom, user.nom].filter(Boolean).join(' ')}</div>
-        ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon} « ${esc(fiche.programme.titre)} », page ${fiche.programme.page}</div>` : ''}
+        ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — ${
+          fiche.programme.unite ? `unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon} ` : ''
+        }${esc(fiche.programme.titre)}, ${pagesDe(fiche.programme)}</div>` : ''}
       </div>
       ${bloc('Objectif de la notion', fiche.objectif)}
       ${bloc('Prérequis', fiche.prerequis)}
@@ -391,8 +396,9 @@ export default function FichePreparation({
     l.push(`Durée      : ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min`)
     l.push(`Enseignant : ${[user.prenom, user.nom].filter(Boolean).join(' ')}`)
     if (fiche.programme) {
-      l.push(`Manuel     : ${manuel?.titre || ''} — unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon}`)
-      l.push(`             « ${fiche.programme.titre} », page ${fiche.programme.page}`)
+      l.push(`Manuel     : ${manuel?.titre || ''}${fiche.programme.unite
+        ? ` — unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon}` : ''}`)
+      l.push(`             ${fiche.programme.titre}, ${pagesDe(fiche.programme)}`)
     }
     l.push('')
     RUBRIQUES.slice(0, 3).forEach(r => { if (fiche[r.id]) l.push(r.label.toUpperCase(), fiche[r.id], '') })
@@ -425,6 +431,16 @@ export default function FichePreparation({
   }
 
   const estDejaPreparee = existantes.length > 0
+
+  // Une entrée de la liste déroulante. Un livre numéroté annonce sa leçon,
+  // un livre qui ne l'est pas s'en tient à son titre et à ses pages.
+  const optionLecon = l => (
+    <option key={l.numero} value={l.numero}>
+      {avant?.faits.includes(l.numero) ? '✓ ' : ''}
+      {manuel.numerote === false ? '' : `${l.numero}. `}
+      {l.titre} — {pagesDe(l)}
+    </option>
+  )
 
   return (
     <div style={{
@@ -464,7 +480,10 @@ export default function FichePreparation({
               <div style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{fiche.programme.titre}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Unité {fiche.programme.unite} · leçon {fiche.programme.lecon} · manuel page {fiche.programme.page}
+                  {fiche.programme.unite
+                    ? `Unité ${fiche.programme.unite} · leçon ${fiche.programme.lecon} · manuel `
+                    : 'Manuel '}
+                  {pagesDe(fiche.programme)}
                 </div>
               </div>
             )}
@@ -479,24 +498,21 @@ export default function FichePreparation({
                     border: '1px solid var(--border)', background: 'var(--bg)',
                   }}>
                   <option value="">— choisir la leçon —</option>
-                  {manuel.unites.map(u => (
-                    <optgroup key={u.numero} label={`Unité ${u.numero} — ${u.titre}`}>
-                      {u.lecons.map(l => (
-                        <option key={l.numero} value={l.numero}>
-                          {avant?.faits.includes(l.numero) ? '✓ ' : ''}
-                          {l.numero}. {l.titre} — p. {l.page}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
+                  {aDesUnites(manuel)
+                    ? manuel.unites.map(u => (
+                        <optgroup key={u.numero} label={`Unité ${u.numero} — ${u.titre}`}>
+                          {u.lecons.map(optionLecon)}
+                        </optgroup>
+                      ))
+                    : leconsDe(manuel).map(optionLecon)}
                 </select>
 
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
                   {avant === null
                     ? 'Lecture de l’avancement du manuel…'
                     : avant.courante
-                      ? <>Déjà traité jusqu’à la leçon {avant.courante.numero} (p. {avant.courante.page}). Les leçons cochées ✓ ont déjà été préparées ; vous pouvez y revenir.</>
-                      : <>Premier cours du manuel : le programme commence à la leçon {manuel.unites[0].lecons[0].numero}.</>}
+                      ? <>Déjà traité jusqu’à <b>{avant.courante.titre}</b> ({pagesDe(avant.courante)}). Les entrées cochées ✓ ont déjà été préparées ; vous pouvez y revenir.</>
+                      : <>Premier cours du manuel : le programme commence à <b>{leconsDe(manuel)[0].titre}</b> ({pagesDe(leconsDe(manuel)[0])}).</>}
                 </div>
               </>
             )}
