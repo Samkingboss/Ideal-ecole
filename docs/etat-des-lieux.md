@@ -91,11 +91,8 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
     ce ne sont pas des séances, et le sommaire de l'école porte lui-même le
     programme sur les pages 4 à 72. Enseignante : Ornella MOGADZI,
     8 séquences/semaine.
-  - **Les Petits Devoirs — Grammaire** (La Librairie des Écoles), pour
-    Grammaire CP2 (`grammaire-cp2.js`) — 29 leçons numérotées, sans unités,
-    pages 4 à 60 de deux en deux (une double page par leçon). Les corrigés
-    (p. 62) n'y sont pas : on ne prépare pas un cours dessus. Enseignante :
-    Ornella MOGADZI, 3 séquences/semaine.
+  - *(Un manuel de grammaire CP2 « Les Petits Devoirs » a existé du 16 août
+    2026 au 16 août 2026, retiré avec la matière — voir ci-dessous.)*
 - **Deux structures de livre sont admises**, parce que deux livres ne se
   ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
   en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
@@ -125,6 +122,24 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
   n'a **toujours pas d'enseignant affecté**.
 
 Moteur : `src/lib/programmes/index.js`. Écran : `ProgrammeManuel.jsx`.
+
+### Refonte du français en CP2 — 16 août 2026
+
+Sur décision du directeur, **Grammaire, Orthographe et Vocabulaire ont été
+supprimées du CP2** : la classe ne garde que **Lecture et Français**. Leurs
+8 créneaux (4 h/semaine) sont devenus des créneaux de **Français**, affectés à
+Ornella MOGADZI. Le total du CP2 reste à 60 séquences, 30 h/semaine, et la
+charge d'Ornella à 20 h — conforme au document officiel.
+
+- L'**Écriture CP2** n'est pas concernée : elle garde ses 4 créneaux.
+- Les trois matières **subsistent en CE1-CE2 et en CM1-CM2** (22 créneaux au
+  total). Rien n'y a été touché.
+- Aucune préparation ni fiche de fin de cours ne visait ces matières : la
+  bascule n'a rien orphelin.
+- Sauvegarde des 8 créneaux et des 3 affectations avant modification, hors
+  dépôt. Le manuel `grammaire-cp2.js` a été supprimé du répertoire.
+- **Le programme de Français reste à fournir** — la matière n'a pas de manuel
+  et ses préparations sont donc libres pour l'instant.
 
 ---
 
