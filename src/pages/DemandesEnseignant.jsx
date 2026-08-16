@@ -146,7 +146,10 @@ export default function DemandesEnseignant({ user }) {
     const nouvelleDemande = {
       id: Date.now(),
       user_id: user?.id,
-      user_name: `${user?.user_metadata?.prenom || ''} ${user?.user_metadata?.nom || ''}`.trim() || user?.email || 'Enseignant',
+      // Le compte porte `prenom` et `nom` à plat ; `user_metadata` n'existe pas
+      // ici. Toutes les demandes étaient donc enregistrées au nom
+      // d'« Enseignant », et la direction ne savait pas qui écrivait.
+      user_name: `${user?.prenom || ''} ${user?.nom || ''}`.trim() || user?.email || 'Enseignant',
       type: typeDemande,
       date_soumission: new Date().toISOString(),
       statut: 'En attente', // En attente | Approuvée | Refusée
@@ -199,7 +202,8 @@ export default function DemandesEnseignant({ user }) {
         titre: `📩 Nouvelle demande: ${getTypeLabel(typeDemande)}`,
         message: `${nouvelleDemande.user_name} a soumis une nouvelle demande.`,
         type: 'rh',
-        tabTarget: 'rh'
+        tabTarget: 'rh',
+        ref: nouvelleDemande.id,
       })
 
       setSuccessMsg('✅ Votre demande a été transmise à la Direction Générale et à la Comptabilité avec succès !')

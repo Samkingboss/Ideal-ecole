@@ -29,7 +29,11 @@ export async function pushNotification(target, notifData) {
       date: new Date().toISOString(),
       lu: false,
       type: notifData.type || 'info',
-      tabTarget: notifData.tabTarget || 'dashboard'
+      tabTarget: notifData.tabTarget || 'dashboard',
+      // Ce que la notification désigne précisément — l'identifiant d'une
+      // demande, par exemple. Sans lui, un clic ouvre le bon écran mais laisse
+      // le destinataire chercher de quoi on lui parle.
+      ref: notifData.ref || null,
     }
 
     let echec = null

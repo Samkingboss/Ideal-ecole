@@ -104,6 +104,25 @@ export default function DirecteurApp({ user, onLogout }) {
   const [posteDraft, setPosteDraft] = useState([])
   const [demandesRH, setDemandesRH] = useState([])
 
+  // Demande désignée par une notification. La cloche transmet son identifiant ;
+  // l'écran déroule jusqu'à elle et l'encadre quelques secondes. Sans cela, le
+  // clic ouvrait la session RH et déposait le directeur en haut de la page,
+  // devant les indicateurs de masse salariale, à lui de retrouver de quelle
+  // demande on lui parlait.
+  const [demandeCiblee, setDemandeCiblee] = useState(null)
+
+  useEffect(() => {
+    if (!demandeCiblee) return
+    // On laisse le temps à la session RH de se rendre avant de chercher la ligne.
+    const t = setTimeout(() => {
+      const el = document.getElementById(`demande-${demandeCiblee}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 350)
+    // La mise en évidence s'efface d'elle-même : elle sert à trouver, pas à rester.
+    const fin = setTimeout(() => setDemandeCiblee(null), 6000)
+    return () => { clearTimeout(t); clearTimeout(fin) }
+  }, [demandeCiblee, demandesRH])
+
   // Reponse de la direction a une demande RH.
   //
   // Trois choses doivent se produire ensemble, et c'est la troisieme qui
@@ -511,7 +530,7 @@ export default function DirecteurApp({ user, onLogout }) {
             </div>
           </div>
           <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <NotificationCenter user={user} role={user.role} onNavigateTab={() => {}} />
+            <NotificationCenter user={user} role={user.role} onNavigateTab={(t, ref) => { setTab(t); setDemandeCiblee(ref || null) }} />
             <span className="role-badge" style={{ background: 'rgba(0,168,224,0.18)', color: '#00a8e0', border: '1px solid #00a8e0', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
               Responsable Admin
             </span>
@@ -1067,7 +1086,7 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={setTab} />
+          <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={(t, ref) => { setTab(t); setDemandeCiblee(ref || null) }} />
           <span className="role-badge role-directeur">Directeur v2.5</span>
           <button className="btn-logout" onClick={onLogout}>Deconnexion</button>
         </div>
@@ -1191,8 +1210,22 @@ export default function DirecteurApp({ user, onLogout }) {
                     </thead>
                     <tbody>
                       {(demandesRH || []).map(d => (
-                        <tr key={d.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>{d.prof_nom || 'Enseignant'}</td>
+                        <tr
+                          key={d.id}
+                          id={`demande-${d.id}`}
+                          style={{
+                            borderBottom: '1px solid var(--border)',
+                            // Encadrée quelques secondes quand on arrive par une
+                            // notification : c'est ce qui fait la différence
+                            // entre « la bonne page » et « la bonne ligne ».
+                            background: demandeCiblee === d.id ? 'rgba(0,168,224,0.12)' : 'transparent',
+                            outline: demandeCiblee === d.id ? '2px solid var(--accent)' : 'none',
+                            transition: 'background .3s',
+                          }}
+                        >
+                          {/* `prof_nom` n'a jamais existé sur ces demandes : la
+                              colonne affichait « Enseignant » pour tout le monde. */}
+                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>{d.user_name || 'Enseignant'}</td>
                           <td style={{ padding: '10px 12px' }}>{d.type}</td>
                           <td style={{ padding: '10px 12px' }}>{d.motif}</td>
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>

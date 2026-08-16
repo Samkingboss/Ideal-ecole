@@ -138,6 +138,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
 
             mergedNotifs.push({
               id: `dem_${d.id}`,
+              ref: d.id,
               titre: `📩 ${typeLabel} en attente`,
               message: `${d.user_name} a soumis une demande (${d.statut}).`,
               date: d.date_soumission,
@@ -204,8 +205,11 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
       if (target === 'demandes' || target === 'demande') target = 'rh'
     }
 
+    // La référence part avec la cible : l'écran d'arrivée peut alors dérouler
+    // jusqu'à la bonne ligne et la désigner, au lieu de déposer le lecteur en
+    // haut d'une page où il doit retrouver de quoi on lui parle.
     if (onNavigateTab && target) {
-      onNavigateTab(target)
+      onNavigateTab(target, notif.ref || null)
     }
   }
 
