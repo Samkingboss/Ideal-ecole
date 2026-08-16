@@ -12,8 +12,9 @@ import mathsCP1 from './maths-cp1'
 import mathsCP2 from './maths-cp2'
 import lectureCP1 from './lecture-cp1'
 import lectureCP2 from './lecture-cp2'
+import francaisCP2 from './francais-cp2'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table

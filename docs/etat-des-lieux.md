@@ -91,8 +91,13 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
     ce ne sont pas des séances, et le sommaire de l'école porte lui-même le
     programme sur les pages 4 à 72. Enseignante : Ornella MOGADZI,
     8 séquences/semaine.
-  - *(Un manuel de grammaire CP2 « Les Petits Devoirs » a existé du 16 août
-    2026 au 16 août 2026, retiré avec la matière — voir ci-dessous.)*
+  - **Les Petits Devoirs — Français** (La Librairie des Écoles), pour
+    Français CP2 (`francais-cp2.js`) — 58 leçons numérotées, sans unités,
+    pages 4 à 118 de deux en deux (une double page par leçon). Le mémento
+    d'analyse grammaticale (p. 124) et les dictées (p. 126) n'y sont pas : ce
+    ne sont pas des leçons numérotées, et les dictées sont un réservoir
+    d'exercices où l'on puise toute l'année, pas une étape du parcours.
+    Enseignante : Ornella MOGADZI, 4 h/semaine.
 - **Deux structures de livre sont admises**, parce que deux livres ne se
   ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
   en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
@@ -138,8 +143,8 @@ charge d'Ornella à 20 h — conforme au document officiel.
   bascule n'a rien orphelin.
 - Sauvegarde des 8 créneaux et des 3 affectations avant modification, hors
   dépôt. Le manuel `grammaire-cp2.js` a été supprimé du répertoire.
-- **Le programme de Français reste à fournir** — la matière n'a pas de manuel
-  et ses préparations sont donc libres pour l'instant.
+- Le programme de Français a été fourni le jour même : « Les Petits Devoirs —
+  Français », même collection que la grammaire retirée.
 
 ---
 
