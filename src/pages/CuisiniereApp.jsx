@@ -139,15 +139,10 @@ export default function CuisiniereApp({ user, onLogout }) {
   const [newArticleModal, setNewArticleModal] = useState(false)
   const [newArticle, setNewArticle] = useState({ nom: '', quantite: '', pu: 0, en_stock: false })
 
-  // Le garde-manger, pour ne pas racheter ce qu'on a déjà. Chargé une fois ;
-  // l'écran du marché s'en sert seulement pour proposer et pour informer, il
-  // n'y touche jamais — le stock ne bouge que par un mouvement.
-  const [stockCuisine, setStockCuisine] = useState([])
-  useEffect(() => {
-    supabase.from('materiels').select('id, nom, unite, quantite')
-      .eq('actif', true).eq('magasin', 'cuisine').order('nom')
-      .then(({ data, error }) => { if (!error) setStockCuisine(data || []) })
-  }, [])
+  // La fiche du marché reste une saisie libre : on tape l'aliment, la quantité
+  // et le prix unitaire, le montant se calcule. Le seul lien avec le
+  // garde-manger est la case « je l'ai déjà », qui sort la ligne du budget
+  // sans la retirer de la fiche.
 
   useEffect(() => {
     loadData()
@@ -1679,43 +1674,12 @@ export default function CuisiniereApp({ user, onLogout }) {
             <div className="modal-handle"></div>
             <div className="modal-title">🛒 Ajouter un Aliment / Ingrédient à Payer</div>
 
-            {/* Choisir dans le garde-manger évite de retaper un nom et, surtout,
-                montre ce qu'on a déjà avant de décider d'acheter. */}
-            {stockCuisine.length > 0 && (
-              <div className="form-group">
-                <label className="form-label">Prendre dans le garde-manger</label>
-                <select
-                  className="form-input"
-                  value={newArticle.nom_stock || ''}
-                  onChange={e => {
-                    const art = stockCuisine.find(x => x.id === e.target.value)
-                    if (!art) { setNewArticle({ ...newArticle, nom_stock: '' }); return }
-                    // S'il en reste, on propose de le marquer comme déjà
-                    // disponible — la cuisinière garde le dernier mot.
-                    setNewArticle({
-                      ...newArticle,
-                      nom_stock: art.id,
-                      nom: art.nom,
-                      en_stock: art.quantite > 0,
-                    })
-                  }}
-                >
-                  <option value="">— saisir un aliment libre —</option>
-                  {stockCuisine.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.nom} — {a.quantite > 0 ? `${a.quantite} ${a.unite} en stock` : 'stock épuisé'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div className="form-group">
               <label className="form-label">Nom de l'aliment / Ingrédient</label>
               <input
                 className="form-input"
                 value={newArticle.nom}
-                onChange={e => setNewArticle({ ...newArticle, nom: e.target.value, nom_stock: '' })}
+                onChange={e => setNewArticle({ ...newArticle, nom: e.target.value })}
                 placeholder="Ex: Poulet fermier, Sac de Riz, Huile..."
               />
             </div>
