@@ -31,11 +31,20 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     }
 
     loadNotifications()
-    const timer = setInterval(() => {
-      loadNotifications()
-    }, 6000) // Verification automatique toutes les 6s
 
-    return () => clearInterval(timer)
+    // Toutes les 6 s, mais seulement écran allumé et application au premier
+    // plan. Auparavant la cloche interrogeait le serveur en continu, y compris
+    // téléphone rangé : 600 requêtes par heure sur un forfait de données que
+    // l'enseignant paie lui-même, pour rien. Le retour sur l'application
+    // relit aussitôt, donc rien n'est perdu en réactivité.
+    const relire = () => { if (document.visibilityState === 'visible') loadNotifications() }
+    const timer = setInterval(relire, 6000)
+    document.addEventListener('visibilitychange', relire)
+
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', relire)
+    }
   }, [user?.id, role])
 
   const requestPushPermission = async () => {

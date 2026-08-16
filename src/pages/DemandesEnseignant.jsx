@@ -33,6 +33,22 @@ export default function DemandesEnseignant({ user }) {
 
   useEffect(() => {
     loadDemandes()
+
+    // La direction peut répondre pendant que l'écran est ouvert. Sans
+    // relecture, le statut resterait « En attente » sous les yeux de
+    // l'enseignant jusqu'au prochain rechargement de la page.
+    //
+    // On ne relit que si l'écran est visible : un téléphone dans la poche n'a
+    // pas à interroger le serveur, et la donnée mobile se paie ici. Le retour
+    // sur l'application déclenche une relecture immédiate, ce qui rend le
+    // délai de 30 s invisible dans l'usage réel.
+    const relire = () => { if (document.visibilityState === 'visible') loadDemandes() }
+    const timer = setInterval(relire, 30000)
+    document.addEventListener('visibilitychange', relire)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', relire)
+    }
   }, [user?.id])
 
   // Les demandes de l'enseignant se lisent dans le registre global, filtrées
