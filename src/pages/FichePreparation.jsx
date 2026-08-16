@@ -452,10 +452,13 @@ export default function FichePreparation({
             border: '1px solid ' + (fiche.programme ? 'var(--border)' : 'var(--red)'),
             borderRadius: 12, padding: '10px 14px',
           }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>
-              LEÇON DU MANUEL — {manuel.titre.toUpperCase()}
+            {/* Le titre du manuel n'est pas mis en majuscules : « Math CP — La
+                méthode de Singapour » y devient illisible, à cause du tiret. */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 2 }}>
+              LEÇON DU MANUEL
               <span style={{ color: 'var(--red)' }}> *</span>
             </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{manuel.titre}</div>
 
             {fiche.programme && (
               <div style={{ marginBottom: 8 }}>

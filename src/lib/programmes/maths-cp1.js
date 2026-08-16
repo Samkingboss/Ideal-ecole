@@ -21,8 +21,9 @@ export default {
   groupe: 'CP1',
   matiere: 'Maths',
   langue: 'fr',
-  // Titre exact et édition à confirmer par le directeur avant impression.
-  titre: 'Mathématiques CP1',
+  // Titre donné par le directeur le 16 août 2026. Il s'affiche en tête de
+  // l'écran Programme et sur chaque fiche de préparation imprimée.
+  titre: 'Math CP — La méthode de Singapour',
 
   unites: [
     {

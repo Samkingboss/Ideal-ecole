@@ -70,7 +70,8 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
   le couple `(groupe, matière)` de l'emploi du temps. Pas de table : le
   sommaire d'un livre imprimé ne se saisit pas et ne doit pas pouvoir être
   supprimé. Ajouter un manuel = un fichier + une ligne dans `MANUELS`.
-- Premier manuel enregistré : **Maths CP1** (`maths-cp1.js`) — 7 unités,
+- Premier manuel enregistré : **Math CP — La méthode de Singapour**, pour
+  Maths CP1 (`maths-cp1.js`) — 7 unités,
   57 entrées dont 7 bilans, pages 6 à 139. La numérotation est celle du livre,
   trous compris (8, 14, 24, 35, 43, 53 sont des ouvertures d'unité).
 - La fiche de préparation d'une matière à manuel **exige** une leçon, proposée
