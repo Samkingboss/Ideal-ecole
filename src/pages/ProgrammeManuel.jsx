@@ -229,6 +229,15 @@ export default function ProgrammeManuel({ user }) {
                 {/* Mention imprimée au-dessus de l'unité dans le sommaire :
                     un domaine chez Singapour, une partie chez Boscher. */}
                 {u.rubrique && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.rubrique}</div>}
+                {/* Activités pratiques du chapitre. Elles se déroulent pendant
+                    les leçons, aux mêmes pages : on les rappelle sans les
+                    compter dans l'avancement, sinon la même séance serait
+                    comptée deux fois. */}
+                {ouvert && u.activites?.length > 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+                    <b>Activités :</b> {u.activites.join(' · ')}
+                  </div>
+                )}
               </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: faits === u.lecons.length ? 'var(--green)' : 'var(--muted)' }}>
                 {faits}/{u.lecons.length}
