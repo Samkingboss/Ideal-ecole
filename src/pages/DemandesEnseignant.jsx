@@ -2,6 +2,34 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 const APP_RH = 'rh'
 
+// Règles posées par le directeur le 16 août 2026.
+const PRET_MIN = 20000
+const PRET_MAX = 150000
+const AVANCE_MIN = 20000
+
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+
+// Un prêt se rembourse impérativement jusqu'en mai : la durée n'est donc pas
+// un choix, elle se déduit du mois de la demande. Première retenue le mois même
+// — l'avance étant déjà déduite à la fin du mois en cours, le prêt suit la même
+// paie.
+//
+// De mai à mai il y a une seule échéance, de juin à mai il y en a douze : le
+// modulo évite d'avoir à traiter le passage d'année à part.
+export const echeancierPret = (date = new Date()) => {
+  const m = date.getMonth() + 1          // 1 = janvier
+  const nb = ((5 - m + 12) % 12) + 1
+  const anneeFin = m <= 5 ? date.getFullYear() : date.getFullYear() + 1
+  const nomMois = MOIS[m - 1]
+  return {
+    nb,
+    debut: `${nomMois} ${date.getFullYear()}`,
+    // « de août » se lit mal : avril, août et octobre demandent l'élision.
+    depuis: `${/^[aeiouâéèêîôû]/i.test(nomMois) ? "d'" : 'de '}${nomMois} ${date.getFullYear()}`,
+    fin: `mai ${anneeFin}`,
+  }
+}
+
 import { pushNotification } from '../lib/notifications'
 
 export default function DemandesEnseignant({ user }) {
@@ -13,6 +41,19 @@ export default function DemandesEnseignant({ user }) {
   // sans que rien n'apparaisse dans l'interface : l'enseignant clique, rien ne
   // se passe, et il n'a aucun moyen de comprendre pourquoi.
   const [erreurSaisie, setErreurSaisie] = useState('')
+
+  // Salaire mensuel, renseigné par la direction dans la fiche d'activité du
+  // personnel. `null` tant qu'on ne le connaît pas : on ne plafonne alors
+  // rien, et on le dit — un plafond calculé sur une valeur inventée serait
+  // pire que pas de plafond.
+  const [salaire, setSalaire] = useState(null)
+  useEffect(() => {
+    supabase.from('app_state').select('value').eq('app', APP_RH).eq('key', 'personnel').maybeSingle()
+      .then(({ data }) => setSalaire(Number(data?.value?.[user?.id]?.salaire) || null))
+  }, [user?.id])
+
+  const plafondAvance = salaire ? Math.floor(salaire / 2) : null
+  const echeancier = echeancierPret()
   const [demandes, setDemandes] = useState([])
 
   // Form state
@@ -364,19 +405,23 @@ export default function DemandesEnseignant({ user }) {
                 <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)', marginBottom: 10 }}>🏦 Détails de la Demande de Prêt</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant du prêt souhaité (FCFA) * <span style={{ fontWeight: 500 }}>— minimum 5 000, par tranches de 5 000</span></label>
-                    <input type="number" min="5000" step="5000" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 800, fontSize: 14 }} placeholder="Ex: 100000" />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant du prêt souhaité (FCFA) * <span style={{ fontWeight: 500 }}>— de 20 000 à 150 000, par tranches de 5 000</span></label>
+                    <input type="number" min={PRET_MIN} max={PRET_MAX} step="5000" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 800, fontSize: 14 }} placeholder="Ex: 100000" />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Durée de remboursement souhaitée</label>
-                    <select value={formData.duree_mois} onChange={(e) => setFormData({ ...formData, duree_mois: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 700 }}>
-                      <option value="1">1 mois</option>
-                      <option value="2">2 mois</option>
-                      <option value="3">3 mois</option>
-                      <option value="4">4 mois</option>
-                      <option value="5">5 mois</option>
-                      <option value="6">6 mois</option>
-                    </select>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Remboursement</label>
+                    {/* La durée n'est pas un choix : le remboursement s'achève
+                        impérativement en mai. On l'affiche plutôt que de la
+                        faire choisir, et on montre la mensualité qui en
+                        découle — c'est elle qui décide si la demande tient. */}
+                    <div style={{ padding: '0.7rem', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', fontSize: 13 }}>
+                      <b>{echeancier.nb} mensualité{echeancier.nb > 1 ? 's' : ''}</b>, {echeancier.depuis} à {echeancier.fin}
+                      {Number(formData.montant) > 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 800, marginTop: 2 }}>
+                          soit {Math.ceil(Number(formData.montant) / echeancier.nb).toLocaleString('fr-FR')} F par mois
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -386,10 +431,24 @@ export default function DemandesEnseignant({ user }) {
             {typeDemande === 'avance' && (
               <div style={{ background: 'var(--bg)', padding: '1.2rem', borderRadius: 12, border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)', marginBottom: 10 }}>💵 Détails de la Demande d'Avance sur Salaire</div>
+
+                {/* L'employé doit savoir ce qui lui sera retenu, et quand. */}
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10, lineHeight: 1.5 }}>
+                  L'avance est déduite en une fois sur votre salaire, à la fin du mois.
+                  {plafondAvance
+                    ? ` Votre plafond est de ${plafondAvance.toLocaleString('fr-FR')} F, la moitié de votre salaire.`
+                    : null}
+                </div>
+                {!plafondAvance && (
+                  <div style={{ fontSize: 12, padding: '8px 12px', borderRadius: 10, marginBottom: 10, background: 'rgba(247,148,29,.08)', border: '1px solid rgba(247,148,29,.35)' }}>
+                    Votre salaire n'est pas encore enregistré : la plateforme ne peut pas vérifier
+                    le plafond de la moitié. La direction le contrôlera à la main.
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant de l'avance (FCFA) * <span style={{ fontWeight: 500 }}>— minimum 2 000, par tranches de 2 000</span></label>
-                    <input type="number" min="2000" step="2000" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 800, fontSize: 14, color: 'var(--green)' }} placeholder="Ex: 35000" />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant de l'avance (FCFA) * <span style={{ fontWeight: 500 }}>— à partir de 20 000{plafondAvance ? `, jusqu'à ${plafondAvance.toLocaleString('fr-FR')}` : ''}</span></label>
+                    <input type="number" min={AVANCE_MIN} max={plafondAvance || undefined} step="1000" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 800, fontSize: 14, color: 'var(--green)' }} placeholder="Ex: 35000" />
                   </div>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Mois de paie concerné</label>

@@ -48,6 +48,9 @@ export default function ActivitePersonnel({ user }) {
   const [config, setConfig] = useState(CONFIG_DEFAUT)
   const [sanctions, setSanctions] = useState([])
   const [sanctionsInstallees, setSanctionsInstallees] = useState(true)
+  // Fiche RH par employé — `rh/personnel`, indexée par identifiant. C'est
+  // aussi ce que lit l'écran de la prime : une seule source pour le salaire.
+  const [personnel, setPersonnel] = useState({})
   const [ouvert, setOuvert] = useState(null)      // id de l'employé déplié
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
@@ -56,10 +59,11 @@ export default function ActivitePersonnel({ user }) {
 
   async function charger() {
     setChargement(true); setErreur(null)
-    const [usr, cfg, man, perf, prep, comp, abs, disc, aff, edt, sanc] = await Promise.all([
+    const [usr, cfg, man, pers, perf, prep, comp, abs, disc, aff, edt, sanc] = await Promise.all([
       supabase.from('users').select('id, prenom, nom, role, actif').order('role').order('nom'),
       supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'points_config').maybeSingle(),
       supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'saisie_manuelle').maybeSingle(),
+      supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'personnel').maybeSingle(),
       supabase.from('performances').select('prof_id, date_jour, heure_arrivee, heure_depart'),
       supabase.from('preparations').select('user_id, date_cours, heure_cours, heure_depot, matiere, groupe'),
       supabase.from('comprehensions').select('prof_id, date_cours, matiere'),
@@ -76,6 +80,8 @@ export default function ActivitePersonnel({ user }) {
     // lisible sans lui, elle le signale simplement.
     if (tableAbsente(sanc.error)) setSanctionsInstallees(false)
     else setSanctions(sanc.data || [])
+
+    setPersonnel(pers.data?.value || {})
 
     const configuration = cfg.data?.value ? { ...CONFIG_DEFAUT, ...cfg.data.value } : CONFIG_DEFAUT
     setConfig(configuration)
@@ -149,6 +155,30 @@ export default function ActivitePersonnel({ user }) {
       sanctionsActives: sanc.filter(s => !s.levee_le).length,
       calc,
     }
+  }
+
+  // ── Salaire mensuel ────────────────────────────────────────────────────
+  //
+  // Il plafonne l'avance sur salaire qu'un employé peut demander — la moitié,
+  // règle posée par le directeur. Tant qu'il n'est pas renseigné, la plateforme
+  // ne peut pas vérifier ce plafond et le dit franchement plutôt que de laisser
+  // croire à un contrôle qui n'a pas lieu.
+  async function definirSalaire(u) {
+    const actuel = personnel[u.id]?.salaire
+    const saisi = prompt(
+      `Salaire mensuel de ${u.prenom} ${u.nom}, en FCFA.\nIl sert à plafonner ses avances : la moitié au maximum.`,
+      actuel ? String(actuel) : ''
+    )
+    if (saisi === null) return
+    const n = parseInt(String(saisi).replace(/[^0-9]/g, ''), 10)
+    if (!Number.isFinite(n) || n <= 0) { alert('Indiquez un montant supérieur à zéro.'); return }
+
+    const maj = { ...personnel, [u.id]: { ...(personnel[u.id] || {}), salaire: n } }
+    const { error } = await supabase.from('app_state').upsert({
+      app: 'rh', key: 'personnel', value: maj, updated_at: new Date().toISOString(),
+    }, { onConflict: 'app,key' })
+    if (error) { alert("Salaire non enregistré : " + error.message); return }
+    setPersonnel(maj)
   }
 
   // ── Saisie d'une sanction ──────────────────────────────────────────────
@@ -250,6 +280,25 @@ export default function ActivitePersonnel({ user }) {
 
             {estOuvert && (
               <div style={{ borderTop: '1px solid var(--border)', padding: '12px 14px' }}>
+
+                {/* Rémunération */}
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Rémunération</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 15, fontWeight: 900 }}>
+                    {personnel[u.id]?.salaire
+                      ? `${personnel[u.id].salaire.toLocaleString('fr-FR')} F / mois`
+                      : <span style={{ color: 'var(--amber)', fontSize: 13 }}>salaire non renseigné</span>}
+                  </div>
+                  {personnel[u.id]?.salaire && (
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      avance plafonnée à {Math.floor(personnel[u.id].salaire / 2).toLocaleString('fr-FR')} F
+                    </div>
+                  )}
+                  <button onClick={() => definirSalaire(u)}
+                    style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                    {personnel[u.id]?.salaire ? 'Modifier' : 'Renseigner'}
+                  </button>
+                </div>
 
                 {/* Présence */}
                 <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Présence</div>

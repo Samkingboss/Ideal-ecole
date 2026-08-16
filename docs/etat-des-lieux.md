@@ -268,6 +268,24 @@ Corrections déjà appliquées, à ne pas défaire :
   responsable administratif, sort de l'attente. Une contrainte en base refuse
   qu'une absence soit déclarée justifiée sans pièce ni validateur.
 
+### Prêts et avances sur salaire
+
+Règles posées par le directeur le 16 août 2026.
+
+- **Prêt** : de 20 000 à 150 000 FCFA, par tranches de 5 000. Le remboursement
+  s'achève **impérativement en mai** : la durée n'est donc pas un choix, elle se
+  déduit du mois de la demande, première retenue le mois même. Une demande en
+  août donne 10 mensualités, une demande en mai une seule. L'écran affiche
+  l'échéancier et la mensualité qui en découle.
+- **Avance** : à partir de 20 000, plafonnée à **la moitié du salaire du
+  demandeur**, et déduite en une fois sur la paie de fin de mois.
+
+Le salaire de chaque employé se saisit dans **Gestion du Personnel → Activité du
+Personnel**, et se range dans `app_state (rh, personnel)` — la même clé que lit
+l'écran de la prime. Tant qu'un salaire n'est pas renseigné, la plateforme ne
+plafonne pas l'avance et **le dit à l'enseignant** plutôt que de laisser croire
+à un contrôle qui n'a pas lieu.
+
 Paliers d'avantages : bourse enfant après 3 ans d'ancienneté, formation après
 5 ans ; à 5 ans l'enseignant choisit entre 100 % de bourse enfant ou une
 bourse d'études déclarée dès la 3ᵉ année sans incident.
