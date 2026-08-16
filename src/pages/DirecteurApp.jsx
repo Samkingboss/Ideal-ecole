@@ -10,6 +10,7 @@ import {
 import { lireJournal } from '../lib/audit'
 import { pushNotification } from '../lib/notifications'
 import AffectationsMatieres from './AffectationsMatieres'
+import ActivitePersonnel from './ActivitePersonnel'
 import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
 import DocumentPrintStudio from './DocumentPrintStudio'
@@ -1265,6 +1266,13 @@ export default function DirecteurApp({ user, onLogout }) {
                 👥 Équipe &amp; Fiches Staff
               </button>
               <button 
+                className={`btn-sm ${subTabPersonnel === 'activite' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setSubTabPersonnel('activite')}
+                style={{ padding: '8px 16px', fontWeight: 800 }}
+              >
+                📊 Activité du Personnel
+              </button>
+              <button 
                 className={`btn-sm ${subTabPersonnel === 'matieres' ? 'btn-primary' : 'btn-outline'}`}
                 onClick={() => setSubTabPersonnel('matieres')}
                 style={{ padding: '8px 16px', fontWeight: 800 }}
@@ -1307,6 +1315,8 @@ export default function DirecteurApp({ user, onLogout }) {
             )}
 
             {/* Sous-module Affectations */}
+            {subTabPersonnel === 'activite' && <ActivitePersonnel user={user} />}
+
             {subTabPersonnel === 'matieres' && (
               <AffectationsMatieres classes={classes} profs={profs} disciplines={disciplines} />
             )}
