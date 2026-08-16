@@ -919,6 +919,65 @@ export default function DirecteurApp({ user, onLogout }) {
                 <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Référentiel des postes, masse salariale, émargement mensuel et fiches de paie du personnel.</p>
               </div>
 
+              {/* Demandes RH — le responsable administratif reçoit les mêmes
+                  notifications que la direction, il doit donc voir les demandes
+                  et pouvoir y répondre. Sa cloche menait jusqu'ici à cet écran
+                  où il n'y en avait aucune trace. */}
+              <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📑 Demandes RH du personnel</h3>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)' }}>
+                    {(demandesRH || []).filter(d => d.statut === 'En attente').length} en attente
+                  </span>
+                </div>
+
+                {(demandesRH || []).length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '1.5rem' }}>Aucune demande soumise.</div>
+                ) : (demandesRH || []).map(d => (
+                  <div
+                    key={d.id}
+                    id={`demande-${d.id}`}
+                    style={{
+                      border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px', marginBottom: 8,
+                      background: demandeCiblee === d.id ? 'rgba(0,168,224,0.12)' : 'transparent',
+                      outline: demandeCiblee === d.id ? '2px solid var(--accent)' : 'none',
+                      transition: 'background .3s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>{d.user_name || 'Enseignant'}</div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                        background: d.statut === 'Approuvée' ? 'rgba(16,185,129,0.12)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
+                        color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)',
+                      }}>{d.statut}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                      {d.type}{d.details?.montant ? ` · ${Number(d.details.montant).toLocaleString('fr-FR')} F` : ''}
+                      {' · '}{new Date(d.date_soumission).toLocaleDateString('fr-FR')}
+                    </div>
+                    {d.details?.motif && <div style={{ fontSize: 12, marginTop: 4 }}>« {d.details.motif} »</div>}
+                    {d.reponse_direction && (
+                      <div style={{ fontSize: 12, marginTop: 4 }}>
+                        <b style={{ color: 'var(--accent)' }}>Réponse :</b> {d.reponse_direction}
+                      </div>
+                    )}
+                    {d.statut === 'En attente' && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }}
+                          onClick={async () => { const r = prompt("Commentaire d'approbation :", 'Approuvé'); if (r !== null) await repondreDemande(d, 'Approuvée', r) }}>
+                          ✓ Approuver
+                        </button>
+                        <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }}
+                          onClick={async () => { const r = prompt('Motif du refus :', 'Refusé'); if (r) await repondreDemande(d, 'Refusée', r) }}>
+                          ✖ Refuser
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
               {/* KPI Masse Salariale */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
                 <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
