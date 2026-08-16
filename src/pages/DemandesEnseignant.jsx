@@ -35,22 +35,35 @@ export default function DemandesEnseignant({ user }) {
     loadDemandes()
   }, [user?.id])
 
+  // Les demandes de l'enseignant se lisent dans le registre global, filtrées
+  // sur son identifiant. C'est le seul endroit que la direction met à jour
+  // quand elle répond.
+  //
+  // Auparavant chaque enseignant avait sa copie, `demandes_rh_<user_id>`, que
+  // personne ne mettait jamais à jour — et qui n'existait même pas en base :
+  // son écriture omettait la colonne `app`, obligatoire, et partait donc en
+  // 400. La copie ne vivait que dans le localStorage de l'appareil, figée sur
+  // « En attente » : la réponse de la direction n'atteignait jamais l'écran.
   const loadDemandes = async () => {
     try {
-      const storageKey = `demandes_rh_${user?.id}`
-      const localData = localStorage.getItem(storageKey)
-      if (localData) setDemandes(JSON.parse(localData))
+      const cache = localStorage.getItem(`demandes_rh_${user?.id}`)
+      if (cache) { try { setDemandes(JSON.parse(cache)) } catch (e) {} }
 
-      // Supabase fetch
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('app_state')
         .select('value')
-        .eq('key', `demandes_rh_${user?.id}`)
+        .eq('app', APP_RH)
+        .eq('key', 'demandes_rh_global')
         .maybeSingle()
 
-      if (data && data.value && Array.isArray(data.value)) {
-        setDemandes(data.value)
-      }
+      // Sans réponse du serveur on garde le cache : mieux vaut une liste un peu
+      // ancienne qu'un écran vide. Mais on ne l'écrase jamais par du vide.
+      if (error) { console.error('Demandes RH illisibles :', error.message); return }
+      if (!data || !Array.isArray(data.value)) return
+
+      const miennes = data.value.filter(d => d.user_id === user?.id)
+      setDemandes(miennes)
+      localStorage.setItem(`demandes_rh_${user?.id}`, JSON.stringify(miennes))
     } catch (err) {
       console.error('Erreur chargement des demandes:', err)
     }
@@ -129,17 +142,10 @@ export default function DemandesEnseignant({ user }) {
       const updatedList = [nouvelleDemande, ...demandes]
       setDemandes(updatedList)
 
-      // Storage local
+      // Cache local, pour que l'écran survive à une coupure réseau. Ce n'est
+      // qu'un reflet du registre global : il n'y a plus de copie par
+      // enseignant en base, elle divergeait sans jamais être relue.
       localStorage.setItem(`demandes_rh_${user?.id}`, JSON.stringify(updatedList))
-
-      // Supabase app_state
-      await supabase
-        .from('app_state')
-        .upsert({
-          key: `demandes_rh_${user?.id}`,
-          value: updatedList,
-          updated_at: new Date().toISOString()
-        })
 
       // Push dans le registre global des demandes RH pour la Direction
       const { data: globalState } = await supabase
@@ -152,7 +158,7 @@ export default function DemandesEnseignant({ user }) {
       const currentGlobal = (globalState && Array.isArray(globalState.value)) ? globalState.value : []
       const updatedGlobal = [nouvelleDemande, ...currentGlobal]
 
-      await supabase
+      const { error: eGlobal } = await supabase
         .from('app_state')
         .upsert({
           // `app` fait partie de la cle primaire et ne peut etre nulle :
@@ -162,6 +168,15 @@ export default function DemandesEnseignant({ user }) {
           value: updatedGlobal,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'app,key' })
+
+      // Une demande perdue en silence est le pire des cas : l'enseignant croit
+      // avoir écrit à la direction et attend une réponse qui ne viendra pas.
+      if (eGlobal) {
+        setLoading(false)
+        setSuccessMsg('')
+        alert("Votre demande n'a pas pu être transmise : " + eGlobal.message + "\nRéessayez, et prévenez la direction si cela se reproduit.")
+        return
+      }
 
       // Push notification au Directeur & Admin
       await pushNotification('directeur', {

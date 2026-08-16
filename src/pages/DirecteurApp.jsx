@@ -8,6 +8,7 @@ import {
   avantagesDe, ancienneteAnnees, pointsMaxAnnee,
 } from '../lib/points'
 import { lireJournal } from '../lib/audit'
+import { pushNotification } from '../lib/notifications'
 import AffectationsMatieres from './AffectationsMatieres'
 import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
@@ -101,6 +102,43 @@ export default function DirecteurApp({ user, onLogout }) {
   const [postes, setPostes] = useState(DEFAULT_POSTES)
   const [posteDraft, setPosteDraft] = useState([])
   const [demandesRH, setDemandesRH] = useState([])
+
+  // Reponse de la direction a une demande RH.
+  //
+  // Trois choses doivent se produire ensemble, et c'est la troisieme qui
+  // manquait : enregistrer la decision, verifier qu'elle est bien partie, et
+  // prevenir l'enseignant. Sans notification, la demande restait « en cours de
+  // traitement » sur son ecran et il n'apprenait jamais la reponse.
+  //
+  // La notification vise `d.user_id` et non un role : c'est l'enseignant
+  // concerne qu'on informe, pas la salle des profs.
+  const repondreDemande = async (d, statut, reponse) => {
+    const updated = demandesRH.map(x => (x.id === d.id ? { ...x, statut, reponse_direction: reponse } : x))
+    setDemandesRH(updated)
+
+    const { error } = await supabase.from('app_state').upsert({
+      app: 'rh', key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString(),
+    }, { onConflict: 'app,key' })
+
+    if (error) {
+      setDemandesRH(demandesRH)   // on remet l'ecran dans l'etat de la base
+      alert("La reponse n'a pas ete enregistree : " + error.message)
+      return
+    }
+
+    const transmise = await pushNotification(d.user_id, {
+      titre: /refus/i.test(statut) ? 'Votre demande a été refusée' : 'Votre demande a été approuvée',
+      message: reponse ? `${statut} — ${reponse}` : String(statut),
+      type: 'rh',
+      tabTarget: 'demandes',
+    })
+
+    // La decision est enregistree quoi qu'il arrive ; seule l'alerte a pu
+    // echouer. Le dire, plutot que de laisser croire l'enseignant prevenu.
+    if (!transmise) {
+      alert("Reponse enregistree, mais la notification n'a pas pu etre envoyee a l'enseignant. Prevenez-le de vive voix.")
+    }
+  }
   const [pointsConfig, setPointsConfig] = useState(CONFIG_DEFAUT)
   const [personnelRH, setPersonnelRH] = useState({})
   const [sourcesPoints, setSourcesPoints] = useState({ preparations: [], checkpoints: [], performances: [], rapports: [], saisieManuelle: {} })
@@ -1164,8 +1202,8 @@ export default function DirecteurApp({ user, onLogout }) {
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                             {d.statut === 'En attente' ? (
                               <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                                <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if(rep !== null) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Approuvée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ app: 'rh', key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' }); } }}>✓ Approuver</button>
-                                <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if(rep) { const updated = demandesRH.map(x => x.id === d.id ? { ...x, statut: 'Refusée', reponse_direction: rep } : x); setDemandesRH(updated); await supabase.from('app_state').upsert({ app: 'rh', key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' }); } }}>✖ Refuser</button>
+                                <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if (rep !== null) await repondreDemande(d, 'Approuvée', rep) }}>✓ Approuver</button>
+                                <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if (rep) await repondreDemande(d, 'Refusée', rep) }}>✖ Refuser</button>
                               </div>
                             ) : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Traitée</span>}
                           </td>
