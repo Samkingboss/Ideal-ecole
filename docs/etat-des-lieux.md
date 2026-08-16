@@ -91,14 +91,21 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
     ce ne sont pas des séances, et le sommaire de l'école porte lui-même le
     programme sur les pages 4 à 72. Enseignante : Ornella MOGADZI,
     8 séquences/semaine.
+  - **Les Petits Devoirs — Grammaire** (La Librairie des Écoles), pour
+    Grammaire CP2 (`grammaire-cp2.js`) — 29 leçons numérotées, sans unités,
+    pages 4 à 60 de deux en deux (une double page par leçon). Les corrigés
+    (p. 62) n'y sont pas : on ne prépare pas un cours dessus. Enseignante :
+    Ornella MOGADZI, 3 séquences/semaine.
 - **Deux structures de livre sont admises**, parce que deux livres ne se
   ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
   en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
   numérote pas ses étapes pose `numerote: false` ; ses étapes sont alors
   identifiées par leur **page de début**, pas par un rang. Cet identifiant est
   stable : corriger une plage plus tard ne renumérote pas les étapes déjà
-  visées par des préparations déposées. Les deux réglages se combinent —
-  Boscher est découpé en phases sans numéroter ses leçons.
+  visées par des préparations déposées. Les deux réglages se combinent
+  librement, et les quatre combinaisons sont en service : Singapour (unités +
+  numéros), Boscher (unités sans numéros), Les Petits Devoirs (numéros sans
+  unités), Pas à Pas (ni l'un ni l'autre).
 - `situationDe()` produit la phrase qui situe une étape, et elle seule :
   « Unité 1 · leçon 2 · manuel p. 6 » chez Singapour, « Unité 1 · manuel p. 4 »
   chez Boscher, « manuel p. 36–41 » chez Pas à Pas. Ne jamais réécrire ce
