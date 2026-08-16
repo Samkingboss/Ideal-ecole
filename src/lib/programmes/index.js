@@ -17,8 +17,9 @@ import englishCP1 from './english-cp1'
 import mathematicsCP1 from './mathematics-cp1'
 import englishCP2 from './english-cp2'
 import scienceCP2 from './science-cp2'
+import scienceCP1 from './science-cp1'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -73,6 +74,10 @@ export const libelleUnite = manuel => manuel?.libelleUnite || 'Unité'
 export const situationDe = (manuel, l) => {
   if (!l) return ''
   const bouts = []
+  // Le numéro 0 désigne une partie préliminaire — « Be a Scientist » chez
+  // Science CP1 — qui n'est pas un chapitre numéroté du livre : on la laisse
+  // sans repère plutôt que d'annoncer un « Chapitre 0 » qui n'existe nulle
+  // part dans l'ouvrage.
   if (l.unite) bouts.push(`${libelleUnite(manuel)} ${l.unite}`)
   if (manuel?.numerote !== false) bouts.push(`leçon ${l.numero ?? l.lecon}`)
   // Référence imprimée par le livre lui-même, quand il en a une : Cambridge
