@@ -8,6 +8,11 @@ export default function DemandesEnseignant({ user }) {
   const [tabType, setTabType] = useState('nouvelle') // 'nouvelle' | 'historique'
   const [loading, setLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+
+  // Refus du navigateur, rendu visible. Un champ hors norme bloque l'envoi
+  // sans que rien n'apparaisse dans l'interface : l'enseignant clique, rien ne
+  // se passe, et il n'a aucun moyen de comprendre pourquoi.
+  const [erreurSaisie, setErreurSaisie] = useState('')
   const [demandes, setDemandes] = useState([])
 
   // Form state
@@ -142,6 +147,7 @@ export default function DemandesEnseignant({ user }) {
     e.preventDefault()
     setLoading(true)
     setSuccessMsg('')
+    setErreurSaisie('')
 
     const nouvelleDemande = {
       id: Date.now(),
@@ -358,7 +364,7 @@ export default function DemandesEnseignant({ user }) {
                 <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)', marginBottom: 10 }}>🏦 Détails de la Demande de Prêt</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant du prêt souhaité (FCFA) *</label>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant du prêt souhaité (FCFA) * <span style={{ fontWeight: 500 }}>— minimum 5 000, par tranches de 5 000</span></label>
                     <input type="number" min="5000" step="5000" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 800, fontSize: 14 }} placeholder="Ex: 100000" />
                   </div>
                   <div>
@@ -382,7 +388,7 @@ export default function DemandesEnseignant({ user }) {
                 <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)', marginBottom: 10 }}>💵 Détails de la Demande d'Avance sur Salaire</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant de l'avance (FCFA) *</label>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Montant de l'avance (FCFA) * <span style={{ fontWeight: 500 }}>— minimum 2 000, par tranches de 2 000</span></label>
                     <input type="number" min="2000" step="2000" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 800, fontSize: 14, color: 'var(--green)' }} placeholder="Ex: 35000" />
                   </div>
                   <div>
@@ -565,10 +571,37 @@ export default function DemandesEnseignant({ user }) {
               />
             </div>
 
+            {erreurSaisie && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                background: 'rgba(220,53,69,.10)', color: 'var(--red)', border: '1px solid rgba(220,53,69,.35)',
+              }}>
+                {erreurSaisie}
+              </div>
+            )}
+
             <button
               type="submit"
               className="btn-primary"
               disabled={loading}
+              // Le navigateur bloque l'envoi d'un champ hors norme sans rien
+              // afficher de visible sur mobile : l'enseignant clique et rien ne
+              // se passe. On interroge donc le formulaire nous-mêmes et on
+              // reprend le message du navigateur, déjà traduit et précis.
+              //
+              // Pourquoi ici et non par `onInvalid` sur le formulaire :
+              // l'événement `invalid` ne remonte pas dans le DOM, un écouteur
+              // posé sur le parent ne le reçoit jamais.
+              onClick={e => {
+                const form = e.currentTarget.form
+                if (!form || form.checkValidity()) { setErreurSaisie(''); return }
+                const champ = [...form.querySelectorAll('input,select,textarea')].find(x => !x.checkValidity())
+                if (!champ) return
+                // Le libellé porte déjà la règle après un tiret cadratin ; on
+                // ne garde que le nom du champ, sinon le message la répète.
+                const nom = champ.previousElementSibling?.textContent?.split('—')[0].replace('*', '').trim()
+                setErreurSaisie(`${nom ? nom + ' — ' : ''}${champ.validationMessage}`)
+              }}
               style={{ padding: '0.85rem 2rem', borderRadius: 12, fontSize: '1rem', fontWeight: 900, background: 'linear-gradient(135deg,#00a8e0,#0078b4)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,168,224,0.3)', marginTop: 8 }}
             >
               {loading ? '⏳ Transmission en cours...' : '🚀 Transmettre la Demande à la Direction'}
