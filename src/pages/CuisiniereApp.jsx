@@ -137,6 +137,9 @@ export default function CuisiniereApp({ user, onLogout }) {
   // Modals & Édition
   const [editEleveModal, setEditEleveModal] = useState(null)
   const [newArticleModal, setNewArticleModal] = useState(false)
+  // Bloc d'ajout dépliable en bas de la liste, à la manière d'un formulaire
+  // en ligne : on ne quitte pas la page pour ajouter un aliment.
+  const [ajoutOuvert, setAjoutOuvert] = useState(false)
   const [newArticle, setNewArticle] = useState({ nom: '', quantite: '', pu: 0, en_stock: false })
 
   // La fiche du marché reste une saisie libre : on tape l'aliment, la quantité
@@ -351,6 +354,7 @@ export default function CuisiniereApp({ user, onLogout }) {
     saveFicheMarche(updated)
     setNewArticle({ nom: '', quantite: '', pu: 0, en_stock: false })
     setNewArticleModal(false)
+    setAjoutOuvert(true)   // le bloc reste ouvert, prêt pour l'aliment suivant
     setMsg('🛒 Aliment ajouté au marché !')
     setTimeout(() => setMsg(''), 3000)
   }
@@ -1438,7 +1442,135 @@ export default function CuisiniereApp({ user, onLogout }) {
                 <span style={{ fontSize: 11, color: '#64748b' }}>✏️ Cliquez directement dans les cases pour modifier les noms, quantités et prix.</span>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              {/* ── Saisie à l'écran : une carte par aliment, empilées ──
+                  Chaque champ occupe toute la largeur : sur un téléphone, on
+                  lit le nom, la quantité et le prix sans faire défiler de
+                  côté, et le total de la ligne s'affiche sous les champs. */}
+              <div className="ecran-seul">
+                {ficheMarche.articles.map((art, idx) => {
+                  const qty = parseFloat(art.quantite) || 1
+                  const totalArt = art.en_stock ? 0 : Number(art.pu) * qty
+                  return (
+                    <div key={art.id || idx} style={{
+                      border: '1px solid ' + (art.en_stock ? '#cbd5e1' : art.achete ? '#86efac' : 'var(--border)'),
+                      background: art.en_stock ? 'rgba(100,116,139,.05)' : art.achete ? 'rgba(16,185,129,.04)' : '#fff',
+                      borderRadius: 14, padding: '12px 14px', marginBottom: 10,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--muted)', minWidth: 20 }}>{idx + 1}.</span>
+                        <input
+                          className="form-input"
+                          value={art.nom || ''}
+                          onChange={e => updateArticleField(art.id, 'nom', e.target.value)}
+                          placeholder="Nom de l'aliment"
+                          style={{ flex: 1, fontWeight: 800, fontSize: 15 }}
+                        />
+                        <button onClick={() => deleteArticle(art.id)} title="Supprimer"
+                          style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 18, cursor: 'pointer' }}>🗑️</button>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)' }}>
+                          QUANTITÉ
+                          <input className="form-input" value={art.quantite || ''}
+                            onChange={e => updateArticleField(art.id, 'quantite', e.target.value)}
+                            placeholder="ex : 8 kg" style={{ marginTop: 2, fontWeight: 700 }} />
+                        </label>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)' }}>
+                          PRIX UNITAIRE
+                          <input type="number" className="form-input" value={art.pu || ''}
+                            onChange={e => updateArticleField(art.id, 'pu', Number(e.target.value) || 0)}
+                            placeholder="FCFA" style={{ marginTop: 2, fontWeight: 700 }} />
+                        </label>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {!art.en_stock && (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={!!art.achete} onChange={() => toggleArticleAchete(art.id)} style={{ width: 16, height: 16 }} />
+                              Payé
+                            </label>
+                          )}
+                          <button onClick={() => toggleArticleEnStock(art.id)}
+                            style={{
+                              padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                              border: '1px solid ' + (art.en_stock ? '#64748b' : 'var(--border)'),
+                              background: art.en_stock ? '#64748b' : '#fff', color: art.en_stock ? '#fff' : '#64748b',
+                            }}>
+                            🥫 {art.en_stock ? 'Déjà en stock' : 'Je l’ai déjà'}
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: art.en_stock ? '#64748b' : '#16a34a' }}>
+                          {art.en_stock ? 'non acheté' : fcfa(totalArt)}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Le bloc d'ajout se déplie en bas de la liste : on saisit, on
+                    valide, l'aliment rejoint la pile et le bloc se rouvre vide
+                    pour le suivant. */}
+                {!ajoutOuvert ? (
+                  <button onClick={() => setAjoutOuvert(true)}
+                    style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed var(--accent)', background: 'rgba(0,168,224,.04)', color: 'var(--accent)', fontWeight: 900, fontSize: 14, cursor: 'pointer' }}>
+                    ➕ Ajouter un aliment
+                  </button>
+                ) : (
+                  <div style={{ border: '2px solid var(--accent)', borderRadius: 14, padding: '14px', background: 'rgba(0,168,224,.03)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--accent)', marginBottom: 10 }}>NOUVEL ALIMENT</div>
+
+                    <input className="form-input" autoFocus placeholder="Nom de l'aliment — ex : Poulet"
+                      value={newArticle.nom} onChange={e => setNewArticle({ ...newArticle, nom: e.target.value })}
+                      style={{ fontWeight: 700, marginBottom: 8 }} />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)' }}>
+                        QUANTITÉ
+                        <input className="form-input" placeholder="ex : 8 kg" value={newArticle.quantite}
+                          onChange={e => setNewArticle({ ...newArticle, quantite: e.target.value })} style={{ marginTop: 2 }} />
+                      </label>
+                      <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)' }}>
+                        PRIX UNITAIRE
+                        <input type="number" className="form-input" placeholder="FCFA" value={newArticle.pu}
+                          onChange={e => setNewArticle({ ...newArticle, pu: e.target.value })} style={{ marginTop: 2 }} />
+                      </label>
+                    </div>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={Boolean(newArticle.en_stock)}
+                        onChange={e => setNewArticle({ ...newArticle, en_stock: e.target.checked })} style={{ width: 16, height: 16 }} />
+                      🥫 Je l’ai déjà — ne pas acheter
+                    </label>
+
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button onClick={handleAddArticle}
+                        style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>
+                        Ajouter à la fiche
+                      </button>
+                      <button onClick={() => { setAjoutOuvert(false); setNewArticle({ nom: '', quantite: '', pu: 0, en_stock: false }) }}
+                        style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {ficheMarche.articles.length > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, padding: '14px', borderRadius: 14, background: 'rgba(0,168,224,.08)', border: '1px solid rgba(0,168,224,.3)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#0d2a3b' }}>TOTAL DU MARCHÉ</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent)' }}>{fcfa(totalDepense)}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Le tableau reste le document imprimé — c'est lui qui part au
+                  responsable administratif. À l'écran, sur un téléphone, ses
+                  six colonnes deviennent illisibles : le total et les actions
+                  sortent du cadre. On le réserve donc à l'impression et on
+                  empile des cartes à l'écran. */}
+              <div className="impression-seule" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)', fontSize: 12, textTransform: 'uppercase', color: '#64748b' }}>

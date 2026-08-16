@@ -317,3 +317,12 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
   .btn:hover, .btn-sm:hover { filter: brightness(1.08); }
   .nav-item:hover { color: var(--accent); }
 }
+
+/* Deux mises en page pour une même donnée : des cartes empilées à l'écran,
+   lisibles sur un téléphone, et un tableau à l'impression, qui reste le
+   document que l'on signe et que l'on transmet. */
+.impression-seule { display: none; }
+@media print {
+  .ecran-seul { display: none !important; }
+  .impression-seule { display: block !important; }
+}
