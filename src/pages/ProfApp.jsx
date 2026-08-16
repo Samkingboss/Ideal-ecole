@@ -7,6 +7,7 @@ import FinDeCours from './FinDeCours'
 import MonEmploiDuTemps from './MonEmploiDuTemps'
 import DossierPersonnel from './DossierPersonnel'
 import DemandesEnseignant from './DemandesEnseignant'
+import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
 import SommaireBoscherDocument from './SommaireBoscherDocument'
@@ -338,6 +339,7 @@ export default function ProfApp({ user, onLogout }) {
           <>
             <button onClick={() => setTab('dossier')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'dossier' ? '#00a8e0' : 'var(--bg)', color: tab === 'dossier' ? '#fff' : 'var(--muted)' }}>📂 Mon Dossier RH</button>
             <button onClick={() => setTab('demandes')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'demandes' ? '#00a8e0' : 'var(--bg)', color: tab === 'demandes' ? '#fff' : 'var(--muted)' }}>📩 Demandes &amp; Justificatifs</button>
+            <button onClick={() => setTab('materiel')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'materiel' ? '#00a8e0' : 'var(--bg)', color: tab === 'materiel' ? '#fff' : 'var(--muted)' }}>📦 Demande de matériel</button>
           </>
         )}
         </div>
@@ -507,6 +509,8 @@ export default function ProfApp({ user, onLogout }) {
         {/* ════════ SESSION 6 : DOSSIER RH & DEMANDES ════════ */}
         {tab === 'dossier' && <DossierPersonnel user={user} profInfo={user} />}
         {tab === 'demandes' && <DemandesEnseignant user={user} />}
+
+        {tab === 'materiel' && <DemandeMateriel user={user} />}
       </div>
 
       {/* MODAL APERÇU ET IMPRESSION CAHIER DE DEVOIRS (CODE COULEUR BLEU OCÉAN) */}

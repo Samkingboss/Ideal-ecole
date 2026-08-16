@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import SuiviStock from './SuiviStock'
 import { journaliser } from '../lib/audit'
 import NotificationCenter from './NotificationCenter'
 import { pushNotification } from '../lib/notifications'
@@ -231,7 +232,18 @@ export default function SurveillantApp({ user, onLogout }) {
           <div className="nav-icon" aria-hidden="true">⚖️</div>
           <span>Discipline</span>
         </button>
+        <button className={`nav-item ${tab==='stock'?'active':''}`} onClick={()=>setTab('stock')} role="tab" aria-selected={tab === 'stock'} aria-label="Suivi du stock et demandes de matériel">
+          <div className="nav-icon" aria-hidden="true">📦</div>
+          <span>Stock</span>
+        </button>
       </div>
+
+      {tab === 'stock' && (
+        <div className="page-content" style={{ padding: '1.2rem 1rem calc(130px + env(safe-area-inset-bottom))' }}>
+          <div className="section-head"><div className="section-title">Stock &amp; demandes de matériel</div></div>
+          <SuiviStock user={user} />
+        </div>
+      )}
 
       {tab === 'pointage' && (
         <div className="page-content" style={{paddingBottom:80}}>
