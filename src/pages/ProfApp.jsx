@@ -1,4 +1,4 @@
-import ProgrammeManager from './ProgrammeManager'
+import ProgrammeManuel from './ProgrammeManuel'
 import CheckpointModal from './CheckpointModal'
 import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
@@ -87,17 +87,36 @@ export default function ProfApp({ user, onLogout }) {
   useEffect(() => { loadData() }, [])
   useEffect(() => { loadProgramme() }, [selectedClasse])
 
+  // Objectifs de la classe, pour les checkpoints et la fiche de fin de cours.
+  //
+  // Un objectif n'appartient pas à une matière : il pend à une planification de
+  // la classe (`objectifs.planification_id`) et porte lui-même sa discipline.
+  // L'ancienne requête filtrait sur `objectifs.matiere_id`, colonne qui
+  // n'existe pas : elle échouait en 400 à chaque changement de classe et le
+  // programme s'affichait vide pour tout le monde, sans qu'aucune erreur ne
+  // soit visible.
   const loadProgramme = async () => {
     if (!selectedClasse || !user) return
-    const { data: mats } = await supabase.from('matieres').select('*').eq('classe_id', selectedClasse.id).order('nom')
-    if (!mats || mats.length === 0) { setProgrammeData([]); return }
-    
-    const result = []
-    for (const mat of mats) {
-      const { data: objs } = await supabase.from('objectifs').select('*').eq('matiere_id', mat.id).order('nom')
-      result.push({ ...mat, objectifs: objs || [] })
-    }
-    setProgrammeData(result)
+    const { data: plans, error: ePlans } = await supabase
+      .from('planifications').select('id').eq('classe_id', selectedClasse.id)
+    if (ePlans) { console.error('planifications', ePlans); setProgrammeData([]); return }
+
+    const ids = (plans || []).map(p => p.id)
+    if (!ids.length) { setProgrammeData([]); return }
+
+    const { data: objs, error: eObjs } = await supabase
+      .from('objectifs').select('id, discipline, description, ordre')
+      .in('planification_id', ids).order('ordre')
+    if (eObjs) { console.error('objectifs', eObjs); setProgrammeData([]); return }
+
+    // Regroupement par discipline : c'est ce que les écrans appellent « matière ».
+    const parDiscipline = new Map()
+    ;(objs || []).forEach(o => {
+      const cle = o.discipline || 'Sans discipline'
+      if (!parDiscipline.has(cle)) parDiscipline.set(cle, [])
+      parDiscipline.get(cle).push({ id: o.id, nom: o.description })
+    })
+    setProgrammeData([...parDiscipline].map(([nom, objectifs]) => ({ id: nom, nom, objectifs })))
   }
 
   const loadData = async () => {
@@ -130,7 +149,8 @@ export default function ProfApp({ user, onLogout }) {
         setEleves(el || [])
       }
 
-      const { data: plans } = await supabase.from('planifications').select('*').eq('prof_id', user.id)
+      // `planifications` n'a pas de colonne `prof_id` : l'auteur est `created_by`.
+      const { data: plans } = await supabase.from('planifications').select('*').eq('created_by', user.id)
       setPlanifications(plans || [])
 
       const { data: cps } = await supabase.from('checkpoints').select('*, progressions(*, objectifs(*, matieres(*)))').order('date_checkpoint')
@@ -139,7 +159,9 @@ export default function ProfApp({ user, onLogout }) {
       const { data: perfs } = await supabase.from('performances').select('*').eq('prof_id', user.id)
       setMyPerfs(perfs || [])
 
-      const { data: preps } = await supabase.from('preparations').select('*').eq('prof_id', user.id).order('heure_depot', { ascending: false })
+      // La colonne est `user_id`, pas `prof_id` : filtrer sur `prof_id`
+      // renvoyait un 400 et la liste des préparations restait vide.
+      const { data: preps } = await supabase.from('preparations').select('*').eq('user_id', user.id).order('heure_depot', { ascending: false })
       setPreparations(preps || [])
 
       const { data: devData } = await supabase.from('devoirs').select('*').order('date_rendu', { ascending: true })
@@ -269,7 +291,7 @@ export default function ProfApp({ user, onLogout }) {
 
         {activeProfSession === 'pedagogie' && (
           <>
-            <button onClick={() => setTab('programme')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'programme' ? '#00a8e0' : 'var(--bg)', color: tab === 'programme' ? '#fff' : 'var(--muted)' }}>📚 Programme &amp; Matières</button>
+            <button onClick={() => setTab('programme')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'programme' ? '#00a8e0' : 'var(--bg)', color: tab === 'programme' ? '#fff' : 'var(--muted)' }}>📘 Programme du manuel</button>
             <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions &amp; Checkpoints</button>
             <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>🎯 Fin de cours &amp; Clés</button>
           </>
@@ -314,7 +336,10 @@ export default function ProfApp({ user, onLogout }) {
         )}
 
         {/* ════════ SESSION 2 : PÉDAGOGIE & COURS ════════ */}
-        {!loading && classes.length > 0 && (tab === 'programme' || tab === 'progression' || tab === 'fincours' || tab === 'classe' || tab === 'devoirs') && (
+        {/* Le programme du manuel ne dépend ni de la classe ni du trimestre :
+            il se lit sur les affectations de l'enseignant. Afficher ces deux
+            listes sur cet onglet laisserait croire qu'elles le filtrent. */}
+        {!loading && classes.length > 0 && (tab === 'progression' || tab === 'fincours' || tab === 'classe' || tab === 'devoirs') && (
           <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
             <select className="form-select" style={{ flex: 1, minWidth: 140 }} value={selectedClasse?.id || ''} onChange={e => setSelectedClasse(classes.find(c => c.id === e.target.value))}>
               {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
@@ -325,7 +350,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         )}
 
-        {tab === 'programme' && <ProgrammeManager user={user} selectedClasse={selectedClasse} supabase={supabase} onUpdate={loadProgramme} />}
+        {tab === 'programme' && <ProgrammeManuel user={user} />}
 
         {tab === 'progression' && (
           <div>

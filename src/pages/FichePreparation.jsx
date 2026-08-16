@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
+import { manuelPour, avancement, leconParNumero } from '../lib/programmes'
 
 // Fiche de préparation d'une notion.
 //
@@ -56,6 +57,9 @@ const vide = (nb = 1) => ({
   ...Object.fromEntries(RUBRIQUES.map(r => [r.id, ''])),
   nb_sequences: nb,
   sequences: Array.from({ length: nb }, () => videSeq()),
+  // Leçon du manuel visée par la fiche : { cle, lecon, unite, titre, page }.
+  // Absent pour les matières sans manuel — la fiche reste alors libre.
+  programme: null,
 })
 
 // Rétrocompatibilité : ancien format (etapes à plat) → nouveau (sequences[]).
@@ -97,6 +101,11 @@ export default function FichePreparation({
   const [message, setMessage]     = useState(null)
   // existantes : liste des rows déjà en base pour cette notion (une par séquence)
   const [existantes, setExistantes] = useState([])
+  // avancement du manuel avant ce cours (null tant qu'il n'est pas connu)
+  const [avant, setAvant]         = useState(null)
+
+  // La matière suit-elle un manuel ? Le couple (groupe, matière) suffit à le dire.
+  const manuel = manuelPour(creneau.groupe, creneau.matiere)
 
   // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -133,7 +142,52 @@ export default function FichePreparation({
     return () => { annule = true }
   }, [user.id, dateCours, creneau.sequence])
 
+  // ── Position dans le manuel ────────────────────────────────────────────────
+  //
+  // On ne regarde que les cours antérieurs à celui-ci : la leçon proposée par
+  // défaut est donc bien « la suivante à cette date », et une fiche déjà
+  // enregistrée ne se propose pas à elle-même comme leçon suivante.
+  useEffect(() => {
+    if (!manuel) { setAvant(null); return }
+    let annule = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('preparations')
+        .select('date_cours, contenu')
+        .eq('groupe', creneau.groupe)
+        .eq('matiere', creneau.matiere)
+        .lt('date_cours', dateCours)
+      if (!annule) setAvant(avancement(manuel, data || []))
+    })()
+    return () => { annule = true }
+  }, [manuel?.cle, creneau.groupe, creneau.matiere, dateCours])
+
+  // Proposition par défaut : la leçon suivante du livre, tant que l'enseignant
+  // n'a rien choisi lui-même. Il reste libre de revenir en arrière.
+  useEffect(() => {
+    if (!manuel || !avant || fiche.programme) return
+    if (avant.prochaine) choisirLecon(avant.prochaine.numero)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manuel?.cle, avant, fiche.programme])
+
   // ── Mutateurs ──────────────────────────────────────────────────────────────
+
+  // Choix de la leçon du manuel. On enregistre le titre et la page en même
+  // temps que le numéro : une fiche imprimée doit rester lisible même si le
+  // sommaire est corrigé plus tard.
+  //
+  // On ne pré-remplit délibérément pas l'objectif avec le titre de la leçon :
+  // « Comptons » n'est pas un objectif, et un champ pré-rempli se valide sans
+  // être pensé. L'enseignant écrit ce que l'élève saura faire.
+  function choisirLecon(numero) {
+    const l = leconParNumero(manuel, numero)
+    setFiche(f => ({
+      ...f,
+      programme: l
+        ? { cle: manuel.cle, lecon: l.numero, unite: l.unite, titre: l.titre, page: l.page }
+        : null,
+    }))
+  }
 
   const majEtape = (seqIdx, id, champ, valeur) =>
     setFiche(f => {
@@ -159,6 +213,10 @@ export default function FichePreparation({
     r => r.obligatoire && !String(fiche[r.id] || '').trim()
   )
 
+  // Une matière à manuel se prépare sur une leçon du manuel : c'est la règle
+  // posée par le directeur. Sans manuel, aucune contrainte de ce genre.
+  const leconManquante = Boolean(manuel) && !fiche.programme
+
   // ── Enregistrement ─────────────────────────────────────────────────────────
   //
   // On insère (ou corrige) une ligne par séquence dans `preparations`.
@@ -166,6 +224,10 @@ export default function FichePreparation({
   // Ainsi le moteur de points compte N préparations sans modification.
 
   async function enregistrer() {
+    if (leconManquante) {
+      setMessage({ type: 'err', texte: `Choisissez la leçon du manuel de ${creneau.matiere} que ce cours traite.` })
+      return
+    }
     if (manquants.length) {
       setMessage({
         type: 'err',
@@ -209,11 +271,43 @@ export default function FichePreparation({
       }
     }
 
+    // Séquences qui ne font plus partie de la notion : l'enseignant a raccourci
+    // sa durée après un premier enregistrement. Les laisser en base, ce serait
+    // des préparations déposées qui ne préparent plus rien — et qui compteraient
+    // pourtant dans les points.
+    const enTrop = existantes.filter(
+      e => e.sequence < creneau.sequence || e.sequence >= creneau.sequence + nb
+    )
+    if (enTrop.length) {
+      await supabase.from('preparations').delete().in('id', enTrop.map(e => e.id))
+    }
+
+    // On relit ce qui est réellement en base avant de rendre la main. Sans
+    // cela, `existantes` reste sur l'état d'ouverture de la fiche : un second
+    // enregistrement tenterait de réinsérer une ligne déjà créée et se heurtait
+    // à la contrainte d'unicité du créneau. C'est aussi la seule façon de
+    // vérifier que la suppression ci-dessus a bien eu lieu — un DELETE refusé
+    // par RLS répond 204 sans rien supprimer.
+    // On relit la plage complète qu'une notion peut occuper (6 séquences au
+    // plus), pas seulement les nb séquences attendues : c'est ce qui permet de
+    // voir une ligne qui aurait dû disparaître et qui est toujours là.
+    const { data: apres } = await supabase
+      .from('preparations')
+      .select('id, sequence')
+      .eq('user_id', user.id)
+      .eq('date_cours', dateCours)
+      .gte('sequence', creneau.sequence)
+      .lt('sequence', creneau.sequence + 6)
+      .order('sequence')
+
+    setExistantes(apres || [])
+
+    const survivantes = (apres || []).filter(e => e.sequence >= creneau.sequence + nb)
+
     setEnCours(false)
-    setMessage({
-      type: 'ok',
-      texte: nb > 1 ? `${nb} séquences enregistrées ✓` : 'Préparation enregistrée ✓',
-    })
+    setMessage(survivantes.length
+      ? { type: 'err', texte: `Enregistré, mais ${survivantes.length} séquence(s) de l'ancienne durée n'ont pas pu être supprimées. Signalez-le à la direction.` }
+      : { type: 'ok', texte: nb > 1 ? `${nb} séquences enregistrées ✓` : 'Préparation enregistrée ✓' })
     onEnregistre && onEnregistre()
   }
 
@@ -270,6 +364,7 @@ export default function FichePreparation({
         <div><b>Date :</b> ${dateLisible(dateCours)}</div>
         <div><b>Durée :</b> ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min</div>
         <div><b>Enseignant :</b> ${[user.prenom, user.nom].filter(Boolean).join(' ')}</div>
+        ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon} « ${esc(fiche.programme.titre)} », page ${fiche.programme.page}</div>` : ''}
       </div>
       ${bloc('Objectif de la notion', fiche.objectif)}
       ${bloc('Prérequis', fiche.prerequis)}
@@ -294,7 +389,12 @@ export default function FichePreparation({
     l.push(`Matière    : ${creneau.matiere}`, `Classe     : ${creneau.groupe}`)
     l.push(`Date       : ${dateLisible(dateCours)}`)
     l.push(`Durée      : ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min`)
-    l.push(`Enseignant : ${[user.prenom, user.nom].filter(Boolean).join(' ')}`, '')
+    l.push(`Enseignant : ${[user.prenom, user.nom].filter(Boolean).join(' ')}`)
+    if (fiche.programme) {
+      l.push(`Manuel     : ${manuel?.titre || ''} — unité ${fiche.programme.unite}, leçon ${fiche.programme.lecon}`)
+      l.push(`             « ${fiche.programme.titre} », page ${fiche.programme.page}`)
+    }
+    l.push('')
     RUBRIQUES.slice(0, 3).forEach(r => { if (fiche[r.id]) l.push(r.label.toUpperCase(), fiche[r.id], '') })
     seqs.forEach((seq, idx) => {
       const seqNum = creneau.sequence + idx
@@ -344,6 +444,61 @@ export default function FichePreparation({
           </div>
           <button className="btn-sm" onClick={onFerme}>Fermer</button>
         </div>
+
+        {/* ── Leçon du manuel ── */}
+        {manuel && (
+          <div style={{
+            marginTop: 14, background: 'var(--card)',
+            border: '1px solid ' + (fiche.programme ? 'var(--border)' : 'var(--red)'),
+            borderRadius: 12, padding: '10px 14px',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>
+              LEÇON DU MANUEL — {manuel.titre.toUpperCase()}
+              <span style={{ color: 'var(--red)' }}> *</span>
+            </div>
+
+            {fiche.programme && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{fiche.programme.titre}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Unité {fiche.programme.unite} · leçon {fiche.programme.lecon} · manuel page {fiche.programme.page}
+                </div>
+              </div>
+            )}
+
+            {!lectureSeule && (
+              <>
+                <select
+                  value={fiche.programme?.lecon ?? ''}
+                  onChange={e => choisirLecon(e.target.value)}
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
+                    border: '1px solid var(--border)', background: 'var(--bg)',
+                  }}>
+                  <option value="">— choisir la leçon —</option>
+                  {manuel.unites.map(u => (
+                    <optgroup key={u.numero} label={`Unité ${u.numero} — ${u.titre}`}>
+                      {u.lecons.map(l => (
+                        <option key={l.numero} value={l.numero}>
+                          {avant?.faits.includes(l.numero) ? '✓ ' : ''}
+                          {l.numero}. {l.titre} — p. {l.page}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
+                  {avant === null
+                    ? 'Lecture de l’avancement du manuel…'
+                    : avant.courante
+                      ? <>Déjà traité jusqu’à la leçon {avant.courante.numero} (p. {avant.courante.page}). Les leçons cochées ✓ ont déjà été préparées ; vous pouvez y revenir.</>
+                      : <>Premier cours du manuel : le programme commence à la leçon {manuel.unites[0].lecons[0].numero}.</>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* ── Sélecteur de durée ── */}
         {!lectureSeule && (

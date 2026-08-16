@@ -1,7 +1,8 @@
 # État des lieux — Plateforme École IDEAL
 
-Document de reprise, à jour au **16 août 2026**. Il sert à poursuivre le
-travail dans une nouvelle conversation sans repartir de zéro.
+Document de reprise, à jour au **16 août 2026** (programme du manuel Maths CP1).
+Il sert à poursuivre le travail dans une nouvelle conversation sans repartir de
+zéro.
 
 ---
 
@@ -60,6 +61,29 @@ directeur (fichier `.docx` sur son Bureau).
 - Réunion d'équipe **chaque vendredi 12h–13h**.
 
 Moteur : `src/lib/sequences.js`.
+
+### Le programme des matières à manuel
+
+Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
+
+- Un manuel est un **fichier versionné** dans `src/lib/programmes/`, repéré par
+  le couple `(groupe, matière)` de l'emploi du temps. Pas de table : le
+  sommaire d'un livre imprimé ne se saisit pas et ne doit pas pouvoir être
+  supprimé. Ajouter un manuel = un fichier + une ligne dans `MANUELS`.
+- Premier manuel enregistré : **Maths CP1** (`maths-cp1.js`) — 7 unités,
+  57 entrées dont 7 bilans, pages 6 à 139. La numérotation est celle du livre,
+  trous compris (8, 14, 24, 35, 43, 53 sont des ouvertures d'unité).
+- La fiche de préparation d'une matière à manuel **exige** une leçon, proposée
+  par défaut à la suivante du livre. Le choix est écrit dans
+  `preparations.contenu.programme` — donc **aucune migration** : la colonne
+  `contenu` est déjà du JSONB.
+- L'avancement n'est jamais déclaré : il se **déduit** des préparations
+  déposées. Une leçon est traitée parce qu'une fiche la vise.
+- Les matières sans manuel (Sport, Arts, Savoir-vivre…) gardent la préparation
+  libre. `Mathematics` (CP1, anglais, 7 séquences/semaine) attend son manuel et
+  n'a **toujours pas d'enseignant affecté**.
+
+Moteur : `src/lib/programmes/index.js`. Écran : `ProgrammeManuel.jsx`.
 
 ---
 
@@ -174,6 +198,7 @@ bourse d'études déclarée dès la 3ᵉ année sans incident.
 | Message parents illustré, un par enfant | `pedago-archive/app.js` |
 | Rapport hebdomadaire agrégé, prouesse et point à améliorer | `rapports.html` |
 | Notifications et demandes RH | `lib/notifications.js`, `NotificationCenter.jsx`, `DemandesEnseignant.jsx` |
+| Programme du manuel, avancement de la classe | `lib/programmes/`, `ProgrammeManuel.jsx` |
 
 Commits de référence : `0bfb302` (notifications), `3fd1db9` (mobile),
 `e154bc7` (séquences), `2fd9a41` (grilles officielles).
@@ -189,11 +214,17 @@ Commits de référence : `0bfb302` (notifications), `3fd1db9` (mobile),
    aucune des trois** (c'est `prof_id` pour les check-points ; les deux
    autres n'ont pas de colonne d'enseignant). Ponctualité et présence sont
    donc vides pour tout le monde.
-2. **Deux requêtes du directeur échouent en 400 à chaque chargement** :
-   `progressions → objectifs` et `matieres → objectifs` demandent une
-   jointure qui n'existe pas en base (`DirecteurApp.jsx`, ~ligne 188).
-   L'erreur n'est pas vérifiée : les statistiques pédagogiques par classe se
-   calculent sur du vide.
+2. **Aucune clé étrangère ne relie `progressions` à `objectifs`.** Toute
+   requête qui demande cette jointure échoue en 400 : chez le directeur
+   (`DirecteurApp.jsx`, ~ligne 188) comme chez l'enseignant
+   (`ProfApp.jsx`, chargement des checkpoints) et le conseiller. Les
+   statistiques pédagogiques par classe se calculent donc sur du vide, sans
+   qu'aucune erreur ne soit visible. **Correction attendue : un script SQL
+   ajoutant la contrainte**, à exécuter dans le SQL Editor.
+   *Côté enseignant, trois autres requêtes qui échouaient en 400 ont été
+   corrigées le 16 août 2026 : `objectifs.matiere_id` (les objectifs pendent à
+   une planification, pas à une matière), `preparations.prof_id` (la colonne
+   est `user_id`) et `planifications.prof_id` (c'est `created_by`).*
 3. **Accès du responsable administratif aux dossiers élèves** : le lien
    « Inscriptions & dossiers élèves » est dans `comptabilite.html`, où il
    n'atterrit plus depuis qu'il est routé vers `DirecteurApp`.
@@ -206,6 +237,13 @@ Commits de référence : `0bfb302` (notifications), `3fd1db9` (mobile),
    déroulement par séquence) ; la pastille verte couvre toutes les séquences.
    Décidé : les séquences couvertes sont les suivantes de la même matière
    dans la semaine, et chacune compte pour une séance dans les points.
+   **Ce qui manque** : le code prend les numéros de séquence **consécutifs du
+   même jour** (`creneau.sequence + i`), pas les créneaux suivants de la même
+   matière. Une notion de 2 h ouverte lundi en S4 déborde donc sur S6 et S7,
+   qui ne sont pas des heures de cette matière. Corrigé le 16 août 2026 en
+   revanche : réenregistrer une fiche échouait en doublon (`existantes`
+   n'était jamais relu après un premier dépôt), et raccourcir la durée
+   laissait en base des séquences fantômes qui comptaient dans les points.
 5. **Taux de participation des élèves** dans le rapport hebdomadaire. Le
    moteur est écrit et testé (`participationDuJour` dans `sequences.js`), la
    grille est en base : il ne manque que l'affichage.
@@ -224,6 +262,8 @@ Commits de référence : `0bfb302` (notifications), `3fd1db9` (mobile),
   `app_state` et non dans une table : pas de recherche possible, tout
   l'historique dans une seule ligne JSON qui grossira sans limite. Le
   reprendre en vraie table ?
+- **Yacouba enseigne les Maths en CP1 et en CP2.** Le manuel enregistré est
+  celui du CP1. Le CP2 suit-il un autre livre, à fournir ?
 - Le **bundle est passé à 957 Ko** (238 Ko compressés). Découper le
   chargement pour que chaque compte ne télécharge que son espace ?
 
