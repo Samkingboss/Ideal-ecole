@@ -50,7 +50,16 @@ body {
 .role-professeur { background:rgba(0,119,162,.1); color:#0077A2; } /* Amélioré de #1AAFE0 */
 .role-surveillant { background:rgba(47,133,90,.1); color:#2F855A; }
 .btn-logout { background:rgba(255,255,255,.15); border:none; border-radius:20px; padding:5px 12px; color:rgba(255,255,255,.7); font-size:11px; cursor:pointer; }
-.page-content { flex:1; padding:0.5rem 1.2rem calc(130px + env(safe-area-inset-bottom)) !important; }
+/* `min-width: 0` est indispensable, pas cosmétique : un élément flexible
+   vaut par défaut `min-width: auto`, ce qui lui interdit de rétrécir en
+   dessous de la largeur naturelle de son contenu. Un titre long suffisait
+   alors à gonfler la colonne à 524 px dans une coque de 375, et toute la
+   page débordait latéralement. Avec 0, la colonne suit la coque et le
+   contenu passe à la ligne. */
+.page-content { flex:1; min-width:0; max-width:100%; padding:0.5rem 1.2rem calc(130px + env(safe-area-inset-bottom)) !important; }
+
+/* Les titres longs coupent au besoin plutôt que d'imposer leur largeur. */
+.page-content h1, .page-content h2, .page-content h3 { overflow-wrap: anywhere; }
 
 .top-nav-secondary { 
   display: flex; 

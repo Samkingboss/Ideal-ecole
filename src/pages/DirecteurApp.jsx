@@ -480,8 +480,12 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Navigation des 3 SESSIONS DISTINCTES */}
-        <div style={{ display: 'flex', background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 12px', gap: 8, position: 'sticky', top: 51, zIndex: 99 }}>
+        {/* Navigation des 3 SESSIONS DISTINCTES.
+            Cette barre était un simple `flex` sans défilement : sur un
+            téléphone de 375 px, la troisième session sortait de l'écran et
+            restait inatteignable. Elle défile désormais horizontalement,
+            comme les barres des autres comptes. */}
+        <div style={{ display: 'flex', background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 12px', gap: 8, position: 'sticky', top: 51, zIndex: 99, overflowX: 'auto', WebkitOverflowScrolling: 'touch', whiteSpace: 'nowrap' }}>
           <button 
             className={`top-nav-item ${activeSession === 'eleves' ? 'active' : ''}`}
             onClick={() => setTab('eleves')}
