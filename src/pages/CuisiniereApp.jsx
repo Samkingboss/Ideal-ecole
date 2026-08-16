@@ -550,8 +550,14 @@ export default function CuisiniereApp({ user, onLogout }) {
       </div>
 
       {/* Navigation des Sessions (Mobile-friendly Scroll horizontal sans chevauchement) */}
-      <div style={{ background: '#ffffff', borderBottom: '2px solid var(--border)', padding: '6px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div className="top-nav-secondary" style={{ borderBottom: 'none', boxShadow: 'none', display: 'flex', gap: 8, width: 'max-content' }}>
+      {/* Un seul conteneur de defilement, et c'est `.top-nav-secondary`.
+          Il y en avait deux, imbriques : la classe defile deja (overflow-x
+          auto), et on l'avait enfermee dans un second conteneur defilant en
+          lui imposant `width: max-content`. La classe n'avait alors plus rien
+          a faire defiler, et son `overscroll-behavior-x: contain` empechait le
+          geste de remonter au parent, seul a deborder vraiment : le doigt ne
+          deplacait plus rien. */}
+      <div className="top-nav-secondary" style={{ background: '#ffffff', borderBottom: '2px solid var(--border)', boxShadow: 'none', padding: '6px 8px' }}>
           <button
             className={`top-nav-item ${tab === 'eleves' ? 'active' : ''}`}
             onClick={() => setTab('eleves')}
@@ -587,7 +593,6 @@ export default function CuisiniereApp({ user, onLogout }) {
           >
             <span>🛒 5. Fiche du Marché</span>
           </button>
-        </div>
       </div>
 
       {/* Main Content */}

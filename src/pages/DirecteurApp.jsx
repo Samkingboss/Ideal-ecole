@@ -1035,8 +1035,14 @@ export default function DirecteurApp({ user, onLogout }) {
       </div>
 
       {/* Barre de navigation des 6 SESSIONS DIRECTEUR (Mobile-friendly Scroll horizontal sans chevauchement) */}
-      <div style={{ background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div className="top-nav-secondary" style={{ borderBottom: 'none', boxShadow: 'none', display: 'flex', gap: 8, width: 'max-content' }}>
+      {/* Un seul conteneur de defilement, et c'est `.top-nav-secondary`.
+          Il y en avait deux, imbriques : la classe defile deja (overflow-x
+          auto), et on l'avait enfermee dans un second conteneur defilant en
+          lui imposant `width: max-content`. La classe n'avait alors plus rien
+          a faire defiler, et son `overscroll-behavior-x: contain` empechait le
+          geste de remonter au parent, seul a deborder vraiment : le doigt ne
+          deplacait plus rien. */}
+      <div className="top-nav-secondary" style={{ borderBottom: '2px solid var(--border)', boxShadow: 'none', padding: '6px 8px' }}>
           {DIRECTOR_SESSIONS.map(t => {
             const isActive = activeDirectorTab === t.id ||
               (t.id === 'agenda' && activeDirectorTab === 'emploi') ||
@@ -1064,7 +1070,6 @@ export default function DirecteurApp({ user, onLogout }) {
               </button>
             )
           })}
-        </div>
       </div>
 
       <div className="page-content" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>

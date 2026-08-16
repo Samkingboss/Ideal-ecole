@@ -245,9 +245,18 @@ export default function ProfApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Barre de navigation des 6 SESSIONS ENSEIGNANT (Mobile-friendly Scroll horizontal sans chevauchement) */}
-      <div style={{ background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div className="top-nav-secondary" style={{ borderBottom: 'none', boxShadow: 'none', display: 'flex', gap: 8, width: 'max-content' }}>
+      {/* Barre de navigation des 6 SESSIONS ENSEIGNANT.
+          Un seul conteneur de défilement, et c'est `.top-nav-secondary`.
+          Il y en avait deux, imbriqués : la classe défile déjà (overflow-x
+          auto), et on l'avait enfermée dans un second conteneur défilant en
+          lui imposant `width: max-content`. La classe n'avait alors plus rien
+          à faire défiler, et son `overscroll-behavior-x: contain` empêchait le
+          geste de remonter au conteneur parent, seul à déborder vraiment. Le
+          doigt ne déplaçait donc plus rien, alors que le défilement par le
+          code fonctionnait — d'où une barre qui paraissait figée.
+          `.top-nav-item` porte déjà `flex-shrink: 0`, les boutons gardent leur
+          largeur et la barre déborde comme il faut. */}
+      <div className="top-nav-secondary" style={{ borderBottom: '2px solid var(--border)', boxShadow: 'none', padding: '6px 8px' }}>
           {PROF_SESSIONS.map(s => {
             const isActive = activeProfSession === s.id
             return (
@@ -279,7 +288,6 @@ export default function ProfApp({ user, onLogout }) {
               </button>
             )
           })}
-        </div>
       </div>
 
       {/* Sub-Nav Bar (Sous-Onglets de la Session Active)
