@@ -105,6 +105,13 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
     se referme sur une Test Strategy, qui forme sa propre section. Les
     glossaires de fin de volume n'y sont pas. Enseignante : Juliette NGONE,
     6 h/semaine.
+  - **Cambridge Primary Mathematics**, pour Mathematics CP1
+    (`mathematics-cp1.js`) — 16 unités, 31 sections numérotées 1.1, 1.2, 2.1…
+    Les pages de présentation (« How to use this book », « Thinking and
+    Working Mathematically ») et les remerciements n'y sont pas.
+    **Aucun enseignant n'est affecté à cette matière** (3 h 30/semaine) : le
+    programme est prêt mais ne s'affiche dans aucun compte, l'écran listant les
+    manuels à partir des affectations.
 - **Deux structures de livre sont admises**, parce que deux livres ne se
   ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
   en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
@@ -131,6 +138,11 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
   Treasures la page n'y suffit pas : les volumes 1 à 4 commencent tous page 6.
   On y identifie donc par `volume * 1000 + page`. Ce nombre ne s'affiche
   jamais.
+- `code` porte la référence que le livre imprime lui-même quand elle n'est pas
+  un simple numéro — « 9.2 » chez Cambridge. Elle s'affiche dans la pastille,
+  dans la liste de la fiche et sur la fiche imprimée. L'identifiant interne
+  reste un entier (`unité × 10 + section`) : une section décimale ferait un
+  mauvais identifiant, 1.1 n'ayant pas de représentation binaire exacte.
 - La fiche de préparation d'une matière à manuel **exige** une leçon, proposée
   par défaut à la suivante du livre. Le choix est écrit dans
   `preparations.contenu.programme` — donc **aucune migration** : la colonne

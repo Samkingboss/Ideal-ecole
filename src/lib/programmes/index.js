@@ -14,8 +14,9 @@ import lectureCP1 from './lecture-cp1'
 import lectureCP2 from './lecture-cp2'
 import francaisCP2 from './francais-cp2'
 import englishCP1 from './english-cp1'
+import mathematicsCP1 from './mathematics-cp1'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -72,6 +73,9 @@ export const situationDe = (manuel, l) => {
   const bouts = []
   if (l.unite) bouts.push(`${libelleUnite(manuel)} ${l.unite}`)
   if (manuel?.numerote !== false) bouts.push(`leçon ${l.numero ?? l.lecon}`)
+  // Référence imprimée par le livre lui-même, quand il en a une : Cambridge
+  // numérote ses sections 1.1, 9.2… et c'est ce repère que la classe emploie.
+  else if (l.code) bouts.push(`section ${l.code}`)
   bouts.push(`manuel ${pagesDe(l)}`)
   return bouts.join(' · ')
 }

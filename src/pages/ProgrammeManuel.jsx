@@ -106,8 +106,9 @@ export default function ProgrammeManuel({ user }) {
 
   // Une ligne du sommaire. Rendue à l'identique dans les deux mises en page,
   // pour qu'un enseignant qui change de matière retrouve les mêmes repères.
-  // La pastille porte le numéro imprimé du livre quand il en a un, et sinon le
-  // rang — jamais la page, qui est déjà écrite juste en dessous.
+  // La pastille porte la référence imprimée du livre quand il en a une — un
+  // numéro de leçon, ou un code de section comme « 9.2 » chez Cambridge — et
+  // sinon le rang. Jamais la page : elle est déjà écrite juste en dessous.
   const ligneLecon = l => {
     const seq = av.seances[l.numero]?.length || 0
     const estProchaine = av.prochaine?.numero === l.numero
@@ -118,7 +119,7 @@ export default function ProgrammeManuel({ user }) {
         background: estProchaine ? 'rgba(26,175,224,.06)' : 'transparent',
       }}>
         <span style={pastille(seq ? 'rgba(46,158,79,.15)' : 'var(--bg)', seq ? 'var(--green)' : 'var(--muted)')}>
-          {manuel.numerote === false ? rangs.get(l.numero) : l.numero}
+          {l.code ?? (manuel.numerote === false ? rangs.get(l.numero) : l.numero)}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: l.bilan || l.motOutil ? 800 : 600 }}>

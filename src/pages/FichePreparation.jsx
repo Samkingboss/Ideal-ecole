@@ -187,6 +187,9 @@ export default function FichePreparation({
         ? {
             cle: manuel.cle, lecon: l.numero, unite: l.unite || null,
             titre: l.titre, page: l.page, pageFin: l.pageFin || null,
+            // Référence imprimée du livre (« 9.2 » chez Cambridge), pour que la
+            // fiche imprimée cite le repère que la classe emploie.
+            ...(l.code ? { code: l.code } : {}),
           }
         : null,
     }))
@@ -434,7 +437,7 @@ export default function FichePreparation({
   const optionLecon = l => (
     <option key={l.numero} value={l.numero}>
       {avant?.faits.includes(l.numero) ? '✓ ' : ''}
-      {manuel.numerote === false ? '' : `${l.numero}. `}
+      {l.code ? `${l.code} ` : manuel.numerote === false ? '' : `${l.numero}. `}
       {l.titre} — {pagesDe(l)}
     </option>
   )
