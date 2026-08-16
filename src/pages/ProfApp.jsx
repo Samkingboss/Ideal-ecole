@@ -282,8 +282,15 @@ export default function ProfApp({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Sub-Nav Bar (Sous-Onglets de la Session Active) */}
-      <div style={{ background: 'var(--card)', padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, overflowX: 'auto' }}>
+      {/* Sub-Nav Bar (Sous-Onglets de la Session Active)
+          La rangée coulisse, elle ne se comprime pas. Sans `width: max-content`,
+          les boutons se partagent la largeur de l'écran et rétrécissent jusqu'à
+          couper leur libellé sur quatre lignes — la barre paraît alors bloquée
+          puisqu'il n'y a plus rien à faire défiler. `white-space: nowrap` est
+          posé ici une seule fois : la propriété s'hérite jusqu'aux boutons.
+          C'est exactement ce que fait la barre des sessions au-dessus. */}
+      <div style={{ background: 'var(--card)', padding: '8px 16px', borderBottom: '1px solid var(--border)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', gap: 8, width: 'max-content', whiteSpace: 'nowrap' }}>
         {activeProfSession === 'emploi' && (
           <>
             <button onClick={() => setTab('edt')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'edt' ? '#00a8e0' : 'var(--bg)', color: tab === 'edt' ? '#fff' : 'var(--muted)' }}>🗓️ Mon Emploi du Temps</button>
@@ -325,6 +332,7 @@ export default function ProfApp({ user, onLogout }) {
             <button onClick={() => setTab('demandes')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'demandes' ? '#00a8e0' : 'var(--bg)', color: tab === 'demandes' ? '#fff' : 'var(--muted)' }}>📩 Demandes &amp; Justificatifs</button>
           </>
         )}
+        </div>
       </div>
 
       <div className="page-content" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
