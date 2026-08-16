@@ -159,6 +159,9 @@ export default function DossierPersonnel({ user, profInfo }) {
       await supabase
         .from('app_state')
         .upsert({
+          // Sans `app`, colonne obligatoire de la clé primaire, le dossier
+          // partait en 400 : il ne quittait jamais le téléphone de l'employé.
+          app: 'rh',
           key: `dossier_rh_${user.id}`,
           value: formData,
           updated_at: new Date().toISOString()

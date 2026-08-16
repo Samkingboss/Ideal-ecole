@@ -42,7 +42,9 @@ export default function DemandeMateriel({ user }) {
   async function charger() {
     setChargement(true); setErreur(null)
     const [mat, dem, aff] = await Promise.all([
-      supabase.from('materiels').select('id, nom, unite').eq('actif', true).order('nom'),
+      // Seul le matériel pédagogique se demande par la plateforme : le stock
+      // alimentaire est tenu par la cuisinière pour ses propres repas.
+      supabase.from('materiels').select('id, nom, unite').eq('actif', true).eq('magasin', 'pedagogique').order('nom'),
       supabase.from('demandes_materiel').select('*').eq('demandeur_id', user.id).order('created_at', { ascending: false }),
       supabase.from('affectations_matieres').select('groupe').eq('prof_id', user.id),
     ])

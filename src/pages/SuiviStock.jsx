@@ -35,8 +35,13 @@ const MOTIFS = {
 const dateLisible = iso =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
-export default function SuiviStock({ user }) {
-  const [vue, setVue] = useState('demandes')      // 'demandes' | 'stock' | 'mouvements'
+// `magasin` : 'pedagogique' pour le surveillant, 'cuisine' pour la cuisinière.
+// Deux armoires, deux responsables, deux inventaires — mais la même mécanique,
+// et donc le même écran. Seules les demandes des enseignants sont propres au
+// matériel pédagogique : personne ne réclame du riz par la plateforme.
+export default function SuiviStock({ user, magasin = 'pedagogique' }) {
+  const avecDemandes = magasin === 'pedagogique'
+  const [vue, setVue] = useState(magasin === 'pedagogique' ? 'demandes' : 'stock')
   const [materiels, setMateriels] = useState([])
   const [demandes, setDemandes] = useState([])
   const [mouvements, setMouvements] = useState([])
@@ -53,14 +58,16 @@ export default function SuiviStock({ user }) {
   const [compte, setCompte] = useState({})
   const [inventaireEnCours, setInventaireEnCours] = useState(false)
 
-  useEffect(() => { charger() }, [])
+  useEffect(() => { charger() }, [magasin])
 
   async function charger() {
     setChargement(true); setErreur(null)
     const [mat, dem, mvt] = await Promise.all([
-      supabase.from('materiels').select('*').eq('actif', true).order('nom'),
-      supabase.from('demandes_materiel').select('*, users:demandeur_id(prenom, nom)').order('created_at', { ascending: false }),
-      supabase.from('mouvements_stock').select('*, materiels(nom, unite), users:saisi_par(prenom)').order('created_at', { ascending: false }).limit(60),
+      supabase.from('materiels').select('*').eq('actif', true).eq('magasin', magasin).order('nom'),
+      avecDemandes
+        ? supabase.from('demandes_materiel').select('*, users:demandeur_id(prenom, nom)').order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      supabase.from('mouvements_stock').select('*, materiels(nom, unite, magasin), users:saisi_par(prenom)').order('created_at', { ascending: false }).limit(200),
     ])
 
     // Table absente : le script sql/stock_et_sanctions.sql n'a pas encore été
@@ -76,7 +83,9 @@ export default function SuiviStock({ user }) {
 
     setMateriels(mat.data || [])
     setDemandes(dem.data || [])
-    setMouvements(mvt.data || [])
+    // Les mouvements des deux magasins vivent dans la même table : chacun ne
+    // voit que le sien, sinon la cuisinière lirait les sorties de crayons.
+    setMouvements((mvt.data || []).filter(m => !m.materiels || m.materiels.magasin === magasin))
     setChargement(false)
   }
 
@@ -257,6 +266,41 @@ export default function SuiviStock({ user }) {
     charger()
   }
 
+  async function modifierArticle(m) {
+    const nom = prompt('Nom de l’article :', m.nom)
+    if (nom === null) return
+    const unite = prompt('Unité (kg, litre, boîte, paquet, sachet…) :', m.unite)
+    if (unite === null) return
+    const seuil = prompt('Seuil d’alerte — en dessous, l’article est signalé à réapprovisionner :', String(m.seuil_alerte))
+    if (seuil === null) return
+
+    const n = parseInt(seuil, 10)
+    if (!nom.trim()) { alert('Le nom ne peut pas être vide.'); return }
+    if (!Number.isFinite(n) || n < 0) { alert('Le seuil doit être un nombre positif ou zéro.'); return }
+
+    setEnCours(m.id)
+    const { error } = await supabase.from('materiels')
+      .update({ nom: nom.trim(), unite: unite.trim() || 'unité', seuil_alerte: n })
+      .eq('id', m.id)
+    setEnCours(null)
+    if (error) {
+      alert(error.code === '23505' ? 'Un article porte déjà ce nom dans ce magasin.' : 'Modification impossible : ' + error.message)
+      return
+    }
+    charger()
+  }
+
+  // Retirer un article : on le désactive, on ne l'efface pas. Ses mouvements
+  // passés doivent rester lisibles, sinon l'historique du stock ment.
+  async function retirerArticle(m) {
+    if (m.quantite !== 0 && !confirm(`Il reste ${m.quantite} ${m.unite} de « ${m.nom} » en stock. Le retirer quand même du catalogue ?`)) return
+    setEnCours(m.id)
+    const { error } = await supabase.from('materiels').update({ actif: false }).eq('id', m.id)
+    setEnCours(null)
+    if (error) { alert('Retrait impossible : ' + error.message); return }
+    charger()
+  }
+
   async function ajouterAuCatalogue(e) {
     e.preventDefault()
     if (!nouveau.nom.trim()) return
@@ -264,6 +308,7 @@ export default function SuiviStock({ user }) {
       nom: nouveau.nom.trim(),
       unite: nouveau.unite.trim() || 'unité',
       seuil_alerte: parseInt(nouveau.seuil_alerte, 10) || 0,
+      magasin,
     })
     if (error) {
       alert(error.code === '23505' ? 'Cet article est déjà au catalogue.' : 'Ajout impossible : ' + error.message)
@@ -303,7 +348,7 @@ export default function SuiviStock({ user }) {
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto' }}>
         <div style={{ display: 'flex', gap: 8, width: 'max-content', whiteSpace: 'nowrap' }}>
-          {onglet('demandes', '📥 Demandes', enAttente.length + aLivrer.length)}
+          {avecDemandes && onglet('demandes', '📥 Demandes', enAttente.length + aLivrer.length)}
           {onglet('stock', '📦 Stock', sousSeuil.length)}
           {onglet('inventaire', '🔢 Inventaire', 0)}
           {onglet('mouvements', '🧾 Mouvements', 0)}
@@ -317,7 +362,7 @@ export default function SuiviStock({ user }) {
       )}
 
       {/* ── Demandes ── */}
-      {vue === 'demandes' && (
+      {avecDemandes && vue === 'demandes' && (
         <>
           {enAttente.length === 0 && aLivrer.length === 0 && (
             <div className="empty-state"><div className="empty-icon">📭</div><p>Aucune demande en cours.</p></div>
@@ -395,6 +440,8 @@ export default function SuiviStock({ user }) {
                 </div>
                 <button disabled={enCours === m.id} style={btn('var(--green)')} onClick={() => receptionner(m)}>+ Réception</button>
                 <button disabled={enCours === m.id} style={btn('#64748b')} onClick={() => corriger(m)}>Corriger</button>
+                <button disabled={enCours === m.id} style={btn('#0d2a3b')} onClick={() => modifierArticle(m)}>Modifier</button>
+                <button disabled={enCours === m.id} style={btn('var(--red)')} onClick={() => retirerArticle(m)}>Retirer</button>
               </div>
             ))}
           </div>

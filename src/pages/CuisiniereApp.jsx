@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import SuiviStock from './SuiviStock'
 import { supabase } from '../lib/supabase'
 import NotificationCenter from './NotificationCenter'
 import html2canvas from 'html2canvas'
@@ -136,7 +137,17 @@ export default function CuisiniereApp({ user, onLogout }) {
   // Modals & Édition
   const [editEleveModal, setEditEleveModal] = useState(null)
   const [newArticleModal, setNewArticleModal] = useState(false)
-  const [newArticle, setNewArticle] = useState({ nom: '', quantite: '', pu: 0 })
+  const [newArticle, setNewArticle] = useState({ nom: '', quantite: '', pu: 0, en_stock: false })
+
+  // Le garde-manger, pour ne pas racheter ce qu'on a déjà. Chargé une fois ;
+  // l'écran du marché s'en sert seulement pour proposer et pour informer, il
+  // n'y touche jamais — le stock ne bouge que par un mouvement.
+  const [stockCuisine, setStockCuisine] = useState([])
+  useEffect(() => {
+    supabase.from('materiels').select('id, nom, unite, quantite')
+      .eq('actif', true).eq('magasin', 'cuisine').order('nom')
+      .then(({ data, error }) => { if (!error) setStockCuisine(data || []) })
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -274,7 +285,9 @@ export default function CuisiniereApp({ user, onLogout }) {
   const saveMenuSemaine = async (updatedMenu = menuSemaine) => {
     setMenuSemaine(updatedMenu)
     try {
-      await supabase.from('app_state').upsert({ key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() })
+      // `app` fait partie de la clé primaire et ne peut être nulle : sans elle
+      // l'écriture partait en 400 et la cantine ne quittait jamais l'appareil.
+      await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
       setMsg('✅ Menu de la semaine enregistré avec succès !')
       setTimeout(() => setMsg(''), 4000)
     } catch (e) {
@@ -294,7 +307,7 @@ export default function CuisiniereApp({ user, onLogout }) {
     if (!confirm('Voulez-vous effacer toutes les données du menu de la semaine ?')) return
     setMenuSemaine(EMPTY_MENU_SEMAINE)
     try {
-      await supabase.from('app_state').upsert({ key: 'cantine_menu_semaine', value: EMPTY_MENU_SEMAINE, updated_at: new Date().toISOString() })
+      await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: EMPTY_MENU_SEMAINE, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
       setMsg('🗑️ Les menus de la semaine ont été entièrement effacés.')
       setTimeout(() => setMsg(''), 3000)
     } catch (e) {
@@ -306,7 +319,7 @@ export default function CuisiniereApp({ user, onLogout }) {
   const saveFicheMarche = async (updatedMarche) => {
     setFicheMarche(updatedMarche)
     try {
-      await supabase.from('app_state').upsert({ key: 'cantine_fiche_marche', value: updatedMarche, updated_at: new Date().toISOString() })
+      await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updatedMarche, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
     } catch (e) {
       console.error(e)
     }
@@ -334,11 +347,14 @@ export default function CuisiniereApp({ user, onLogout }) {
       nom: newArticle.nom,
       quantite: newArticle.quantite || '1',
       pu: Number(newArticle.pu) || 0,
-      achete: false
+      achete: false,
+      // Déjà au garde-manger : la ligne reste sur la fiche pour mémoire, mais
+      // elle ne se paie pas et ne compte pas dans le budget.
+      en_stock: Boolean(newArticle.en_stock),
     }
     const updated = { ...ficheMarche, articles: [...ficheMarche.articles, article] }
     saveFicheMarche(updated)
-    setNewArticle({ nom: '', quantite: '', pu: 0 })
+    setNewArticle({ nom: '', quantite: '', pu: 0, en_stock: false })
     setNewArticleModal(false)
     setMsg('🛒 Aliment ajouté au marché !')
     setTimeout(() => setMsg(''), 3000)
@@ -347,6 +363,16 @@ export default function CuisiniereApp({ user, onLogout }) {
   // Toggle statut acheté
   const toggleArticleAchete = (id) => {
     const updatedArticles = ficheMarche.articles.map(a => a.id === id ? { ...a, achete: !a.achete } : a)
+    saveFicheMarche({ ...ficheMarche, articles: updatedArticles })
+  }
+
+  // Une ligne déjà couverte par le garde-manger sort du budget sans quitter la
+  // fiche : la cuisinière garde sous les yeux tout ce que le menu réclame, et
+  // voit d'un coup d'œil ce qui reste à acheter.
+  const toggleArticleEnStock = (id) => {
+    const updatedArticles = ficheMarche.articles.map(a =>
+      a.id === id ? { ...a, en_stock: !a.en_stock, achete: a.en_stock ? a.achete : false } : a
+    )
     saveFicheMarche({ ...ficheMarche, articles: updatedArticles })
   }
 
@@ -401,6 +427,7 @@ export default function CuisiniereApp({ user, onLogout }) {
       const newList = [justificatifEntry, ...filteredList]
 
       await supabase.from('app_state').upsert({
+        app: 'cantine',
         key: 'cantine_justificatifs_historique',
         value: newList,
         updated_at: new Date().toISOString()
@@ -440,10 +467,16 @@ export default function CuisiniereApp({ user, onLogout }) {
   const nbAllergies = elevesInscrits.filter(e => e.allergies && e.allergies.toLowerCase() !== 'aucune').length
 
   // Calcul dynamique du marché
+  // Ce qu'on a déjà ne se paie pas : une ligne marquée « en stock » ne pèse
+  // rien dans le budget, sinon la fiche demanderait de l'argent pour du riz
+  // qui est dans l'armoire.
   const totalDepense = ficheMarche.articles.reduce((s, a) => {
+    if (a.en_stock) return s
     const qty = parseFloat(a.quantite) || 1
     return s + (Number(a.pu) * qty)
   }, 0)
+  const aAcheter = ficheMarche.articles.filter(a => !a.en_stock)
+  const dejaEnStock = ficheMarche.articles.filter(a => a.en_stock)
   const resteBudget = (Number(ficheMarche.budget) || 0) - totalDepense
 
   // Décompte du pointage repas
@@ -592,6 +625,12 @@ export default function CuisiniereApp({ user, onLogout }) {
             style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             <span>🛒 5. Fiche du Marché</span>
+          </button>
+          <button
+            className={`top-nav-item ${tab === 'stock' ? 'active' : ''}`}
+            onClick={() => setTab('stock')}
+          >
+            <span>🥫 6. Stock Alimentaire</span>
           </button>
       </div>
 
@@ -1229,6 +1268,13 @@ export default function CuisiniereApp({ user, onLogout }) {
         )}
 
         {/* ════════════════ SESSION 5 : FICHE DU MARCHÉ (100% MODIFIABLE & CHOIX PÉRIODE) ════════════════ */}
+        {tab === 'stock' && (
+          <div>
+            <div className="section-head"><div className="section-title">🥫 Stock alimentaire &amp; fluides</div></div>
+            <SuiviStock user={user} magasin="cuisine" />
+          </div>
+        )}
+
         {tab === 'marche' && (
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -1367,7 +1413,11 @@ export default function CuisiniereApp({ user, onLogout }) {
               <div className="card" style={{ padding: '18px', background: 'rgba(239,68,68,0.06)', border: '1.5px solid #ef4444', borderRadius: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#dc2626' }}>🛒 TOTAL DÉPENSÉ (ACHATS)</div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626', margin: '4px 0' }}>{fcfa(totalDepense)}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{ficheMarche.articles.length} aliments enregistrés</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>
+                  {aAcheter.length} à acheter
+                  {dejaEnStock.length > 0 && ` · ${dejaEnStock.length} déjà en stock`}
+                  {' '}sur {ficheMarche.articles.length} enregistrés
+                </div>
               </div>
 
               <div className="card" style={{ padding: '18px', background: resteBudget >= 0 ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.08)', border: resteBudget >= 0 ? '1.5px solid #10b981' : '1.5px solid #ef4444', borderRadius: 14 }}>
@@ -1408,17 +1458,24 @@ export default function CuisiniereApp({ user, onLogout }) {
                   <tbody>
                     {ficheMarche.articles.map((art, idx) => {
                       const qty = parseFloat(art.quantite) || 1
-                      const totalArt = Number(art.pu) * qty
+                      const totalArt = art.en_stock ? 0 : Number(art.pu) * qty
 
                       return (
-                        <tr key={art.id || idx} style={{ borderBottom: '1px solid var(--border)', background: art.achete ? 'rgba(16,185,129,0.03)' : 'transparent' }}>
+                        <tr key={art.id || idx} style={{ borderBottom: '1px solid var(--border)', background: art.en_stock ? 'rgba(100,116,139,0.06)' : art.achete ? 'rgba(16,185,129,0.03)' : 'transparent' }}>
                           <td style={{ textAlign: 'center', padding: '8px' }}>
-                            <input
-                              type="checkbox"
-                              checked={!!art.achete}
-                              onChange={() => toggleArticleAchete(art.id)}
-                              style={{ width: 18, height: 18, cursor: 'pointer' }}
-                            />
+                            {/* Une ligne déjà couverte par le garde-manger ne
+                                s'achète pas : la case « acheté » n'a plus de
+                                sens, on met le repère du stock à la place. */}
+                            {art.en_stock ? (
+                              <span title="Déjà au garde-manger" style={{ fontSize: 15 }}>🥫</span>
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={!!art.achete}
+                                onChange={() => toggleArticleAchete(art.id)}
+                                style={{ width: 18, height: 18, cursor: 'pointer' }}
+                              />
+                            )}
                           </td>
                           <td style={{ padding: '6px 8px' }}>
                             <input
@@ -1448,10 +1505,18 @@ export default function CuisiniereApp({ user, onLogout }) {
                               style={{ textAlign: 'right', fontWeight: 800, color: 'var(--accent)' }}
                             />
                           </td>
-                          <td style={{ textAlign: 'right', padding: '10px 12px', fontWeight: 900, color: '#16a34a', fontSize: 14 }}>
-                            {fcfa(totalArt)}
+                          <td style={{ textAlign: 'right', padding: '10px 12px', fontWeight: 900, color: art.en_stock ? '#64748b' : '#16a34a', fontSize: 14 }}>
+                            {art.en_stock ? 'déjà en stock' : fcfa(totalArt)}
                           </td>
-                          <td style={{ textAlign: 'center', padding: '8px' }}>
+                          <td style={{ textAlign: 'center', padding: '8px', whiteSpace: 'nowrap' }}>
+                            <button
+                              aria-label={art.en_stock ? 'Remettre dans la liste des achats' : 'Marquer comme déjà en stock'}
+                              onClick={() => toggleArticleEnStock(art.id)}
+                              style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', marginRight: 4, opacity: art.en_stock ? 1 : .35 }}
+                              title={art.en_stock ? 'Remettre dans la liste des achats' : 'Je l’ai déjà — ne pas acheter'}
+                            >
+                              🥫
+                            </button>
                             <button
                               aria-label="Supprimer cet aliment"
                               onClick={() => deleteArticle(art.id)}
@@ -1614,15 +1679,61 @@ export default function CuisiniereApp({ user, onLogout }) {
             <div className="modal-handle"></div>
             <div className="modal-title">🛒 Ajouter un Aliment / Ingrédient à Payer</div>
 
+            {/* Choisir dans le garde-manger évite de retaper un nom et, surtout,
+                montre ce qu'on a déjà avant de décider d'acheter. */}
+            {stockCuisine.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">Prendre dans le garde-manger</label>
+                <select
+                  className="form-input"
+                  value={newArticle.nom_stock || ''}
+                  onChange={e => {
+                    const art = stockCuisine.find(x => x.id === e.target.value)
+                    if (!art) { setNewArticle({ ...newArticle, nom_stock: '' }); return }
+                    // S'il en reste, on propose de le marquer comme déjà
+                    // disponible — la cuisinière garde le dernier mot.
+                    setNewArticle({
+                      ...newArticle,
+                      nom_stock: art.id,
+                      nom: art.nom,
+                      en_stock: art.quantite > 0,
+                    })
+                  }}
+                >
+                  <option value="">— saisir un aliment libre —</option>
+                  {stockCuisine.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.nom} — {a.quantite > 0 ? `${a.quantite} ${a.unite} en stock` : 'stock épuisé'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">Nom de l'aliment / Ingrédient</label>
               <input
                 className="form-input"
                 value={newArticle.nom}
-                onChange={e => setNewArticle({ ...newArticle, nom: e.target.value })}
+                onChange={e => setNewArticle({ ...newArticle, nom: e.target.value, nom_stock: '' })}
                 placeholder="Ex: Poulet fermier, Sac de Riz, Huile..."
               />
             </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 14, borderRadius: 10, cursor: 'pointer', background: newArticle.en_stock ? 'rgba(46,158,79,.10)' : '#f1f5f9', border: '1px solid ' + (newArticle.en_stock ? 'var(--green)' : '#e2e8f0') }}>
+              <input
+                type="checkbox"
+                checked={Boolean(newArticle.en_stock)}
+                onChange={e => setNewArticle({ ...newArticle, en_stock: e.target.checked })}
+                style={{ width: 18, height: 18 }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: newArticle.en_stock ? 'var(--green)' : '#0d2a3b' }}>
+                Je l’ai déjà — ne pas acheter
+                <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>
+                  La ligne reste sur la fiche pour mémoire, mais ne compte pas dans le budget.
+                </div>
+              </span>
+            </label>
 
             <div className="form-group">
               <label className="form-label">Quantité (ex: 15 Kg, 2 Bidons, 1 Sac)</label>

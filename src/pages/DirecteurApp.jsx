@@ -632,7 +632,7 @@ export default function DirecteurApp({ user, onLogout }) {
                             const b = Number(e.target.value) || 0
                             const updated = { ...ficheMarcheCantine, budget: b }
                             setFicheMarcheCantine(updated)
-                            await supabase.from('app_state').upsert({ key: 'cantine_fiche_marche', value: updated, updated_at: new Date().toISOString() })
+                            await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
                           }}
                           style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}
                         />
