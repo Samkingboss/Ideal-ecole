@@ -75,6 +75,13 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
     7 unités, 57 entrées dont 7 bilans, pages 6 à 139. La numérotation est
     celle du livre, trous compris (8, 14, 24, 35, 43, 53 sont des ouvertures
     d'unité). Enseignant : Yacouba OUANG, 9 séquences/semaine.
+  - **Mathématiques CP2 — La méthode de Singapour**, pour Maths CP2
+    (`maths-cp2.js`) — second volume de la même collection : unités 8 à 17,
+    leçons 65 à 127 sans trou, pages 7 à 112 (la pagination repart à 7).
+    Chaque unité s'ouvre par « Observons l'image » et se ferme par « Ce que
+    j'ai appris », et porte son domaine (Nombres et calculs, Grandeurs et
+    mesures, Espace et géométrie). Enseignant : Yacouba OUANG,
+    8 séquences/semaine.
   - **Pas à Pas, je lis — CP1**, pour Lecture CP1 (`lecture-cp1.js`) —
     24 étapes dont 2 mots outils, pages 5 à 129 sans trou. Enseignante :
     Ornella MOGADZI, 11 séquences/semaine.
@@ -274,8 +281,6 @@ Commits de référence : `0bfb302` (notifications), `3fd1db9` (mobile),
   `app_state` et non dans une table : pas de recherche possible, tout
   l'historique dans une seule ligne JSON qui grossira sans limite. Le
   reprendre en vraie table ?
-- **Yacouba enseigne les Maths en CP1 et en CP2.** Le manuel enregistré est
-  celui du CP1. Le CP2 suit-il un autre livre, à fournir ?
 - Le **bundle est passé à 957 Ko** (238 Ko compressés). Découper le
   chargement pour que chaque compte ne télécharge que son espace ?
 

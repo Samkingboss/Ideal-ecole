@@ -24,7 +24,10 @@ export default function ProgrammeManuel({ user }) {
   const [sansManuel, setSansManuel] = useState([]) // affectations sans manuel
   const [choix, setChoix] = useState(null)         // { groupe, matiere, manuel }
   const [preparations, setPreparations] = useState([])
-  const [uniteOuverte, setUniteOuverte] = useState(1)
+  // `undefined` = laisser l'écran choisir. Un manuel ne commence pas forcément
+  // à l'unité 1 : le second volume de Singapour ouvre à l'unité 8. On déplie
+  // donc l'unité où la classe en est, pas un numéro fixé d'avance.
+  const [uniteOuverte, setUniteOuverte] = useState(undefined)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
 
@@ -94,6 +97,12 @@ export default function ProgrammeManuel({ user }) {
   // pour qu'un enseignant qui change de matière retrouve les mêmes repères.
   // `rang` n'a de sens que pour un livre qui ne numérote pas ses étapes : la
   // pastille montre alors la position, pas la page de début qui sert d'identifiant.
+  // Unité dépliée : celle où la classe en est tant que l'enseignant n'a rien
+  // ouvert lui-même, la sienne ensuite.
+  const uniteVisible = uniteOuverte === undefined
+    ? (av.prochaine?.unite ?? manuel.unites?.[0]?.numero ?? null)
+    : uniteOuverte
+
   const ligneLecon = (l, rang) => {
     const seq = av.seances[l.numero]?.length || 0
     const estProchaine = av.prochaine?.numero === l.numero
@@ -129,7 +138,7 @@ export default function ProgrammeManuel({ user }) {
           {matieres.map(m => {
             const actif = choix.groupe === m.groupe && choix.matiere === m.matiere
             return (
-              <button key={m.groupe + m.matiere} onClick={() => { setChoix(m); setUniteOuverte(1) }}
+              <button key={m.groupe + m.matiere} onClick={() => { setChoix(m); setUniteOuverte(undefined) }}
                 style={{
                   padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
                   border: '2px solid ' + (actif ? 'var(--accent)' : 'var(--border)'),
@@ -199,14 +208,18 @@ export default function ProgrammeManuel({ user }) {
 
       {/* ── Le manuel, unité par unité ── */}
       {aDesUnites(manuel) && manuel.unites.map(u => {
-        const ouvert = uniteOuverte === u.numero
+        const ouvert = uniteVisible === u.numero
         const faits = u.lecons.filter(l => av.faits.includes(l.numero)).length
         return (
           <div key={u.numero} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', marginBottom: 10 }}>
             <div onClick={() => setUniteOuverte(ouvert ? null : u.numero)}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', cursor: 'pointer', background: ouvert ? 'rgba(26,175,224,.05)' : 'transparent' }}>
               <span style={pastille('#0d2a3b', '#fff')}>U{u.numero}</span>
-              <div style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 13 }}>{u.titre}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 13 }}>{u.titre}</div>
+                {/* Domaine tel qu'il est imprimé dans le sommaire du livre. */}
+                {u.domaine && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.domaine}</div>}
+              </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: faits === u.lecons.length ? 'var(--green)' : 'var(--muted)' }}>
                 {faits}/{u.lecons.length}
               </span>
