@@ -98,6 +98,13 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
     ne sont pas des leçons numérotées, et les dictées sont un réservoir
     d'exercices où l'on puise toute l'année, pas une étape du parcours.
     Enseignante : Ornella MOGADZI, 4 h/semaine.
+  - **Treasures — Grade 1** (Macmillan/McGraw-Hill), pour English CP1
+    (`english-cp1.js`) — 6 volumes, 30 thèmes, **156 entrées**. Chaque thème
+    compte cinq entrées dans le même ordre (Talk About It, Words to Know,
+    lecture principale, lecture associée, atelier d'écriture) ; chaque volume
+    se referme sur une Test Strategy, qui forme sa propre section. Les
+    glossaires de fin de volume n'y sont pas. Enseignante : Juliette NGONE,
+    6 h/semaine.
 - **Deux structures de livre sont admises**, parce que deux livres ne se
   ressemblent pas : un manuel déclare soit `unites` (découpage numéroté, écran
   en accordéon), soit `lecons` (progression continue, liste). Un livre qui ne
@@ -115,7 +122,15 @@ Depuis le 16 août 2026, une matière peut suivre le sommaire d'un manuel.
   de page trompe l'enseignant.
 - `rubrique` porte la mention imprimée au-dessus d'une unité : un domaine chez
   Singapour (Nombres et calculs…), une partie chez Boscher (Première partie —
-  l'apprentissage syllabique).
+  l'apprentissage syllabique), un volume chez Treasures.
+- `libelleUnite` dit comment le livre appelle ses sections — « Unité » par
+  défaut, « Thème » chez Treasures, dont les *Units* imprimées désignent les
+  six volumes et non les sections de l'écran. Reprendre le mot « unité » y
+  ferait contresens.
+- **L'identifiant d'une entrée doit être unique sur tout le manuel.** Chez
+  Treasures la page n'y suffit pas : les volumes 1 à 4 commencent tous page 6.
+  On y identifie donc par `volume * 1000 + page`. Ce nombre ne s'affiche
+  jamais.
 - La fiche de préparation d'une matière à manuel **exige** une leçon, proposée
   par défaut à la suivante du livre. Le choix est écrit dans
   `preparations.contenu.programme` — donc **aucune migration** : la colonne

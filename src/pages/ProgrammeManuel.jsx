@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { manuelPour, leconsDe, avancement, aDesUnites, pagesDe, situationDe } from '../lib/programmes'
+import { manuelPour, leconsDe, avancement, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 
 // Le programme de l'enseignant, tel qu'il est imprimé dans le manuel.
 //
@@ -221,7 +221,8 @@ export default function ProgrammeManuel({ user }) {
           <div key={u.numero} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', marginBottom: 10 }}>
             <div onClick={() => setUniteOuverte(ouvert ? null : u.numero)}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', cursor: 'pointer', background: ouvert ? 'rgba(26,175,224,.05)' : 'transparent' }}>
-              <span style={pastille('#0d2a3b', '#fff')}>U{u.numero}</span>
+              {/* Initiale du mot qu'emploie le livre : U pour unité, T pour thème. */}
+              <span style={pastille('#0d2a3b', '#fff')}>{libelleUnite(manuel)[0]}{u.numero}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 13 }}>{u.titre}</div>
                 {/* Mention imprimée au-dessus de l'unité dans le sommaire :

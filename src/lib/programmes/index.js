@@ -13,8 +13,9 @@ import mathsCP2 from './maths-cp2'
 import lectureCP1 from './lecture-cp1'
 import lectureCP2 from './lecture-cp2'
 import francaisCP2 from './francais-cp2'
+import englishCP1 from './english-cp1'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -61,10 +62,15 @@ export const pagesDe = l =>
 //
 // Accepte aussi bien une entrée du sommaire (`numero`) que la référence
 // enregistrée dans une préparation (`lecon`).
+// Comment le livre appelle ses sections. « Unité » par défaut ; « Thème » chez
+// Treasures, dont les « Units » imprimées désignent les volumes et non les
+// sections de l'écran — reprendre le mot « unité » y ferait contresens.
+export const libelleUnite = manuel => manuel?.libelleUnite || 'Unité'
+
 export const situationDe = (manuel, l) => {
   if (!l) return ''
   const bouts = []
-  if (l.unite) bouts.push(`Unité ${l.unite}`)
+  if (l.unite) bouts.push(`${libelleUnite(manuel)} ${l.unite}`)
   if (manuel?.numerote !== false) bouts.push(`leçon ${l.numero ?? l.lecon}`)
   bouts.push(`manuel ${pagesDe(l)}`)
   return bouts.join(' · ')
