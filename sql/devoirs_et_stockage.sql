@@ -75,9 +75,18 @@ create index if not exists devoirs_user        on public.devoirs (user_id);
 
 -- ── 3. Droits sur la table devoirs ───────────────────────────────────────
 -- Même politique que les autres tables de la plateforme : la clé anonyme fait
--- tout, l'écran décide qui voit quoi. La suppression n'est pas ouverte — un
--- devoir se corrige, il ne s'efface pas, et une suppression accidentelle
--- serait irrattrapable sur ce forfait sans restauration ponctuelle.
+-- tout, l'écran décide qui voit quoi.
+--
+-- Attention : ce script n'ouvre pas la suppression, mais il ne la ferme pas
+-- non plus. La table portait déjà une politique permissive, créée avant lui et
+-- qu'il ne remplace pas — un DELETE passe donc, vérifié le 17 août 2026 sur
+-- une ligne de contrôle. Pour la fermer, il faut d'abord lister l'existant :
+--
+--   select policyname, cmd, roles from pg_policies
+--    where schemaname = 'public' and tablename = 'devoirs';
+--
+-- Sur le stockage en revanche la suppression est bien fermée : aucune
+-- politique de DELETE n'est posée au § 4, et un essai renvoie HTTP 400.
 
 alter table public.devoirs enable row level security;
 
