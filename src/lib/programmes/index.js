@@ -26,9 +26,10 @@ import francaisCE2 from './flamboyant-ce2'
 import mathematicsCM from './mathematics-cm'
 import englishCM from './english-cm'
 import spellingCM from './spelling-cm'
+import grammarCM from './grammar-cm'
 import { phonicsCP1, phonicsCP2 } from './phonics-pathways'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2, mathsCE1, englishCE1, scienceCE1, mathematicsCE1, francaisCE2, mathematicsCM, englishCM, spellingCM]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2, mathsCE1, englishCE1, scienceCE1, mathematicsCE1, francaisCE2, mathematicsCM, englishCM, spellingCM, grammarCM]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
