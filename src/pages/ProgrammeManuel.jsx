@@ -14,6 +14,18 @@ import { manuelsPour, leconsDe, avancement, aDesUnites, pagesDe, situationDe, li
 // `prof_classes` : c'est l'affectation qui dit qui enseigne quoi, et le
 // document officiel garantit une matière = un enseignant sur toute l'année.
 
+// Comment nommer un manuel quand plusieurs servent la même matière. On coupe
+// au premier tiret cadratin — « Treasures — Grade 1 (volumes 1 à 6) » devient
+// « Treasures » — mais seulement si ce raccourci reste distinctif : au CM,
+// Treasures et son Spelling Practice Book s'appellent tous deux « Treasures »
+// avant le tiret, et deux boutons identiques ne départagent rien.
+export const etiquetteManuel = (manuel, freres) => {
+  const court = m => m.titre.split('—')[0].trim()
+  const abrege = court(manuel)
+  const ambigu = freres.filter(f => court(f.manuel) === abrege).length > 1
+  return ambigu ? manuel.titre : abrege
+}
+
 const pastille = (fond, texte) => ({
   background: fond, color: texte, borderRadius: 6, padding: '1px 7px',
   fontSize: 10, fontWeight: 800, flexShrink: 0,
@@ -173,9 +185,11 @@ export default function ProgrammeManuel({ user }) {
                 {/* Le titre du manuel n'apparaît que s'il faut départager :
                     « English · CP1 » ne suffit plus quand deux livres le
                     servent. */}
-                {matieres.filter(x => x.groupe === m.groupe && x.matiere === m.matiere).length > 1 && (
-                  <span style={{ fontWeight: 600, opacity: .85 }}> · {m.manuel.titre.split('—')[0].trim()}</span>
-                )}
+                {(() => {
+                  const freres = matieres.filter(x => x.groupe === m.groupe && x.matiere === m.matiere)
+                  if (freres.length < 2) return null
+                  return <span style={{ fontWeight: 600, opacity: .85 }}> · {etiquetteManuel(m.manuel, freres)}</span>
+                })()}
               </button>
             )
           })}
