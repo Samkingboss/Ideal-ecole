@@ -17,28 +17,28 @@
 // fiche de préparation affichent sous l'intitulé. L'enseignant prépare la
 // leçon 3 une fois, en ayant sous les yeux tout ce qu'elle doit couvrir.
 //
-// ── Deux photos, deux qualités ──────────────────────────────────────────────
-// Les leçons 16 à 30 viennent de photos nettes et de face : leurs sept
-// colonnes sont transcrites, y compris « Je sais dire / Je sais faire » et la
-// poésie. L'alignement y est certain — trois lignes de révision, orange et
-// vides, découpent le tableau en blocs qui se comptent sans ambiguïté.
+// ── État de la transcription ────────────────────────────────────────────────
+// Les sept colonnes sont transcrites pour les trente leçons. Les pages 5, 6 et
+// 7 du sommaire ont été photographiées de face ; seule la page 4 — le texte,
+// la grammaire et la conjugaison des leçons 1 à 15 — vient encore d'une photo
+// prise de biais.
 //
-// Les leçons 1 à 15 viennent d'une photo prise de biais. Le texte, la
-// grammaire, la conjugaison et les deux orthographes s'y lisent, mais les
-// colonnes « Je sais dire » et « Poésie » comptent moins d'intitulés que de
-// lignes — douze pour treize dans l'une, sept pour quinze dans l'autre — et
-// rien ne dit quelles lignes sont vides. Elles sont laissées de côté plutôt
-// que devinées : un poème en face de la mauvaise leçon serait pire que rien.
+// Cette réserve n'est pas théorique. La première lecture de la page 5, faite
+// sur une photo de biais, avait interverti les leçons 7 et 11 (« ou / où » et
+// « des pluriels particuliers ») et donné une mauvaise orthographe d'usage à
+// la leçon 10. La photo droite l'a montré et les trois lignes sont corrigées.
+// Les mêmes erreurs peuvent donc s'être glissées dans la grammaire et la
+// conjugaison des leçons 1 à 15 : une photo droite de la page 4 les lèverait.
 //
 // La leçon 15 et la leçon 16 portent toutes deux « consonnes muettes » en
-// orthographe d'usage. Ce n'est vraisemblablement pas une erreur de lecture :
-// la moitié nette du sommaire montre la même habitude — « le féminin des
-// adjectifs » aux leçons 16 et 17, « des mots invariables » aux leçons 26 et
-// 27, « Pour exprimer la succession » aux leçons 25 et 26. Le livre étale un
-// point sur deux leçons de suite.
+// orthographe d'usage. Vérifié sur les deux photos nettes : le livre étale un
+// point sur deux leçons de suite — « le féminin des adjectifs » aux leçons 16
+// et 17, « des mots invariables » aux leçons 26 et 27, « Pour exprimer la
+// succession » aux leçons 25 et 26. Ce n'est pas un décalage de lecture.
 //
-// Une reprise droite de la page 5 reste utile : elle ajouterait les colonnes
-// « Je sais dire » et « Poésie » des quinze premières leçons.
+// Une leçon de révision ne porte pas de point de langue, mais elle peut porter
+// une poésie : « Le rhinocéros » à la leçon 6, « Voyages » et « Devinez-moi »
+// à la leçon 24.
 //
 // Le sommaire ne pagine que la leçon, pas ses domaines. Chaque entrée porte
 // donc l'étendue de sa leçon, déduite du début de la suivante.
@@ -55,71 +55,91 @@ const LECONS = [
     g: 'le texte, la phrase',
     c: 'passé, présent, futur',
     og: 'ce / se',
-    ou: "l'alphabet" },
+    ou: "l'alphabet",
+    d: "L'intonation" },
   { n: 2, p: 16, texte: 'Une écolière japonaise',
     g: 'la phrase déclarative : affirmative, négative',
     c: "l'infinitif",
     og: 'on / ont, son / sont',
-    ou: 'le dictionnaire' },
+    ou: 'le dictionnaire',
+    d: "Pour questionner, pour s'exclamer",
+    poesie: "L'affaire se complique" },
   { n: 3, p: 24, texte: 'À la forge',
     g: 'la phrase : interrogative, exclamative',
     c: "être et avoir au présent de l'indicatif",
     og: 'mots invariables interrogatifs et exclamatifs',
-    ou: 'le son [s]' },
+    ou: 'le son [s]',
+    d: 'Pour exprimer son désaccord' },
   { n: 4, p: 32, texte: 'Une terrible maladie',
     g: 'la phrase simple et ses groupes',
     c: "chanter et finir au présent de l'indicatif",
     og: 'a / à, et / est',
-    ou: 'les familles de mots' },
+    ou: 'les familles de mots',
+    d: "Pour exprimer l'étonnement" },
   { n: 5, p: 40, texte: 'En taxi-brousse',
     g: 'accord sujet / verbe',
     c: "venir, faire, aller au présent de l'indicatif",
     og: 'pluriel des noms en -au, -eau ; pluriel des noms en -al',
-    ou: 'famille de mots : préfixe, suffixe' },
+    ou: 'famille de mots : préfixe, suffixe',
+    d: 'Pour interdire, pour donner un ordre',
+    poesie: 'Le caméléon' },
   { n: 6, p: 48, revision: true, texte: 'Une grande timide',
-    lectures: ['Malal (1) — p. 54'] },
+    lectures: ['Malal (1) — p. 54'],
+    poesie: 'Le rhinocéros' },
   { n: 7, p: 56, texte: 'La petite cuisinière',
     g: 'accord sujet / verbe',
     c: 'être et avoir au futur',
-    og: 'des pluriels particuliers',
-    ou: 'les guillemets, les tirets' },
+    og: 'ou / où',
+    ou: 'quelques mots invariables',
+    d: 'Pour exprimer la quantité' },
   { n: 8, p: 64, texte: 'Une patience bien récompensée',
     g: 'le nom',
     c: 'chanter et finir au futur',
     og: 'le comparatif',
-    ou: 'les accents sur le e' },
+    ou: 'les accents sur le e',
+    d: 'Pour exprimer la comparaison : similitude, différence',
+    poesie: 'Le coq' },
   { n: 9, p: 72, texte: 'Une journée aux champs',
     g: 'le nom commun, le nom propre',
     c: 'venir, faire, aller au futur',
     og: 'le superlatif',
-    ou: 'les noms et adjectifs de nationalité' },
+    ou: 'les noms et adjectifs de nationalité',
+    d: 'Pour exprimer la comparaison : le superlatif' },
   { n: 10, p: 80, texte: 'La nouvelle maison',
     g: 'le nom : le genre, le nombre',
     c: 'avoir au passé composé',
     og: 'le pluriel des noms terminés par -s, -x, -z',
-    ou: 'quelques mots invariables' },
+    ou: "les noms masculins en -ail, -eil, -euil s'écrivent -ille au féminin",
+    d: 'Pour exprimer le refus',
+    poesie: 'Attention travaux' },
   { n: 11, p: 88, texte: 'La dinde de Noël',
     g: "un déterminant : l'article",
     c: 'être au passé composé',
-    og: 'ou / où',
-    ou: "les noms masculins en -ail, -eil, -euil s'écrivent -ille au féminin" },
+    og: 'des pluriels particuliers',
+    ou: 'les guillemets, les tirets',
+    d: 'Le dialogue',
+    poesie: 'Photo de famille' },
   { n: 12, p: 96, revision: true, texte: 'Trains et locomotives',
     lectures: ['Malal (2) — p. 103'] },
   { n: 13, p: 106, texte: "La classe mène l'enquête",
     g: 'déterminants : les adjectifs possessifs',
     c: 'formation du passé composé : le participe passé',
     og: 'le genre et le nombre des adjectifs possessifs',
-    ou: 'quelques mots invariables' },
+    ou: 'quelques mots invariables',
+    d: 'Style direct, style indirect' },
   { n: 14, p: 114, texte: 'La patate douce',
     g: 'déterminants : les adjectifs démonstratifs',
     c: "l'impératif : rôle et formation",
     og: 'le genre et le nombre des adjectifs démonstratifs',
-    ou: 'les noms terminés par -et, -aie' },
+    ou: 'les noms terminés par -et, -aie',
+    d: 'Pour exprimer le but' },
   { n: 15, p: 122, texte: 'Le tracteur',
     g: "l'adjectif qualificatif",
     c: "être, avoir, faire, venir, aller à l'impératif",
     og: "le genre et le nombre de l'adjectif qualificatif",
-    ou: 'consonnes muettes' },
+    ou: 'consonnes muettes',
+    d: 'Pour exprimer la cause',
+    poesie: 'La cigale et la fourmi' },
   { n: 16, p: 130, texte: "C'est la saison sèche",
     g: "l'accord de l'adjectif qualificatif en genre et en nombre",
     c: "l'imparfait : un temps du passé",
