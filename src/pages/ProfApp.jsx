@@ -440,6 +440,15 @@ export default function ProfApp({ user, onLogout }) {
           <>
             <button onClick={() => setTab('classe')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'classe' ? '#00a8e0' : 'var(--bg)', color: tab === 'classe' ? '#fff' : 'var(--muted)' }}>📋 Présence &amp; Liste Classe</button>
             <button onClick={() => setTab('devoirs')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'devoirs' ? '#00a8e0' : 'var(--bg)', color: tab === 'devoirs' ? '#fff' : 'var(--muted)' }}>📖 Cahier de Devoirs du Soir</button>
+            {/* La plateforme des devoirs vit dans une page à part,
+                /pedago-archive/, depuis bien avant la refonte du portail en
+                six sessions. Cette refonte a reconstruit la navigation sans
+                reprendre le lien : la page est restée en ligne et
+                fonctionnelle, mais plus aucun compte n'y menait. */}
+            <a href="/pedago-archive/" target="_blank" rel="noreferrer"
+              style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, textDecoration: 'none', background: '#047857', color: '#fff', whiteSpace: 'nowrap' }}>
+              🗂️ Plateforme Devoirs &amp; Élèves
+            </a>
             <button onClick={() => setTab('messages')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'messages' ? '#00a8e0' : 'var(--bg)', color: tab === 'messages' ? '#fff' : 'var(--muted)' }}>💬 Messages Parents (WhatsApp)</button>
           </>
         )}
