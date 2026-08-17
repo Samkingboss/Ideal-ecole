@@ -66,6 +66,17 @@ alter table public.devoirs
 alter table public.devoirs
   add column if not exists fichiers jsonb not null default '[]'::jsonb;
 
+-- La plateforme Devoirs & Élèves (/pedago-archive/) manipule un devoir plus
+-- riche que ne le portent les colonnes : type d'exercice, période, objectifs,
+-- barème, enseignant, et le ciblage — toute la classe ou quelques élèves
+-- désignés. `contenu` garde cette forme telle quelle, comme le fait déjà
+-- `preparations.contenu` pour les fiches. Les colonnes voisines restent
+-- renseignées en parallèle, pour que le reste de la plateforme — le compte
+-- directeur, les rapports — lise un devoir sans connaître ce format.
+
+alter table public.devoirs
+  add column if not exists contenu jsonb;
+
 -- Un devoir sans intitulé n'apprend rien à personne, mais on ne peut pas
 -- l'imposer aux lignes déjà présentes. La table étant vide à ce jour, la
 -- contrainte passe sans risque ; le `not valid` la rendrait inutile.

@@ -370,6 +370,12 @@
     <div id="msg-stage" style="position:fixed; left:-10000px; top:0; width:640px;"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Supabase remplace le localStorage : les élèves et les devoirs sont
+         désormais partagés par tous les comptes et survivent au navigateur.
+         `donnees.js` doit être chargé avant `app.js`, qui s'en sert dès son
+         démarrage. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="donnees.js"></script>
     <script src="app.js"></script>
 <script>
 // Déconnexion depuis une page hors portail : on efface la session locale

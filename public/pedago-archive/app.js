@@ -1,6 +1,12 @@
 // State Management
-let students = JSON.parse(localStorage.getItem('ideal_students')) || [];
-let homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
+//
+// Ces deux tableaux gardent exactement la forme qu'ils avaient du temps du
+// localStorage — tout l'affichage, l'impression et les messages aux parents
+// s'appuient dessus sans changement. Seule leur provenance change : ils sont
+// remplis depuis Supabase au démarrage (voir `demarrerDonnees` en fin de
+// fichier), et chaque modification y est renvoyée.
+let students = [];
+let homeworks = [];
 let currentHomeworkImages = [];
 // Classes que l'utilisateur connecté a le droit de servir. Remplie par la
 // synchronisation Supabase en fin de fichier : un enseignant n'y trouve que
@@ -275,13 +281,13 @@ function addStudent() {
 
     if (!name) return alert('Veuillez entrer un nom');
 
-    students.push({ id: Date.now(), name, grade });
-    localStorage.setItem('ideal_students', JSON.stringify(students));
-    
-    nameInput.value = '';
-    closeModal();
-    renderStudentList();
-    updateStats();
+    Donnees.enregistrerEleve(name, grade).then(eleve => {
+        students.push(eleve);
+        nameInput.value = '';
+        closeModal();
+        renderStudentList();
+        updateStats();
+    }).catch(e => alert(e.message));
 }
 
 // Ordre officiel des classes IDEAL
@@ -380,10 +386,13 @@ function renderStudentList() {
 }
 
 function deleteStudent(id) {
-    students = students.filter(s => s.id !== id);
-    localStorage.setItem('ideal_students', JSON.stringify(students));
-    renderStudentList();
-    updateStats();
+    // L'élève n'est pas effacé, il devient inactif : ses devoirs et ses notes
+    // gardent leur sens, et une radiation par erreur se rattrape.
+    Donnees.retirerEleve(id).then(() => {
+        students = students.filter(s => s.id !== id);
+        renderStudentList();
+        updateStats();
+    }).catch(e => alert(e.message));
 }
 
 function loadHomework(id) {
@@ -444,12 +453,22 @@ function saveHomework() {
         date: new Date().toLocaleDateString('fr-FR')
     };
 
-    homeworks.unshift(newHomework);
-    localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
+    // Les images partent dans le bucket `devoirs` et le devoir dans la table :
+    // l'aperçu n'apparaît qu'une fois l'enregistrement confirmé, pour ne pas
+    // laisser croire qu'un devoir est enregistré alors qu'il a été refusé.
+    const bouton = document.activeElement;
+    if (bouton && bouton.tagName === 'BUTTON') bouton.disabled = true;
 
-    updateStats();
-    renderArchive();
-    showHomeworkPreview(); // aperçu + impression
+    Donnees.enregistrerDevoir(newHomework).then(enregistre => {
+        homeworks.unshift(enregistre);
+        updateStats();
+        renderArchive();
+        showHomeworkPreview(); // aperçu + impression
+    }).catch(e => {
+        alert(e.message);
+    }).finally(() => {
+        if (bouton && bouton.tagName === 'BUTTON') bouton.disabled = false;
+    });
 }
 
 // Aperçu du devoir créé (pages réelles), avec impression
@@ -557,10 +576,11 @@ function renderArchive() {
 
 function deleteHomework(id) {
     if (!confirm('Supprimer ce devoir ?')) return;
-    homeworks = homeworks.filter(h => h.id !== id);
-    localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
-    renderArchive();
-    updateStats();
+    Donnees.supprimerDevoir(id).then(() => {
+        homeworks = homeworks.filter(h => h.id !== id);
+        renderArchive();
+        updateStats();
+    }).catch(e => alert(e.message));
 }
 
 function updateStats() {
@@ -1208,14 +1228,19 @@ function importData(event) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            if (data.students) students = data.students;
-            if (data.homeworks) homeworks = data.homeworks;
+            // Depuis la migration vers Supabase, la base fait foi. Réinjecter
+            // un fichier de sauvegarde écraserait l'écran sans rien
+            // enregistrer, et le premier rechargement effacerait l'illusion :
+            // on refuse plutôt que de faire semblant. Seul le logo, qui reste
+            // un réglage d'affichage local, est repris.
             if (data.logo) localStorage.setItem('ideal_logo', data.logo);
-            
-            localStorage.setItem('ideal_students', JSON.stringify(students));
-            localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
-            
-            alert('Données restaurées !');
+            alert(
+                'Les élèves et les devoirs sont désormais enregistrés dans la base '
+                + 'de l’école, partagée par tous les comptes.\n\n'
+                + 'La restauration d’un fichier de sauvegarde n’est plus '
+                + 'nécessaire, et n’aurait aucun effet durable. '
+                + (data.logo ? 'Le logo, lui, a bien été repris.' : '')
+            );
             location.reload();
         } catch (err) {
             alert('Erreur importation.');
@@ -1229,27 +1254,41 @@ function handleCSVUpload(e) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
         const text = event.target.result;
         const rows = text.split('\n');
         let addedCount = 0;
 
+        const aCreer = [];
         rows.forEach(row => {
             const columns = row.split(/,|;/);
             if (columns.length >= 2) {
                 const name = columns[0].trim().replace(/"/g, '');
                 const grade = columns[1].trim().toUpperCase().replace(/"/g, '');
                 if (name && name !== 'NOM' && name !== 'NAME') {
-                    students.push({ id: Date.now() + Math.random(), name, grade });
-                    addedCount++;
+                    aCreer.push({ name, grade });
                 }
             }
         });
 
-        localStorage.setItem('ideal_students', JSON.stringify(students));
+        // Chaque élève est écrit en base. Les classes inconnues sont
+        // signalées nommément plutôt que d'être avalées en silence : un nom
+        // de classe mal orthographié dans le fichier ferait disparaître toute
+        // une colonne d'élèves sans que personne ne s'en aperçoive.
+        const refuses = [];
+        for (const e of aCreer) {
+            try {
+                students.push(await Donnees.enregistrerEleve(e.name, e.grade));
+                addedCount++;
+            } catch (err) {
+                refuses.push(`${e.name} (${e.grade}) : ${err.message}`);
+            }
+        }
+
         renderStudentList();
         updateStats();
-        alert(`${addedCount} élèves importés !`);
+        alert(`${addedCount} élève(s) importé(s).`
+            + (refuses.length ? `\n\n${refuses.length} refusé(s) :\n` + refuses.slice(0, 10).join('\n') : ''));
     };
     reader.readAsText(file);
 }
@@ -1389,3 +1428,33 @@ function clearHomeworkContent() {
         } catch(e) { console.warn('Sync Supabase indisponible:', e); }
     })();
 })();
+
+
+// ═══════════════ CHARGEMENT DEPUIS SUPABASE ═══════════════
+//
+// Les élèves et les devoirs viennent de la base, plus du navigateur. Tant que
+// la lecture n'est pas revenue, l'interface affiche ses états vides habituels
+// — c'est l'affaire d'une fraction de seconde, et cela évite un écran blanc.
+async function demarrerDonnees() {
+    try {
+        await Donnees.chargerClasses();
+        const [eleves, devoirs] = await Promise.all([
+            Donnees.chargerEleves(),
+            Donnees.chargerDevoirs(),
+        ]);
+        students = eleves;
+        homeworks = devoirs;
+    } catch (e) {
+        console.error('Chargement impossible :', e);
+        alert('Les données n’ont pas pu être chargées : ' + e.message);
+    }
+    if (typeof renderStudentList === 'function') renderStudentList();
+    if (typeof renderArchive === 'function') renderArchive();
+    if (typeof updateStats === 'function') updateStats();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', demarrerDonnees);
+} else {
+    demarrerDonnees();
+}
