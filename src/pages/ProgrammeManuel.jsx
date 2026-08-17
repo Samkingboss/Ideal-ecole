@@ -130,7 +130,12 @@ export default function ProgrammeManuel({ user }) {
             {estProchaine && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 800, marginLeft: 6 }}>À VENIR</span>}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            {pagesDe(l, manuel)}{l.bilan ? ` · Mon journal p. ${l.journal}` : ''}
+            {/* « Mon journal » n'existe que chez Singapour CP1, où le bilan
+                d'unité renvoie à une page de journal. Ailleurs un bilan est un
+                bilan, sans page associée : tester `bilan` seul affichait
+                « Mon journal p. undefined » sous chaque évaluation de fin de
+                chapitre, dans huit manuels sur douze. */}
+            {pagesDe(l, manuel)}{l.bilan && l.journal ? ` · Mon journal p. ${l.journal}` : ''}
             {seq > 0 && ` · ${seq} séquence${seq > 1 ? 's' : ''} préparée${seq > 1 ? 's' : ''}`}
           </div>
         </div>
