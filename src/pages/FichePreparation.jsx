@@ -201,6 +201,11 @@ export default function FichePreparation({
             // Le tome fait partie de la référence : sans lui, la fiche
             // imprimée renvoie à deux pages du même numéro.
             ...(l.tome ? { tome: l.tome } : {}),
+            // Une leçon de livre unique couvre plusieurs domaines à la fois —
+            // texte, grammaire, conjugaison, orthographe. On les enregistre
+            // avec elle : c'est le contenu que la séance doit couvrir, et il
+            // doit figurer sur la fiche imprimée.
+            ...(l.domaines ? { domaines: l.domaines } : {}),
             // Référence imprimée du livre (« 9.2 » chez Cambridge), pour que la
             // fiche imprimée cite le repère que la classe emploie.
             ...(l.code ? { code: l.code } : {}),
@@ -393,6 +398,7 @@ export default function FichePreparation({
         <div><b>Durée :</b> ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min</div>
         <div><b>Enseignant :</b> ${[user.prenom, user.nom].filter(Boolean).join(' ')}</div>
         ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — ${esc(fiche.programme.titre)} · ${situationDe(manuel, fiche.programme)}</div>` : ''}
+        ${fiche.programme?.domaines?.length ? `<div style="grid-column:1/-1"><b>Cette leçon doit couvrir :</b><br>${fiche.programme.domaines.map(d => `${esc(d.nom)} : ${esc(d.contenu)}`).join('<br>')}</div>` : ''}
       </div>
       ${bloc('Objectif de la notion', fiche.objectif)}
       ${bloc('Prérequis', fiche.prerequis)}
@@ -421,6 +427,7 @@ export default function FichePreparation({
     if (fiche.programme) {
       l.push(`Manuel     : ${manuel?.titre || ''}`)
       l.push(`             ${fiche.programme.titre} · ${situationDe(manuel, fiche.programme)}`)
+      ;(fiche.programme.domaines || []).forEach(d => l.push(`             ${d.nom} : ${d.contenu}`))
     }
     l.push('')
     RUBRIQUES.slice(0, 3).forEach(r => { if (fiche[r.id]) l.push(r.label.toUpperCase(), fiche[r.id], '') })
@@ -528,6 +535,26 @@ export default function FichePreparation({
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                   {situationDe(manuel, fiche.programme)}
                 </div>
+
+                {/* Livre unique : la leçon couvre plusieurs domaines dans la
+                    même séance. On les met sous les yeux de l'enseignant au
+                    moment où il prépare, sinon il en oublie. */}
+                {fiche.programme.domaines?.length > 0 && (
+                  <div style={{
+                    marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8,
+                    display: 'grid', gap: 4,
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>
+                      CETTE LEÇON DOIT COUVRIR
+                    </div>
+                    {fiche.programme.domaines.map((d, i) => (
+                      <div key={i} style={{ fontSize: 12, lineHeight: 1.45 }}>
+                        <span style={{ color: 'var(--muted)' }}>{d.nom} : </span>
+                        <b>{d.contenu}</b>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

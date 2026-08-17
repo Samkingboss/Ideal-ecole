@@ -138,6 +138,16 @@ export default function ProgrammeManuel({ user }) {
             {pagesDe(l, manuel)}{l.bilan && l.journal ? ` · Mon journal p. ${l.journal}` : ''}
             {seq > 0 && ` · ${seq} séquence${seq > 1 ? 's' : ''} préparée${seq > 1 ? 's' : ''}`}
           </div>
+          {/* Livre unique : une leçon couvre plusieurs domaines dans la même
+              séance. Le sommaire de l'écran les montre, sinon l'enseignant ne
+              voit qu'un titre de texte et ignore ce que la leçon demande. */}
+          {l.domaines?.length > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+              {l.domaines.map((d, i) => (
+                <div key={i}>{d.nom} : <b style={{ color: 'var(--text)' }}>{d.contenu}</b></div>
+              ))}
+            </div>
+          )}
         </div>
         <span style={{ fontSize: 15, color: seq ? 'var(--green)' : 'var(--border)' }}>{seq ? '✓' : '○'}</span>
       </div>
