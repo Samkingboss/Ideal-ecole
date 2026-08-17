@@ -273,6 +273,26 @@ export default function ProfApp({ user, onLogout }) {
   }
 
 
+  // Les prochains jours de classe, pour choisir une date de remise d'un geste.
+  //
+  // Un devoir se rend presque toujours au cours suivant : obliger l'enseignant
+  // à ouvrir un calendrier pour dire « demain » est une friction inutile. Le
+  // calendrier reste là pour les cas particuliers.
+  //
+  // L'école ne travaille ni le samedi ni le dimanche : les proposer ferait
+  // tomber la remise un jour où personne ne peut rendre.
+  const prochainsJoursDeClasse = (nb = 5) => {
+    const jours = []
+    const d = new Date()
+    while (jours.length < nb) {
+      d.setDate(d.getDate() + 1)
+      const j = d.getDay()
+      if (j === 0 || j === 6) continue
+      jours.push(new Date(d))
+    }
+    return jours
+  }
+
   const getClasseEleves = () => {
     if (!selectedClasse) return []
     return eleves.filter(e => e.classe_id === selectedClasse.id)
@@ -556,8 +576,38 @@ export default function ProfApp({ user, onLogout }) {
 
                 <div>
                   <label className="form-label">À rendre pour le</label>
+
+                  {/* Les prochains jours de classe, d'un geste. */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {prochainsJoursDeClasse().map((d, i) => {
+                      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                      const actif = newDevoir.aRendrePour === iso
+                      return (
+                        <button key={iso} type="button"
+                          onClick={() => setNewDevoir({ ...newDevoir, aRendrePour: iso })}
+                          style={{
+                            padding: '6px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer',
+                            fontWeight: actif ? 900 : 700, fontFamily: 'inherit',
+                            border: '1.5px solid ' + (actif ? 'var(--accent)' : 'var(--border)'),
+                            background: actif ? 'var(--accent)' : 'var(--bg)',
+                            color: actif ? '#04121b' : 'var(--muted)',
+                          }}>
+                          {i === 0 ? 'Demain' : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Le calendrier, pour tout le reste. */}
                   <input className="form-input" type="date" value={newDevoir.aRendrePour}
+                    min={new Date().toISOString().slice(0, 10)}
                     onChange={e => setNewDevoir({ ...newDevoir, aRendrePour: e.target.value })} />
+
+                  {newDevoir.aRendrePour && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                      Remise le <b>{new Date(newDevoir.aRendrePour + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</b>
+                    </div>
+                  )}
                 </div>
 
                 {/* `multiple` ouvre la photothèque en sélection multiple : un
