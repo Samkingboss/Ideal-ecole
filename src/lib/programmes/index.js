@@ -18,9 +18,10 @@ import mathematicsCP1 from './mathematics-cp1'
 import englishCP2 from './english-cp2'
 import scienceCP2 from './science-cp2'
 import scienceCP1 from './science-cp1'
+import mathsCE1 from './maths-ce1'
 import { phonicsCP1, phonicsCP2 } from './phonics-pathways'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2, mathsCE1]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -62,8 +63,15 @@ export const leconsDe = manuel => {
 export const aDesUnites = manuel => Boolean(manuel?.unites?.length)
 
 // Pages d'une étape : « p. 40 » ou « p. 36–41 » selon le livre.
-export const pagesDe = l =>
-  !l ? '' : l.pageFin && l.pageFin !== l.page ? `p. ${l.page}–${l.pageFin}` : `p. ${l.page}`
+//
+// Certains livres se présentent en plusieurs fichiers dont la pagination
+// repart à zéro — le CE1 de Singapour a deux fois une page 6. Le numéro de
+// fichier précède alors la page, sans quoi la référence désigne deux séances.
+export const pagesDe = l => {
+  if (!l) return ''
+  const pages = l.pageFin && l.pageFin !== l.page ? `p. ${l.page}–${l.pageFin}` : `p. ${l.page}`
+  return l.fichier ? `fichier ${l.fichier}, ${pages}` : pages
+}
 
 // Où se situe une étape dans son livre. Trois livres, trois phrases :
 //   « Unité 1 · leçon 2 · manuel p. 6 »   Singapour, découpé et numéroté
@@ -91,7 +99,7 @@ export const situationDe = (manuel, l) => {
   // Référence imprimée par le livre lui-même, quand il en a une : Cambridge
   // numérote ses sections 1.1, 9.2… et c'est ce repère que la classe emploie.
   else if (l.code) bouts.push(`section ${l.code}`)
-  bouts.push(`manuel ${pagesDe(l)}`)
+  bouts.push(l.fichier ? pagesDe(l) : `manuel ${pagesDe(l)}`)
   return bouts.join(' · ')
 }
 
