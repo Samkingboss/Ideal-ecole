@@ -71,13 +71,16 @@ export default function PreparationIA({ user }) {
 
     setLoading(true)
     try {
+      // Bucket `preparations`, séparé de celui des devoirs : deux usages, deux
+      // durées de vie, deux publics. Les dépôts d'avant le 17 août 2026 sont
+      // restés dans « documents » et leurs adresses fonctionnent toujours.
       const nomFichier = user.id + '/' + Date.now() + '_' + form.fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const { error: uploadErr } = await supabase.storage
-        .from('documents')
+        .from('preparations')
         .upload(nomFichier, form.fichier, { upsert: false })
       if (uploadErr) throw new Error('Erreur upload : ' + uploadErr.message)
 
-      const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(nomFichier)
+      const { data: { publicUrl } } = supabase.storage.from('preparations').getPublicUrl(nomFichier)
       const { ok: dansLesDelais, retardMinutes } = verifierDelai(form.date_cours, form.heure_cours)
 
       const { error: insertErr } = await supabase.from('preparations').insert({

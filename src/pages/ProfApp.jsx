@@ -70,11 +70,14 @@ export default function ProfApp({ user, onLogout }) {
   const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
   
   // Devoirs states
-  const [devoirs, setDevoirs] = useState([
-    { id: 1, matiere: 'Mathématiques', titre: 'Exercices de Calcul & Problèmes', consignes: 'Résoudre les exercices 1, 2 et 3 page 45 dans le cahier de devoirs.', aRendrePour: 'Lundi' },
-    { id: 2, matiere: 'Lecture & Français', titre: 'Lecture accompagnée', consignes: 'Lire le chapitre 3 et répondre aux questions 1 à 4.', aRendrePour: 'Mardi' }
-  ])
-  const [newDevoir, setNewDevoir] = useState({ matiere: '', titre: '', consignes: '', aRendrePour: '' })
+  //
+  // La liste part vide et vient de la base. Elle contenait auparavant un
+  // devoir d'exemple codé en dur, qui s'affichait dans toutes les classes et
+  // faisait croire que le cahier fonctionnait.
+  const [devoirs, setDevoirs] = useState([])
+  const [newDevoir, setNewDevoir] = useState({ matiere: '', titre: '', consignes: '', aRendrePour: '', fichier: null })
+  const [devoirEnCours, setDevoirEnCours] = useState(false)
+  const [devoirErreur, setDevoirErreur] = useState('')
   const [showDevoirsModal, setShowDevoirsModal] = useState(false)
 
   // Discipline states
@@ -167,8 +170,9 @@ export default function ProfApp({ user, onLogout }) {
       const { data: preps } = await supabase.from('preparations').select('*').eq('user_id', user.id).order('heure_depot', { ascending: false })
       setPreparations(preps || [])
 
-      const { data: devData } = await supabase.from('devoirs').select('*').order('date_rendu', { ascending: true })
-      if (devData && devData.length > 0) setDevoirs(devData)
+      const { data: devData } = await supabase
+        .from('devoirs').select('*').order('date_rendu', { ascending: true })
+      setDevoirs(devData || [])
     } catch (e) {
       console.error(e)
     } finally {
@@ -176,17 +180,58 @@ export default function ProfApp({ user, onLogout }) {
     }
   }
 
-  const handleAddDevoir = () => {
-    if (!newDevoir.matiere || !newDevoir.titre) return alert('Matière et Titre requis.')
-    const item = {
-      id: Date.now(),
-      matiere: newDevoir.matiere,
-      titre: newDevoir.titre,
-      consignes: newDevoir.consignes || 'Exercices du soir.',
-      aRendrePour: newDevoir.aRendrePour || 'Prochain cours'
+  // Enregistrement d'un devoir.
+  //
+  // La version précédente n'écrivait que dans l'état local : le devoir
+  // disparaissait au rechargement, sans le moindre message. Elle employait de
+  // surcroît des noms de champs que la table ne connaît pas — `consignes` et
+  // `aRendrePour` n'existent pas, la colonne s'appelle `description` et la
+  // date de remise `date_rendu`.
+  //
+  // L'exercice photographié part dans le bucket `devoirs`, séparé de celui des
+  // préparations : deux usages, deux durées de vie, deux publics.
+  const handleAddDevoir = async () => {
+    setDevoirErreur('')
+    if (!newDevoir.matiere.trim() || !newDevoir.titre.trim()) {
+      setDevoirErreur('La matière et le titre sont nécessaires.'); return
     }
-    setDevoirs([item, ...devoirs])
-    setNewDevoir({ matiere: '', titre: '', consignes: '', aRendrePour: '' })
+    if (!selectedClasse) { setDevoirErreur('Sélectionnez d’abord une classe.'); return }
+
+    setDevoirEnCours(true)
+    try {
+      let fichierUrl = null, fichierNom = null
+      if (newDevoir.fichier) {
+        const f = newDevoir.fichier
+        const chemin = `${selectedClasse.id}/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const { error: errUp } = await supabase.storage.from('devoirs').upload(chemin, f)
+        if (errUp) throw new Error("L’exercice n’a pas pu être déposé : " + errUp.message)
+        fichierUrl = supabase.storage.from('devoirs').getPublicUrl(chemin).data.publicUrl
+        fichierNom = f.name
+      }
+
+      const { data, error } = await supabase.from('devoirs').insert({
+        user_id: user.id,
+        classe_id: selectedClasse.id,
+        groupe: selectedClasse.nom,
+        matiere: newDevoir.matiere.trim(),
+        titre: newDevoir.titre.trim(),
+        description: newDevoir.consignes.trim() || null,
+        date_donne: new Date().toISOString().slice(0, 10),
+        date_rendu: newDevoir.aRendrePour || null,
+        fichier_url: fichierUrl,
+        fichier_nom: fichierNom,
+      }).select().single()
+      if (error) throw new Error("Enregistrement refusé : " + error.message)
+
+      setDevoirs([data, ...devoirs])
+      setNewDevoir({ matiere: '', titre: '', consignes: '', aRendrePour: '', fichier: null })
+      const champ = document.getElementById('devoir-fichier')
+      if (champ) champ.value = ''
+    } catch (e) {
+      setDevoirErreur(e.message)
+    } finally {
+      setDevoirEnCours(false)
+    }
   }
 
   const getClasseEleves = () => {
@@ -445,22 +490,57 @@ export default function ProfApp({ user, onLogout }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                 <input className="form-input" placeholder="Matière (ex: Mathématiques)" value={newDevoir.matiere} onChange={e => setNewDevoir({ ...newDevoir, matiere: e.target.value })} />
                 <input className="form-input" placeholder="Titre du devoir" value={newDevoir.titre} onChange={e => setNewDevoir({ ...newDevoir, titre: e.target.value })} />
-                <input className="form-input" placeholder="À rendre pour (ex: Lundi)" value={newDevoir.aRendrePour} onChange={e => setNewDevoir({ ...newDevoir, aRendrePour: e.target.value })} />
+                <input className="form-input" type="date" title="À rendre pour" value={newDevoir.aRendrePour} onChange={e => setNewDevoir({ ...newDevoir, aRendrePour: e.target.value })} />
               </div>
               <textarea className="form-input" rows={2} style={{ marginTop: 10 }} placeholder="Consignes précises pour l'élève..." value={newDevoir.consignes} onChange={e => setNewDevoir({ ...newDevoir, consignes: e.target.value })} />
-              <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }} onClick={handleAddDevoir}>Ajouter au Cahier de Devoirs</button>
+
+              {/* L'exercice photographié. Il part dans un stockage distinct de
+                  celui des préparations, à la demande du directeur. */}
+              <div style={{ marginTop: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+                  Exercice à joindre <span style={{ fontWeight: 500 }}>(photo ou PDF, 5 Mo maximum — facultatif)</span>
+                </label>
+                <input id="devoir-fichier" className="form-input" type="file" style={{ marginTop: 4 }}
+                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                  onChange={e => setNewDevoir({ ...newDevoir, fichier: e.target.files[0] || null })} />
+              </div>
+
+              {devoirErreur && (
+                <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: 'rgba(237,28,36,.1)', color: 'var(--red)' }}>{devoirErreur}</div>
+              )}
+
+              <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }}
+                disabled={devoirEnCours} onClick={handleAddDevoir}>
+                {devoirEnCours ? 'Enregistrement…' : 'Ajouter au Cahier de Devoirs'}
+              </button>
             </div>
 
             {/* Liste des Devoirs Enregistrés */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {devoirs.length === 0 && (
+                <div className="empty-state" style={{ padding: '1.5rem' }}>
+                  <p style={{ fontSize: 13 }}>Aucun devoir enregistré pour l’instant.</p>
+                </div>
+              )}
               {devoirs.map((d, i) => (
                 <div key={d.id || i} className="card" style={{ padding: 16, borderLeft: '4px solid #0284c7' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontWeight: 900, color: '#0284c7', fontSize: 14 }}>📖 {d.matiere}</span>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b' }}>⏰ Pour : {d.aRendrePour}</span>
+                    {d.date_rendu && (
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b' }}>
+                        ⏰ Pour le {new Date(d.date_rendu + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 800, marginTop: 6, color: '#0f172a' }}>{d.titre}</div>
-                  <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>{d.consignes}</div>
+                  {d.description && <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>{d.description}</div>}
+                  {d.fichier_url && (
+                    <a href={d.fichier_url} target="_blank" rel="noreferrer"
+                      style={{ display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
+                      📎 {d.fichier_nom || 'Voir l’exercice'}
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
