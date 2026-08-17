@@ -18,17 +18,14 @@
 // leçon 3 une fois, en ayant sous les yeux tout ce qu'elle doit couvrir.
 //
 // ── État de la transcription ────────────────────────────────────────────────
-// Les sept colonnes sont transcrites pour les trente leçons. Les pages 5, 6 et
-// 7 du sommaire ont été photographiées de face ; seule la page 4 — le texte,
-// la grammaire et la conjugaison des leçons 1 à 15 — vient encore d'une photo
-// prise de biais.
-//
-// Cette réserve n'est pas théorique. La première lecture de la page 5, faite
-// sur une photo de biais, avait interverti les leçons 7 et 11 (« ou / où » et
-// « des pluriels particuliers ») et donné une mauvaise orthographe d'usage à
-// la leçon 10. La photo droite l'a montré et les trois lignes sont corrigées.
-// Les mêmes erreurs peuvent donc s'être glissées dans la grammaire et la
-// conjugaison des leçons 1 à 15 : une photo droite de la page 4 les lèverait.
+// Les sept colonnes des trente leçons sont transcrites, et chacune des quatre
+// pages du sommaire (4, 5, 6 et 7) a été relue sur une photo nette. La
+// vérification n'était pas de trop : la première lecture de la page 5, faite
+// sur une photo prise de biais, avait interverti les orthographes des leçons 7
+// et 11 — « ou / où » appartient à la 7, « des pluriels particuliers » à la
+// 11 — et donné une mauvaise orthographe d'usage à la leçon 10. La reprise de
+// la page 4 n'a en revanche rien révélé : ses quinze lignes de texte, de
+// grammaire et de conjugaison étaient justes.
 //
 // La leçon 15 et la leçon 16 portent toutes deux « consonnes muettes » en
 // orthographe d'usage. Vérifié sur les deux photos nettes : le livre étale un
