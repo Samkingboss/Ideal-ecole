@@ -78,9 +78,55 @@ export default function DocumentPrintStudio({
 }) {
   const theme = DEPARTMENT_THEMES[type] || DEPARTMENT_THEMES.administration
 
+  // Impression dans une fenêtre dédiée.
+  //
+  // `window.print()` imprimait la page entière : l'enseignant recevait ses
+  // devoirs mélangés à la barre de navigation, aux onglets de session et au
+  // formulaire de saisie, le tout serré dans une colonne large comme un
+  // téléphone. La feuille de style d'impression ne masquait qu'une poignée de
+  // classes, et le modal, plafonné à 92 % de la hauteur d'écran avec
+  // défilement, tronquait par-dessus tout ce qui dépassait.
+  //
+  // On recopie donc le seul document dans une fenêtre neuve. Les styles sont
+  // en ligne, ils suivent ; les images ont des adresses absolues, elles se
+  // chargent. Rien de l'application n'entre dans la page imprimée, et la
+  // largeur est celle du papier, pas celle de l'écran.
   const handleTriggerPrint = () => {
-    if (onPrint) onPrint()
-    else window.print()
+    if (onPrint) { onPrint(); return }
+
+    const doc = document.getElementById('official-department-document')
+    if (!doc) { window.print(); return }
+
+    const w = window.open('', '_blank')
+    if (!w) { window.print(); return }   // fenêtre bloquée : on retombe sur l'ancien comportement
+
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+      <title>${documentTitle}</title>
+      <style>
+        @page { size: A4; margin: 12mm; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #fff; }
+        /* Le cadre d'écran — coins arrondis, ombre portée, double filet — n'a
+           pas de sens sur du papier : il mange la marge utile. */
+        #official-department-document {
+          width: 100% !important; max-width: none !important; margin: 0 !important;
+          border: none !important; border-radius: 0 !important; box-shadow: none !important;
+          padding: 0 !important; background: #fff !important;
+        }
+        img { max-width: 100% !important; }
+        .no-print { display: none !important; }
+      </style></head><body>${doc.outerHTML}</body></html>`)
+    w.document.close()
+
+    // Laisser les images arriver avant d'ouvrir la boîte d'impression, sans
+    // quoi les exercices photographiés sortent en cadres vides.
+    const lancer = () => { w.focus(); w.print() }
+    const images = [...w.document.images]
+    if (images.length === 0) { setTimeout(lancer, 200); return }
+    let restantes = images.length
+    const fini = () => { if (--restantes <= 0) setTimeout(lancer, 100) }
+    images.forEach(img => (img.complete ? fini() : (img.onload = fini, img.onerror = fini)))
+    setTimeout(lancer, 4000)   // filet de sécurité si une image ne répond jamais
   }
 
   return (

@@ -98,6 +98,20 @@ export default function ProfApp({ user, onLogout }) {
   useEffect(() => { loadData() }, [])
   useEffect(() => { loadProgramme() }, [selectedClasse])
 
+  // Les devoirs de la classe ouverte, et d'elle seule.
+  useEffect(() => {
+    if (!selectedClasse) { setDevoirs([]); return }
+    let annule = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('devoirs').select('*')
+        .eq('classe_id', selectedClasse.id)
+        .order('date_rendu', { ascending: false })
+      if (!annule) setDevoirs(data || [])
+    })()
+    return () => { annule = true }
+  }, [selectedClasse])
+
   // Matières de l'enseignant pour la classe choisie. L'emploi du temps
   // raisonne en groupes (« CP1 »), la table des classes en identifiants : le
   // rapprochement se fait donc sur le nom de la classe.
@@ -193,9 +207,11 @@ export default function ProfApp({ user, onLogout }) {
       const { data: preps } = await supabase.from('preparations').select('*').eq('user_id', user.id).order('heure_depot', { ascending: false })
       setPreparations(preps || [])
 
-      const { data: devData } = await supabase
-        .from('devoirs').select('*').order('date_rendu', { ascending: true })
-      setDevoirs(devData || [])
+      // Chargés sans filtre, les devoirs de toutes les classes de l'école
+      // s'affichaient dans le cahier de chacune. On ne garde que ceux de la
+      // classe ouverte — voir l'effet ci-dessous, qui recharge à chaque
+      // changement de classe.
+      setDevoirs([])
     } catch (e) {
       console.error(e)
     } finally {
