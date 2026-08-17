@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { manuelPour, leconsDe, avancement, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
+import { manuelsPour, leconsDe, avancement, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 
 // Le programme de l'enseignant, tel qu'il est imprimé dans le manuel.
 //
@@ -42,10 +42,13 @@ export default function ProgrammeManuel({ user }) {
       .order('groupe')
     if (error) { setErreur('Chargement impossible : ' + error.message); setChargement(false); return }
 
+    // Une matière peut porter plusieurs manuels — l'anglais en a deux. On
+    // liste donc des manuels, pas des matières : chacun a son avancement.
     const avec = [], sans = []
     ;(data || []).forEach(a => {
-      const manuel = manuelPour(a.groupe, a.matiere)
-      ;(manuel ? avec : sans).push({ ...a, manuel })
+      const manuels = manuelsPour(a.groupe, a.matiere)
+      if (!manuels.length) { sans.push({ ...a, manuel: null }); return }
+      manuels.forEach(manuel => avec.push({ ...a, manuel }))
     })
     setMatieres(avec); setSansManuel(sans)
     setChoix(avec[0] || null)
@@ -142,9 +145,9 @@ export default function ProgrammeManuel({ user }) {
       {matieres.length > 1 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {matieres.map(m => {
-            const actif = choix.groupe === m.groupe && choix.matiere === m.matiere
+            const actif = choix.manuel.cle === m.manuel.cle
             return (
-              <button key={m.groupe + m.matiere} onClick={() => { setChoix(m); setUniteOuverte(undefined) }}
+              <button key={m.groupe + m.matiere + m.manuel.cle} onClick={() => { setChoix(m); setUniteOuverte(undefined) }}
                 style={{
                   padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
                   border: '2px solid ' + (actif ? 'var(--accent)' : 'var(--border)'),
@@ -152,6 +155,12 @@ export default function ProgrammeManuel({ user }) {
                   color: actif ? '#fff' : 'var(--muted)',
                 }}>
                 {m.matiere} · {m.groupe}
+                {/* Le titre du manuel n'apparaît que s'il faut départager :
+                    « English · CP1 » ne suffit plus quand deux livres le
+                    servent. */}
+                {matieres.filter(x => x.groupe === m.groupe && x.matiere === m.matiere).length > 1 && (
+                  <span style={{ fontWeight: 600, opacity: .85 }}> · {m.manuel.titre.split('—')[0].trim()}</span>
+                )}
               </button>
             )
           })}
@@ -198,7 +207,9 @@ export default function ProgrammeManuel({ user }) {
             {av.prochaine.journal && ` · Explorons p. ${av.prochaine.page}, Mon journal p. ${av.prochaine.journal}`}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
-            C'est elle qui sera proposée par défaut à votre prochaine préparation de {choix.matiere}.
+            {matieres.filter(m => m.groupe === choix.groupe && m.matiere === choix.matiere).length > 1
+              ? <>C'est elle qui sera proposée dès que vous choisirez ce manuel dans une préparation de {choix.matiere}.</>
+              : <>C'est elle qui sera proposée par défaut à votre prochaine préparation de {choix.matiere}.</>}
           </div>
         </div>
       )}

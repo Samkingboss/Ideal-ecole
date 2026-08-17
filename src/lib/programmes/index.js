@@ -18,8 +18,9 @@ import mathematicsCP1 from './mathematics-cp1'
 import englishCP2 from './english-cp2'
 import scienceCP2 from './science-cp2'
 import scienceCP1 from './science-cp1'
+import { phonicsCP1, phonicsCP2 } from './phonics-pathways'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -27,8 +28,15 @@ export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2,
 const norm = s =>
   String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
 
-export const manuelPour = (groupe, matiere) =>
-  MANUELS.find(m => norm(m.groupe) === norm(groupe) && norm(m.matiere) === norm(matiere)) || null
+// Une matière peut porter plusieurs manuels : l'anglais se travaille avec
+// Treasures pour la lecture suivie et Phonics Pathways pour le décodage, dans
+// les mêmes heures. Chacun garde son avancement propre, puisque la préparation
+// enregistre la clé du manuel visé.
+export const manuelsPour = (groupe, matiere) =>
+  MANUELS.filter(m => norm(m.groupe) === norm(groupe) && norm(m.matiere) === norm(matiere))
+
+// Le premier manuel de la matière. Reste utile là où un seul suffit.
+export const manuelPour = (groupe, matiere) => manuelsPour(groupe, matiere)[0] || null
 
 export const manuelParCle = cle => MANUELS.find(m => m.cle === cle) || null
 

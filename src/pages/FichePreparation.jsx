@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
-import { manuelPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe } from '../lib/programmes'
+import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 
 // Fiche de préparation d'une notion.
 //
@@ -104,8 +104,15 @@ export default function FichePreparation({
   // avancement du manuel avant ce cours (null tant qu'il n'est pas connu)
   const [avant, setAvant]         = useState(null)
 
-  // La matière suit-elle un manuel ? Le couple (groupe, matière) suffit à le dire.
-  const manuel = manuelPour(creneau.groupe, creneau.matiere)
+  // La matière suit-elle un manuel ? Le couple (groupe, matière) suffit à le
+  // dire — mais il peut en désigner plusieurs : l'anglais se travaille avec
+  // Treasures et Phonics Pathways dans les mêmes heures.
+  const manuels = manuelsPour(creneau.groupe, creneau.matiere)
+
+  // Manuel visé par cette fiche. On reprend celui déjà enregistré quand la
+  // fiche existe, sinon le premier ; l'enseignant peut en changer.
+  const [cleManuel, setCleManuel] = useState(null)
+  const manuel = manuels.find(m => m.cle === cleManuel) || manuels[0] || null
 
   // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -124,6 +131,7 @@ export default function FichePreparation({
 
       const contenu = migrer(data.contenu)
       setFiche(contenu)
+      if (contenu.programme?.cle) setCleManuel(contenu.programme.cle)
 
       const nb = contenu.nb_sequences || 1
       if (nb > 1) {
@@ -157,7 +165,9 @@ export default function FichePreparation({
         .eq('groupe', creneau.groupe)
         .eq('matiere', creneau.matiere)
         .lt('date_cours', dateCours)
-      if (!annule) setAvant(avancement(manuel, data || []))
+      // On marque de quel manuel vient cette lecture : elle arrive après
+      // coup, et l'enseignant a pu changer de livre entre-temps.
+      if (!annule) setAvant({ cle: manuel.cle, ...avancement(manuel, data || []) })
     })()
     return () => { annule = true }
   }, [manuel?.cle, creneau.groupe, creneau.matiere, dateCours])
@@ -165,7 +175,8 @@ export default function FichePreparation({
   // Proposition par défaut : la leçon suivante du livre, tant que l'enseignant
   // n'a rien choisi lui-même. Il reste libre de revenir en arrière.
   useEffect(() => {
-    if (!manuel || !avant || fiche.programme) return
+    if (!manuel || !avant || avant.cle !== manuel.cle) return
+    if (fiche.programme) return
     if (avant.prochaine) choisirLecon(avant.prochaine.numero)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manuel?.cle, avant, fiche.programme])
@@ -193,6 +204,14 @@ export default function FichePreparation({
           }
         : null,
     }))
+  }
+
+  // Changement de manuel. La leçon déjà retenue appartenait à l'autre livre :
+  // on la retire, et l'effet ci-dessus proposera la suite du nouveau dès que
+  // son avancement sera lu.
+  function changerManuel(cle) {
+    setCleManuel(cle)
+    setFiche(f => (f.programme && f.programme.cle === cle ? f : { ...f, programme: null }))
   }
 
   const majEtape = (seqIdx, id, champ, valeur) =>
@@ -474,7 +493,31 @@ export default function FichePreparation({
               LEÇON DU MANUEL
               <span style={{ color: 'var(--red)' }}> *</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{manuel.titre}</div>
+            {manuels.length > 1 && !lectureSeule ? (
+              // Deux livres se partagent les mêmes heures — Treasures pour la
+              // lecture suivie, Phonics Pathways pour le décodage. On demande
+              // lequel avant la leçon : chacun a son propre avancement.
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {manuels.map(m => (
+                  <button
+                    key={m.cle}
+                    type="button"
+                    onClick={() => changerManuel(m.cle)}
+                    style={{
+                      padding: '6px 10px', borderRadius: 999, fontSize: 12,
+                      fontWeight: m.cle === manuel.cle ? 800 : 600,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      border: '1px solid ' + (m.cle === manuel.cle ? 'var(--accent)' : 'var(--border)'),
+                      background: m.cle === manuel.cle ? 'var(--accent)' : 'transparent',
+                      color: m.cle === manuel.cle ? '#04121b' : 'var(--muted)',
+                    }}>
+                    {m.titre}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{manuel.titre}</div>
+            )}
 
             {fiche.programme && (
               <div style={{ marginBottom: 8 }}>
@@ -497,7 +540,7 @@ export default function FichePreparation({
                   <option value="">— choisir la leçon —</option>
                   {aDesUnites(manuel)
                     ? manuel.unites.map(u => (
-                        <optgroup key={u.numero} label={`Unité ${u.numero} — ${u.titre}`}>
+                        <optgroup key={u.numero} label={u.numero ? `${libelleUnite(manuel)} ${u.numero} — ${u.titre}` : u.titre}>
                           {u.lecons.map(optionLecon)}
                         </optgroup>
                       ))
