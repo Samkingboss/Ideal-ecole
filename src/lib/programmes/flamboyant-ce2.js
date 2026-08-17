@@ -17,25 +17,39 @@
 // fiche de préparation affichent sous l'intitulé. L'enseignant prépare la
 // leçon 3 une fois, en ayant sous les yeux tout ce qu'elle doit couvrir.
 //
-// ── Ce qui manque encore ────────────────────────────────────────────────────
-// Seules les leçons 1 à 15 sont transcrites : le sommaire transmis s'arrête
-// aux pages 4 et 5 du livre. Les leçons 16 à 30 suivront dès que les pages 6
-// et 7 seront photographiées.
+// ── Deux photos, deux qualités ──────────────────────────────────────────────
+// Les leçons 16 à 30 viennent de photos nettes et de face : leurs sept
+// colonnes sont transcrites, y compris « Je sais dire / Je sais faire » et la
+// poésie. L'alignement y est certain — trois lignes de révision, orange et
+// vides, découpent le tableau en blocs qui se comptent sans ambiguïté.
 //
-// Deux colonnes ne sont pas reprises, faute de pouvoir les aligner sûrement
-// sur leurs lignes : « Je sais dire / Je sais faire » (douze intitulés pour
-// treize leçons) et « Poésie » (sept pour quinze). Des lignes du tableau sont
-// vides et la photo, prise de biais, ne dit pas lesquelles. Mettre un poème en
-// face de la mauvaise leçon serait pire que de ne rien mettre : une photo
-// droite de ces deux colonnes suffira à les ajouter.
+// Les leçons 1 à 15 viennent d'une photo prise de biais. Le texte, la
+// grammaire, la conjugaison et les deux orthographes s'y lisent, mais les
+// colonnes « Je sais dire » et « Poésie » comptent moins d'intitulés que de
+// lignes — douze pour treize dans l'une, sept pour quinze dans l'autre — et
+// rien ne dit quelles lignes sont vides. Elles sont laissées de côté plutôt
+// que devinées : un poème en face de la mauvaise leçon serait pire que rien.
+//
+// La leçon 15 et la leçon 16 portent toutes deux « consonnes muettes » en
+// orthographe d'usage. Ce n'est vraisemblablement pas une erreur de lecture :
+// la moitié nette du sommaire montre la même habitude — « le féminin des
+// adjectifs » aux leçons 16 et 17, « des mots invariables » aux leçons 26 et
+// 27, « Pour exprimer la succession » aux leçons 25 et 26. Le livre étale un
+// point sur deux leçons de suite.
+//
+// Une reprise droite de la page 5 reste utile : elle ajouterait les colonnes
+// « Je sais dire » et « Poésie » des quinze premières leçons.
 //
 // Le sommaire ne pagine que la leçon, pas ses domaines. Chaque entrée porte
-// donc l'étendue de sa leçon, déduite du début de la suivante — la table
-// avance de huit pages en huit pages, et de dix après une révision.
+// donc l'étendue de sa leçon, déduite du début de la suivante.
+//
+// Le tableau de conjugaison des pages 254-255 n'est pas au programme : c'est
+// une page de référence, pas une séance.
 
 // n = numéro · p = page d'ouverture · texte = titre du texte ·
 // g = grammaire · c = conjugaison · og = orthographe grammaticale ·
-// ou = orthographe d'usage · lectures = récits longs d'une leçon de révision
+// ou = orthographe d'usage · d = « Je sais dire / Je sais faire » ·
+// poesie = poésie · lectures = récits longs d'une leçon de révision
 const LECONS = [
   { n: 1, p: 8, texte: 'Le jour de la rentrée',
     g: 'le texte, la phrase',
@@ -106,6 +120,92 @@ const LECONS = [
     c: "être, avoir, faire, venir, aller à l'impératif",
     og: "le genre et le nombre de l'adjectif qualificatif",
     ou: 'consonnes muettes' },
+  { n: 16, p: 130, texte: "C'est la saison sèche",
+    g: "l'accord de l'adjectif qualificatif en genre et en nombre",
+    c: "l'imparfait : un temps du passé",
+    og: 'le féminin des adjectifs',
+    ou: 'consonnes muettes',
+    d: 'Pour exprimer la conséquence',
+    poesie: "L'arc-en-ciel" },
+  { n: 17, p: 138, texte: 'Le Ramadan',
+    g: 'le complément du nom',
+    c: "l'imparfait des verbes du 1ᵉʳ groupe",
+    og: 'le féminin des adjectifs',
+    ou: 'les noms féminins en [é], [té], [tié]',
+    d: 'Pour donner un conseil' },
+  { n: 18, p: 146, revision: true, texte: "Qu'est-ce qu'un arbre ?",
+    lectures: ['Malal (3) — p. 150'] },
+  { n: 19, p: 152, texte: 'Le marché de nuit',
+    g: 'les pronoms personnels sujets',
+    c: "l'imparfait des verbes du 2ᵉ groupe",
+    og: 'les verbes en -cer',
+    ou: 'le son [g]',
+    d: 'Pour présenter des excuses',
+    poesie: 'Ponctuation' },
+  { n: 20, p: 160, texte: 'Chez monsieur Houdrouze',
+    g: 'les constituants du GV : le verbe et son complément',
+    c: "être, avoir, aller à l'imparfait",
+    og: "l'imparfait des verbes en -ger",
+    ou: 'le son [k]',
+    d: 'Pour remercier' },
+  { n: 21, p: 168, texte: 'La maison du léopard',
+    g: 'le complément du verbe : un GN',
+    c: "faire et venir à l'imparfait",
+    og: 'la / là',
+    ou: 'm devant m, b, p',
+    d: 'Pour donner son avis',
+    poesie: "L'éléphant" },
+  { n: 22, p: 176, texte: "Bumba et le troupeau d'éléphants",
+    g: 'les pronoms personnels compléments',
+    c: 'voir au présent et au futur',
+    og: "c'est / s'est, c'était / s'était",
+    ou: 'le son [f]',
+    d: 'Pour se plaindre',
+    poesie: "L'ordinateur et l'éléphant" },
+  { n: 23, p: 184, texte: 'Le cinéma',
+    g: 'un complément du verbe : le COD',
+    c: "voir au passé composé et à l'imparfait",
+    og: 'leur / leurs',
+    ou: 'les mots terminés par le son [é]',
+    d: 'Pour protester',
+    poesie: 'Toujours et jamais' },
+  { n: 24, p: 192, revision: true, texte: 'Les Dogons, peuple du Mali',
+    lectures: ["Je t'écris du bout du monde (1) — p. 199"],
+    poesie: 'Voyages · Devinez-moi' },
+  { n: 25, p: 202, texte: 'Chasse au harpon',
+    g: 'un complément du verbe : le COI',
+    c: 'pouvoir, vouloir au présent et au futur',
+    og: 'tout, tous, toute, toutes',
+    ou: 'les noms terminés par le son [i]',
+    d: 'Pour exprimer la succession' },
+  { n: 26, p: 210, texte: 'Une partie de pêche',
+    g: 'le complément de circonstance',
+    c: "pouvoir, vouloir à l'imparfait et au passé composé",
+    og: 'la conjugaison des verbes en -yer',
+    ou: 'des mots invariables',
+    d: 'Pour exprimer la succession',
+    poesie: 'Poisson' },
+  { n: 27, p: 218, texte: 'Le mandat (1)',
+    g: 'le complément circonstanciel de lieu',
+    c: "savoir au présent, au futur, à l'imparfait et au passé composé",
+    og: 'mais / mes',
+    ou: 'des mots invariables',
+    d: 'Pour opposer deux idées, deux actions',
+    poesie: 'Le facteur' },
+  { n: 28, p: 226, texte: 'Le mandat (2)',
+    g: 'le complément circonstanciel de temps',
+    c: 'dire et écrire au présent et au futur',
+    og: 'pluriel des adjectifs en -al',
+    ou: 'le son [z]',
+    d: 'Pour dire comment faire' },
+  { n: 29, p: 234, texte: "Voyage au pays de l'abondance",
+    g: 'le complément circonstanciel de manière',
+    c: "dire et écrire à l'imparfait et au passé composé",
+    og: 'le pluriel des noms en -eau, -au, -ou, -eu',
+    ou: 'les noms terminés par le son [eur]',
+    d: 'Pour exprimer un souhait' },
+  { n: 30, p: 242, revision: true, texte: "Voyage au pays de l'abondance",
+    lectures: ["Je t'écris du bout du monde (2) — p. 250"] },
 ]
 
 // Une leçon court jusqu'à ce que la suivante commence. La dernière transcrite
@@ -113,10 +213,12 @@ const LECONS = [
 const finDe = i => (LECONS[i + 1] ? LECONS[i + 1].p - 1 : null)
 
 const DOMAINES = [
-  ['g',  'Grammaire'],
-  ['c',  'Conjugaison'],
-  ['og', 'Orthographe grammaticale'],
-  ['ou', "Orthographe d'usage"],
+  ['g',      'Grammaire'],
+  ['c',      'Conjugaison'],
+  ['og',     'Orthographe grammaticale'],
+  ['ou',     "Orthographe d'usage"],
+  ['d',      'Je sais dire, je sais faire'],
+  ['poesie', 'Poésie'],
 ]
 
 export default {
@@ -143,6 +245,8 @@ export default {
       domaines: [
         { nom: 'Texte', contenu: l.texte },
         ...(l.lectures || []).map(t => ({ nom: 'Lecture suivie', contenu: t })),
+        // Une révision ne porte pas de point de langue, mais elle peut porter
+        // une poésie : la leçon 24 en donne deux.
         ...DOMAINES.filter(([champ]) => l[champ]).map(([champ, nom]) => ({ nom, contenu: l[champ] })),
       ],
     }
