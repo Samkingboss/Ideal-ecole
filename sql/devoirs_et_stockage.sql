@@ -57,6 +57,15 @@ alter table public.devoirs
   add column if not exists fichier_url text,
   add column if not exists fichier_nom text;
 
+-- Plusieurs images par devoir : un exercice tient rarement sur une seule page
+-- de cahier, et l'enseignant photographie souvent deux ou trois feuilles.
+-- `fichiers` porte la liste complète — [{ "url": …, "nom": … }] — tandis que
+-- `fichier_url` et `fichier_nom` gardent la première, pour les écrans qui ne
+-- lisent qu'elle.
+
+alter table public.devoirs
+  add column if not exists fichiers jsonb not null default '[]'::jsonb;
+
 -- Un devoir sans intitulé n'apprend rien à personne, mais on ne peut pas
 -- l'imposer aux lignes déjà présentes. La table étant vide à ce jour, la
 -- contrainte passe sans risque ; le `not valid` la rendrait inutile.

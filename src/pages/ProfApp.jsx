@@ -75,7 +75,12 @@ export default function ProfApp({ user, onLogout }) {
   // devoir d'exemple codé en dur, qui s'affichait dans toutes les classes et
   // faisait croire que le cahier fonctionnait.
   const [devoirs, setDevoirs] = useState([])
-  const [newDevoir, setNewDevoir] = useState({ matiere: '', titre: '', consignes: '', aRendrePour: '', fichier: null })
+  const [newDevoir, setNewDevoir] = useState({ matiere: '', objectif: '', aRendrePour: '', fichiers: [] })
+  // Les matières que l'enseignant assure réellement. Il n'a pas à les
+  // retaper : elles sont déjà dans ses affectations, et une matière saisie à
+  // la main finit toujours par diverger de celle de l'emploi du temps
+  // (« Maths » contre « Mathématiques »), ce qui casse tout rapprochement.
+  const [mesMatieres, setMesMatieres] = useState([])
   const [devoirEnCours, setDevoirEnCours] = useState(false)
   const [devoirErreur, setDevoirErreur] = useState('')
   const [showDevoirsModal, setShowDevoirsModal] = useState(false)
@@ -92,6 +97,24 @@ export default function ProfApp({ user, onLogout }) {
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { loadProgramme() }, [selectedClasse])
+
+  // Matières de l'enseignant pour la classe choisie. L'emploi du temps
+  // raisonne en groupes (« CP1 »), la table des classes en identifiants : le
+  // rapprochement se fait donc sur le nom de la classe.
+  useEffect(() => {
+    if (!user?.id) return
+    let annule = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('affectations_matieres').select('groupe, matiere').eq('prof_id', user.id)
+      if (annule) return
+      const pourLaClasse = (data || []).filter(a => !selectedClasse || a.groupe === selectedClasse.nom)
+      const liste = [...new Set((pourLaClasse.length ? pourLaClasse : data || []).map(a => a.matiere))].sort()
+      setMesMatieres(liste)
+      setNewDevoir(d => (d.matiere && !liste.includes(d.matiere) ? { ...d, matiere: '' } : d))
+    })()
+    return () => { annule = true }
+  }, [user?.id, selectedClasse])
 
   // Objectifs de la classe, pour les checkpoints et la fiche de fin de cours.
   //
@@ -190,41 +213,56 @@ export default function ProfApp({ user, onLogout }) {
   //
   // L'exercice photographié part dans le bucket `devoirs`, séparé de celui des
   // préparations : deux usages, deux durées de vie, deux publics.
+  // Enregistrement d'un devoir.
+  //
+  // La version d'origine n'écrivait que dans l'état local : le devoir
+  // disparaissait au rechargement, sans message. Elle employait de surcroît
+  // des champs que la table ne connaît pas.
+  //
+  // Les exercices photographiés partent dans le bucket `devoirs`, séparé de
+  // celui des préparations. Plusieurs images sont acceptées : un devoir tient
+  // rarement sur une seule page de cahier.
   const handleAddDevoir = async () => {
     setDevoirErreur('')
-    if (!newDevoir.matiere.trim() || !newDevoir.titre.trim()) {
-      setDevoirErreur('La matière et le titre sont nécessaires.'); return
-    }
-    if (!selectedClasse) { setDevoirErreur('Sélectionnez d’abord une classe.'); return }
+    if (!newDevoir.matiere)          { setDevoirErreur('Choisissez la matière.'); return }
+    if (!newDevoir.objectif.trim())  { setDevoirErreur("Indiquez l'objectif du devoir."); return }
+    // `date_rendu` est obligatoire en base. Sans ce contrôle, l'enregistrement
+    // partait quand même et revenait avec « null value violates not-null
+    // constraint », que l'enseignant n'a aucun moyen d'interpréter.
+    if (!newDevoir.aRendrePour)      { setDevoirErreur('Indiquez la date de remise.'); return }
+    if (!selectedClasse)             { setDevoirErreur('Sélectionnez d’abord une classe.'); return }
 
     setDevoirEnCours(true)
     try {
-      let fichierUrl = null, fichierNom = null
-      if (newDevoir.fichier) {
-        const f = newDevoir.fichier
+      const fichiers = []
+      for (const f of newDevoir.fichiers) {
         const chemin = `${selectedClasse.id}/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
         const { error: errUp } = await supabase.storage.from('devoirs').upload(chemin, f)
-        if (errUp) throw new Error("L’exercice n’a pas pu être déposé : " + errUp.message)
-        fichierUrl = supabase.storage.from('devoirs').getPublicUrl(chemin).data.publicUrl
-        fichierNom = f.name
+        if (errUp) throw new Error(`« ${f.name} » n’a pas pu être déposé : ${errUp.message}`)
+        fichiers.push({
+          url: supabase.storage.from('devoirs').getPublicUrl(chemin).data.publicUrl,
+          nom: f.name,
+        })
       }
 
       const { data, error } = await supabase.from('devoirs').insert({
         user_id: user.id,
         classe_id: selectedClasse.id,
         groupe: selectedClasse.nom,
-        matiere: newDevoir.matiere.trim(),
-        titre: newDevoir.titre.trim(),
-        description: newDevoir.consignes.trim() || null,
+        matiere: newDevoir.matiere,
+        description: newDevoir.objectif.trim(),
         date_donne: new Date().toISOString().slice(0, 10),
-        date_rendu: newDevoir.aRendrePour || null,
-        fichier_url: fichierUrl,
-        fichier_nom: fichierNom,
+        date_rendu: newDevoir.aRendrePour,
+        // `fichiers` porte la liste complète ; `fichier_url` et `fichier_nom`
+        // gardent la première image, pour les écrans qui ne lisent qu'elle.
+        fichiers,
+        fichier_url: fichiers[0]?.url || null,
+        fichier_nom: fichiers[0]?.nom || null,
       }).select().single()
       if (error) throw new Error("Enregistrement refusé : " + error.message)
 
       setDevoirs([data, ...devoirs])
-      setNewDevoir({ matiere: '', titre: '', consignes: '', aRendrePour: '', fichier: null })
+      setNewDevoir({ matiere: '', objectif: '', aRendrePour: '', fichiers: [] })
       const champ = document.getElementById('devoir-fichier')
       if (champ) champ.value = ''
     } catch (e) {
@@ -233,6 +271,7 @@ export default function ProfApp({ user, onLogout }) {
       setDevoirEnCours(false)
     }
   }
+
 
   const getClasseEleves = () => {
     if (!selectedClasse) return []
@@ -487,22 +526,55 @@ export default function ProfApp({ user, onLogout }) {
             {/* Saisie d'un Devoir */}
             <div className="card" style={{ padding: 20, marginBottom: 20, borderRadius: 16 }}>
               <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 900 }}>+ Ajouter un Devoir de Maison</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                <input className="form-input" placeholder="Matière (ex: Mathématiques)" value={newDevoir.matiere} onChange={e => setNewDevoir({ ...newDevoir, matiere: e.target.value })} />
-                <input className="form-input" placeholder="Titre du devoir" value={newDevoir.titre} onChange={e => setNewDevoir({ ...newDevoir, titre: e.target.value })} />
-                <input className="form-input" type="date" title="À rendre pour" value={newDevoir.aRendrePour} onChange={e => setNewDevoir({ ...newDevoir, aRendrePour: e.target.value })} />
-              </div>
-              <textarea className="form-input" rows={2} style={{ marginTop: 10 }} placeholder="Consignes précises pour l'élève..." value={newDevoir.consignes} onChange={e => setNewDevoir({ ...newDevoir, consignes: e.target.value })} />
 
-              {/* L'exercice photographié. Il part dans un stockage distinct de
-                  celui des préparations, à la demande du directeur. */}
-              <div style={{ marginTop: 10 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
-                  Exercice à joindre <span style={{ fontWeight: 500 }}>(photo ou PDF, 5 Mo maximum — facultatif)</span>
-                </label>
-                <input id="devoir-fichier" className="form-input" type="file" style={{ marginTop: 4 }}
-                  accept=".jpg,.jpeg,.png,.webp,.pdf"
-                  onChange={e => setNewDevoir({ ...newDevoir, fichier: e.target.files[0] || null })} />
+              <div style={{ display: 'grid', gap: 12 }}>
+                {/* La matière se choisit, elle ne se tape pas : l'enseignant
+                    n'assure qu'un petit nombre de matières et elles sont déjà
+                    connues de la plateforme. */}
+                <div>
+                  <label className="form-label">Matière</label>
+                  {mesMatieres.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>
+                      Aucune matière ne vous est affectée pour cette classe. La direction doit la renseigner.
+                    </div>
+                  ) : (
+                    <select className="form-select" value={newDevoir.matiere}
+                      onChange={e => setNewDevoir({ ...newDevoir, matiere: e.target.value })}>
+                      <option value="">— choisir la matière —</option>
+                      {mesMatieres.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="form-label">Objectif du devoir</label>
+                  <textarea className="form-input" rows={3}
+                    placeholder="Ce que l’élève doit savoir faire après ce devoir…"
+                    value={newDevoir.objectif}
+                    onChange={e => setNewDevoir({ ...newDevoir, objectif: e.target.value })} />
+                </div>
+
+                <div>
+                  <label className="form-label">À rendre pour le</label>
+                  <input className="form-input" type="date" value={newDevoir.aRendrePour}
+                    onChange={e => setNewDevoir({ ...newDevoir, aRendrePour: e.target.value })} />
+                </div>
+
+                {/* `multiple` ouvre la photothèque en sélection multiple : un
+                    devoir tient rarement sur une seule page de cahier. */}
+                <div>
+                  <label className="form-label">
+                    Exercices à joindre <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(photos ou PDF, plusieurs possibles — facultatif)</span>
+                  </label>
+                  <input id="devoir-fichier" className="form-input" type="file" multiple
+                    accept="image/*,.pdf"
+                    onChange={e => setNewDevoir({ ...newDevoir, fichiers: [...e.target.files] })} />
+                  {newDevoir.fichiers.length > 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                      {newDevoir.fichiers.length} fichier{newDevoir.fichiers.length > 1 ? 's' : ''} : {newDevoir.fichiers.map(f => f.name).join(', ')}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {devoirErreur && (
@@ -533,14 +605,17 @@ export default function ProfApp({ user, onLogout }) {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 800, marginTop: 6, color: '#0f172a' }}>{d.titre}</div>
-                  {d.description && <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>{d.description}</div>}
-                  {d.fichier_url && (
-                    <a href={d.fichier_url} target="_blank" rel="noreferrer"
-                      style={{ display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
-                      📎 {d.fichier_nom || 'Voir l’exercice'}
-                    </a>
+                  {d.description && (
+                    <div style={{ fontSize: 14, color: '#0f172a', marginTop: 6, fontWeight: 600 }}>
+                      <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>OBJECTIF · </span>{d.description}
+                    </div>
                   )}
+                  {(d.fichiers?.length ? d.fichiers : (d.fichier_url ? [{ url: d.fichier_url, nom: d.fichier_nom }] : [])).map((f, k) => (
+                    <a key={k} href={f.url} target="_blank" rel="noreferrer"
+                      style={{ display: 'inline-block', marginTop: 8, marginRight: 12, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
+                      📎 {f.nom || 'Voir l’exercice'}
+                    </a>
+                  ))}
                 </div>
               ))}
             </div>
@@ -600,6 +675,7 @@ export default function ProfApp({ user, onLogout }) {
             <DevoirsDocument
               devoirsList={devoirs}
               classeNom={selectedClasse?.nom || 'CP1 Bilingue'}
+              eleves={getClasseEleves()}
               onClose={() => setShowDevoirsModal(false)}
             />
           </div>
