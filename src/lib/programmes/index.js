@@ -19,9 +19,10 @@ import englishCP2 from './english-cp2'
 import scienceCP2 from './science-cp2'
 import scienceCP1 from './science-cp1'
 import mathsCE1 from './maths-ce1'
+import englishCE1 from './english-ce1'
 import { phonicsCP1, phonicsCP2 } from './phonics-pathways'
 
-export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2, mathsCE1]
+export const MANUELS = [mathsCP1, mathsCP2, lectureCP1, lectureCP2, francaisCP2, englishCP1, mathematicsCP1, englishCP2, scienceCP2, scienceCP1, phonicsCP1, phonicsCP2, mathsCE1, englishCE1]
 
 // Le libellé de matière vient de l'emploi du temps, saisi à la main : on
 // compare sans accents ni casse, et en ignorant les espaces de bord (la table
@@ -62,15 +63,21 @@ export const leconsDe = manuel => {
 // côté, liste continue de l'autre.
 export const aDesUnites = manuel => Boolean(manuel?.unites?.length)
 
+// Comment le livre appelle ses tomes. « Volume » chez Treasures, « fichier »
+// chez Singapour — c'est le mot imprimé sur la couverture que l'élève a en
+// main.
+export const libelleTome = manuel => manuel?.libelleTome || 'volume'
+
 // Pages d'une étape : « p. 40 » ou « p. 36–41 » selon le livre.
 //
-// Certains livres se présentent en plusieurs fichiers dont la pagination
-// repart à zéro — le CE1 de Singapour a deux fois une page 6. Le numéro de
-// fichier précède alors la page, sans quoi la référence désigne deux séances.
-export const pagesDe = l => {
+// Beaucoup de collections se présentent en plusieurs tomes dont la pagination
+// repart à zéro — le CE1 de Singapour a deux fois une page 6, Treasures deux
+// fois une page 10. Le tome précède alors la page, sans quoi la référence
+// désigne deux séances différentes.
+export const pagesDe = (l, manuel) => {
   if (!l) return ''
   const pages = l.pageFin && l.pageFin !== l.page ? `p. ${l.page}–${l.pageFin}` : `p. ${l.page}`
-  return l.fichier ? `fichier ${l.fichier}, ${pages}` : pages
+  return l.tome ? `${libelleTome(manuel)} ${l.tome}, ${pages}` : pages
 }
 
 // Où se situe une étape dans son livre. Trois livres, trois phrases :
@@ -99,7 +106,7 @@ export const situationDe = (manuel, l) => {
   // Référence imprimée par le livre lui-même, quand il en a une : Cambridge
   // numérote ses sections 1.1, 9.2… et c'est ce repère que la classe emploie.
   else if (l.code) bouts.push(`section ${l.code}`)
-  bouts.push(l.fichier ? pagesDe(l) : `manuel ${pagesDe(l)}`)
+  bouts.push(l.tome ? pagesDe(l, manuel) : `manuel ${pagesDe(l)}`)
   return bouts.join(' · ')
 }
 
@@ -129,7 +136,7 @@ export const prochaineLecon = (manuel, numerosFaits = []) => {
 // qui ne numérote pas se cite par ses pages — « Syllabation avec P (p. 36–41) ».
 export const libelleLecon = (l, manuel) => {
   if (!l) return ''
-  const pages = pagesDe(l)
+  const pages = pagesDe(l, manuel)
   if (manuel && manuel.numerote === false) return `${l.titre} (${pages})`
   const prefixe = l.unite ? `U${l.unite} · L${l.numero} — ` : `L${l.numero} — `
   return `${prefixe}${l.titre} (${pages})`

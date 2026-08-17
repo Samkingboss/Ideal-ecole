@@ -314,6 +314,7 @@ const unites = VOLUMES.flatMap(v =>
       numero: v.volume * 1000 + e.p,
       titre: e.t,
       page: e.p,
+      tome: v.volume,
       ...(e.auteur ? { auteur: e.auteur } : {}),
     })),
   }))

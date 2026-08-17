@@ -130,7 +130,7 @@ export default function ProgrammeManuel({ user }) {
             {estProchaine && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 800, marginLeft: 6 }}>À VENIR</span>}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            {pagesDe(l)}{l.bilan ? ` · Mon journal p. ${l.journal}` : ''}
+            {pagesDe(l, manuel)}{l.bilan ? ` · Mon journal p. ${l.journal}` : ''}
             {seq > 0 && ` · ${seq} séquence${seq > 1 ? 's' : ''} préparée${seq > 1 ? 's' : ''}`}
           </div>
         </div>

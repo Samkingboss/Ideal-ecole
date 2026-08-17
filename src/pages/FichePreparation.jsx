@@ -198,6 +198,9 @@ export default function FichePreparation({
         ? {
             cle: manuel.cle, lecon: l.numero, unite: l.unite || null,
             titre: l.titre, page: l.page, pageFin: l.pageFin || null,
+            // Le tome fait partie de la référence : sans lui, la fiche
+            // imprimée renvoie à deux pages du même numéro.
+            ...(l.tome ? { tome: l.tome } : {}),
             // Référence imprimée du livre (« 9.2 » chez Cambridge), pour que la
             // fiche imprimée cite le repère que la classe emploie.
             ...(l.code ? { code: l.code } : {}),
@@ -457,7 +460,7 @@ export default function FichePreparation({
     <option key={l.numero} value={l.numero}>
       {avant?.faits.includes(l.numero) ? '✓ ' : ''}
       {l.code ? `${l.code} ` : manuel.numerote === false ? '' : `${l.numero}. `}
-      {l.titre} — {pagesDe(l)}
+      {l.titre} — {pagesDe(l, manuel)}
     </option>
   )
 
@@ -551,8 +554,8 @@ export default function FichePreparation({
                   {avant === null
                     ? 'Lecture de l’avancement du manuel…'
                     : avant.courante
-                      ? <>Déjà traité jusqu’à <b>{avant.courante.titre}</b> ({pagesDe(avant.courante)}). Les entrées cochées ✓ ont déjà été préparées ; vous pouvez y revenir.</>
-                      : <>Premier cours du manuel : le programme commence à <b>{leconsDe(manuel)[0].titre}</b> ({pagesDe(leconsDe(manuel)[0])}).</>}
+                      ? <>Déjà traité jusqu’à <b>{avant.courante.titre}</b> ({pagesDe(avant.courante, manuel)}). Les entrées cochées ✓ ont déjà été préparées ; vous pouvez y revenir.</>
+                      : <>Premier cours du manuel : le programme commence à <b>{leconsDe(manuel)[0].titre}</b> ({pagesDe(leconsDe(manuel)[0], manuel)}).</>}
                 </div>
               </>
             )}
