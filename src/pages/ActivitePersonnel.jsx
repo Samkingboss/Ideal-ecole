@@ -325,7 +325,13 @@ export default function ActivitePersonnel({ user }) {
                 <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', margin: '12px 0 6px' }}>Travail pédagogique</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {compteur('préparations', a.preparations)}
-                  {compteur('déposées à temps', a.preparations === null ? null : a.prepsATemps, 'var(--green)', 'la veille au plus tard')}
+                  {/* « la veille au plus tard » énonçait une règle qui n'a
+                      jamais été celle du calcul : la ponctualité se mesure au
+                      début du cours, et c'est la règle arbitrée par le
+                      promoteur — `heures_avant_cours` vaut 0. Le compteur
+                      annonçait donc un critère plus sévère que celui qu'il
+                      appliquait, sur un indicateur que les enseignants lisent. */}
+                  {compteur('déposées à temps', a.preparations === null ? null : a.prepsATemps, 'var(--green)', 'avant le début du cours')}
                   {compteur('fiches de fin de cours', a.finsDeCours || null)}
                 </div>
 
