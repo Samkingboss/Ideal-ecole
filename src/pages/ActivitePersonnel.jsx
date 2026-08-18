@@ -65,7 +65,7 @@ export default function ActivitePersonnel({ user }) {
       supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'saisie_manuelle').maybeSingle(),
       supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'personnel').maybeSingle(),
       supabase.from('performances').select('prof_id, date_jour, heure_arrivee, heure_depart'),
-      supabase.from('preparations').select('user_id, date_cours, heure_cours, heure_depot, matiere, groupe'),
+      supabase.from('preparations').select('user_id, date_cours, heure_cours, heure_depot, matiere, groupe, status, historique_statuts'),
       supabase.from('comprehensions').select('prof_id, date_cours, matiere'),
       supabase.from('absences_enseignants').select('prof_id, date_absence, justifiee, motif'),
       supabase.from('disciplines').select('prof_id, gravite, statut, created_at'),

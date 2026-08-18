@@ -31,7 +31,7 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'points_config').maybeSingle(),
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'personnel').maybeSingle(),
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'saisie_manuelle').maybeSingle(),
-        supabase.from('preparations').select('user_id, date_cours, heure_cours, heure_depot').eq('user_id', user.id),
+        supabase.from('preparations').select('user_id, date_cours, heure_cours, heure_depot, status, historique_statuts').eq('user_id', user.id),
         supabase.from('comprehensions').select('prof_id, date_cours, matiere').eq('prof_id', user.id),
         supabase.from('performances').select('prof_id, date_jour, heure_arrivee').eq('prof_id', user.id),
         supabase.from('app_state').select('value').eq('app', 'rapports_eleves'),
