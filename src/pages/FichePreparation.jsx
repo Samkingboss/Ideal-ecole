@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
+import { statutAuDepot, chargerDelai } from '../lib/preparations'
 
 // Fiche de préparation d'une notion.
 //
@@ -274,9 +275,31 @@ export default function FichePreparation({
     const nb       = fiche.nb_sequences || 1
     const maintenant = new Date().toISOString()
 
+    // Le délai de dépôt est un paramètre d'établissement, lu en base. On le
+    // charge avant la boucle : sans cet appel, `statutAuDepot` retomberait sur
+    // la valeur par défaut et un réglage de l'administration resterait sans
+    // effet. Un échec de lecture ne bloque pas le dépôt — la bibliothèque
+    // retient alors la valeur par défaut et le prévient en console.
+    await chargerDelai()
+
     for (let i = 0; i < nb; i++) {
       const seqNum = creneau.sequence + i
       const h = horaireDe(seqNum) ?? horaireDe(creneau.sequence) ?? '08:00'
+
+      // Une échéance inconnue ne doit jamais devenir un dépôt à l'heure : la
+      // source unique renvoie `null` plutôt que d'inventer un statut, et l'on
+      // refuse d'enregistrer. Le cas ne devrait pas se produire — l'emploi du
+      // temps fournit toujours date et créneau — mais une préparation dont la
+      // ponctualité serait fabriquée alimenterait le suivi du personnel.
+      const statut = statutAuDepot(dateCours, h, maintenant)
+      if (!statut) {
+        setEnCours(false)
+        setMessage({
+          type: 'err',
+          texte: "Impossible d'enregistrer cette préparation : l'heure ou la date du cours est manquante.",
+        })
+        return
+      }
 
       const ligne = {
         user_id:    user.id,
@@ -288,7 +311,11 @@ export default function FichePreparation({
         sequence:   seqNum,
         contenu:    { ...fiche, _seq_index: i },
         heure_depot: maintenant,
-        status:     'depose',
+        // Statut déduit de la règle métier portée par la source unique :
+        // déposée avant le début du cours — ou exactement à l'heure — elle
+        // est `deposee` ; après, `en_retard`. L'heure du cours est lue dans
+        // le fuseau de l'école, pas dans celui de l'appareil.
+        status:     statut,
       }
 
       const ex  = existantes.find(e => e.sequence === seqNum)

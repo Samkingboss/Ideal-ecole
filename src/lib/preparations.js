@@ -90,32 +90,129 @@ export const oublierDelai = () => { _delai = null; _promesse = null }
 /** Le délai déjà chargé, sans attendre. Pour les calculs synchrones. */
 export const delaiConnu = () => _delai || DELAI_DEFAUT
 
-/** Heure limite de dépôt pour un cours donné. */
+// ─── Le fuseau de l'école ───────────────────────────────────────────────────
+//
+// « 8h00 » sur un emploi du temps IDEAL, c'est huit heures à Bamako. Pas huit
+// heures sur le téléphone de l'enseignant, qui peut être réglé sur un autre
+// fuseau — en voyage, ou simplement mal configuré. Interpréter l'heure du
+// cours dans le fuseau du navigateur ferait basculer un dépôt d'un côté ou de
+// l'autre de l'échéance selon l'appareil, ce qui est inacceptable pour une
+// donnée qui alimente le suivi du personnel.
+//
+// `heure_depot`, lui, reste un instant absolu horodaté en UTC : on compare
+// donc une échéance située dans le temps réel à un instant réel.
+
+const FUSEAU_ECOLE = 'Africa/Bamako'
+
+const _formatEcole = new Intl.DateTimeFormat('en-CA', {
+  timeZone: FUSEAU_ECOLE, hour12: false,
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+})
+
+/** Décalage du fuseau de l'école par rapport à UTC, en minutes, à un instant. */
+function decalageEcole(instant) {
+  const p = Object.fromEntries(
+    _formatEcole.formatToParts(instant).map(x => [x.type, x.value])
+  )
+  // `hour` peut valoir « 24 » à minuit selon le moteur : le modulo l'absorbe.
+  const mural = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second)
+  return (mural - instant.getTime()) / 60000
+}
+
+/**
+ * L'instant réel correspondant à une heure murale à Bamako.
+ *
+ * Deux passes : le décalage se mesure à un instant donné, et l'instant dépend
+ * du décalage. La première approximation suffit à le déterminer, sauf à
+ * cheval sur un changement d'heure — que Bamako ne pratique pas, mais la
+ * seconde passe rend le calcul juste quand bien même.
+ */
+function instantABamako(annee, mois, jour, heures, minutes) {
+  const approx = Date.UTC(annee, mois - 1, jour, heures, minutes, 0)
+  const d1 = decalageEcole(new Date(approx))
+  const t1 = approx - d1 * 60000
+  const d2 = decalageEcole(new Date(t1))
+  return new Date(d2 === d1 ? t1 : approx - d2 * 60000)
+}
+
+/**
+ * Analyse une heure de cours. Deux formats coexistent réellement : la colonne
+ * `heure_cours` renvoie « 08:00:00 », tandis que l'emploi du temps manipule
+ * « 08:00 ». Les deux doivent produire exactement la même échéance.
+ *
+ * Renvoie `null` si l'heure est absente ou illisible — jamais une valeur par
+ * défaut : inventer 8h00 reviendrait à inventer une ponctualité.
+ */
+export function normaliserHeure(heure) {
+  if (typeof heure !== 'string') return null
+  const m = heure.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+  if (!m) return null
+  const h = Number(m[1]), mn = Number(m[2])
+  if (h > 23 || mn > 59) return null
+  return { h, m: mn }
+}
+
+/** Analyse « 2026-08-20 ». `null` si illisible ou si la date n'existe pas. */
+export function normaliserDate(date) {
+  if (typeof date !== 'string') return null
+  const m = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const a = Number(m[1]), mo = Number(m[2]), j = Number(m[3])
+  const d = new Date(Date.UTC(a, mo - 1, j))
+  // Rejette le 31 février et consorts, que Date normaliserait en silence.
+  if (d.getUTCFullYear() !== a || d.getUTCMonth() !== mo - 1 || d.getUTCDate() !== j) return null
+  return { a, mo, j }
+}
+
+/**
+ * Heure limite de dépôt pour un cours donné, comme instant réel.
+ * `null` si la date ou l'heure est absente, illisible ou impossible.
+ */
 export function echeance(dateCours, heureCours, delai = delaiConnu()) {
-  if (!dateCours) return null
-  const debut = new Date(`${dateCours}T${heureCours || '08:00'}:00`)
-  if (isNaN(debut)) return null
+  const d = normaliserDate(dateCours)
+  const h = normaliserHeure(heureCours)
+  if (!d || !h) return null
+  const debut = instantABamako(d.a, d.mo, d.j, h.h, h.m)
   return new Date(debut.getTime() - (delai.heures_avant_cours || 0) * 3600 * 1000)
 }
 
 /**
  * Situation d'un dépôt par rapport à l'échéance.
- * Renvoie { aTemps, retardMinutes, echeance }.
+ * Renvoie { valide, aTemps, retardMinutes, echeance }.
+ *
+ * `valide: false` signale une échéance inconnue — date ou heure manquante,
+ * illisible, ou instant de dépôt invalide. L'appelant doit alors refuser
+ * l'enregistrement. Cette fonction retournait autrefois `aTemps: true` dans
+ * ce cas : une donnée manquante devenait silencieusement un dépôt à l'heure.
  */
 export function situationDepot(dateCours, heureCours, moment = new Date(), delai = delaiConnu()) {
   const limite = echeance(dateCours, heureCours, delai)
-  if (!limite) return { aTemps: true, retardMinutes: 0, echeance: null }
-  const retardMs = new Date(moment) - limite
+  const instant = moment instanceof Date ? moment : new Date(moment)
+  if (!limite || isNaN(instant.getTime())) {
+    return { valide: false, aTemps: null, retardMinutes: null, echeance: null }
+  }
+  const retardMs = instant.getTime() - limite.getTime()
   return {
+    valide: true,
+    // Règle validée : déposée avant le début du cours, ou exactement à
+    // l'heure du début, elle est à temps. Après, elle est en retard.
     aTemps: retardMs <= 0,
     retardMinutes: Math.max(0, Math.round(retardMs / 60000)),
     echeance: limite,
   }
 }
 
-/** Le statut que prend une préparation au moment où elle est déposée. */
-export const statutAuDepot = (dateCours, heureCours, moment) =>
-  situationDepot(dateCours, heureCours, moment).aTemps ? 'deposee' : 'en_retard'
+/**
+ * Le statut que prend une préparation au moment où elle est déposée.
+ * `null` si l'échéance est inconnue — l'appelant refuse alors d'enregistrer
+ * plutôt que d'inventer une ponctualité.
+ */
+export function statutAuDepot(dateCours, heureCours, moment) {
+  const s = situationDepot(dateCours, heureCours, moment)
+  if (!s.valide) return null
+  return s.aTemps ? 'deposee' : 'en_retard'
+}
 
 /**
  * Une préparation a-t-elle été déposée à temps ?
@@ -129,9 +226,10 @@ export function deposeeATemps(prep) {
   // vigueur ce jour-là, et ne bougera pas si le paramètre change ensuite.
   if (prep.status === 'deposee' || prep.status === 'validee') return true
   if (prep.status === 'en_retard') return false
-  // Lignes antérieures à la nomenclature : on retombe sur le calcul.
-  if (!prep.heure_depot || !prep.date_cours) return false
-  return situationDepot(prep.date_cours, prep.heure_cours, prep.heure_depot).aTemps
+  // Lignes antérieures à la nomenclature : on retombe sur le calcul. Une
+  // échéance inconnue ne vaut pas ponctualité — d'où le test sur `valide`.
+  const s = situationDepot(prep.date_cours, prep.heure_cours, prep.heure_depot)
+  return s.valide && s.aTemps
 }
 
 // ─── Appréciations du contrôle qualité ──────────────────────────────────────
@@ -194,7 +292,8 @@ export function ajouterHistorique(historique, { statut, action, commentaire, uti
   ]
 }
 
-/** Les sept événements tracés, tels que définis au blueprint. */
+/** Les événements tracés. Les sept premiers viennent du blueprint ; le
+ *  huitième est technique — voir ci-dessous. */
 export const ACTIONS = {
   depot:               'depot',
   modification:        'modification',
@@ -203,6 +302,25 @@ export const ACTIONS = {
   validation:          'validation',
   commentaire:         'commentaire',
   reouverture:         'reouverture',
+  // Conversion des anciens statuts vers la nomenclature à cinq valeurs,
+  // faite en base le 18 août 2026. Aucune personne n'en est l'auteur : les
+  // 17 entrées portent `par: null`. L'ancien libellé est conservé dans le
+  // commentaire de l'entrée, seul endroit où il subsiste après migration.
+  migration:           'migration',
+}
+
+/**
+ * L'ancien statut, extrait du commentaire d'une entrée de migration.
+ *
+ * La migration a écrit « Statut converti depuis « acceptable » lors de la
+ * normalisation du 18/08/2026. ». Le libellé d'origine vit entre les
+ * guillemets français : on le récupère plutôt que de le perdre à l'affichage.
+ * Renvoie `null` si le commentaire ne suit pas cette forme — un commentaire
+ * rédigé à la main reste alors affiché tel quel.
+ */
+const ancienStatutDe = commentaire => {
+  if (typeof commentaire !== 'string') return null
+  return commentaire.match(/«\s*([^»]+?)\s*»/)?.[1] || null
 }
 
 /** Phrase lisible pour l'écran, à partir d'une entrée d'historique. */
@@ -211,6 +329,11 @@ export function raconter(entree) {
   const quand = entree.le
     ? new Date(entree.le).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
     : ''
+  // Une migration n'a pas d'auteur : la phrase ne dit donc pas « untel a… ».
+  const ancien = entree.action === ACTIONS.migration
+    ? ancienStatutDe(entree.commentaire)
+    : null
+
   const phrases = {
     depot:               `${qui} a déposé la préparation`,
     modification:        `${qui} a modifié la préparation`,
@@ -219,6 +342,16 @@ export function raconter(entree) {
     validation:          `${qui} a validé la préparation`,
     commentaire:         `${qui} a laissé un commentaire`,
     reouverture:         `${qui} a rouvert une préparation déjà validée`,
+    migration:           ancien
+      ? `Statut normalisé automatiquement depuis « ${ancien} »`
+      : 'Statut normalisé automatiquement depuis l’ancien statut',
   }
-  return { texte: phrases[entree.action] || `${qui} — ${entree.action}`, quand, commentaire: entree.commentaire }
+  return {
+    texte: phrases[entree.action] || `${qui} — ${entree.action}`,
+    quand,
+    // La phrase porte déjà l'ancien statut : réafficher le commentaire
+    // d'origine ferait doublon. On ne l'efface que si l'extraction a
+    // réussi — sinon le texte est conservé, aucune trace n'est perdue.
+    commentaire: ancien ? null : entree.commentaire,
+  }
 }
