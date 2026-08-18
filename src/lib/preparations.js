@@ -363,15 +363,22 @@ export const detailNote = appreciations =>
 // silencieusement les états précédents. » Déposée → À corriger → Modifiée →
 // Validée reste lisible, avec sa date, son acteur et son commentaire.
 
-/** Ajoute une entrée à l'historique et renvoie le tableau complet. */
-export function ajouterHistorique(historique, { statut, action, commentaire, utilisateur }) {
+/**
+ * Ajoute une entrée à l'historique et renvoie le tableau complet.
+ *
+ * `le` est optionnel et vaut l'instant courant par défaut. L'appelant le
+ * fournit lorsque l'événement doit porter exactement le même horodatage
+ * qu'une colonne — le dépôt inscrit ainsi le `heure_depot` de la ligne, à la
+ * milliseconde près, plutôt qu'un instant recalculé qui en différerait.
+ */
+export function ajouterHistorique(historique, { statut, action, commentaire, utilisateur, le }) {
   return [
     ...(Array.isArray(historique) ? historique : []),
     {
       statut: statut || null,
       action,
       commentaire: commentaire || null,
-      le: new Date().toISOString(),
+      le: le || new Date().toISOString(),
       par: utilisateur?.id || null,
       par_nom: utilisateur ? `${utilisateur.prenom || ''} ${utilisateur.nom || ''}`.trim() : null,
     },

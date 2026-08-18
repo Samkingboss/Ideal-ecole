@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
-import { statutAuDepot, chargerDelai } from '../lib/preparations'
+import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS } from '../lib/preparations'
 
 // Fiche de préparation d'une notion.
 //
@@ -89,6 +89,23 @@ const dateLisible = iso =>
   new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
+
+/**
+ * La phrase qui accompagne l'entrée de dépôt dans l'historique.
+ *
+ * Côté enseignant, le promoteur a arbitré « Déposée après l'échéance » plutôt
+ * que « en retard » : le constat est le même, le ton n'est pas celui d'un
+ * dispositif disciplinaire. « En retard » reste le terme de pilotage de la
+ * direction.
+ */
+const commentaireDepot = (dateCours, heureCours, moment) => {
+  const s = situationDepot(dateCours, heureCours, moment)
+  if (!s.valide) return null
+  if (s.aTemps) return 'Déposée avant le début du cours.'
+  const h = Math.floor(s.retardMinutes / 60), m = s.retardMinutes % 60
+  const delai = h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`
+  return `Déposée après l’échéance, ${delai} après le début du cours.`
+}
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
@@ -301,6 +318,7 @@ export default function FichePreparation({
         return
       }
 
+      // Ce que l'enseignant peut faire évoluer à chaque enregistrement.
       const ligne = {
         user_id:    user.id,
         classe_id:  creneau.classe_id || null,
@@ -310,18 +328,37 @@ export default function FichePreparation({
         groupe:     creneau.groupe,
         sequence:   seqNum,
         contenu:    { ...fiche, _seq_index: i },
-        heure_depot: maintenant,
-        // Statut déduit de la règle métier portée par la source unique :
-        // déposée avant le début du cours — ou exactement à l'heure — elle
-        // est `deposee` ; après, `en_retard`. L'heure du cours est lue dans
-        // le fuseau de l'école, pas dans celui de l'appareil.
-        status:     statut,
       }
 
-      const ex  = existantes.find(e => e.sequence === seqNum)
+      const ex = existantes.find(e => e.sequence === seqNum)
+
+      // Le dépôt est un événement, pas un état : il n'a lieu qu'une fois, à la
+      // création. Une modification ultérieure ne le rejoue pas — elle ne
+      // touche donc ni au statut, ni à l'instant du dépôt, ni à l'historique.
+      //
+      // Réécrire ces trois colonnes à chaque enregistrement produirait deux
+      // dégâts : une préparation remise à l'heure puis corrigée après le cours
+      // basculerait en retard, et `heure_depot` cesserait de correspondre au
+      // `le` de l'entrée de dépôt, seule trace de la ponctualité réelle.
       const req = ex
         ? supabase.from('preparations').update(ligne).eq('id', ex.id)
-        : supabase.from('preparations').insert(ligne)
+        : supabase.from('preparations').insert({
+            ...ligne,
+            heure_depot: maintenant,
+            // Statut déduit de la règle métier portée par la source unique :
+            // déposée avant le début du cours — ou exactement à l'heure —
+            // elle est `deposee` ; après, `en_retard`. L'heure du cours est
+            // lue dans le fuseau de l'école, pas dans celui de l'appareil.
+            status: statut,
+            historique_statuts: ajouterHistorique([], {
+              statut,
+              action: ACTIONS.depot,
+              commentaire: commentaireDepot(dateCours, h, maintenant),
+              utilisateur: user,
+              // Le même instant que `heure_depot`, à la milliseconde près.
+              le: maintenant,
+            }),
+          })
 
       const { error } = await req
       if (error) {
