@@ -1,6 +1,108 @@
+// ═══════════════ ACCÈS À LA BASE IDEAL ═══════════════
+// Un seul point d'accès pour toute la page. Le bloc de synchronisation en fin
+// de fichier s'en sert aussi : il n'existe qu'un chargeur, pas deux.
+const IDEAL_DB = (function () {
+    const URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
+    const CLE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
+    const H = { apikey: CLE, Authorization: 'Bearer ' + CLE, 'Content-Type': 'application/json' };
+
+    // Un devoir tel que l'interface le manipule. `contenu` porte la forme
+    // d'origine — type, période, objectifs, barème, ciblage — que les colonnes
+    // ne savent pas représenter ; les colonnes restent renseignées pour que le
+    // reste de la plateforme lise un devoir sans connaître ce format.
+    const versInterface = r => {
+        const c = r.contenu || {};
+        return Object.assign({}, c, {
+            id: r.id,
+            subject: c.subject || r.matiere || '',
+            grade: c.grade || r.groupe || '',
+            content: c.content || r.description || '',
+            dueDate: c.dueDate || r.date_rendu || '',
+            images: (r.fichiers || []).map(f => f.url),
+            date: c.date || (r.date_donne
+                ? new Date(r.date_donne + 'T00:00:00').toLocaleDateString('fr-FR') : ''),
+        });
+    };
+
+    async function classes() {
+        const r = await fetch(URL + '/rest/v1/classes?select=id,nom', { headers: H });
+        return r.ok ? await r.json() : [];
+    }
+
+    async function chargerDevoirs() {
+        const r = await fetch(URL + '/rest/v1/devoirs?select=*&order=created_at.desc', { headers: H });
+        if (!r.ok) throw new Error('Devoirs illisibles (' + r.status + ')');
+        return (await r.json()).map(versInterface);
+    }
+
+    // Les images arrivent en base64 depuis la lecture locale du fichier. On
+    // les dépose dans le bucket et on ne garde que les adresses : trente
+    // devoirs en base64 dépassaient déjà le quota du navigateur.
+    async function deposerImages(images, grade) {
+        const deposees = [];
+        for (let i = 0; i < (images || []).length; i++) {
+            const src = images[i];
+            if (typeof src !== 'string') continue;
+            if (!src.startsWith('data:')) { deposees.push({ url: src, nom: 'image ' + (i + 1) }); continue; }
+            const blob = await (await fetch(src)).blob();
+            const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+            const chemin = String(grade || 'classe').replace(/[^a-zA-Z0-9-]/g, '_')
+                + '/' + Date.now() + '_' + String(i + 1).padStart(2, '0') + '.' + ext;
+            const up = await fetch(URL + '/storage/v1/object/devoirs/' + chemin, {
+                method: 'POST', headers: { apikey: CLE, Authorization: 'Bearer ' + CLE, 'Content-Type': blob.type }, body: blob
+            });
+            if (!up.ok) throw new Error('Image ' + (i + 1) + ' refusée (' + up.status + ')');
+            deposees.push({ url: URL + '/storage/v1/object/public/devoirs/' + chemin, nom: 'image ' + (i + 1) });
+        }
+        return deposees;
+    }
+
+    async function enregistrerDevoir(devoir, classesConnues) {
+        const fichiers = await deposerImages(devoir.images, devoir.grade);
+        const cl = (classesConnues || []).find(c => c.nom === devoir.grade);
+        const u = (function () { try { return JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch (e) { return null; } })();
+        const contenu = Object.assign({}, devoir, { images: fichiers.map(f => f.url) });
+        delete contenu.id;
+
+        const r = await fetch(URL + '/rest/v1/devoirs', {
+            method: 'POST', headers: Object.assign({}, H, { Prefer: 'return=representation' }),
+            body: JSON.stringify({
+                user_id: u && u.id ? u.id : null,
+                classe_id: cl ? cl.id : null,
+                groupe: devoir.grade || null,
+                matiere: (devoir.subject || '').trim() || null,
+                description: (devoir.content || '').trim() || (devoir.objectives || '').trim() || null,
+                date_donne: new Date().toISOString().slice(0, 10),
+                // `date_rendu` est obligatoire en base : sans échéance choisie,
+                // on retient le jour même plutôt que d'échouer.
+                date_rendu: devoir.dueDate || new Date().toISOString().slice(0, 10),
+                fichiers: fichiers,
+                fichier_url: fichiers[0] ? fichiers[0].url : null,
+                fichier_nom: fichiers[0] ? fichiers[0].nom : null,
+                contenu: contenu,
+            })
+        });
+        if (!r.ok) throw new Error('Enregistrement refusé : ' + (await r.text()).slice(0, 160));
+        return versInterface((await r.json())[0]);
+    }
+
+    async function supprimerDevoir(id) {
+        const r = await fetch(URL + '/rest/v1/devoirs?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: H });
+        if (!r.ok) throw new Error('Suppression refusée (' + r.status + ')');
+    }
+
+    return { URL, CLE, H, classes, chargerDevoirs, enregistrerDevoir, supprimerDevoir };
+})();
+
 // State Management
-let students = JSON.parse(localStorage.getItem('ideal_students')) || [];
-let homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
+//
+// `students` et `homeworks` gardent exactement la forme qu'ils avaient : tout
+// l'affichage, l'impression nominative et les messages aux parents s'appuient
+// dessus sans changement. Seule leur provenance change — ils sont remplis par
+// le bloc de synchronisation en fin de fichier, depuis `eleves` et `devoirs`.
+let students = [];
+let homeworks = [];
+let classesConnues = [];
 let currentHomeworkImages = [];
 // Classes que l'utilisateur connecté a le droit de servir. Remplie par la
 // synchronisation Supabase en fin de fichier : un enseignant n'y trouve que
@@ -444,12 +546,21 @@ function saveHomework() {
         date: new Date().toLocaleDateString('fr-FR')
     };
 
-    homeworks.unshift(newHomework);
-    localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
+    // L'aperçu n'apparaît qu'une fois l'enregistrement confirmé : afficher un
+    // devoir refusé laisserait croire qu'il est enregistré.
+    const bouton = document.activeElement;
+    if (bouton && bouton.tagName === 'BUTTON') bouton.disabled = true;
 
-    updateStats();
-    renderArchive();
-    showHomeworkPreview(); // aperçu + impression
+    IDEAL_DB.enregistrerDevoir(newHomework, classesConnues).then(enregistre => {
+        homeworks.unshift(enregistre);
+        updateStats();
+        renderArchive();
+        showHomeworkPreview(); // aperçu + impression
+    }).catch(e => {
+        alert(e.message);
+    }).finally(() => {
+        if (bouton && bouton.tagName === 'BUTTON') bouton.disabled = false;
+    });
 }
 
 // Aperçu du devoir créé (pages réelles), avec impression
@@ -557,10 +668,11 @@ function renderArchive() {
 
 function deleteHomework(id) {
     if (!confirm('Supprimer ce devoir ?')) return;
-    homeworks = homeworks.filter(h => h.id !== id);
-    localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
-    renderArchive();
-    updateStats();
+    IDEAL_DB.supprimerDevoir(id).then(() => {
+        homeworks = homeworks.filter(h => h.id !== id);
+        renderArchive();
+        updateStats();
+    }).catch(e => alert(e.message));
 }
 
 function updateStats() {
@@ -1208,14 +1320,17 @@ function importData(event) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            if (data.students) students = data.students;
-            if (data.homeworks) homeworks = data.homeworks;
+            // Depuis la bascule, la base de l'école fait foi. Réinjecter un
+            // fichier écraserait l'écran sans rien enregistrer, et le premier
+            // rechargement effacerait l'illusion : on le dit franchement.
+            // Seul le logo, réglage d'affichage local, est repris.
             if (data.logo) localStorage.setItem('ideal_logo', data.logo);
-            
-            localStorage.setItem('ideal_students', JSON.stringify(students));
-            localStorage.setItem('ideal_homeworks', JSON.stringify(homeworks));
-            
-            alert('Données restaurées !');
+            alert(
+                'Les élèves et les devoirs sont désormais enregistrés dans la base '
+                + 'de l\u2019école, partagée par tous les comptes.\n\n'
+                + 'La restauration d\u2019un fichier n\u2019a plus d\u2019effet durable. '
+                + (data.logo ? 'Le logo, lui, a bien été repris.' : '')
+            );
             location.reload();
         } catch (err) {
             alert('Erreur importation.');
@@ -1288,7 +1403,11 @@ function clearHomeworkContent() {
     const SB_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
     const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
-    const KEYS = ['ideal_homeworks', 'ideal_logo']; // les élèves ne sont plus stockés localement
+    // Les élèves puis les devoirs ont quitté le navigateur : seul le logo, qui
+    // reste un réglage d'affichage, continue d'être partagé par app_state.
+    // Y pousser encore `ideal_homeworks` écraserait la copie de sécurité des
+    // treize devoirs avec un tableau vide.
+    const KEYS = ['ideal_logo'];
     const last = {};
 
     function parseVal(raw) { try { return JSON.parse(raw); } catch(e) { return raw; } }
@@ -1345,6 +1464,7 @@ function clearHomeworkContent() {
                 if (cr.ok) (await cr.json()).forEach(c => { if (c.nom) classesAutorisees.push(c.nom); });
             }
             remplirClasses();
+            try { classesConnues = await IDEAL_DB.classes(); } catch (e) { classesConnues = []; }
 
             const inScope = (classeId, classeNom) => {
                 if (!allowedClassIds) return true; // direction / conseiller : tout
@@ -1380,7 +1500,11 @@ function clearHomeworkContent() {
             }
 
             students = list;
-            homeworks = JSON.parse(localStorage.getItem('ideal_homeworks')) || [];
+            // Les devoirs viennent désormais de la table officielle. Le
+            // périmètre des élèves ci-dessus reste inchangé : un enseignant ne
+            // voit que les classes qui lui sont affectées.
+            try { homeworks = await IDEAL_DB.chargerDevoirs(); }
+            catch (e) { console.warn('Devoirs illisibles :', e.message); homeworks = []; }
             if (typeof majDestinataires === 'function') majDestinataires();
             if (typeof renderStudentList === 'function') renderStudentList();
             if (typeof renderArchive === 'function') renderArchive();
