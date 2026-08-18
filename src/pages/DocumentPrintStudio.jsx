@@ -35,7 +35,17 @@ const A4 = {
   marge: 14,
 }
 // Hauteur utile pour le contenu, une fois l'en-tête et le pied déduits.
-const HAUTEUR_UTILE_MM = A4.hauteur - 2 * A4.marge - 34 - 12
+//
+// Les deux espaces de 4 mm qui séparent l'en-tête du contenu et le contenu du
+// pied comptent eux aussi. Ils étaient oubliés : le moteur croyait disposer de
+// 223 mm là où la feuille n'en offre que 218, et pouvait donc placer un bloc
+// qui ne tenait pas tout à fait. Mesuré au banc d'essai — en-tête 33,4 mm,
+// pied 9,6 mm — la réserve retenue reste prudente.
+const RESERVE_ENTETE_MM = 34
+const RESERVE_PIED_MM   = 12
+const ECARTS_MM         = 8      // deux gaps de 4 mm
+const HAUTEUR_UTILE_MM =
+  A4.hauteur - 2 * A4.marge - RESERVE_ENTETE_MM - RESERVE_PIED_MM - ECARTS_MM
 const MM_EN_PX = 3.779528   // 1 mm à 96 dpi
 
 // ─── Provenances ────────────────────────────────────────────────────────────
@@ -130,6 +140,30 @@ export const DEPARTMENT_THEMES = PROVENANCES
 
 const provenanceDe = type => PROVENANCES[type] || PROVENANCES.administration
 
+// ─── Bordure double ─────────────────────────────────────────────────────────
+//
+// Positionnée en absolu, volontairement : elle n'occupe aucune place dans le
+// flux. Le contenu garde ses 14 mm de marge et la hauteur utile ne bouge pas
+// d'un millimètre — la pagination déjà éprouvée reste identique.
+//
+// Deux filets plutôt qu'un cadre épais : c'est la convention des documents
+// institutionnels, et cela reste lisible à l'impression là où une ombre
+// portée serait ignorée par la plupart des pilotes.
+
+function BordureDouble({ prov }) {
+  return (
+    <div aria-hidden="true" style={{
+      position: 'absolute', inset: '6mm', pointerEvents: 'none',
+      border: `0.5mm solid ${prov.accent}`,
+    }}>
+      <div style={{
+        position: 'absolute', inset: '1.2mm',
+        border: `0.2mm solid ${prov.accent}88`,
+      }} />
+    </div>
+  )
+}
+
 // ─── Sceau typographique ────────────────────────────────────────────────────
 //
 // Remplace les émojis 🏅 et 👑. Un émoji dépend de la police installée sur le
@@ -166,16 +200,22 @@ function EnTete({ prov, titre, bandeau }) {
         display: 'flex', alignItems: 'center', gap: '6mm',
         borderBottom: `0.6mm solid ${prov.accent}55`, paddingBottom: '3mm',
       }}>
+        {/* Logo horizontal officiel — 1032 × 375 px. Seule la hauteur est
+            imposée : la largeur suit le rapport natif du fichier. Jamais les
+            deux, sous peine de l'écraser. */}
         <img src="/logo-ideal.png" alt="IDEAL"
-             style={{ height: '16mm', width: 'auto', objectFit: 'contain', flex: 'none' }} />
+             style={{ height: '17mm', width: 'auto', objectFit: 'contain', flex: 'none' }} />
         <div style={{ minWidth: 0 }}>
+          {/* L'établissement d'abord, le document ensuite. Le nom passe de
+              3,1 à 4,3 mm : il cesse d'être une mention au-dessus du titre
+              pour devenir l'identité qui le porte. */}
           <div style={{
-            fontSize: '3.1mm', fontWeight: 900, color: prov.accent,
-            letterSpacing: '.06em', textTransform: 'uppercase',
+            fontSize: '4.3mm', fontWeight: 900, color: prov.accent,
+            letterSpacing: '.07em', textTransform: 'uppercase', lineHeight: 1.1,
           }}>École Internationale Bilingue IDEAL</div>
           <div style={{
-            fontSize: '5.6mm', fontWeight: 900, color: '#0f172a',
-            letterSpacing: '.01em', lineHeight: 1.15, marginTop: '0.6mm',
+            fontSize: '6mm', fontWeight: 900, color: '#0f172a',
+            letterSpacing: '.01em', lineHeight: 1.15, marginTop: '1.2mm',
           }}>{titre}</div>
         </div>
       </div>
@@ -203,9 +243,12 @@ function Pied({ prov, page, total, etabliLe }) {
     }}>
       <Sceau prov={prov} compact />
       <span style={{ textAlign: 'right', lineHeight: 1.4 }}>
-        {prov.service}
-        {total > 1 && <> — page {page} sur {total}</>}
-        <br />établi le {etabliLe}
+        <span style={{ fontWeight: 900, color: prov.accent, letterSpacing: '.05em' }}>
+          École Internationale Bilingue IDEAL — Bamako, Mali
+        </span>
+        <br />{prov.service}
+        {total > 1 && <> · page {page} sur {total}</>}
+        {' '}· établi le {etabliLe}
       </span>
     </div>
   )
@@ -216,17 +259,30 @@ function Pied({ prov, page, total, etabliLe }) {
 // L'unité que la pagination ne coupe jamais. Un document paginé se compose de
 // blocs ; le moteur les répartit sur les feuilles sans en scinder aucun.
 
-export function Bloc({ titre, children, style }) {
+export function Bloc({ titre, numero, children, style }) {
   const prov = React.useContext(ProvenanceContext)
   return (
     <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid', ...style }}>
       {titre && (
         <h6 style={{
-          margin: '0 0 1.5mm', fontSize: '2.6mm', fontWeight: 900,
+          margin: '0 0 1.8mm', display: 'flex', alignItems: 'center', gap: '2.5mm',
+          fontSize: '2.9mm', fontWeight: 900,
           letterSpacing: '.11em', textTransform: 'uppercase',
-          color: prov.accent, paddingBottom: '1mm',
-          borderBottom: `0.2mm solid ${prov.fond}`,
-        }}>{titre}</h6>
+          color: prov.accent, paddingBottom: '1.2mm',
+          borderBottom: `0.35mm solid ${prov.accent}44`,
+        }}>
+          {/* Le numéro est facultatif : les documents déjà en place n'en
+              passent pas et gardent exactement leur présentation. */}
+          {numero != null && (
+            <span style={{
+              flex: 'none', width: '5mm', height: '5mm', borderRadius: '1mm',
+              background: prov.accent, color: '#fff', fontSize: '2.8mm',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              letterSpacing: 0,
+            }}>{numero}</span>
+          )}
+          <span>{titre}</span>
+        </h6>
       )}
       {children}
     </div>
@@ -283,7 +339,11 @@ function Feuille({ prov, titre, bandeau, page, total, etabliLe, children }) {
       margin: '0 auto 6mm',
       fontSize: '3mm',
       lineHeight: 1.5,
+      // `relative` sert d'ancre à la bordure : sans lui elle se placerait
+      // par rapport à la page entière et non par rapport à la feuille.
+      position: 'relative',
     }}>
+      <BordureDouble prov={prov} />
       <EnTete prov={prov} titre={titre} bandeau={page === 1 ? bandeau : null} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4mm' }}>
         {children}
@@ -405,7 +465,10 @@ export default function DocumentPrintStudio({
         /* Le cadre d'écran — ombre portée, coins arrondis — n'a pas de sens
            sur du papier : il mange la marge utile. */
         .feuille { box-shadow: none !important; border-radius: 0 !important;
-                   margin: 0 !important; }
+                   margin: 0 !important; position: relative; }
+        /* La bordure double est à 6 mm du bord : la marge @page est nulle,
+           elle tombe donc dans la zone imprimable de toutes les imprimantes
+           courantes, dont la marge matérielle dépasse rarement 5 mm. */
         /* Chaque feuille occupe exactement une page, et l'on ne coupe ni un
            bloc, ni une ligne de tableau, ni un titre détaché de sa suite. */
         .feuille { break-after: page; page-break-after: always; }

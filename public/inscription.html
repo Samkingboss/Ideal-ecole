@@ -947,10 +947,8 @@
         try {
             const { count: total } = await _supa.from('inscriptions').select('*', { count:'exact', head:true });
             const { count: cantine } = await _supa.from('inscriptions').select('*', { count:'exact', head:true }).eq('cantine', true);
-            const { count: reinsc } = await _supa.from('inscriptions').select('*', { count:'exact', head:true }).eq('type_inscription','reinscription');
             document.getElementById('stat-total').textContent   = total   ?? 0;
             document.getElementById('stat-cantine').textContent = cantine ?? 0;
-            document.getElementById('stat-reinsc').textContent  = reinsc  ?? 0;
         } catch(e) { /* silencieux si pas connecté */ }
     }
 
@@ -1140,24 +1138,6 @@
      * enfant. On avertit avant d'enregistrer, sans jamais bloquer : deux
      * enfants peuvent légitimement porter le même nom (jumeaux, homonymes).
      */
-    /**
-     * Prochain matricule libre pour une année donnée.
-     *
-     * On lit les matricules déjà attribués et on repart du plus grand. Le
-     * comptage des lignes, utilisé auparavant, se trompait dès qu'une
-     * inscription avait été supprimée : avec 001, 006, 007, 008 et 009 en
-     * base, il proposait 006, déjà pris, et l'enregistrement échouait.
-     */
-    async function prochainMatricule(prefixe, decalage = 0) {
-        const { data, error } = await _supa.from('inscriptions')
-            .select('matricule').like('matricule', prefixe + '%');
-        if (error) throw new Error('Lecture des matricules impossible : ' + error.message);
-        const maxi = (data || []).reduce((m, r) => {
-            const n = parseInt(String(r.matricule).slice(prefixe.length), 10);
-            return Number.isFinite(n) && n > m ? n : m;
-        }, 0);
-        return prefixe + String(maxi + 1 + decalage).padStart(3, '0');
-    }
 
     window._isEleveRenouvele = false;
 
@@ -1291,7 +1271,15 @@
         btnNext.innerText = "Enregistrement...";
 
         try {
-            // 1. Insérer Responsable 1
+            // 1. Les données du dossier, telles que le formulaire les porte.
+            //
+            // Elles ne sont plus écrites ici. L'ancien parcours insérait le
+            // responsable 1, puis le 2, puis — six étapes et trois envois de
+            // fichiers plus loin — l'inscription. Tout échec dans cet
+            // intervalle laissait un parent orphelin en base ; c'est arrivé au
+            // premier test réel. `creer_inscription` fait le tout en une seule
+            // transaction PostgreSQL : le dossier existe entièrement, ou pas
+            // du tout.
             const r1Data = {
                 nom: document.getElementById('r1-nom').value.trim(),
                 prenom: document.getElementById('r1-prenoms').value.trim(),
@@ -1303,53 +1291,47 @@
                 profession: document.getElementById('r1-profession').value.trim() || null,
                 situation_matrimoniale: document.getElementById('r1-situation').value || null,
             };
-            let r1, r1Err;
-            try {
-                ({ data: r1, error: r1Err } = await _supa.from('responsables').insert(r1Data).select('id').single());
-            } catch (fetchErr) {
-                throw new Error('Connexion interrompue lors de la création du dossier responsable. Vérifiez votre connexion et réessayez.');
-            }
-            if (r1Err) throw new Error('Erreur Responsable 1 : ' + r1Err.message);
-            if (!r1 || !r1.id) throw new Error('Dossier responsable non enregistré (réponse vide). Vérifiez votre connexion et réessayez.');
 
-            // 2. Insérer Responsable 2 si renseigné
-            let r2Id = null;
+            // 2. Responsable 2, seulement s'il a été saisi. S'il l'est à
+            //    moitié, la RPC refuse le dossier entier plutôt que de créer
+            //    l'inscription en oubliant silencieusement le second parent.
             const r2Nom = document.getElementById('r2-nom').value.trim();
             const r2Prenoms = document.getElementById('r2-prenoms').value.trim();
-            if (r2Nom && r2Prenoms) {
-                const r2Data = {
-                    nom: r2Nom,
-                    prenom: r2Prenoms,
-                    lien_parente: document.getElementById('r2-lien').value || null,
-                    tel1: document.getElementById('r2-tel1').value.trim() || null,
-                    whatsapp: document.getElementById('r2-whatsapp').value.trim() || null,
-                    email: document.getElementById('r2-email').value.trim() || null,
-                    adresse: document.getElementById('r2-adresse').value.trim() || null,
-                    profession: document.getElementById('r2-profession').value.trim() || null,
-                    situation_matrimoniale: document.getElementById('r2-situation').value || null,
-                };
-                const { data: r2, error: r2Err } = await _supa.from('responsables').insert(r2Data).select('id').single();
-                if (!r2Err) r2Id = r2.id;
-            }
+            const r2Data = (r2Nom && r2Prenoms) ? {
+                nom: r2Nom,
+                prenom: r2Prenoms,
+                lien_parente: document.getElementById('r2-lien').value || null,
+                tel1: document.getElementById('r2-tel1').value.trim() || null,
+                whatsapp: document.getElementById('r2-whatsapp').value.trim() || null,
+                email: document.getElementById('r2-email').value.trim() || null,
+                adresse: document.getElementById('r2-adresse').value.trim() || null,
+                profession: document.getElementById('r2-profession').value.trim() || null,
+                situation_matrimoniale: document.getElementById('r2-situation').value || null,
+            } : null;
 
-            // 3. Générer le matricule automatique
-            // Format officiel : [AA-AA AXXX] (ex: 25-26 A105 pour l'année 2025-2026)
+            // 3. L'année scolaire. De juin à décembre, nous sommes dans la
+            //    campagne de l'année suivante.
             const now = new Date();
             const yearNow = now.getFullYear();
             const month = now.getMonth(); // 0 = Janvier, 7 = Août
-            // De Juin à Décembre, nous sommes dans la campagne de l'année scolaire suivante
             const startYear = month >= 5 ? yearNow : yearNow - 1;
             const endYear = startYear + 1;
-            const yy1 = String(startYear).slice(-2);
-            const yy2 = String(endYear).slice(-2);
-            const prefixe = `${yy1}-${yy2} A`;
-            const matricule = await prochainMatricule(prefixe);
+
+            // Le matricule n'est plus calculé ici : PostgreSQL le génère sous
+            // verrou, ce qui supprime la course entre deux saisies simultanées
+            // — et avec elle la boucle de rattrapage qui la compensait.
+            //
+            // Les fichiers ne peuvent donc plus porter son nom. Un identifiant
+            // temporaire le remplace : le nom d'un fichier n'a aucune valeur
+            // fonctionnelle, rien ne reconstruit de chemin à partir du
+            // matricule, les adresses sont lues telles quelles.
+            const refFichiers = crypto.randomUUID();
 
             // 4. Upload photo vers Supabase Storage
             let photoUrl = null;
             if (finalPhotoDataUrl) {
                 const photoBlob = dataURLtoBlob(finalPhotoDataUrl);
-                const photoPath = `photos/${matricule}.jpg`;
+                const photoPath = `photos/${refFichiers}.jpg`;
                 const { error: photoErr } = await _supa.storage.from('inscriptions').upload(photoPath, photoBlob, { contentType: 'image/jpeg', upsert: true });
                 if (!photoErr) {
                     const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(photoPath);
@@ -1370,7 +1352,7 @@
                 if (input.files && input.files[0]) {
                     const file = input.files[0];
                     const ext = file.name.split('.').pop();
-                    const path = `documents/${matricule}/${doc.nom}.${ext}`;
+                    const path = `documents/${refFichiers}/${doc.nom}.${ext}`;
                     const { error: docErr } = await _supa.storage.from('inscriptions').upload(path, file, { upsert: true });
                     if (!docErr) {
                         const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(path);
@@ -1394,7 +1376,7 @@
                     throw new Error('Impossible de lire la signature (canvas vide). Effacez et resignez avant de valider.');
                 }
                 const sigBlob = dataURLtoBlob(sigDataUrl);
-                const sigPath = `signatures/${matricule}.png`;
+                const sigPath = `signatures/${refFichiers}.png`;
                 try {
                     const { error: sigErr } = await _supa.storage.from('inscriptions').upload(sigPath, sigBlob, { contentType: 'image/png', upsert: true });
                     if (!sigErr) {
@@ -1404,72 +1386,131 @@
                 } catch (e) { /* L'upload de signature est non bloquant */ }
             }
 
-            // 7. Insérer l'inscription principale
-            const inscData = {
+            // 4. Création atomique du dossier — responsable(s) et inscription
+            //    en une seule transaction PostgreSQL.
+            const dossier = {
+                responsable1: r1Data,
+                responsable2: r2Data,
+                eleve: {
+                    nom: document.getElementById('el-nom').value.trim(),
+                    prenom: document.getElementById('el-prenoms').value.trim(),
+                    sexe: document.getElementById('el-sexe').value,
+                    date_naissance: document.getElementById('el-date-naissance').value,
+                    lieu_naissance: document.getElementById('el-lieu-naissance').value.trim() || null,
+                    groupe_sanguin: document.getElementById('el-groupe-sanguin').value || null,
+                    nationalite: document.getElementById('el-nationalite').value.trim() || null,
+                    langue_maison: document.getElementById('el-langue').value.trim() || null,
+                    ancienne_ecole: document.getElementById('el-ancienne-ecole').value.trim() || null,
+                    classe_precedente: document.getElementById('el-classe-prec').value.trim() || null,
+                    classe_demandee: document.getElementById('el-classe-demandee').value,
+                    adresse: document.getElementById('el-adresse').value.trim() || null,
+                },
+                dossier: {
+                    cantine: document.getElementById('cantine-inscrit').value === 'oui',
+                    allergies: document.getElementById('cantine-allergies').value.trim() || null,
+                    restrictions: document.getElementById('cantine-restrictions').value.trim() || null,
+                    // Aucun champ de transport n'est actif dans le formulaire.
+                    transport: false,
+                    droit_image: document.getElementById('droit-image').value === 'oui',
+                    annee_scolaire: `${startYear}-${endYear}`,
+                    type_inscription: window._inscriptionType || 'nouvelle',
+                },
+                fichiers: { photo_url: photoUrl, signature_url: signatureUrl },
+            };
+
+            const { data: retour, error: rpcErr } = await _supa.rpc('creer_inscription', {
+                p_dossier: dossier
+            });
+
+            if (rpcErr) {
+                console.error('creer_inscription :', rpcErr);
+                // Supabase range le message de `RAISE EXCEPTION` tantôt dans
+                // `message`, tantôt dans `details` ou `hint` selon la version
+                // et le type d'erreur. On cherche le code métier dans les
+                // trois plutôt que de parier sur l'un d'eux.
+                const bruit = [rpcErr.message, rpcErr.details, rpcErr.hint]
+                    .filter(Boolean).join(' | ');
+                const messages = {
+                    responsable_incomplet:   "Le responsable principal exige un nom, un prénom et un téléphone.",
+                    responsable2_incomplet:  "Le second responsable est incomplet : nom, prénom et téléphone sont requis, ou laissez-le entièrement vide.",
+                    eleve_incomplet:         "Le nom et le prénom de l'élève sont obligatoires.",
+                    date_naissance_invalide: "La date de naissance est absente ou invalide.",
+                    sexe_invalide:           "Le sexe de l'élève doit être renseigné.",
+                    classe_manquante:        "La classe demandée est obligatoire.",
+                    annee_invalide:          "L'année scolaire est invalide.",
+                    type_invalide:           "Le type d'inscription est invalide.",
+                };
+                const code = Object.keys(messages).find(c => bruit.includes(c));
+                throw new Error(code
+                    ? messages[code]
+                    : "Le dossier n'a pas pu être enregistré. Aucune donnée n'a été créée — vous pouvez réessayer.");
+            }
+            if (!retour || retour.ok !== true || !retour.matricule) {
+                console.error('creer_inscription — réponse inattendue :', retour);
+                throw new Error("Dossier non enregistré : réponse inattendue du serveur. Réessayez.");
+            }
+
+            const matricule = retour.matricule;
+
+            // 5. Succès. Le matricule vient de la base, seul endroit qui puisse
+            //    le garantir unique.
+            //
+            //    `lastSavedData` alimente le partage WhatsApp et la fiche PDF :
+            //    on y remet à plat exactement les clés qu'ils lisent.
+            lastSavedMatricule = matricule;
+            lastSavedData = {
+                ...dossier.eleve,
+                ...dossier.dossier,
                 matricule,
-                responsable1_id: r1.id,
-                responsable2_id: r2Id,
-                nom: document.getElementById('el-nom').value.trim(),
-                prenom: document.getElementById('el-prenoms').value.trim(),
-                sexe: document.getElementById('el-sexe').value,
-                date_naissance: document.getElementById('el-date-naissance').value,
-                lieu_naissance: document.getElementById('el-lieu-naissance').value.trim() || null,
-                groupe_sanguin: document.getElementById('el-groupe-sanguin').value || 'O+',
-                nationalite: document.getElementById('el-nationalite').value.trim() || null,
-                langue_maison: document.getElementById('el-langue').value.trim() || null,
-                ancienne_ecole: document.getElementById('el-ancienne-ecole').value.trim() || null,
-                classe_precedente: document.getElementById('el-classe-prec').value.trim() || null,
-                classe_demandee: document.getElementById('el-classe-demandee').value,
-                adresse: document.getElementById('el-adresse').value.trim() || null,
-                cantine: document.getElementById('cantine-inscrit').value === 'oui',
-                allergies: document.getElementById('cantine-allergies').value.trim() || null,
-                restrictions: document.getElementById('cantine-restrictions').value.trim() || null,
-                transport: false,
-                droit_image: document.getElementById('droit-image').value === 'oui',
                 photo_url: photoUrl,
                 signature_url: signatureUrl,
-                annee_scolaire: `${new Date().getFullYear()}-${annee}`,
-                type_inscription: window._inscriptionType || 'nouvelle',
+                responsable1: r1Data,
+                responsable2: r2Data,
             };
-            // Si deux inscriptions sont saisies en même temps, la seconde peut
-            // tomber sur le matricule que la première vient de prendre. On
-            // reprend alors le numéro suivant plutôt que d'échouer sous les
-            // yeux du parent, dossier déjà rempli.
-            let inscErr = null;
-            for (let essai = 0; essai < 4; essai++) {
-                const r = await _supa.from('inscriptions').insert(inscData);
-                if (!r.error) { inscErr = null; break; }
-                inscErr = r.error;
-                if (r.error.code !== '23505' || !/matricule/.test(r.error.message || '')) break;
-                inscData.matricule = await prochainMatricule(prefixe, essai + 1);
-            }
-            if (inscErr) throw new Error("Erreur inscription: " + inscErr.message);
-
-            // 8. Succès — on affiche le matricule réellement retenu, qui peut
-            // différer de celui prévu si un rattrapage a eu lieu. Les fichiers
-            // déjà déposés gardent alors l'ancien nom dans le stockage : leurs
-            // adresses sont enregistrées telles quelles, rien ne se perd.
-            lastSavedMatricule = inscData.matricule;
-            lastSavedData = { ...inscData, responsable1: r1Data };
 
             // Emission notification temps réel à la Direction
             try {
                 const notifObj = {
                     id: Date.now(),
-                    titre: `🎒 Nouvel élève inscrit: ${inscData.prenoms} ${inscData.nom}`,
-                    message: `Matricule: ${inscData.matricule} (${inscData.classe_demandee || 'Classe N/A'})`,
+                    titre: `🎒 Nouvel élève inscrit: ${dossier.eleve.prenom} ${dossier.eleve.nom}`,
+                    message: `Matricule: ${matricule} (${dossier.eleve.classe_demandee || 'Classe N/A'})`,
                     date: new Date().toISOString(),
                     lu: false,
                     type: 'inscription',
                     tabTarget: 'eleves'
                 };
-                const { data: curNotifs } = await _supa.from('app_state').select('value').eq('key', 'notifs_directeur').maybeSingle();
-                const list = (curNotifs && Array.isArray(curNotifs.value)) ? [notifObj, ...curNotifs.value] : [notifObj];
-                await _supa.from('app_state').upsert({ key: 'notifs_directeur', value: list, updated_at: new Date().toISOString() });
-                await _supa.from('app_state').upsert({ key: 'notifs_responsable_administratif', value: list, updated_at: new Date().toISOString() });
+                // Convention de src/lib/notifications.js, que cette page ne peut
+                // pas importer : elle est servie en statique, hors du bundle.
+                //
+                // Trois défauts corrigés ici. `app` fait partie de la clé
+                // primaire composite (app, key) et ne peut être nulle : sans
+                // elle, chaque envoi était refusé en 400 et la direction n'a
+                // jamais été prévenue d'une seule inscription. La lecture doit
+                // filtrer sur `app` autant que sur `key`, sinon `maybeSingle`
+                // lèvera dès qu'une autre application portera la même clé.
+                //
+                // Et surtout : chaque file est lue puis réécrite séparément.
+                // L'ancien code lisait la file du directeur et écrivait cette
+                // même liste dans les deux — les notifications propres au
+                // responsable administratif étaient effacées à chaque
+                // inscription.
+                const APP_NOTIFS = 'notifications';
+                for (const cible of ['directeur', 'responsable_administratif']) {
+                    const cle = `notifs_${cible}`;
+                    const { data: actuel } = await _supa.from('app_state')
+                        .select('value').eq('app', APP_NOTIFS).eq('key', cle).maybeSingle();
+                    const liste = Array.isArray(actuel?.value) ? actuel.value : [];
+                    const { error: errNotif } = await _supa.from('app_state').upsert({
+                        app: APP_NOTIFS,
+                        key: cle,
+                        value: [notifObj, ...liste.filter(n => n.id !== notifObj.id)].slice(0, 50),
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'app,key' });
+                    if (errNotif) console.error('Notification non transmise à', cible, ':', errNotif.message);
+                }
             } catch (eNotif) { console.error("Notif error:", eNotif); }
 
-            showSuccessScreen(inscData.matricule);
+            showSuccessScreen(matricule);
 
         } catch (err) {
             console.error(err);
@@ -1575,7 +1616,41 @@ Merci de votre confiance.
         }
 
         // Charger le logo officiel de l'école
-        const logoDataUrl = await fetchImageAsDataUrl('/logo-ideal.png');
+        //
+        // Le PNG source fait 1032 × 375 px pour un rendu à 50 mm de large,
+        // soit plus de 500 dpi : embarqué tel quel, il pesait à lui seul
+        // l'essentiel des 1,58 Mo de chaque fiche. On le rééchantillonne
+        // avant de le confier à jsPDF.
+        //
+        // 688 × 250 n'est pas un choix arbitraire : le rapport 1032/375 se
+        // réduit à 344/125, donc seules les largeurs 344, 688 et 1032
+        // conservent le rapport 2,752 exactement, sans arrondi. 688 px donne
+        // 349 dpi à la taille d'impression.
+        //
+        // Le canvas n'est pas rempli d'un fond : il reste transparent, et le
+        // canal alpha du PNG d'origine (type 6, RVB + alpha) traverse le
+        // rééchantillonnage. Le fichier public/logo-ideal.png n'est pas
+        // touché, et le reste de l'application continue de l'utiliser tel
+        // quel — l'optimisation est locale à cette fonction.
+        const reduireLogo = (src) => new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                if (img.width <= 688) return resolve(src);
+                try {
+                    const cv = document.createElement('canvas');
+                    cv.width = 688;
+                    cv.height = Math.round(688 * img.height / img.width);
+                    const g = cv.getContext('2d');
+                    g.imageSmoothingEnabled = true;
+                    g.imageSmoothingQuality = 'high';
+                    g.drawImage(img, 0, 0, cv.width, cv.height);
+                    resolve(cv.toDataURL('image/png'));
+                } catch (e) { resolve(src); }
+            };
+            img.onerror = () => resolve(src);
+            img.src = src;
+        });
+        const logoDataUrl = await reduireLogo(await fetchImageAsDataUrl('/logo-ideal.png'));
 
         // ══════════════════════════════════════════════════════
         // PALETTE INSTITUTIONNELLE SOBRE — Executive Legal Design
@@ -1587,6 +1662,9 @@ Merci de votre confiance.
         const GRIS_L   = [226, 232, 240];  // Lignes et bordures (#E2E8F0)
         const GRIS_T   = [100, 116, 139];  // Texte des libellés (#64748B)
         const NOIR_T   = [15,  23,  42];   // Texte principal (#0F172A)
+        const BLEU     = [23,  76,  158];  // Bleu vif — titres de section, libellés
+        const BLEU_C   = [150, 191, 235];  // Bleu clair — cadres et encadrés
+        const BLEU_F   = [240, 246, 253];  // Fond bleuté très pâle
 
         const W = 210, H = 297;
         const ML = 14, MR = 14;
@@ -1595,58 +1673,89 @@ Merci de votre confiance.
         const nomParent = `${r1.prenom || ''} ${r1.nom || ''}`.trim();
 
         // ── Helpers de mise en page ───────────────────────────
+        // Le numéro est extrait du libellé plutôt qu'ajouté à côté : les
+        // appels restent identiques, aucun texte métier n'est réécrit.
         const section = (titre, yy) => {
-            doc.setFillColor(...NAVY_BG);
-            doc.rect(ML, yy, W - ML - MR, 7, 'F');
-            doc.setFillColor(...NAVY);
-            doc.rect(ML, yy, 3, 7, 'F');
-            doc.setTextColor(...NAVY);
-            doc.setFontSize(7.5);
+            const m = titre.match(/^(\d+)\.\s*(.*)$/);
+            const num = m ? m[1] : null;
+            const lib = m ? m[2] : titre;
+            if (num) {
+                doc.setFillColor(...BLEU);
+                doc.roundedRect(ML, yy, 5.4, 5.4, 0.9, 0.9, 'F');
+                doc.setTextColor(...BLANC);
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'bold');
+                doc.text(num, ML + 2.7, yy + 3.85, { align: 'center' });
+            }
+            doc.setTextColor(...BLEU);
+            doc.setFontSize(8.5);
             doc.setFont('helvetica', 'bold');
-            doc.text(titre.toUpperCase(), ML + 6, yy + 4.8);
-            return yy + 10;
+            doc.text(lib.toUpperCase(), ML + (num ? 8.5 : 0), yy + 3.9);
+            doc.setDrawColor(...BLEU_C);
+            doc.setLineWidth(0.3);
+            doc.line(ML, yy + 6.6, W - MR, yy + 6.6);
+            return yy + 8.6;
         };
 
+        // `shade` n'est plus honoré : la maquette validée ne comporte aucune
+        // bande alternée. Le paramètre reste dans la signature pour ne pas
+        // toucher aux dix-huit appels existants.
         const row = (fields, yy, shade) => {
-            if (shade) {
-                doc.setFillColor(...GRIS_F);
-                doc.rect(ML, yy - 1, W - ML - MR, 10, 'F');
-            }
             const colW = (W - ML - MR) / fields.length;
             fields.forEach(([label, val], i) => {
-                const x = ML + i * colW + 2;
-                doc.setTextColor(...GRIS_T);
-                doc.setFontSize(5.5);
+                const x = ML + i * colW;
+                doc.setTextColor(...BLEU);
+                doc.setFontSize(5.6);
                 doc.setFont('helvetica', 'normal');
                 doc.text(label.toUpperCase(), x, yy + 2);
                 doc.setTextColor(...NOIR_T);
                 doc.setFontSize(7.5);
                 doc.setFont('helvetica', 'bold');
-                doc.text(String(val || '—'), x, yy + 7, { maxWidth: colW - 4 });
+                doc.text(String(val || '—'), x, yy + 6.6, { maxWidth: colW - 4 });
             });
-            return yy + 11;
+            return yy + 10;
         };
 
         // ── FOND GÉNÉRAL ─────────────────────────────────────
         doc.setFillColor(...BLANC);
         doc.rect(0, 0, W, H, 'F');
 
-        // ── EN-TÊTE ÉLÉGANT ET SOBRE ─────────────────────────
-        // Ligne d'accent supérieure
-        doc.setFillColor(...NAVY);
-        doc.rect(0, 0, W, 4, 'F');
+        // ── BORDURE DOUBLE ───────────────────────────────────
+        //
+        // Elle remplace les deux bandeaux pleine page qui couraient en haut et
+        // en bas : à 6 mm du bord, le cadre les aurait traversés. Purement
+        // décorative, elle n'entre dans aucun calcul de coordonnées — le
+        // contenu garde ses marges de 14 mm, soit près de 7 mm de dégagement.
+        //
+        // 6 mm laisse la marge matérielle des imprimantes courantes, qui
+        // dépasse rarement 5 mm.
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.7);
+        doc.roundedRect(5, 5, W - 10, H - 10, 4, 4, 'S');
+        doc.setLineWidth(0.25);
+        doc.roundedRect(6.6, 6.6, W - 13.2, H - 13.2, 3, 3, 'S');
+
+        // ── EN-TÊTE ──────────────────────────────────────────
 
         // Photo élève (haut droite)
-        const PHOTO_W = 28, PHOTO_H = 34;
+        const PHOTO_W = 32, PHOTO_H = 38;
         const PHOTO_X = W - MR - PHOTO_W;
-        const PHOTO_Y = 10;
+        const PHOTO_Y = 11;
         
-        doc.setDrawColor(...GRIS_L);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(PHOTO_X - 1, PHOTO_Y - 1, PHOTO_W + 2, PHOTO_H + 2, 1, 1, 'S');
+        doc.setFillColor(...BLEU_F);
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(PHOTO_X - 1.6, PHOTO_Y - 1.6, PHOTO_W + 3.2, PHOTO_H + 3.2, 2, 2, 'FD');
         
         if (photoDataUrl) {
-            doc.addImage(photoDataUrl, 'JPEG', PHOTO_X, PHOTO_Y, PHOTO_W, PHOTO_H);
+            // Contenue dans son cadre, jamais déformée. Le recadreur produit
+            // un carré de 300 px ; l'étaler sur 28 × 34 mm allongeait le
+            // visage de 21 %. On conserve le cadre, on y centre l'image.
+            const ph = doc.getImageProperties(photoDataUrl);
+            const ech = Math.min(PHOTO_W / ph.width, PHOTO_H / ph.height);
+            const pw = ph.width * ech, phh = ph.height * ech;
+            doc.addImage(photoDataUrl, 'JPEG',
+                PHOTO_X + (PHOTO_W - pw) / 2, PHOTO_Y + (PHOTO_H - phh) / 2, pw, phh);
         } else {
             doc.setFillColor(...NAVY_BG);
             doc.rect(PHOTO_X, PHOTO_Y, PHOTO_W, PHOTO_H, 'F');
@@ -1656,48 +1765,97 @@ Merci de votre confiance.
         }
 
         // Logo officiel de l'école (haut gauche)
-        const LOGO_W = 20, LOGO_H = 20;
+        //
+        // Le logo mesure 1032 × 375 px : un rapport de 2,75. Il était rendu
+        // dans un carré de 20 × 20 mm, donc comprimé d'autant — le nom de
+        // l'école y devenait illisible à l'impression. La hauteur se déduit
+        // désormais de la largeur et du rapport réel du fichier, lu par
+        // `getImageProperties` plutôt que codé en dur : un logo remplacé un
+        // jour restera juste sans qu'on ait à y revenir.
+        const LOGO_W = 50;
+        let LOGO_H = 18;
         let textX = ML;
         if (logoDataUrl) {
             try {
-                doc.addImage(logoDataUrl, 'PNG', ML, 9, LOGO_W, LOGO_H);
-                textX = ML + LOGO_W + 4;
+                const lp = doc.getImageProperties(logoDataUrl);
+                LOGO_H = LOGO_W * (lp.height / lp.width);
+                // Le dernier argument demande à jsPDF de compresser le flux
+                // de l'image plutôt que d'y écrire du RVBA brut. Sur un logo
+                // en aplats, le gain est décisif : 1 548 613 o sans, 62 888 o
+                // avec, à résolution et rapport identiques.
+                doc.addImage(logoDataUrl, 'PNG', ML, 11, LOGO_W, LOGO_H, undefined, 'SLOW');
+                textX = ML + LOGO_W + 8;
             } catch (e) {}
         }
 
-        // En-tête gauche (Titres institutionnels)
-        doc.setTextColor(...GRIS_T);
-        doc.setFontSize(7);
+        // En-tête — deux registres séparés par un filet.
+        //
+        // Registre haut : le logo et le nom de l'établissement, à qui
+        // appartient le document. Registre bas : le titre du document et ses
+        // références. Le nom tient sur deux lignes, la place à droite du logo
+        // étant bornée par le cadre photo.
+        doc.setTextColor(...BLEU);
+        doc.setFontSize(13.5);
         doc.setFont('helvetica', 'bold');
-        doc.text('ÉCOLE INTERNATIONALE BILINGUE IDEAL', textX, 13);
+        doc.text('ÉCOLE INTERNATIONALE', textX, 19);
+        doc.text('BILINGUE IDEAL', textX, 26.5);
 
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
+        // Le filet s'arrête avant le cadre photo, qui descend jusqu'à 49 mm.
+        doc.setDrawColor(...BLEU);
+        doc.setLineWidth(0.5);
+        doc.line(ML, 32.5, PHOTO_X - 5, 32.5);
+
         doc.setTextColor(...NAVY);
-        doc.text('FICHE D\'INSCRIPTION OFFICIELLE', textX, 21);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FICHE D\'INSCRIPTION OFFICIELLE', ML, 41.5);
 
-        doc.setFontSize(7.5);
+        doc.setFontSize(8.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...GRIS_T);
-        doc.text(`Année scolaire ${data.annee_scolaire || ''}   ·   Bamako, Mali   ·   Dossier édité le ${dateGen}`, textX, 27);
+        doc.text(`Année scolaire ${data.annee_scolaire || ''}   \u2022   Bamako, Mali   \u2022   Dossier édité le ${dateGen}`, ML, 48);
 
-        // Cartouche de matricule sobre sous les titres
+        // Pictogrammes tracés en vectoriel : les polices standard de jsPDF
+        // n'embarquent aucun glyphe d'icône, et un emoji y sortirait vide.
+        const icoCarte = (x, yy) => {
+            doc.setDrawColor(...BLANC);
+            doc.setLineWidth(0.32);
+            doc.roundedRect(x, yy, 5.6, 4, 0.6, 0.6, 'S');
+            doc.setFillColor(...BLANC);
+            doc.circle(x + 1.7, yy + 2, 0.75, 'F');
+            doc.rect(x + 3.2, yy + 1.3, 1.8, 0.28, 'F');
+            doc.rect(x + 3.2, yy + 2.5, 1.8, 0.28, 'F');
+        };
+        const icoDossier = (x, yy) => {
+            doc.setDrawColor(...BLEU);
+            doc.setLineWidth(0.32);
+            doc.line(x, yy + 1, x + 2.1, yy + 1);
+            doc.line(x + 2.1, yy + 1, x + 2.8, yy + 1.9);
+            doc.roundedRect(x, yy + 1.5, 5.6, 3.4, 0.5, 0.5, 'S');
+        };
+
+        // Cartouches de références, en pastilles pleinement arrondies
         doc.setFillColor(...NAVY);
-        doc.roundedRect(ML, 33, 75, 8, 1, 1, 'F');
+        doc.roundedRect(ML, 53, 72, 10, 5, 5, 'F');
+        icoCarte(ML + 7, 56);
         doc.setTextColor(...BLANC);
-        doc.setFontSize(7);
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text(`MATRICULE : ${matricule}`, ML + 4, 38.3);
+        doc.text(`MATRICULE : ${matricule}`, ML + 16, 59.6);
 
         const typeLabel = 'DOSSIER D\'INSCRIPTION';
-        doc.setFillColor(...NAVY_BG);
-        doc.setDrawColor(...GRIS_L);
-        doc.roundedRect(ML + 80, 33, 50, 8, 1, 1, 'FD');
-        doc.setTextColor(...NAVY);
-        doc.text(typeLabel, ML + 105, 38.3, { align: 'center' });
+        doc.setFillColor(...BLEU_F);
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(ML + 80, 53, 60, 10, 5, 5, 'FD');
+        icoDossier(ML + 87, 56);
+        doc.setTextColor(...BLEU);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(typeLabel, ML + 96, 59.6);
 
         // ── IDENTITÉ DE L'ÉLÈVE ──────────────────────────────
-        let y = 49;
+        let y = 68;
         y = section("1. Identité de l'élève", y);
         y = row([['Nom de famille', (data.nom || '').toUpperCase()], ['Prénoms', data.prenom], ['Sexe', data.sexe === 'M' ? 'Garçon' : 'Fille']], y, false);
         y = row([['Date de naissance', data.date_naissance], ['Lieu de naissance', data.lieu_naissance], ['Groupe Sanguin', data.groupe_sanguin || 'Non précisé'], ['Nationalité', data.nationalite]], y, true);
@@ -1719,11 +1877,12 @@ Merci de votre confiance.
         // ── SERVICES SCOLAIRES (CANTINE) ─────────────────────
         y = section('4. Restauration scolaire (Cantine)', y);
         const cantineLib = data.cantine ? 'Inscrit à la cantine scolaire' : 'Non inscrit à la cantine';
-        doc.setFillColor(...(data.cantine ? NAVY_BG : GRIS_F));
-        doc.setDrawColor(...GRIS_L);
-        doc.roundedRect(ML, y, W - ML - MR, 9, 1, 1, 'FD');
-        doc.setTextColor(...NAVY);
-        doc.setFontSize(7);
+        doc.setFillColor(...(data.cantine ? BLEU_F : GRIS_F));
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(ML, y, W - ML - MR, 9, 2, 2, 'FD');
+        doc.setTextColor(...BLEU);
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'bold');
         doc.text(cantineLib.toUpperCase(), ML + 4, y + 5.8);
         if (data.cantine && (data.allergies || data.restrictions)) {
@@ -1732,7 +1891,7 @@ Merci de votre confiance.
             doc.setFont('helvetica', 'normal');
             doc.text(`Allergies : ${data.allergies || 'Aucune'}   |   Restrictions : ${data.restrictions || 'Aucune'}`, ML + 75, y + 5.8);
         }
-        y += 13;
+        y += 12;
 
         // ── DROIT À L'IMAGE ──────────────────────────────────
         y = section("5. Droit à l'image & Autorisation", y);
@@ -1740,22 +1899,21 @@ Merci de votre confiance.
             ? `Je soussigné(e), ${nomParent || 'le responsable légal'}, autorise l'École Internationale Bilingue IDEAL à photographier et/ou filmer l'élève ${nomComplet} dans le cadre des activités pédagogiques et scolaires, et à utiliser ces supports pour la communication officielle de l'établissement.`
             : `Je soussigné(e), ${nomParent || 'le responsable légal'}, N'AUTORISE PAS l'École Internationale Bilingue IDEAL à diffuser l'image de l'élève ${nomComplet}.`;
         const droitLines = doc.splitTextToSize(droitTexte, W - ML - MR - 8);
-        const droitH = droitLines.length * 3.8 + 8;
-        
-        doc.setFillColor(...GRIS_F);
-        doc.setDrawColor(...GRIS_L);
-        doc.roundedRect(ML, y, W - ML - MR, droitH, 1, 1, 'FD');
-        doc.setFillColor(...NAVY);
-        doc.rect(ML, y, 2.5, droitH, 'F');
-        
-        doc.setTextColor(...NAVY);
-        doc.setFontSize(7);
+        const droitH = droitLines.length * 3.6 + 7;
+
+        doc.setFillColor(...BLEU_F);
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(ML, y, W - ML - MR, droitH, 2, 2, 'FD');
+
+        doc.setTextColor(...BLEU);
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'bold');
         doc.text(data.droit_image ? 'AUTORISATION ACCORDÉE' : 'AUTORISATION REFUSEE', ML + 5, y + 4.5);
         doc.setTextColor(...GRIS_T);
         doc.setFontSize(6.5);
         doc.setFont('helvetica', 'normal');
-        doc.text(droitLines, ML + 5, y + 8.5);
+        doc.text(droitLines, ML + 5, y + 8.3);
         y += droitH + 4;
 
         // ── CERTIFICATION & SIGNATURES ───────────────────────
@@ -1764,7 +1922,7 @@ Merci de votre confiance.
         doc.setFontSize(6.5);
         doc.setFont('helvetica', 'italic');
         doc.text("Je certifie sur l'honneur l'exactitude des renseignements fournis ci-dessus et déclare accepter sans réserve le règlement intérieur.", ML, y);
-        y += 6;
+        y += 5;
 
         // Génération du QR Code
         const qrTmpDiv = document.createElement('div');
@@ -1776,32 +1934,35 @@ Merci de votre confiance.
             setTimeout(resolve, 400);
         });
 
-        const QR_SZ = 22;
+        const QR_SZ = 20;
         const sigTot = W - ML - MR;
         const sigW = (sigTot - QR_SZ - 8) / 2;
 
         // Signature du Responsable
         doc.setFillColor(...BLANC);
-        doc.setDrawColor(...GRIS_L);
-        doc.setLineWidth(0.4);
-        doc.roundedRect(ML, y, sigW, 22, 1, 1, 'FD');
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(ML, y, sigW, 18, 2, 2, 'FD');
         if (signaturePad && !signaturePad.isEmpty()) {
-            doc.addImage(signaturePad.toDataURL('image/png'), 'PNG', ML + 1, y + 1, sigW - 2, 20);
+            // Même traitement que le logo : sans compression, le tracé du
+            // parent embarquait à lui seul près de 470 Ko en RVBA brut.
+            doc.addImage(signaturePad.toDataURL('image/png'), 'PNG', ML + 1, y + 1, sigW - 2, 16, undefined, 'SLOW');
         }
         doc.setTextColor(...GRIS_T);
         doc.setFontSize(6);
         doc.setFont('helvetica', 'normal');
-        doc.text('Signature du responsable légal', ML + sigW / 2, y + 26, { align: 'center' });
+        doc.text('Signature du responsable légal', ML + sigW / 2, y + 22, { align: 'center' });
 
         // Cachet & Signature de la Direction
-        doc.setFillColor(...GRIS_F);
-        doc.setDrawColor(...GRIS_L);
-        doc.roundedRect(ML + sigW + 4, y, sigW, 22, 1, 1, 'FD');
+        doc.setFillColor(...BLEU_F);
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(ML + sigW + 4, y, sigW, 18, 2, 2, 'FD');
         doc.setTextColor(...GRIS_T);
         doc.setFontSize(6.5);
         doc.text(`Fait à Bamako, le ${dateGen}`, ML + sigW + 4 + sigW / 2, y + 6, { align: 'center' });
         doc.setFontSize(6);
-        doc.text('Cachet & Signature de la Direction', ML + sigW + 4 + sigW / 2, y + 26, { align: 'center' });
+        doc.text('Cachet & Signature de la Direction', ML + sigW + 4 + sigW / 2, y + 22, { align: 'center' });
 
         // QR Code de vérification
         const qrEl = qrTmpDiv.querySelector('canvas') || qrTmpDiv.querySelector('img');
@@ -1809,30 +1970,72 @@ Merci de votre confiance.
             const qrDU = qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src;
             const qrX = ML + sigW + 4 + sigW + 4;
             doc.setFillColor(...BLANC);
-            doc.setDrawColor(...GRIS_L);
-            doc.roundedRect(qrX - 1, y - 1, QR_SZ + 2, QR_SZ + 2, 1, 1, 'FD');
-            doc.addImage(qrDU, 'PNG', qrX, y, QR_SZ, QR_SZ);
+            doc.setDrawColor(...BLEU_C);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(qrX, y, QR_SZ, 18, 2, 2, 'FD');
+            doc.addImage(qrDU, 'PNG', qrX + 1.5, y + 1.5, QR_SZ - 3, 15, undefined, 'SLOW');
             doc.setTextColor(...GRIS_T);
-            doc.setFontSize(5.5);
-            doc.text('Vérification QR', qrX + QR_SZ / 2, y + QR_SZ + 4, { align: 'center' });
+            doc.setFontSize(6);
+            doc.text('Vérification QR', qrX + QR_SZ / 2, y + 22, { align: 'center' });
         }
         document.body.removeChild(qrTmpDiv);
 
-        // ── PIED DE PAGE DISCRET ─────────────────────────────
+        // ── PIED DE PAGE INSTITUTIONNEL ──────────────────────
+        //
+        // Il occupait un bandeau plein bord de 8 mm, que la bordure aurait
+        // traversé. Il rentre dans le cadre, en typographie, et reprend mot
+        // pour mot les mêmes mentions : établissement, ville, certification,
+        // matricule, et le message de fidélité des réinscriptions.
         const hasFooterMsg = window._isEleveRenouvele || (data.type_inscription === 'reinscription');
-        const footerH = hasFooterMsg ? 11 : 8;
-        doc.setFillColor(...NAVY);
-        doc.rect(0, H - footerH, W, footerH, 'F');
-        doc.setTextColor(...BLANC);
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text('ÉCOLE INTERNATIONALE BILINGUE IDEAL   ·   BAMAKO, MALI   ·   DOCUMENT OFFICIEL CERTIFIÉ', ML, H - (hasFooterMsg ? 6 : 2.8));
-        doc.text(`MATRICULE : ${matricule}`, W - MR, H - (hasFooterMsg ? 6 : 2.8), { align: 'right' });
+        const PIED_Y = H - 29.5, PIED_H = 16;
+
+        // Le message suit les légendes de signature plutôt qu'une position
+        // fixe : ancré au bas de la bande, il les chevauchait dès que le texte
+        // du droit à l'image passait à quatre lignes. La borne haute protège
+        // la bande institutionnelle, qui ne doit jamais être recouverte.
         if (hasFooterMsg) {
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(200, 235, 255);
-            doc.text('✨ Merci pour votre confiance renouvelée envers l\'Établissement IDEAL !', ML, H - 2);
+            doc.setFontSize(7.5);
+            doc.setTextColor(...BLEU);
+            doc.text('Merci pour votre confiance renouvelée envers l\'Établissement IDEAL !',
+                     W / 2, Math.min(y + 26, PIED_Y - 2.5), { align: 'center' });
         }
+
+        // Bloc de texte centré verticalement dans la bande du pied.
+        const blocPied = (txt, x, larg, taille, couleur, align) => {
+            doc.setFontSize(taille);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...couleur);
+            const lignes = doc.splitTextToSize(txt, larg);
+            const interligne = taille * 0.42;
+            let ty = PIED_Y + (PIED_H - lignes.length * interligne) / 2 + taille * 0.33;
+            lignes.forEach(t => {
+                doc.text(t, align === 'center' ? x + larg / 2 : x, ty, align === 'center' ? { align: 'center' } : undefined);
+                ty += interligne;
+            });
+        };
+
+        doc.setFillColor(...NAVY);
+        doc.roundedRect(ML, PIED_Y, 52, PIED_H, 3, 3, 'F');
+        blocPied('PROGRAMME PÉDAGOGIQUE \u2022 TRAVAUX AUTONOMES DU SOIR', ML + 4, 44, 7, BLANC, 'center');
+
+        doc.setFillColor(...BLEU_F);
+        doc.setDrawColor(...BLEU_C);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(ML + 56, PIED_Y, 64, PIED_H, 3, 3, 'FD');
+        blocPied('SUIVI PÉDAGOGIQUE & SUCCÈS SCOLAIRE', ML + 60, 56, 9.5, BLEU, 'center');
+
+        blocPied('SERVICE PÉDAGOGIQUE & ENSEIGNEMENT \u2014 ÉCOLE INTERNATIONALE BILINGUE IDEAL', ML + 124, 58, 7.5, NAVY, 'left');
+
+        // Repères documentaires, sous la bande et à l'intérieur du filet
+        // intérieur (290,4 mm). Volontairement secondaires : le matricule
+        // reste porté par la pastille du haut, ce rappel ne sert qu'à
+        // l'archivage. Même variable `matricule` que partout ailleurs.
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(...GRIS_T);
+        doc.text('DOCUMENT OFFICIEL CERTIFIÉ', ML, PIED_Y + PIED_H + 4);
+        doc.text(`Matricule : ${matricule}`, W - MR, PIED_Y + PIED_H + 4, { align: 'right' });
 
         doc.save(`Fiche_Inscription_${matricule}.pdf`);
     }
@@ -1845,16 +2048,12 @@ Merci de votre confiance.
         const { count: total } = await _supa.from('inscriptions').select('*', { count: 'exact', head: true });
         document.getElementById('kpi-total').textContent = total ?? 0;
 
-        // Réinscriptions
-        const { count: reinsc } = await _supa.from('inscriptions').select('*', { count: 'exact', head: true }).eq('type_inscription', 'reinscription');
-        document.getElementById('kpi-reinscriptions').textContent = reinsc ?? 0;
-
         // Cantine
         const { count: cantine } = await _supa.from('inscriptions').select('*', { count: 'exact', head: true }).eq('cantine', true);
         document.getElementById('kpi-cantine').textContent = cantine ?? 0;
 
         // Derniers dossiers
-        const { data: derniers } = await _supa.from('inscriptions').select('matricule, nom, prenoms, classe_demandee, type_inscription, created_at').order('created_at', { ascending: false }).limit(10);
+        const { data: derniers } = await _supa.from('inscriptions').select('matricule, nom, prenom, classe_demandee, type_inscription, created_at').order('created_at', { ascending: false }).limit(10);
 
         const container = document.getElementById('dashboard-table-container');
         if (!derniers || derniers.length === 0) {
@@ -1879,7 +2078,7 @@ Merci de votre confiance.
                 : `<span style="background:rgba(59,130,246,0.15); color:var(--accent); padding:2px 8px; border-radius:99px; font-size:0.75rem;">Nouvelle</span>`;
             html += `<tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:0.75rem; font-weight:700; color:var(--accent);">${row.matricule}</td>
-                <td style="padding:0.75rem;">${row.nom} ${row.prenoms}</td>
+                <td style="padding:0.75rem;">${row.nom} ${row.prenom}</td>
                 <td style="padding:0.75rem;">${row.classe_demandee}</td>
                 <td style="padding:0.75rem;">${badge}</td>
                 <td style="padding:0.75rem; color:var(--muted);">${date}</td>
@@ -1905,7 +2104,7 @@ Merci de votre confiance.
         if (isMatricule) {
             supaQuery = supaQuery.eq('matricule', query.toUpperCase());
         } else {
-            supaQuery = supaQuery.or(`nom.ilike.%${query}%,prenoms.ilike.%${query}%`);
+            supaQuery = supaQuery.or(`nom.ilike.%${query}%,prenom.ilike.%${query}%`);
         }
         supaQuery = supaQuery.limit(5);
 
@@ -1920,7 +2119,7 @@ Merci de votre confiance.
         for (const eleve of data) {
             html += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; background:rgba(59,130,246,0.05); border-color:var(--accent);">
                 <div>
-                    <div style="font-weight:700; font-size:1.1rem;">${eleve.nom} ${eleve.prenoms}</div>
+                    <div style="font-weight:700; font-size:1.1rem;">${eleve.nom} ${eleve.prenom}</div>
                     <div style="color:var(--accent); font-weight:600; font-size:0.875rem;">${eleve.matricule}</div>
                     <div style="color:var(--muted); font-size:0.875rem;">Classe : ${eleve.classe_demandee} — Année : ${eleve.annee_scolaire}</div>
                 </div>
