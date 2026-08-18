@@ -13,6 +13,8 @@
  * dans Supabase (app_state, app='rh', key='points_config').
  */
 
+import { deposeeATemps as preparationATemps } from './preparations'
+
 export const CONFIG_DEFAUT = {
   anneeScolaire: '2026-2027',
 
@@ -132,12 +134,23 @@ export function rapportDe(rapport, userId, nomComplet) {
   return !!t && !!nomComplet && t === nomComplet.trim().toLowerCase()
 }
 
-/** Une préparation est « à temps » si elle est déposée avant le début du cours */
-export function preparationATemps(prep) {
-  if (!prep || !prep.heure_depot || !prep.date_cours) return false
-  const cours = new Date(`${prep.date_cours}T${prep.heure_cours || '08:00:00'}`)
-  return new Date(prep.heure_depot) <= cours
-}
+/**
+ * Une préparation est « à temps » si elle a été déposée avant le début du
+ * cours, ou exactement à son heure de début.
+ *
+ * Réexportée depuis `src/lib/preparations.js`, seule source de la
+ * ponctualité. Cette fonction portait auparavant sa propre logique, qui
+ * divergeait sur trois points : elle interprétait l'heure du cours dans le
+ * fuseau de l'appareil plutôt que dans celui de l'école, elle ignorait le
+ * délai paramétré par l'administration, et elle recalculait à partir des
+ * horodatages sans consulter l'historique — ce dernier étant pourtant le seul
+ * endroit qui conserve la situation du dépôt initial après une correction.
+ *
+ * Ce qu'elle ne fait toujours pas, et ne doit pas faire : traiter une
+ * validation de la direction comme une preuve de ponctualité. Une préparation
+ * remise en retard puis validée reste comptée en retard.
+ */
+export { preparationATemps }
 
 /**
  * Calcule les points d'un enseignant.

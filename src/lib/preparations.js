@@ -188,8 +188,19 @@ export function echeance(dateCours, heureCours, delai = delaiConnu()) {
  */
 export function situationDepot(dateCours, heureCours, moment = new Date(), delai = delaiConnu()) {
   const limite = echeance(dateCours, heureCours, delai)
-  const instant = moment instanceof Date ? moment : new Date(moment)
-  if (!limite || isNaN(instant.getTime())) {
+
+  // `new Date(null)` vaut le 1er janvier 1970, donc « avant tout cours ». Un
+  // `heure_depot` absent produirait ainsi une ponctualité parfaite. Le
+  // paramètre par défaut ne couvre que `undefined` : on écarte explicitement
+  // tout ce qui n'est ni une date, ni une chaîne, ni un nombre.
+  const instant =
+    moment === undefined                                  ? new Date()
+    : moment instanceof Date                              ? moment
+    : (typeof moment === 'string' && moment.trim() !== '') ? new Date(moment)
+    : typeof moment === 'number'                          ? new Date(moment)
+    : null
+
+  if (!limite || !instant || isNaN(instant.getTime())) {
     return { valide: false, aTemps: null, retardMinutes: null, echeance: null }
   }
   const retardMs = instant.getTime() - limite.getTime()
@@ -214,23 +225,98 @@ export function statutAuDepot(dateCours, heureCours, moment) {
   return s.aTemps ? 'deposee' : 'en_retard'
 }
 
+// ─── Ponctualité au dépôt ───────────────────────────────────────────────────
+//
+// Qualité pédagogique et ponctualité sont deux dimensions indépendantes, et
+// le code doit les tenir séparées.
+//
+// Le statut courant ne peut pas servir à mesurer la ponctualité. La
+// transition `en_retard → validee` est autorisée : une préparation remise en
+// retard puis jugée bonne par la direction reste une préparation remise en
+// retard. Lire `status === 'validee'` comme une preuve de ponctualité
+// reviendrait à faire disparaître le retard dès que la direction valide — et
+// à fausser tout indicateur de suivi du personnel qui s'y appuierait.
+//
+// La ponctualité se lit donc à l'événement de dépôt, jamais à l'état présent.
+
+// Les actions qui témoignent d'un dépôt, et elles seules.
+//
+// Une fonction et non un tableau constant : `ACTIONS` est déclaré plus bas
+// dans ce fichier, et un `const` évalué au chargement du module le lirait
+// dans sa zone morte temporelle — le module lèverait une ReferenceError à
+// l'import, donc l'application entière refuserait de démarrer. Le corps
+// d'une fonction, lui, n'est évalué qu'à l'appel.
+const estActionDepot = action => action === ACTIONS.depot || action === ACTIONS.migration
+
+/** Les statuts qu'un dépôt peut poser. Tout autre valeur n'est pas un dépôt. */
+const STATUTS_DEPOT = ['deposee', 'en_retard']
+
 /**
- * Une préparation a-t-elle été déposée à temps ?
+ * L'événement de dépôt initial, tel que l'historique le conserve.
  *
- * Remplace `preparationATemps` de points.js, qui portait la seconde définition
- * concurrente. Les deux lisent désormais le même paramètre.
+ * Deux actions en témoignent. `depot`, posée par l'écran de saisie. Et
+ * `migration` : les 17 lignes normalisées le 18 août 2026 n'ont pas d'entrée
+ * `depot` — elles sont antérieures à l'historique — mais la migration y a
+ * inscrit le statut déduit de leur ponctualité réelle. C'est la seule trace
+ * qu'elles possèdent, et elle est fiable.
+ *
+ * On retient la PREMIÈRE : après une demande de correction, l'enseignant
+ * redépose, et ce second dépôt ne doit pas effacer le retard du premier.
+ *
+ * `null` si l'historique ne porte aucun témoignage exploitable — y compris
+ * lorsqu'une entrée de dépôt existe mais porte un statut incohérent.
  */
-export function deposeeATemps(prep) {
-  if (!prep) return false
-  // Le statut fait foi lorsqu'il a été posé au dépôt : il fige la règle en
-  // vigueur ce jour-là, et ne bougera pas si le paramètre change ensuite.
-  if (prep.status === 'deposee' || prep.status === 'validee') return true
-  if (prep.status === 'en_retard') return false
-  // Lignes antérieures à la nomenclature : on retombe sur le calcul. Une
-  // échéance inconnue ne vaut pas ponctualité — d'où le test sur `valide`.
-  const s = situationDepot(prep.date_cours, prep.heure_cours, prep.heure_depot)
-  return s.valide && s.aTemps
+export function evenementDepot(prep) {
+  const histo = Array.isArray(prep?.historique_statuts) ? prep.historique_statuts : []
+  // L'historique est construit par ajout en fin de tableau : l'ordre du
+  // tableau est l'ordre chronologique, sans dépendre du champ `le`.
+  const e = histo.find(x => x && estActionDepot(x.action))
+  if (!e) return null
+  // Une entrée de dépôt qui n'annonce ni « deposee » ni « en_retard » ne
+  // prouve rien. On préfère la déclarer inexploitable et recalculer.
+  return STATUTS_DEPOT.includes(e.statut) ? e : null
 }
+
+/**
+ * La préparation a-t-elle été déposée à temps ?
+ *
+ *   true  — déposée à temps
+ *   false — déposée en retard
+ *   null  — indéterminable avec les données disponibles
+ *
+ * Source unique de la ponctualité. Ne consulte JAMAIS `prep.status` : ni
+ * `validee`, ni `a_corriger`, ni aucune évolution postérieure au dépôt ne
+ * peut valoir preuve de ponctualité.
+ *
+ * Une donnée manquante ne devient jamais `true`. Dans le doute, on ne
+ * tranche pas — c'est à l'appelant de décider ce qu'il fait d'un `null`.
+ */
+export function ponctualiteAuDepot(prep) {
+  if (!prep) return null
+
+  // 1. L'historique fait foi : il fige la situation au moment du dépôt,
+  //    avant toute validation ou demande de correction.
+  const depot = evenementDepot(prep)
+  if (depot) return depot.statut === 'deposee'
+
+  // 2. Sans historique exploitable — les dépôts créés avant que l'écran ne
+  //    trace ses événements —, on recalcule depuis les horodatages réels.
+  const s = situationDepot(prep.date_cours, prep.heure_cours, prep.heure_depot)
+  if (s.valide) return s.aTemps
+
+  // 3. Ni trace, ni horodatage exploitable : on ne devine pas.
+  return null
+}
+
+/**
+ * Forme booléenne de `ponctualiteAuDepot`, pour les compteurs qui ne savent
+ * pas représenter l'indétermination.
+ *
+ * Convention : `null` compte comme « pas à temps ». Une ponctualité qu'on ne
+ * sait pas établir ne doit pas ouvrir droit à un avantage — mieux vaut ne pas
+ * créditer que créditer à tort.
+ */
+export const deposeeATemps = prep => ponctualiteAuDepot(prep) === true
 
 // ─── Appréciations du contrôle qualité ──────────────────────────────────────
 //
