@@ -14,6 +14,7 @@ import ActivitePersonnel from './ActivitePersonnel'
 import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
 import DocumentPrintStudio from './DocumentPrintStudio'
+import { statutDe, libelleStatut, ponctualiteAuDepot, raconter } from '../lib/preparations'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -95,6 +96,8 @@ export default function DirecteurApp({ user, onLogout }) {
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
   const [preparations, setPreparations] = useState([])
+  // Carte de préparation dépliée pour montrer sa frise d'historique.
+  const [prepOuverte, setPrepOuverte] = useState(null)
   const [checkpoints, setCheckpoints] = useState([])
   const [syntheseData, setSyntheseData] = useState([])
   const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
@@ -1478,12 +1481,85 @@ export default function DirecteurApp({ user, onLogout }) {
                 <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>Aucune préparation de cours enregistrée.</div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                  {preparations.map((prep, i) => (
+                  {preparations.map((prep, i) => {
+                    // `prep.titre` et `prep.classe_nom` n'ont jamais existé dans
+                    // la table : les dix-sept cartes affichaient « Préparation
+                    // sans titre » et « Classe : — ». Les données étaient là,
+                    // sous d'autres noms.
+                    //
+                    // Deux formes de préparation coexistent, et la carte doit
+                    // lire les deux. Les quinze dépôts d'origine portent un
+                    // fichier et une classe liée, sans matière ni contenu. Les
+                    // fiches saisies depuis l'emploi du temps portent matière,
+                    // groupe et rubriques, mais pas de classe liée.
+                    const st   = statutDe(prep.status)
+                    const aTemps = ponctualiteAuDepot(prep)
+                    const classe = prep.classes?.nom || prep.groupe || '—'
+                    const prof = prep.users ? `${prep.users.prenom || ''} ${prep.users.nom || ''}`.trim() : null
+                    const objectif = prep.contenu?.objectif
+                    const frise = Array.isArray(prep.historique_statuts) ? prep.historique_statuts : []
+                    const ouverte = prepOuverte === prep.id
+                    return (
                     <div key={prep.id || i} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)' }}>{prep.titre || 'Préparation sans titre'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Classe: <b>{prep.classe_nom || '—'}</b> · Matière: <b>{prep.matiere || '—'}</b></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)', minWidth: 0 }}>
+                          {prep.matiere || 'Préparation'}{prep.sequence ? ` · séquence ${prep.sequence}` : ''}
+                        </div>
+                        <span style={{ flex: 'none', fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20,
+                                       color: st.couleur, background: 'var(--card)', border: `1px solid ${st.couleur}` }}>
+                          {st.icone} {libelleStatut(prep.status)}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                        Classe : <b>{classe}</b>{prof && <> · Enseignant : <b>{prof}</b></>}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                        Cours du <b>{prep.date_cours || '—'}</b>{prep.heure_cours ? ` à ${String(prep.heure_cours).slice(0, 5)}` : ''}
+                        {aTemps !== null && (
+                          <> · <span style={{ color: aTemps ? 'var(--green)' : 'var(--amber)', fontWeight: 700 }}>
+                            {aTemps ? 'déposée à temps' : 'déposée après l’échéance'}
+                          </span></>
+                        )}
+                      </div>
+                      {objectif && (
+                        <div style={{ fontSize: 11, color: 'var(--text)', marginTop: 6, lineHeight: 1.4 }}>{objectif}</div>
+                      )}
+                      {prep.url_doc && (
+                        <a href={prep.url_doc} target="_blank" rel="noreferrer"
+                           style={{ display: 'inline-block', marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
+                          Ouvrir le document déposé
+                        </a>
+                      )}
+                      {frise.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <button onClick={() => setPrepOuverte(ouverte ? null : prep.id)}
+                                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                                           fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
+                            {ouverte ? '▾' : '▸'} Historique ({frise.length})
+                          </button>
+                          {ouverte && (
+                            <div style={{ marginTop: 6, borderLeft: '2px solid var(--border)', paddingLeft: 10 }}>
+                              {frise.map((e, k) => {
+                                const r = raconter(e)
+                                return (
+                                  <div key={k} style={{ marginBottom: 6 }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text)' }}>{r.texte}</div>
+                                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{r.quand}</div>
+                                    {r.commentaire && (
+                                      <div style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', marginTop: 2 }}>
+                                        « {r.commentaire} »
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

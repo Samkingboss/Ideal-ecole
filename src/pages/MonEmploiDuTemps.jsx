@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE, sequenceDansGrille, semainePaire } from '../lib/sequences'
 import FichePreparation from './FichePreparation'
+import { statutDe, libelleStatut } from '../lib/preparations'
 
 // Emploi du temps personnel de l'enseignant, en page d'accueil.
 //
@@ -54,7 +55,7 @@ const jourMois = iso =>
 
 export default function MonEmploiDuTemps({ user }) {
   const [creneaux, setCreneaux] = useState([])   // { jour, sequence, matiere, groupe }
-  const [preparees, setPreparees] = useState(new Set())  // "date|sequence"
+  const [preparees, setPreparees] = useState(new Map())  // "date|sequence" → statut
   const [ouverte, setOuverte] = useState(null)   // { creneau, dateCours }
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
@@ -106,11 +107,14 @@ export default function MonEmploiDuTemps({ user }) {
     const debut = dateDuJour(lundi, 1)
     const fin = dateDuJour(lundi, 5)
     const { data } = await supabase.from('preparations')
-      .select('date_cours, sequence')
+      .select('date_cours, sequence, status')
       .eq('user_id', user.id).gte('date_cours', debut).lte('date_cours', fin)
-    setPreparees(new Set((data || [])
+    // On retient le statut, pas seulement l'existence. Une séance déposée en
+    // retard ou renvoyée pour correction se voyait jusqu'ici exactement comme
+    // une séance prête : la pastille était verte dans les trois cas.
+    setPreparees(new Map((data || [])
       .filter(p => p.sequence != null)
-      .map(p => `${p.date_cours}|${p.sequence}`)))
+      .map(p => [`${p.date_cours}|${p.sequence}`, p.status])))
   }
 
   // Case affichée pour un jour et une séquence, en tenant compte de la
@@ -135,6 +139,7 @@ export default function MonEmploiDuTemps({ user }) {
     }
   }
   const estPrete = se => preparees.has(`${se.date}|${se.sequence}`)
+  const statutSeance = se => preparees.get(`${se.date}|${se.sequence}`) || null
   const pretes = seances.filter(estPrete).length
 
   // Séquence en cours, pour se repérer d'un coup d'œil dans la journée.
@@ -234,12 +239,16 @@ export default function MonEmploiDuTemps({ user }) {
                     const c = se
                     const cetteCase = enCours && jour === jourActuel
                     const prete = se && estPrete(se)
+                    // La pastille prend la couleur et l'icône du statut, tirées
+                    // de la source unique : une séance déposée en retard ne se
+                    // signale plus comme une séance prête.
+                    const st = prete ? statutDe(statutSeance(se)) : null
                     return (
                       <td key={i}
                         onClick={se ? () => setOuverte({ creneau: se, dateCours: se.date, lectureSeule: archive }) : undefined}
                         title={se
                           ? (archive ? 'Semaine archivée — consultation seule'
-                             : prete ? 'Séance préparée — cliquez pour revoir la fiche'
+                             : prete ? `${libelleStatut(statutSeance(se))} — cliquez pour revoir la fiche`
                              : 'Cliquez pour préparer cette séance')
                           : undefined}
                         style={{
@@ -252,14 +261,16 @@ export default function MonEmploiDuTemps({ user }) {
                           <>
                             <div style={{ fontWeight: 700 }}>{c.matiere}</div>
                             <div style={{ fontSize: 10, opacity: .75 }}>{c.groupe}</div>
-                            {/* Pastille verte : cette séance est préparée. */}
+                            {/* Pastille de statut. La couleur ne fait jamais
+                                foi seule : l'icône la double, pour qui ne
+                                distingue pas le vert de l'ambre. */}
                             {prete && (
-                              <span aria-label="Séance préparée" style={{
+                              <span aria-label={libelleStatut(statutSeance(se))} style={{
                                 position: 'absolute', right: 4, bottom: 3, width: 13, height: 13,
-                                borderRadius: '50%', background: 'var(--green, #2e9e4f)', color: '#fff',
+                                borderRadius: '50%', background: st.couleur, color: '#fff',
                                 fontSize: 9, lineHeight: '13px', fontWeight: 800,
                                 boxShadow: '0 0 0 1.5px #fff',
-                              }}>✓</span>
+                              }}>{st.icone}</span>
                             )}
                           </>
                         ) : <span style={{ color: 'var(--muted)', opacity: .4 }}>—</span>}
