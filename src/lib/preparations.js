@@ -22,20 +22,58 @@ import { supabase } from './supabase'
 // action. L'enseignant dépose, la direction valide ou demande une correction.
 
 export const STATUTS = {
-  brouillon:  { code: 'brouillon',  libelle: 'Brouillon',  couleur: 'var(--muted)',  icone: '✎',
+  brouillon:  { code: 'brouillon',  libelle: 'Brouillon',  couleur: 'var(--muted)',  icone: '✎', officiel: true,
                 aide: "Commencée, pas encore déposée. Vous seul la voyez." },
-  deposee:    { code: 'deposee',    libelle: 'Déposée',    couleur: 'var(--accent)', icone: '📤',
+  deposee:    { code: 'deposee',    libelle: 'Déposée',    couleur: 'var(--accent)', icone: '📤', officiel: true,
                 aide: "Déposée dans les temps, en attente du contrôle de la direction." },
-  en_retard:  { code: 'en_retard',  libelle: 'En retard',  couleur: 'var(--amber)',  icone: '⏰',
+  en_retard:  { code: 'en_retard',  libelle: 'En retard',  couleur: 'var(--amber)',  icone: '⏰', officiel: true,
                 aide: "Déposée après l'échéance. Le travail est enregistré, le retard est constaté." },
-  a_corriger: { code: 'a_corriger', libelle: 'À corriger', couleur: 'var(--red)',    icone: '↩',
+  a_corriger: { code: 'a_corriger', libelle: 'À corriger', couleur: 'var(--red)',    icone: '↩', officiel: true,
                 aide: "La direction demande une reprise." },
-  validee:    { code: 'validee',    libelle: 'Validée',    couleur: 'var(--green)',  icone: '✓',
+  validee:    { code: 'validee',    libelle: 'Validée',    couleur: 'var(--green)',  icone: '✓', officiel: true,
                 aide: "Contrôlée et validée par la direction." },
 }
 
-export const libelleStatut = code => STATUTS[code]?.libelle || code || '—'
-export const statutDe = code => STATUTS[code] || STATUTS.deposee
+// ─── Le repli, pour tout code absent de la nomenclature ─────────────────────
+//
+// `statutDe` retombait sur `deposee`. Une préparation au statut inconnu — un
+// ancien libellé résiduel, une colonne oubliée dans un SELECT, une ligne
+// insérée à la main — s'affichait donc en bleu avec l'icône du dépôt : la
+// direction l'aurait lue comme une préparation régulièrement déposée.
+//
+// Un statut qu'on ne connaît pas ne doit jamais emprunter l'apparence d'un
+// statut officiel. Le repli est gris et porte un point d'interrogation : il
+// se voit, et il n'affirme rien.
+//
+// Il conserve la valeur brute quand elle existe. Afficher « acceptable »
+// plutôt que « Statut inconnu » dit à la direction ce qu'elle a réellement
+// sous les yeux, et lui permet de le signaler.
+
+const STATUT_INCONNU = {
+  code: null,
+  libelle: 'Statut inconnu',
+  couleur: 'var(--muted)',
+  icone: '?',
+  officiel: false,
+  aide: "Ce statut ne fait pas partie de la nomenclature de la plateforme.",
+}
+
+/** Le statut correspondant à un code, ou un repli neutre s'il est inconnu. */
+export const statutDe = code => {
+  if (STATUTS[code]) return STATUTS[code]
+  const brut = typeof code === 'string' ? code.trim() : ''
+  return { ...STATUT_INCONNU, code: brut || null, libelle: brut || STATUT_INCONNU.libelle }
+}
+
+/**
+ * Libellé lisible d'un statut. Délègue à `statutDe` : les deux fonctions ne
+ * peuvent donc pas diverger, ce qui arrivait — l'une répondait « Déposée »
+ * pour un code inconnu, l'autre le code brut.
+ */
+export const libelleStatut = code => statutDe(code).libelle
+
+/** Le code appartient-il à la nomenclature officielle ? */
+export const estStatutOfficiel = code => Boolean(STATUTS[code])
 
 // Statuts qui attendent une action de la direction.
 export const A_CONTROLER = ['deposee', 'en_retard']
