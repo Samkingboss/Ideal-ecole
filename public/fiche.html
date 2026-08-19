@@ -291,12 +291,23 @@ window.addEventListener('load', async () => {
 
         // Photo — URL signée Supabase (contourne les restrictions d'accès public)
         const photoZone = document.getElementById('photo-zone');
-        const photoPath = `photos/${ins.matricule}.jpg`;
+        // `photo_chemin` fait foi depuis le passage du bucket en privé : il
+        // porte le UUID sous lequel le fichier a réellement été déposé.
+        //
+        // Le chemin au matricule ne subsiste qu'en repli, pour les dossiers
+        // antérieurs à août 2026 dont la colonne serait vide. Employé seul, il
+        // ne trouvait plus rien : les inscriptions récentes nomment leurs
+        // fichiers d'après un UUID, jamais d'après le matricule.
+        const photoPath = ins.photo_chemin || `photos/${ins.matricule}.jpg`;
         const { data: signedData } = await _supa.storage
             .from('inscriptions')
             .createSignedUrl(photoPath, 3600); // valable 1 heure
 
-        const photoSrc = signedData?.signedUrl || ins.photo_url;
+        // Plus de repli sur `ins.photo_url` : le bucket est privé, ces
+        // adresses publiques ne résolvent plus. Certaines répondent encore par
+        // rémanence du cache CDN, ce qui rendrait l'affichage dépendant du
+        // nœud et de l'heure. Mieux vaut le placeholder, franc et prévisible.
+        const photoSrc = signedData?.signedUrl || null;
 
         if (photoSrc) {
             const img = new Image();
