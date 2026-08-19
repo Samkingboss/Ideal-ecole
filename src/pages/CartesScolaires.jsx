@@ -121,8 +121,12 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
         <div style={{ fontSize: mm(3.75), fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eleve.prenom} {eleve.nom}</div>
         <div style={{ marginTop: mm(1.2), fontSize: mm(2.05), fontWeight: 750, color: '#F28C28' }}>{eleve.classe_nom}</div>
         <div style={{ marginTop: mm(2.4), fontSize: mm(2.15), fontWeight: 850, letterSpacing: mm(.08) }}>{eleve.matricule}</div>
-        <div style={{ marginTop: mm(3.1), paddingTop: mm(1.7), borderTop: `${mm(.25)}px solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
-          <span>CARTE D'ÉLÈVE</span><span>2026—2027</span>
+        <div style={{ marginTop: mm(2.5), paddingTop: mm(1.3), borderTop: `${mm(.25)}px solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
+          <span>CARTE D'ÉLÈVE</span>
+          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: mm(.35) }}>
+            <span style={{ color: '#174E72', fontFamily: '"Brush Script MT", "Segoe Script", cursive', fontSize: mm(2.25), fontWeight: 700, lineHeight: 1, transform: 'rotate(-4deg)', borderBottom: `${mm(.18)}px solid #174E72`, padding: `0 ${mm(.8)}px ${mm(.25)}px` }}>Direction IDEAL</span>
+            <span>2026—2027</span>
+          </span>
         </div>
         <div style={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', gap: mm(.7) }}>
           {['#95D600', '#08C9C9', '#F2A400', '#E50093'].map(couleur => <span key={couleur} style={{ width: mm(1.3), height: mm(1.3), borderRadius: '50%', background: couleur }} />)}
