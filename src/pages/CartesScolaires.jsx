@@ -103,7 +103,7 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
             <div style={{ marginTop: mm(1.7), fontSize: mm(2.15), fontWeight: 850, letterSpacing: mm(.08) }}>{eleve.matricule}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#174E72' }}>
-            <span style={{ fontFamily: '"Brush Script MT", "Segoe Script", cursive', fontSize: mm(2.35), fontWeight: 700, lineHeight: 1, transform: 'rotate(-4deg)', borderBottom: `${mm(.18)}px solid #174E72`, padding: `0 ${mm(.7)}px ${mm(.3)}px`, whiteSpace: 'nowrap' }}>Direction IDEAL</span>
+            <span aria-hidden="true" style={{ display: 'block', width: mm(13), height: mm(3.1), borderBottom: `${mm(.18)}px solid #174E72` }} />
             <span style={{ marginTop: mm(.55), fontSize: mm(1.15), fontWeight: 800, color: '#7C8993', letterSpacing: mm(.05) }}>LE DIRECTEUR</span>
           </div>
         </div>
