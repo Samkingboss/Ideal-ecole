@@ -1396,15 +1396,28 @@
             const refFichiers = crypto.randomUUID();
 
             // 4. Upload photo vers Supabase Storage
-            let photoUrl = null;
+            //
+            // Le bucket est privé : `getPublicUrl` produirait une adresse qui
+            // ne résout plus. C'est le chemin relatif qu'on conserve — la
+            // lecture passera par `createSignedUrl`.
+            //
+            // `upsert` est retiré : le UUID est neuf à chaque dossier, donc le
+            // chemin est libre, et la policy Storage n'autorise que l'INSERT.
+            // Le garder réclamerait un droit d'UPDATE que nous n'accordons pas.
+            //
+            // L'échec est bloquant. Jusqu'ici il était avalé par un `if
+            // (!photoErr)` sans `else` : le dossier partait sans photo, le
+            // parent voyait l'écran de succès, et personne ne le savait.
+            let photoChemin = null;
             if (finalPhotoDataUrl) {
                 const photoBlob = dataURLtoBlob(finalPhotoDataUrl);
                 const photoPath = `photos/${refFichiers}.jpg`;
-                const { error: photoErr } = await _supa.storage.from('inscriptions').upload(photoPath, photoBlob, { contentType: 'image/jpeg', upsert: true });
-                if (!photoErr) {
-                    const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(photoPath);
-                    photoUrl = pubData.publicUrl;
+                const { error: photoErr } = await _supa.storage.from('inscriptions').upload(photoPath, photoBlob, { contentType: 'image/jpeg' });
+                if (photoErr) {
+                    throw new Error("L'envoi de la photo de l'élève a échoué : " + photoErr.message
+                        + "\n\nLe dossier n'a pas été enregistré. Vérifiez votre connexion et réessayez.");
                 }
+                photoChemin = photoPath;
             }
 
             // 5. Upload documents
@@ -1431,22 +1444,25 @@
                     const file = input.files[0];
                     const ext = file.name.split('.').pop();
                     const path = `documents/${refFichiers}/${doc.nom}.${ext}`;
-                    const { error: docErr } = await _supa.storage.from('inscriptions').upload(path, file, { upsert: true });
-                    if (!docErr) {
-                        const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(path);
-                        documents.push({
-                            type: doc.nom,
-                            nom_fichier: file.name,
-                            url: pubData.publicUrl,
-                            taille_kb: Math.round(file.size / 1024),
-                            chemin: path,
-                        });
+                    const { error: docErr } = await _supa.storage.from('inscriptions').upload(path, file);
+                    if (docErr) {
+                        // Le parent a délibérément joint cette pièce : la perdre
+                        // en silence reviendrait à créer un dossier incomplet
+                        // qu'il croirait complet.
+                        throw new Error("L'envoi de la pièce « " + doc.nom + " » a échoué : " + docErr.message
+                            + "\n\nLe dossier n'a pas été enregistré. Vérifiez votre connexion et réessayez.");
                     }
+                    documents.push({
+                        type: doc.nom,
+                        nom_fichier: file.name,
+                        taille_kb: Math.round(file.size / 1024),
+                        chemin: path,
+                    });
                 }
             }
 
             // 6. Upload signature
-            let signatureUrl = null;
+            let signatureChemin = null;
             if (signaturePad && !signaturePad.isEmpty()) {
                 // Vérification préventive : un canvas de largeur 0 (problème
                 // d'initialisation sur tablette) retournerait "data:," et ferait
@@ -1461,13 +1477,16 @@
                 }
                 const sigBlob = dataURLtoBlob(sigDataUrl);
                 const sigPath = `signatures/${refFichiers}.png`;
-                try {
-                    const { error: sigErr } = await _supa.storage.from('inscriptions').upload(sigPath, sigBlob, { contentType: 'image/png', upsert: true });
-                    if (!sigErr) {
-                        const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(sigPath);
-                        signatureUrl = pubData.publicUrl;
-                    }
-                } catch (e) { /* L'upload de signature est non bloquant */ }
+                // L'échec n'est plus rattrapé. Le commentaire d'origine disait
+                // « non bloquant » : une signature perdue rendait pourtant le
+                // dossier inopposable, et `validateStep(8)` la rend obligatoire.
+                // Un `catch` vide contredisait cette exigence.
+                const { error: sigErr } = await _supa.storage.from('inscriptions').upload(sigPath, sigBlob, { contentType: 'image/png' });
+                if (sigErr) {
+                    throw new Error("L'envoi de la signature a échoué : " + sigErr.message
+                        + "\n\nLe dossier n'a pas été enregistré. Vérifiez votre connexion et réessayez.");
+                }
+                signatureChemin = sigPath;
             }
 
             // 4. Création atomique du dossier — responsable(s) et inscription
@@ -1499,7 +1518,7 @@
                     annee_scolaire: `${startYear}-${endYear}`,
                     type_inscription: window._inscriptionType || 'nouvelle',
                 },
-                fichiers: { photo_url: photoUrl, signature_url: signatureUrl, documents },
+                fichiers: { photo_chemin: photoChemin, signature_chemin: signatureChemin, documents },
             };
 
             const { data: retour, error: rpcErr } = await _supa.rpc('creer_inscription', {
@@ -1546,8 +1565,11 @@
                 ...dossier.eleve,
                 ...dossier.dossier,
                 matricule,
-                photo_url: photoUrl,
-                signature_url: signatureUrl,
+                // Plus d'URL publique : le bucket est privé. Le PDF généré
+                // juste après lit `finalPhotoDataUrl`, encore en mémoire, donc
+                // son rendu est inchangé.
+                photo_chemin: photoChemin,
+                signature_chemin: signatureChemin,
                 responsable1: r1Data,
                 responsable2: r2Data,
             };
