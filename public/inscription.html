@@ -1346,7 +1346,17 @@
                 { id: 'doc-bulletin', nom: 'bulletin' },
                 { id: 'doc-transfert', nom: 'transfert' },
             ];
-            const docUrls = {};
+            // Les pièces montaient bien dans le bucket, mais `docUrls` n'était
+            // relu nulle part : la base ne savait pas à quel dossier ces
+            // fichiers appartenaient, et le UUID du chemin n'était persisté
+            // qu'incidemment, noyé dans photo_url et signature_url. Un dossier
+            // sans photo ni signature perdait donc ses pièces définitivement.
+            //
+            // Le nom d'origine et la taille étaient disponibles ici depuis
+            // toujours — `file.name` n'était lu que pour son extension. Ils
+            // partent maintenant vers `creer_inscription`, qui les range dans
+            // `documents_inscription` au sein de la même transaction.
+            const documents = [];
             for (const doc of docFields) {
                 const input = document.getElementById(doc.id);
                 if (input.files && input.files[0]) {
@@ -1356,7 +1366,13 @@
                     const { error: docErr } = await _supa.storage.from('inscriptions').upload(path, file, { upsert: true });
                     if (!docErr) {
                         const { data: pubData } = _supa.storage.from('inscriptions').getPublicUrl(path);
-                        docUrls[doc.nom] = pubData.publicUrl;
+                        documents.push({
+                            type: doc.nom,
+                            nom_fichier: file.name,
+                            url: pubData.publicUrl,
+                            taille_kb: Math.round(file.size / 1024),
+                            chemin: path,
+                        });
                     }
                 }
             }
@@ -1415,7 +1431,7 @@
                     annee_scolaire: `${startYear}-${endYear}`,
                     type_inscription: window._inscriptionType || 'nouvelle',
                 },
-                fichiers: { photo_url: photoUrl, signature_url: signatureUrl },
+                fichiers: { photo_url: photoUrl, signature_url: signatureUrl, documents },
             };
 
             const { data: retour, error: rpcErr } = await _supa.rpc('creer_inscription', {
