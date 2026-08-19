@@ -29,12 +29,6 @@ const C = {
   gris:    '#64748B',
 }
 
-const TEINTES = {
-  prestige: { haut: '#1A2B4C', bas: '#174E9E' },
-  emerald:  { haut: '#064E3B', bas: '#047857' },
-  gold:     { haut: '#78350F', bas: '#B45309' },
-}
-
 const ORIGINE = typeof window !== 'undefined' ? window.location.origin : ''
 
 function Placeholder({ eleve, mm }) {
@@ -103,14 +97,18 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
       {/* Bloc d'identité compact et éditorial. */}
       <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(60), bottom: mm(5), color: '#16384F' }}>
         <div style={{ fontSize: mm(3.75), fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eleve.prenom} {eleve.nom}</div>
-        <div style={{ marginTop: mm(1.2), fontSize: mm(2.05), fontWeight: 750, color: '#F28C28' }}>{eleve.classe_nom}</div>
-        <div style={{ marginTop: mm(2.4), fontSize: mm(2.15), fontWeight: 850, letterSpacing: mm(.08) }}>{eleve.matricule}</div>
-        <div style={{ marginTop: mm(2.5), paddingTop: mm(1.3), borderTop: `${mm(.25)}px solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
-          <span>CARTE D'ÉLÈVE</span>
-          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: mm(.35) }}>
-            <span style={{ color: '#174E72', fontFamily: '"Brush Script MT", "Segoe Script", cursive', fontSize: mm(2.25), fontWeight: 700, lineHeight: 1, transform: 'rotate(-4deg)', borderBottom: `${mm(.18)}px solid #174E72`, padding: `0 ${mm(.8)}px ${mm(.25)}px` }}>Direction IDEAL</span>
-            <span>2026—2027</span>
-          </span>
+        <div style={{ marginTop: mm(1.5), display: 'grid', gridTemplateColumns: `1fr ${mm(16)}px`, gap: mm(2), alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: mm(2.05), fontWeight: 750, color: '#F28C28' }}>{eleve.classe_nom}</div>
+            <div style={{ marginTop: mm(1.7), fontSize: mm(2.15), fontWeight: 850, letterSpacing: mm(.08) }}>{eleve.matricule}</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#174E72' }}>
+            <span style={{ fontFamily: '"Brush Script MT", "Segoe Script", cursive', fontSize: mm(2.35), fontWeight: 700, lineHeight: 1, transform: 'rotate(-4deg)', borderBottom: `${mm(.18)}px solid #174E72`, padding: `0 ${mm(.7)}px ${mm(.3)}px`, whiteSpace: 'nowrap' }}>Direction IDEAL</span>
+            <span style={{ marginTop: mm(.55), fontSize: mm(1.15), fontWeight: 800, color: '#7C8993', letterSpacing: mm(.05) }}>LE DIRECTEUR</span>
+          </div>
+        </div>
+        <div style={{ marginTop: mm(1.7), paddingTop: mm(1.1), borderTop: `${mm(.25)}px solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
+          <span>CARTE D'ÉLÈVE</span><span>2026—2027</span>
         </div>
         <div style={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', gap: mm(.7) }}>
           {['#95D600', '#08C9C9', '#F2A400', '#E50093'].map(couleur => <span key={couleur} style={{ width: mm(1.3), height: mm(1.3), borderRadius: '50%', background: couleur }} />)}
@@ -121,9 +119,8 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
 }
 
 // ── VERSO ────────────────────────────────────────────────────────────
-export function CarteVerso({ eleve, theme = 'prestige', echelle = ECHELLE }) {
+export function CarteVerso({ eleve, echelle = ECHELLE }) {
   const mm = v => v * echelle
-  const t = TEINTES[theme] || TEINTES.prestige
   // Même URL de vérification que le QR de la fiche d'inscription.
   const lien = `${ORIGINE}/fiche.html?matricule=${encodeURIComponent(eleve.matricule || '')}`
 
@@ -137,7 +134,7 @@ export function CarteVerso({ eleve, theme = 'prestige', echelle = ECHELLE }) {
     }}>
 
       <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)}px solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
-      <div style={{ position: 'absolute', inset: `${mm(2)}px ${mm(2)}px auto`, height: mm(27), background: `linear-gradient(155deg, ${t.haut}, ${t.bas})` }} />
+      <div style={{ position: 'absolute', inset: `${mm(2)}px ${mm(2)}px auto`, height: mm(27), background: '#174E72' }} />
       <div style={{ position: 'absolute', left: mm(2), right: mm(2), top: mm(27), bottom: mm(2), background: '#F1F2F3' }} />
 
       <div style={{ position: 'absolute', top: mm(4.5), left: mm(5), right: mm(5), display: 'flex', alignItems: 'center', gap: mm(1.4), color: '#fff' }}>
@@ -196,7 +193,6 @@ export default function CartesScolaires() {
   const [selectedClasse, setSelectedClasse] = useState('TOUTES')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEleve, setSelectedEleve] = useState(null)
-  const [themeCard, setThemeCard] = useState('prestige') // 'prestige' | 'emerald' | 'gold'
   const [showModalPrint, setShowModalPrint] = useState(false)
 
   useEffect(() => {
@@ -540,18 +536,6 @@ export default function CartesScolaires() {
           </select>
         </div>
 
-        <div style={{ width: 180 }}>
-          <label style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Thème de la Carte</label>
-          <select
-            value={themeCard}
-            onChange={(e) => setThemeCard(e.target.value)}
-            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 13, fontWeight: 700, background: '#fff' }}
-          >
-            <option value="prestige">👑 Prestige Bleu Nuit &amp; Or</option>
-            <option value="emerald">🌿 Émeraude Bilingue</option>
-            <option value="gold">✨ Or Impérial</option>
-          </select>
-        </div>
       </div>
 
       {/* Grille principale : Liste des élèves à gauche, Aperçu de la carte à droite */}
@@ -681,11 +665,11 @@ export default function CartesScolaires() {
             {/* Rendu des Cartes — format vertical ID-1, 54 × 85,6 mm */}
             <div id="print-single-card-area" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 28 }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <CarteRecto eleve={selectedEleve} theme={themeCard} />
+                <CarteRecto eleve={selectedEleve} />
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: 0.5 }}>RECTO</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <CarteVerso eleve={selectedEleve} theme={themeCard} />
+                <CarteVerso eleve={selectedEleve} />
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: 0.5 }}>VERSO</div>
               </div>
             </div>
@@ -697,8 +681,8 @@ export default function CartesScolaires() {
 
       {selectedEleve && (
         <div id="carte-impression">
-          <CarteRecto eleve={selectedEleve} theme={themeCard} echelle={PX_MM} />
-          <CarteVerso eleve={selectedEleve} theme={themeCard} echelle={PX_MM} />
+          <CarteRecto eleve={selectedEleve} echelle={PX_MM} />
+          <CarteVerso eleve={selectedEleve} echelle={PX_MM} />
         </div>
       )}
 
@@ -742,7 +726,7 @@ export default function CartesScolaires() {
                     <div className="feuille">
                       <div className="grille">
                         {page.map(el => (
-                          <CarteRecto key={el.id} eleve={el} theme={themeCard} echelle={PX_MM} />
+                          <CarteRecto key={el.id} eleve={el} echelle={PX_MM} />
                         ))}
                       </div>
                     </div>
@@ -750,7 +734,7 @@ export default function CartesScolaires() {
                       <div className="grille">
                         {miroirRangees(page).map((el, i) => (
                           el
-                            ? <CarteVerso key={el.id} eleve={el} theme={themeCard} echelle={PX_MM} />
+                            ? <CarteVerso key={el.id} eleve={el} echelle={PX_MM} />
                             : <div key={`vide-${i}`} />
                         ))}
                       </div>
