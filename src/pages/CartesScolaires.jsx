@@ -35,23 +35,7 @@ const TEINTES = {
   gold:     { haut: '#78350F', bas: '#B45309' },
 }
 
-const ECOLE = 'Ideal École Internationale Bilingue'
 const ORIGINE = typeof window !== 'undefined' ? window.location.origin : ''
-
-// Découpe courbe entre la zone colorée et la zone blanche. Une courbe de
-// Bézier en SVG plutôt qu'un border-radius : elle reste nette à 300 dpi et
-// ne produit aucun artefact à l'impression.
-function VagueBas({ couleur, hauteur = 10 }) {
-  return (
-    <svg
-      viewBox="0 0 100 12"
-      preserveAspectRatio="none"
-      style={{ position: 'absolute', left: 0, right: 0, bottom: -0.5, width: '100%', height: `${hauteur}%`, display: 'block' }}
-    >
-      <path d="M0,12 L0,4 Q25,-2 50,3.5 T100,2 L100,12 Z" fill={couleur} />
-    </svg>
-  )
-}
 
 function Placeholder({ eleve, mm }) {
   return (
@@ -147,58 +131,50 @@ export function CarteVerso({ eleve, theme = 'prestige', echelle = ECHELLE }) {
     <div className="carte" style={{
       width: mm(CARTE_L), height: mm(CARTE_H), borderRadius: mm(3),
       overflow: 'hidden', position: 'relative', background: '#fff',
-      boxShadow: '0 6px 18px rgba(15,23,42,0.18)',
+      boxShadow: '0 10px 26px rgba(15,23,42,0.20)',
       fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
       color: C.texte, boxSizing: 'border-box',
     }}>
 
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: '20%',
-        background: `linear-gradient(160deg, ${t.haut} 0%, ${t.bas} 100%)`,
-      }}>
-        <div style={{ padding: `${mm(2.6)}px ${mm(3)}px 0`, textAlign: 'center' }}>
-          <div style={{ fontSize: mm(2.3), fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>{ECOLE}</div>
-          <div style={{ fontSize: mm(1.9), color: C.bleuClr, fontWeight: 700, marginTop: mm(0.4) }}>
-            Faladié Sema · Bamako, Mali
-          </div>
+      <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)}px solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
+      <div style={{ position: 'absolute', inset: `${mm(2)}px ${mm(2)}px auto`, height: mm(27), background: `linear-gradient(155deg, ${t.haut}, ${t.bas})` }} />
+      <div style={{ position: 'absolute', left: mm(2), right: mm(2), top: mm(27), bottom: mm(2), background: '#F1F2F3' }} />
+
+      <div style={{ position: 'absolute', top: mm(4.5), left: mm(5), right: mm(5), display: 'flex', alignItems: 'center', gap: mm(1.4), color: '#fff' }}>
+        <img src="/logo-ideal-symbole.png" alt="IDEAL" style={{ width: mm(11), height: mm(9.5), objectFit: 'contain' }} />
+        <div>
+          <div style={{ fontSize: mm(2.1), fontWeight: 850 }}>VÉRIFICATION ÉLÈVE</div>
+          <div style={{ marginTop: mm(.6), fontSize: mm(1.3), color: '#C8E3F1', fontWeight: 650 }}>IDEAL ÉCOLE · BAMAKO</div>
         </div>
-        <VagueBas couleur="#fff" hauteur={38} />
       </div>
 
+      {/* QR central à cheval sur les deux zones, comme la photo du recto. */}
       <div style={{
-        position: 'absolute', top: '20%', left: 0, right: 0, bottom: 0,
-        padding: `${mm(4)}px ${mm(3.5)}px ${mm(2.5)}px`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        position: 'absolute', top: mm(17), left: mm(14), width: mm(26), height: mm(26),
+        background: '#fff', border: `${mm(.6)}px solid #fff`, padding: mm(1.2), boxSizing: 'border-box',
+        boxShadow: '0 5px 14px rgba(23,78,114,.24)', zIndex: 2,
       }}>
-        {/* Le QR domine le verso : vérification de la fiche en un scan */}
-        <div style={{ background: '#fff', padding: mm(1.2), border: `${mm(0.3)}px solid ${C.bleuClr}`, borderRadius: mm(1.6) }}>
-          <QRCodeSVG value={lien} size={mm(26)} level="M" bgColor="#ffffff" fgColor={C.marine} />
-        </div>
-        <div style={{ fontSize: mm(2), color: C.gris, fontWeight: 700, marginTop: mm(1.2) }}>
-          Vérifier la fiche de l'élève
-        </div>
+        <QRCodeSVG value={lien} size={mm(22.4)} level="M" bgColor="#ffffff" fgColor="#174E72" />
+      </div>
+      <div style={{ position: 'absolute', top: mm(45), left: 0, right: 0, textAlign: 'center', fontSize: mm(1.7), color: '#6F7D88', fontWeight: 750 }}>Scanner pour vérifier la fiche</div>
+      <div style={{ position: 'absolute', top: mm(49), right: mm(7), width: mm(13), height: mm(2.3), background: '#F28C28' }} />
 
-        <div style={{ marginTop: mm(2.4), width: '100%', display: 'flex', flexDirection: 'column', gap: mm(1) }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: mm(2.4) }}>
-            <span style={{ color: C.gris, fontWeight: 700 }}>Matricule</span>
-            <b style={{ color: C.marine }}>{eleve.matricule}</b>
+      <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(54), bottom: mm(5), color: '#16384F' }}>
+        {[
+          ['MATRICULE', eleve.matricule],
+          ['ANNÉE SCOLAIRE', '2026—2027'],
+          ['GROUPE SANGUIN', eleve.groupe_sanguin || '—'],
+        ].map(([label, valeur]) => (
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${mm(1.4)}px 0`, borderBottom: `${mm(.2)}px solid #D5DBE0` }}>
+            <span style={{ fontSize: mm(1.45), color: '#74828D', fontWeight: 800, letterSpacing: mm(.07) }}>{label}</span>
+            <span style={{ fontSize: mm(2.15), color: label === 'GROUPE SANGUIN' ? '#C62828' : '#16384F', fontWeight: 850 }}>{valeur}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: mm(2.4) }}>
-            <span style={{ color: C.gris, fontWeight: 700 }}>Année scolaire</span>
-            <b style={{ color: C.marine }}>2026 – 2027</b>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: mm(2.4) }}>
-            <span style={{ color: C.gris, fontWeight: 700 }}>Groupe sanguin</span>
-            <b style={{ color: '#DC2626' }}>{eleve.groupe_sanguin}</b>
-          </div>
+        ))}
+        <div style={{ marginTop: mm(2.4), fontSize: mm(1.65), color: '#6F7D88', lineHeight: 1.35, textAlign: 'center' }}>
+          Carte strictement personnelle. En cas de perte, la rapporter à l'établissement ou prévenir la Direction.
         </div>
-
-        <div style={{
-          marginTop: 'auto', width: '100%', borderTop: `${mm(0.2)}px solid ${C.bleuClr}`,
-          paddingTop: mm(1.2), fontSize: mm(1.9), color: C.gris, textAlign: 'center', lineHeight: 1.3,
-        }}>
-          Carte strictement personnelle. En cas de perte, la rapporter à
-          l'établissement ou prévenir la Direction.
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.35), color: '#8A969F', fontWeight: 700 }}>
+          <span>Faladié Sema · Bamako</span><span>IDEAL</span>
         </div>
       </div>
     </div>
