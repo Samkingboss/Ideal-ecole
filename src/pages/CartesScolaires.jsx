@@ -69,78 +69,59 @@ function Placeholder({ eleve, mm }) {
 }
 
 // ── RECTO ────────────────────────────────────────────────────────────
-export function CarteRecto({ eleve, theme = 'prestige', echelle = ECHELLE }) {
+export function CarteRecto({ eleve, echelle = ECHELLE }) {
   const mm = v => v * echelle
-  const t = TEINTES[theme] || TEINTES.prestige
   const photo = eleve.photo_url || eleve.photo_signee || null
 
   return (
     <div className="carte" style={{
       width: mm(CARTE_L), height: mm(CARTE_H), borderRadius: mm(3),
-      overflow: 'hidden', position: 'relative', background: '#fff',
-      boxShadow: '0 6px 18px rgba(15,23,42,0.18)',
+      overflow: 'hidden', position: 'relative',
+      background: '#FFFFFF',
+      boxShadow: '0 12px 30px rgba(15,23,42,0.24)',
       fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
       color: C.texte, boxSizing: 'border-box',
     }}>
+      {/* Filet extérieur rappelant le porte-carte blanc du modèle. */}
+      <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)}px solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
 
-      {/* Zone colorée haute — 58 % de la hauteur, photo dominante */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: '58%',
-        background: `linear-gradient(160deg, ${t.haut} 0%, ${t.bas} 100%)`,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: mm(1.4), padding: `${mm(2.4)}px ${mm(3)}px 0` }}>
-          <img src="/logo-ideal.png" alt="" style={{ height: mm(5), width: 'auto' }} />
-          <div style={{ fontSize: mm(2.1), fontWeight: 800, color: '#fff', lineHeight: 1.15, letterSpacing: mm(0.02) }}>
-            {ECOLE}
-          </div>
+      {/* Deux aplats parfaitement nets : bleu institutionnel et gris perle. */}
+      <div style={{ position: 'absolute', inset: `${mm(2)}px ${mm(2)}px auto`, height: mm(42), background: '#174E72' }} />
+      <div style={{ position: 'absolute', left: mm(2), right: mm(2), top: mm(42), bottom: mm(2), background: '#F1F2F3' }} />
+
+      {/* Marque et établissement dans la partie supérieure. */}
+      <div style={{ position: 'absolute', top: mm(4.8), left: mm(5), right: mm(5), display: 'flex', alignItems: 'center', gap: mm(1.4), color: '#fff' }}>
+        <img src="/logo-ideal-symbole.png" alt="IDEAL" style={{ width: mm(12), height: mm(10.5), objectFit: 'contain', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.22))' }} />
+        <div>
+          <div style={{ fontSize: mm(2.25), fontWeight: 850, letterSpacing: mm(.05) }}>IDEAL ÉCOLE</div>
+          <div style={{ marginTop: mm(.5), fontSize: mm(1.25), fontWeight: 650, color: '#C8E3F1', letterSpacing: mm(.04) }}>INTERNATIONALE · BILINGUE</div>
         </div>
-
-        {/* Photo dominante, proportion 1:1,3 comme la fiche d'inscription */}
-        <div style={{
-          position: 'absolute', top: mm(11), left: '50%', transform: 'translateX(-50%)',
-          width: mm(26), height: mm(33), borderRadius: mm(2), overflow: 'hidden',
-          border: `${mm(0.7)}px solid #fff`, boxShadow: '0 4px 10px rgba(0,0,0,0.28)',
-          background: C.bleuPal,
-        }}>
-          {photo
-            ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <Placeholder eleve={eleve} mm={mm} />}
-        </div>
-
-        <VagueBas couleur="#fff" hauteur={22} />
       </div>
 
-      {/* Zone blanche — identité */}
+      {/* Photo carrée à cheval sur les deux aplats, signature du modèle. */}
       <div style={{
-        position: 'absolute', top: '58%', left: 0, right: 0, bottom: 0,
-        padding: `${mm(5)}px ${mm(3.5)}px ${mm(2.5)}px`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+        position: 'absolute', top: mm(27), left: mm(7), width: mm(23), height: mm(29),
+        overflow: 'hidden', background: '#DDE8EF', border: `${mm(.6)}px solid #fff`,
+        boxShadow: '0 5px 14px rgba(23,78,114,.25)', zIndex: 2,
       }}>
-        <div style={{ fontSize: mm(4.6), fontWeight: 900, color: C.marine, textTransform: 'uppercase', lineHeight: 1.05 }}>
-          {eleve.nom}
-        </div>
-        <div style={{ fontSize: mm(3.4), fontWeight: 600, color: C.bleu, lineHeight: 1.2, marginTop: mm(0.5) }}>
-          {eleve.prenom}
-        </div>
+        {photo
+          ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 27%' }} />
+          : <Placeholder eleve={eleve} mm={mm} />}
+      </div>
 
-        <div style={{
-          marginTop: mm(2), background: C.marine, color: '#fff', borderRadius: mm(1.4),
-          padding: `${mm(0.9)}px ${mm(2.4)}px`, fontSize: mm(3), fontWeight: 900, letterSpacing: mm(0.08),
-        }}>
-          {eleve.matricule}
-        </div>
+      {/* Accent orange à droite : remplacement volontaire du vert du modèle. */}
+      <div style={{ position: 'absolute', top: mm(49), right: mm(7), width: mm(13), height: mm(2.3), background: '#F28C28' }} />
 
-        <div style={{ marginTop: mm(1.6), fontSize: mm(3.1), fontWeight: 800, color: C.texte }}>
-          {eleve.classe_nom}
+      {/* Bloc d'identité compact et éditorial. */}
+      <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(60), bottom: mm(5), color: '#16384F' }}>
+        <div style={{ fontSize: mm(3.75), fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eleve.prenom} {eleve.nom}</div>
+        <div style={{ marginTop: mm(1.2), fontSize: mm(2.05), fontWeight: 750, color: '#F28C28' }}>{eleve.classe_nom}</div>
+        <div style={{ marginTop: mm(2.4), fontSize: mm(2.15), fontWeight: 850, letterSpacing: mm(.08) }}>{eleve.matricule}</div>
+        <div style={{ marginTop: mm(3.1), paddingTop: mm(1.7), borderTop: `${mm(.25)}px solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
+          <span>CARTE D'ÉLÈVE</span><span>2026—2027</span>
         </div>
-
-        <div style={{
-          marginTop: 'auto', width: '100%', borderTop: `${mm(0.2)}px solid ${C.bleuClr}`,
-          paddingTop: mm(1.2), display: 'flex', justifyContent: 'space-between',
-          fontSize: mm(2), color: C.gris, fontWeight: 600,
-        }}>
-          <span>{eleve.date_naissance}</span>
-          <span style={{ color: C.bleu, fontWeight: 800 }}>2026 – 2027</span>
+        <div style={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', gap: mm(.7) }}>
+          {['#95D600', '#08C9C9', '#F2A400', '#E50093'].map(couleur => <span key={couleur} style={{ width: mm(1.3), height: mm(1.3), borderRadius: '50%', background: couleur }} />)}
         </div>
       </div>
     </div>
