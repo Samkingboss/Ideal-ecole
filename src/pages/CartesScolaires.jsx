@@ -1,10 +1,233 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
+
+// ─────────────────────────────────────────────────────────────────────
+// GABARIT
+//
+// Format ID-1 vertical : 54 × 85,6 mm, la carte bancaire tournée d'un
+// quart de tour. Tout est exprimé en millimètres et mis à l'échelle par
+// ECHELLE pour l'aperçu ; l'impression utilise les millimètres réels, si
+// bien que l'écran et le papier partagent une seule source de vérité.
+// ─────────────────────────────────────────────────────────────────────
+const CARTE_L = 54      // largeur en mm
+const CARTE_H = 85.6    // hauteur en mm
+const ECHELLE = 3.6     // px par mm à l'écran — 194 × 308 px
+// À l'impression, 1 px CSS vaut exactement 1/96 de pouce : 96/25,4 px par
+// millimètre. Rendre la planche à cette échelle donne une carte de 54 mm
+// réels sans forcer aucune dimension en CSS — et surtout sans désaccorder
+// le contenu interne, qui est dimensionné en pixels par la même échelle.
+const PX_MM   = 96 / 25.4   // ≈ 3,7795 px/mm — 204 × 323 px = 54 × 85,6 mm
+
+const C = {
+  marine:  '#1A2B4C',   // NAVY du Design System documentaire
+  bleu:    '#174E9E',   // BLEU des titres de section
+  bleuClr: '#96BFEB',
+  bleuPal: '#F0F6FD',
+  ambre:   '#F59E0B',
+  texte:   '#0F172A',
+  gris:    '#64748B',
+}
+
+const TEINTES = {
+  prestige: { haut: '#1A2B4C', bas: '#174E9E' },
+  emerald:  { haut: '#064E3B', bas: '#047857' },
+  gold:     { haut: '#78350F', bas: '#B45309' },
+}
+
+const ECOLE = 'Ideal École Internationale Bilingue'
+const ORIGINE = typeof window !== 'undefined' ? window.location.origin : ''
+
+// Découpe courbe entre la zone colorée et la zone blanche. Une courbe de
+// Bézier en SVG plutôt qu'un border-radius : elle reste nette à 300 dpi et
+// ne produit aucun artefact à l'impression.
+function VagueBas({ couleur, hauteur = 10 }) {
+  return (
+    <svg
+      viewBox="0 0 100 12"
+      preserveAspectRatio="none"
+      style={{ position: 'absolute', left: 0, right: 0, bottom: -0.5, width: '100%', height: `${hauteur}%`, display: 'block' }}
+    >
+      <path d="M0,12 L0,4 Q25,-2 50,3.5 T100,2 L100,12 Z" fill={couleur} />
+    </svg>
+  )
+}
+
+function Placeholder({ eleve, mm }) {
+  return (
+    <div style={{
+      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: mm(1),
+      background: `linear-gradient(160deg, ${C.bleuPal} 0%, #dbeafe 100%)`, color: C.bleu,
+    }}>
+      <div style={{ fontSize: mm(9), lineHeight: 1 }}>👤</div>
+      <div style={{ fontSize: mm(4.4), fontWeight: 900, letterSpacing: mm(0.2) }}>
+        {`${eleve.prenom?.[0] || ''}${eleve.nom?.[0] || ''}`.toUpperCase()}
+      </div>
+    </div>
+  )
+}
+
+// ── RECTO ────────────────────────────────────────────────────────────
+export function CarteRecto({ eleve, theme = 'prestige', echelle = ECHELLE }) {
+  const mm = v => v * echelle
+  const t = TEINTES[theme] || TEINTES.prestige
+  const photo = eleve.photo_url || eleve.photo_signee || null
+
+  return (
+    <div className="carte" style={{
+      width: mm(CARTE_L), height: mm(CARTE_H), borderRadius: mm(3),
+      overflow: 'hidden', position: 'relative', background: '#fff',
+      boxShadow: '0 6px 18px rgba(15,23,42,0.18)',
+      fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+      color: C.texte, boxSizing: 'border-box',
+    }}>
+
+      {/* Zone colorée haute — 58 % de la hauteur, photo dominante */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: '58%',
+        background: `linear-gradient(160deg, ${t.haut} 0%, ${t.bas} 100%)`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: mm(1.4), padding: `${mm(2.4)}px ${mm(3)}px 0` }}>
+          <img src="/logo-ideal.png" alt="" style={{ height: mm(5), width: 'auto' }} />
+          <div style={{ fontSize: mm(2.1), fontWeight: 800, color: '#fff', lineHeight: 1.15, letterSpacing: mm(0.02) }}>
+            {ECOLE}
+          </div>
+        </div>
+
+        {/* Photo dominante, proportion 1:1,3 comme la fiche d'inscription */}
+        <div style={{
+          position: 'absolute', top: mm(11), left: '50%', transform: 'translateX(-50%)',
+          width: mm(26), height: mm(33), borderRadius: mm(2), overflow: 'hidden',
+          border: `${mm(0.7)}px solid #fff`, boxShadow: '0 4px 10px rgba(0,0,0,0.28)',
+          background: C.bleuPal,
+        }}>
+          {photo
+            ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <Placeholder eleve={eleve} mm={mm} />}
+        </div>
+
+        <VagueBas couleur="#fff" hauteur={22} />
+      </div>
+
+      {/* Zone blanche — identité */}
+      <div style={{
+        position: 'absolute', top: '58%', left: 0, right: 0, bottom: 0,
+        padding: `${mm(5)}px ${mm(3.5)}px ${mm(2.5)}px`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: mm(4.6), fontWeight: 900, color: C.marine, textTransform: 'uppercase', lineHeight: 1.05 }}>
+          {eleve.nom}
+        </div>
+        <div style={{ fontSize: mm(3.4), fontWeight: 600, color: C.bleu, lineHeight: 1.2, marginTop: mm(0.5) }}>
+          {eleve.prenom}
+        </div>
+
+        <div style={{
+          marginTop: mm(2), background: C.marine, color: '#fff', borderRadius: mm(1.4),
+          padding: `${mm(0.9)}px ${mm(2.4)}px`, fontSize: mm(3), fontWeight: 900, letterSpacing: mm(0.08),
+        }}>
+          {eleve.matricule}
+        </div>
+
+        <div style={{ marginTop: mm(1.6), fontSize: mm(3.1), fontWeight: 800, color: C.texte }}>
+          {eleve.classe_nom}
+        </div>
+
+        <div style={{
+          marginTop: 'auto', width: '100%', borderTop: `${mm(0.2)}px solid ${C.bleuClr}`,
+          paddingTop: mm(1.2), display: 'flex', justifyContent: 'space-between',
+          fontSize: mm(2), color: C.gris, fontWeight: 600,
+        }}>
+          <span>{eleve.date_naissance}</span>
+          <span style={{ color: C.bleu, fontWeight: 800 }}>2026 – 2027</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── VERSO ────────────────────────────────────────────────────────────
+export function CarteVerso({ eleve, theme = 'prestige', echelle = ECHELLE }) {
+  const mm = v => v * echelle
+  const t = TEINTES[theme] || TEINTES.prestige
+  // Même URL de vérification que le QR de la fiche d'inscription.
+  const lien = `${ORIGINE}/fiche.html?matricule=${encodeURIComponent(eleve.matricule || '')}`
+
+  return (
+    <div className="carte" style={{
+      width: mm(CARTE_L), height: mm(CARTE_H), borderRadius: mm(3),
+      overflow: 'hidden', position: 'relative', background: '#fff',
+      boxShadow: '0 6px 18px rgba(15,23,42,0.18)',
+      fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+      color: C.texte, boxSizing: 'border-box',
+    }}>
+
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: '20%',
+        background: `linear-gradient(160deg, ${t.haut} 0%, ${t.bas} 100%)`,
+      }}>
+        <div style={{ padding: `${mm(2.6)}px ${mm(3)}px 0`, textAlign: 'center' }}>
+          <div style={{ fontSize: mm(2.3), fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>{ECOLE}</div>
+          <div style={{ fontSize: mm(1.9), color: C.bleuClr, fontWeight: 700, marginTop: mm(0.4) }}>
+            Faladié Sema · Bamako, Mali
+          </div>
+        </div>
+        <VagueBas couleur="#fff" hauteur={38} />
+      </div>
+
+      <div style={{
+        position: 'absolute', top: '20%', left: 0, right: 0, bottom: 0,
+        padding: `${mm(4)}px ${mm(3.5)}px ${mm(2.5)}px`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+      }}>
+        {/* Le QR domine le verso : vérification de la fiche en un scan */}
+        <div style={{ background: '#fff', padding: mm(1.2), border: `${mm(0.3)}px solid ${C.bleuClr}`, borderRadius: mm(1.6) }}>
+          <QRCodeSVG value={lien} size={mm(26)} level="M" bgColor="#ffffff" fgColor={C.marine} />
+        </div>
+        <div style={{ fontSize: mm(2), color: C.gris, fontWeight: 700, marginTop: mm(1.2) }}>
+          Vérifier la fiche de l'élève
+        </div>
+
+        <div style={{ marginTop: mm(2.4), width: '100%', display: 'flex', flexDirection: 'column', gap: mm(1) }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: mm(2.4) }}>
+            <span style={{ color: C.gris, fontWeight: 700 }}>Matricule</span>
+            <b style={{ color: C.marine }}>{eleve.matricule}</b>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: mm(2.4) }}>
+            <span style={{ color: C.gris, fontWeight: 700 }}>Année scolaire</span>
+            <b style={{ color: C.marine }}>2026 – 2027</b>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: mm(2.4) }}>
+            <span style={{ color: C.gris, fontWeight: 700 }}>Groupe sanguin</span>
+            <b style={{ color: '#DC2626' }}>{eleve.groupe_sanguin}</b>
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: 'auto', width: '100%', borderTop: `${mm(0.2)}px solid ${C.bleuClr}`,
+          paddingTop: mm(1.2), fontSize: mm(1.9), color: C.gris, textAlign: 'center', lineHeight: 1.3,
+        }}>
+          Carte strictement personnelle. En cas de perte, la rapporter à
+          l'établissement ou prévenir la Direction.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Seules les images en base64 posées par handlePhotoUpload sont directement
+// affichables. Les valeurs héritées de photo_url sont des adresses
+// /object/public/ que le passage du bucket en privé a rendues mortes ;
+// quelques-unes répondent encore par cache CDN, ce qui donnerait un affichage
+// dépendant du nœud et de l'heure. Les photos venues d'une inscription
+// passent désormais par photo_chemin et une URL signée.
+const estBase64 = v => typeof v === 'string' && v.startsWith('data:')
 
 export default function CartesScolaires() {
   const [eleves, setEleves] = useState([])
-  const [classes, setClasses] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [, setClasses] = useState([])
+  const [, setLoading] = useState(true)
   const [selectedClasse, setSelectedClasse] = useState('TOUTES')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEleve, setSelectedEleve] = useState(null)
@@ -32,7 +255,8 @@ export default function CartesScolaires() {
         const matchingInsc = rawInsc.find(i => i.matricule === e.matricule || i.id === e.inscription_id)
         return {
           ...e,
-          photo_url: e.photo_url || matchingInsc?.photo_url || null,
+          photo_url:    estBase64(e.photo_url) ? e.photo_url : null,
+          photo_chemin: matchingInsc?.photo_chemin || null,
           date_naissance: e.date_naissance || matchingInsc?.date_naissance || '2016-05-12',
           lieu_naissance: matchingInsc?.lieu_naissance || 'Bamako',
           groupe_sanguin: matchingInsc?.groupe_sanguin || e.groupe_sanguin || 'O+',
@@ -51,7 +275,8 @@ export default function CartesScolaires() {
         nom: i.nom || 'SAMAKÉ',
         prenom: i.prenoms || i.prenom || 'Mamadou',
         classe_nom: i.classe_demandee || 'CP1 Bilingue',
-        photo_url: i.photo_url || null,
+        photo_url:    null,                     // aucune inscription ne porte de base64
+        photo_chemin: i.photo_chemin || null,
         date_naissance: i.date_naissance || '2017-08-20',
         lieu_naissance: i.lieu_naissance || 'Bamako',
         groupe_sanguin: i.groupe_sanguin || 'A+',
@@ -71,6 +296,7 @@ export default function CartesScolaires() {
           prenom: 'Mamadou',
           classe_nom: 'CP1 Bilingue',
           photo_url: null,
+          photo_chemin: null,
           date_naissance: '2018-04-15',
           lieu_naissance: 'Bamako',
           groupe_sanguin: 'O+',
@@ -87,6 +313,7 @@ export default function CartesScolaires() {
           prenom: 'Aïssata',
           classe_nom: 'CE2 Bilingue',
           photo_url: null,
+          photo_chemin: null,
           date_naissance: '2016-11-03',
           lieu_naissance: 'Bamako',
           groupe_sanguin: 'B+',
@@ -103,6 +330,7 @@ export default function CartesScolaires() {
           prenom: 'Ibrahim Sory',
           classe_nom: 'CM2 Bilingue',
           photo_url: null,
+          photo_chemin: null,
           date_naissance: '2014-02-28',
           lieu_naissance: 'Ségou',
           groupe_sanguin: 'AB+',
@@ -114,9 +342,36 @@ export default function CartesScolaires() {
         }
       ]
 
-      setEleves(demoList)
+      // Une seule requête réseau, quel que soit le nombre de cartes.
+      // createSignedUrls — au pluriel — prend un tableau et renvoie un
+      // résultat par chemin, chacun avec son erreur éventuelle. Signer carte
+      // par carte ajouterait autant d'allers-retours.
+      //
+      // `photo_signee` ne vit que dans l'état React : une URL signée expire au
+      // bout d'une heure, la persister recréerait les liens morts qu'on corrige.
+      let liste = demoList
+      const chemins = [...new Set(demoList.map(e => e.photo_chemin).filter(Boolean))]
+
+      if (chemins.length > 0) {
+        const { data: signees } = await supabase.storage
+          .from('inscriptions')
+          .createSignedUrls(chemins, 3600)
+
+        const parChemin = new Map(
+          (signees || [])
+            .filter(s => s.signedUrl && !s.error)
+            .map(s => [s.path, s.signedUrl])
+        )
+
+        liste = demoList.map(e => ({
+          ...e,
+          photo_signee: e.photo_chemin ? parChemin.get(e.photo_chemin) || null : null,
+        }))
+      }
+
+      setEleves(liste)
       setClasses(resClasses.data || [])
-      if (demoList.length > 0) setSelectedEleve(demoList[0])
+      if (liste.length > 0) setSelectedEleve(liste[0])
     } catch (err) {
       console.error('Erreur chargement cartes scolaires:', err)
     } finally {
@@ -153,12 +408,107 @@ export default function CartesScolaires() {
     return matchSearch && matchClasse
   })
 
-  const triggerPrintCard = () => {
+  const triggerPrint = mode => {
+    document.documentElement.dataset.printMode = mode
+    const nettoyer = () => {
+      delete document.documentElement.dataset.printMode
+      window.removeEventListener('afterprint', nettoyer)
+    }
+    window.addEventListener('afterprint', nettoyer)
     window.print()
+  }
+
+  // 3 colonnes × 3 rangées = 9 cartes par feuille A4.
+  // 3 × 54 + 2 × 2 = 166 mm de large, 3 × 85,6 + 2 × 2 = 260,8 mm de haut,
+  // dans une zone utile de 190 × 277 mm après marges de 10 mm.
+  const PAR_PAGE = 9
+  const COLONNES = 3
+
+  const pages = []
+  for (let i = 0; i < filteredEleves.length; i += PAR_PAGE) {
+    pages.push(filteredEleves.slice(i, i + PAR_PAGE))
+  }
+
+  // Retournement sur le grand côté : le verso sort en miroir horizontal.
+  // On inverse donc l'ordre à l'intérieur de chaque rangée pour que chaque
+  // verso retombe derrière son propre recto. C'est le point que les planches
+  // recto-verso ratent le plus souvent.
+  const miroirRangees = liste => {
+    const out = []
+    for (let i = 0; i < liste.length; i += COLONNES) {
+      const rangee = liste.slice(i, i + COLONNES)
+      while (rangee.length < COLONNES) rangee.push(null)
+      out.push(...rangee.reverse())
+    }
+    return out
   }
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+
+      {/* Impression.
+          `print-color-adjust: exact` est indispensable : sans lui les
+          navigateurs suppriment les aplats et la bande colorée disparaîtrait.
+          La planche passe en millimètres réels — l'aperçu écran est réduit,
+          le papier ne l'est pas. */}
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+          html, body { margin: 0 !important; padding: 0 !important; }
+          body * { visibility: hidden !important; }
+          html[data-print-mode="planche"] #planche-impression,
+          html[data-print-mode="planche"] #planche-impression *,
+          html[data-print-mode="carte"] #carte-impression,
+          html[data-print-mode="carte"] #carte-impression * { visibility: visible !important; }
+          #planche-impression {
+            position: absolute; inset: 0 auto auto 0; width: 190mm;
+          }
+          #planche-impression .feuille {
+            width: 190mm; height: 277mm;
+            overflow: hidden;
+            page-break-after: always; break-after: page;
+            display: flex; align-items: flex-start; justify-content: center;
+          }
+          #planche-impression .feuille:last-child {
+            page-break-after: auto; break-after: auto;
+          }
+          #planche-impression .grille {
+            display: grid;
+            grid-template-columns: repeat(3, 54mm);
+            grid-template-rows: repeat(3, 85.6mm);
+            gap: 2mm;
+            justify-content: center;
+          }
+          #carte-impression {
+            position: absolute; inset: 0 auto auto 0;
+            width: 190mm; height: 277mm;
+            display: flex; gap: 10mm; align-items: flex-start;
+          }
+          #planche-impression .carte {
+            /* Aucune dimension forcée : la carte fait déjà 54 × 85,6 mm,
+               contenu compris, grâce à l'échelle 96/25,4. La contraindre ici
+               étirerait la boîte sans redimensionner ce qu'elle contient. */
+            box-shadow: none !important;
+            border: 0.2mm solid #cbd5e1 !important;
+            break-inside: avoid; page-break-inside: avoid;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #planche-impression .carte * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+        @media screen {
+          #carte-impression { display: none; }
+          #planche-impression .feuille { margin-bottom: 20px; }
+          #planche-impression .grille {
+            display: grid; grid-template-columns: repeat(3, auto);
+            gap: 6px; justify-content: center;
+          }
+        }
+      `}</style>
+
       
       {/* En-tête du volet Cartes Scolaires */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
@@ -288,8 +638,8 @@ export default function CartesScolaires() {
                         overflow: 'hidden',
                         border: '2px solid #cbd5e1'
                       }}>
-                        {e.photo_url ? (
-                          <img src={e.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {(e.photo_url || e.photo_signee) ? (
+                          <img src={e.photo_url || e.photo_signee} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           `${e.prenom?.[0] || ''}${e.nom?.[0] || ''}`
                         )}
@@ -346,7 +696,7 @@ export default function CartesScolaires() {
                 </label>
 
                 <button
-                  onClick={triggerPrintCard}
+                  onClick={() => triggerPrint('carte')}
                   style={{
                     background: '#0d2a3b',
                     color: '#fff',
@@ -363,229 +713,29 @@ export default function CartesScolaires() {
               </div>
             </div>
 
-            {/* Rendu des Cartes (RECTO + VERSO) */}
-            <div id="print-single-card-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-              
-              {/* ===== RECTO DE LA CARTE SCOLAIRE ===== */}
-              <div
-                style={{
-                  width: 380,
-                  height: 240,
-                  borderRadius: 16,
-                  background: themeCard === 'emerald'
-                    ? 'linear-gradient(135deg, #044e36 0%, #0d2a3b 60%, #065f46 100%)'
-                    : themeCard === 'gold'
-                    ? 'linear-gradient(135deg, #78350f 0%, #0d2a3b 50%, #b45309 100%)'
-                    : 'linear-gradient(135deg, #091b29 0%, #0d2a3b 55%, #004d73 100%)',
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.15) inset',
-                  color: '#fff',
-                  padding: 14,
-                  boxSizing: 'border-box',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  fontFamily: 'sans-serif'
-                }}
-              >
-                {/* Filigrane d'arrière-plan officiel */}
-                <div style={{
-                  position: 'absolute',
-                  right: -20,
-                  bottom: -20,
-                  fontSize: 120,
-                  opacity: 0.04,
-                  fontWeight: 900,
-                  userSelect: 'none',
-                  pointerEvents: 'none'
-                }}>
-                  IDEAL
-                </div>
-
-                {/* Bande Drapeau du Mali subtile en haut */}
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, display: 'flex' }}>
-                  <div style={{ flex: 1, background: '#14b8a6' }}></div>
-                  <div style={{ flex: 1, background: '#f59e0b' }}></div>
-                  <div style={{ flex: 1, background: '#ef4444' }}></div>
-                </div>
-
-                {/* Header de la carte */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1.5px solid rgba(217,119,6,0.4)', paddingBottom: 8, marginBottom: 10 }}>
-                  <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 36, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                  <div>
-                    <div style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: 0.8, color: '#f59e0b', textTransform: 'uppercase' }}>
-                      ÉCOLE INTERNATIONALE BILINGUE IDEAL
-                    </div>
-                    <div style={{ fontSize: 8.5, color: '#ffffff', fontWeight: 700 }}>
-                      CARTE D'IDENTITÉ SCOLAIRE • 2026 - 2027
-                    </div>
-                  </div>
-                  <div style={{ marginLeft: 'auto', background: '#0f172a', border: '1px solid #f59e0b', borderRadius: 6, padding: '3px 8px', fontSize: 8, fontWeight: 900, color: '#ffffff', textTransform: 'uppercase' }}>
-                    RECTO
-                  </div>
-                </div>
-
-                {/* Corps de la carte RECTO */}
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  
-                  {/* Cadre Photo Élève */}
-                  <div style={{
-                    width: 85,
-                    height: 105,
-                    borderRadius: 10,
-                    border: '2px solid #38bdf8',
-                    background: '#091b29',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                    position: 'relative'
-                  }}>
-                    {selectedEleve.photo_url ? (
-                      <img src={selectedEleve.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ textAlign: 'center', color: '#94a3b8' }}>
-                        <div style={{ fontSize: 32 }}>👤</div>
-                        <div style={{ fontSize: 7, marginTop: 2 }}>PHOTO</div>
-                      </div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,168,224,0.9)', color: '#fff', fontSize: 7, fontWeight: 900, textAlign: 'center', padding: '1px 0' }}>
-                      {selectedEleve.sexe === 'F' ? 'ÉLÈVE (F)' : 'ÉLÈVE (M)'}
-                    </div>
-                  </div>
-
-                  {/* Informations de l'Élève */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase' }}>NOM ET PRÉNOM(S)</div>
-                    <div style={{ fontSize: 13.5, fontWeight: 900, color: '#ffffff', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 6 }}>
-                      {selectedEleve.nom} <span style={{ color: '#38bdf8' }}>{selectedEleve.prenom}</span>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: 8.5 }}>
-                      <div>
-                        <span style={{ color: '#94a3b8' }}>MATRICULE :</span>
-                        <div style={{ fontWeight: 900, color: '#f59e0b', fontSize: 9.5 }}>{selectedEleve.matricule}</div>
-                      </div>
-                      <div>
-                        <span style={{ color: '#94a3b8' }}>CLASSE :</span>
-                        <div style={{ fontWeight: 900, color: '#ffffff' }}>{selectedEleve.classe_nom}</div>
-                      </div>
-                      <div>
-                        <span style={{ color: '#94a3b8' }}>NÉ(E) LE :</span>
-                        <div style={{ fontWeight: 700, color: '#e2e8f0' }}>{selectedEleve.date_naissance}</div>
-                      </div>
-                      <div>
-                        <span style={{ color: '#94a3b8' }}>À :</span>
-                        <div style={{ fontWeight: 700, color: '#e2e8f0' }}>{selectedEleve.lieu_naissance}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* QR Code & Sceau */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <div style={{ background: '#fff', padding: 4, borderRadius: 6, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {/* Generateur de QR Code visuel SVG */}
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="#091b29">
-                        <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm9-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm13-2h4v2h-4v-2zm-4 4h2v4h-2v-4zm2-2h4v2h-4v-2zm2 4h4v2h-4v-2z" />
-                      </svg>
-                    </div>
-                    <div style={{ fontSize: 6.5, color: '#38bdf8', fontWeight: 800 }}>SÉCURISÉ</div>
-                  </div>
-
-                </div>
-
-                {/* Footer de la carte RECTO */}
-                <div style={{ position: 'absolute', bottom: 6, left: 14, right: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 4 }}>
-                  <div style={{ fontSize: 7, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
-                    CARTE SCOLAIRE OFFICIELLE • PROPRIÉTÉ D'IDEAL ÉCOLE
-                  </div>
-                  <div style={{ fontSize: 7, color: '#f59e0b', fontWeight: 800 }}>
-                    VALIDITÉ : 2026 - 2027
-                  </div>
-                </div>
-
+            {/* Rendu des Cartes — format vertical ID-1, 54 × 85,6 mm */}
+            <div id="print-single-card-area" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 28 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <CarteRecto eleve={selectedEleve} theme={themeCard} />
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: 0.5 }}>RECTO</div>
               </div>
-
-              {/* ===== VERSO DE LA CARTE SCOLAIRE ===== */}
-              <div
-                style={{
-                  width: 380,
-                  height: 240,
-                  borderRadius: 16,
-                  background: '#ffffff',
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.15), 0 0 0 1px #cbd5e1',
-                  color: '#1e293b',
-                  padding: 14,
-                  boxSizing: 'border-box',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  fontFamily: 'sans-serif'
-                }}
-              >
-                {/* Header Verso */}
-                <div style={{ background: '#0d2a3b', color: '#fff', margin: '-14px -14px 10px -14px', padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: 0.5, color: '#38bdf8' }}>
-                    INFORMATIONS D'URGENCE &amp; SERVICES
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 4, padding: '2px 6px', fontSize: 7.5, fontWeight: 900, color: '#fff' }}>
-                    VERSO
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10, fontSize: 8.5 }}>
-                  
-                  <div>
-                    <div style={{ fontWeight: 800, color: '#0d2a3b', marginBottom: 2 }}>📞 PARENT / TUTEUR :</div>
-                    <div style={{ fontSize: 10, fontWeight: 900, color: '#00a8e0' }}>{selectedEleve.telephone_parent}</div>
-                    
-                    <div style={{ fontWeight: 800, color: '#0d2a3b', marginTop: 5, marginBottom: 2 }}>🏫 CONTACT ÉCOLE IDEAL :</div>
-                    <div style={{ fontSize: 9.5, fontWeight: 900, color: '#0d2a3b' }}>+223 20 22 00 00 / 70 00 00 00</div>
-
-                    <div style={{ fontWeight: 800, color: '#0d2a3b', marginTop: 5, marginBottom: 2 }}>📍 ADRESSE DE RÉSIDENCE :</div>
-                    <div style={{ fontSize: 8.5, color: '#475569', fontWeight: 600 }}>{selectedEleve.adresse}</div>
-                  </div>
-
-                  <div style={{ background: '#f8fafc', padding: 8, borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <span style={{ fontSize: 8, fontWeight: 800, color: '#64748b' }}>GROUPE SANGUIN</span>
-                      <span style={{ background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 6 }}>
-                        {selectedEleve.groupe_sanguin}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
-                      <div style={{ fontSize: 8.5, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>🍽️ Cantine Impériale :</span>
-                        <b style={{ color: selectedEleve.cantine ? '#16a34a' : '#94a3b8' }}>{selectedEleve.cantine ? 'Inscrit(e)' : 'Non inscrite'}</b>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Règlement & Signature Direction */}
-                <div style={{ marginTop: 10, paddingTop: 6, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1, fontSize: 7, color: '#64748b', lineHeight: 1.3, paddingRight: 10 }}>
-                    ⚠️ Cette carte est strictement personnelle et obligatoire pour l'accès aux classes et activités d'IDEAL. En cas de perte, signaler immédiatement à la Direction.
-                  </div>
-
-                  <div style={{ textAlign: 'center', minWidth: 90 }}>
-                    <div style={{ fontSize: 7, fontWeight: 800, color: '#0d2a3b' }}>LE DIRECTEUR</div>
-                    <div style={{ height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 900, color: '#0078b4', fontSize: 11 }}>IDEAL Ecole</span>
-                    </div>
-                    <div style={{ fontSize: 6.5, color: '#94a3b8', fontWeight: 700 }}>Cachet Officiel</div>
-                  </div>
-                </div>
-
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <CarteVerso eleve={selectedEleve} theme={themeCard} />
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: 0.5 }}>VERSO</div>
               </div>
-
             </div>
 
           </div>
         )}
 
       </div>
+
+      {selectedEleve && (
+        <div id="carte-impression">
+          <CarteRecto eleve={selectedEleve} theme={themeCard} echelle={PX_MM} />
+          <CarteVerso eleve={selectedEleve} theme={themeCard} echelle={PX_MM} />
+        </div>
+      )}
 
       {/* Modal d'impression de la Planche A4 pour toute la classe */}
       {showModalPrint && (
@@ -610,22 +760,44 @@ export default function CartesScolaires() {
 
             <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
-                💡 Aperçu du format d'impression A4 (8 cartes scolaires recto/verso par feuille). Cliquez sur "Lancer l'Impression".
+                💡 {filteredEleves.length} carte(s) · {pages.length} planche(s) de 9 cartes,
+                soit {pages.length * 2} feuille(s) A4. Chaque recto est immédiatement suivi de
+                son verso, disposé en miroir pour un retournement sur le grand côté.
+                Réglez l'imprimante sur <b>recto-verso, bord long</b>, à 100 % sans mise à l'échelle.
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
-                {filteredEleves.slice(0, 8).map(el => (
-                  <div key={el.id} style={{ border: '1px dashed #cbd5e1', padding: 8, borderRadius: 12, background: '#f8fafc' }}>
-                    <div style={{ fontWeight: 800, fontSize: 11, marginBottom: 4, color: '#0d2a3b' }}>{el.nom} {el.prenom} ({el.matricule})</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>Classe : {el.classe_nom} • Contact : {el.telephone_parent}</div>
-                  </div>
+              {/* Les feuilles vont par paires consecutives : recto d'une page,
+                  puis son verso, puis la page suivante. Deux boucles separees
+                  auraient sorti tous les rectos avant tous les versos, et des
+                  la dixieme carte l'imprimante aurait accole le recto de la
+                  feuille 2 au verso de la feuille 1. */}
+              <div id="planche-impression">
+                {pages.map((page, n) => (
+                  <Fragment key={`paire-${n}`}>
+                    <div className="feuille">
+                      <div className="grille">
+                        {page.map(el => (
+                          <CarteRecto key={el.id} eleve={el} theme={themeCard} echelle={PX_MM} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="feuille">
+                      <div className="grille">
+                        {miroirRangees(page).map((el, i) => (
+                          el
+                            ? <CarteVerso key={el.id} eleve={el} theme={themeCard} echelle={PX_MM} />
+                            : <div key={`vide-${i}`} />
+                        ))}
+                      </div>
+                    </div>
+                  </Fragment>
                 ))}
               </div>
             </div>
 
             <div style={{ padding: 14, background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button onClick={() => setShowModalPrint(false)} style={{ background: '#e2e8f0', border: 'none', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Fermer</button>
-              <button onClick={triggerPrintCard} style={{ background: '#00a8e0', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>🖨️ Lancer l'Impression PDF</button>
+              <button onClick={() => triggerPrint('planche')} style={{ background: '#00a8e0', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>🖨️ Lancer l'Impression PDF</button>
             </div>
           </div>
         </div>
