@@ -97,10 +97,14 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
           <div style={{ marginTop: mm(.5), fontSize: mm(1.25), fontWeight: 650, color: '#C8E3F1', letterSpacing: mm(.04) }}>INTERNATIONALE · BILINGUE</div>
         </div>
       </div>
+      <div style={{ position: 'absolute', top: mm(18), left: mm(7), display: 'flex', alignItems: 'center', gap: mm(1.5), color: '#D7E8F2' }}>
+        <span style={{ width: mm(7), height: mm(.65), background: '#F28C28' }} />
+        <span style={{ fontSize: mm(1.45), fontWeight: 800, letterSpacing: mm(.12) }}>CARTE SCOLAIRE OFFICIELLE</span>
+      </div>
 
       {/* Photo carrée à cheval sur les deux aplats, signature du modèle. */}
       <div style={{
-        position: 'absolute', top: mm(27), left: mm(7), width: mm(23), height: mm(29),
+        position: 'absolute', top: mm(23), left: mm(7), width: mm(24), height: mm(33),
         overflow: 'hidden', background: '#DDE8EF', border: `${mm(.6)}px solid #fff`,
         boxShadow: '0 5px 14px rgba(23,78,114,.25)', zIndex: 2,
       }}>
