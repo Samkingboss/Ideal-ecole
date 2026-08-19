@@ -977,7 +977,6 @@
             else el.value = '';
         });
         document.getElementById('cantine-details').classList.add('hidden');
-        document.getElementById('transport-details').classList.add('hidden');
         startWizard('nouvelle');
     }
 
@@ -985,6 +984,93 @@
     // WIZARD UI
     // =============================================
     let previousStepIndex = 1;
+
+    /**
+     * Crée le pad de signature sur le canvas de l'étape 8.
+     *
+     * Elle était définie dans `updateWizardUI`, donc invisible depuis
+     * `validateStep` : quand le pad manquait, plus rien ne pouvait le créer.
+     * Hissée ici, elle reste appelée à l'identique par `updateWizardUI`, et
+     * devient rattrapable au moment du clic sur « Valider ».
+     *
+     * `differer` distingue les deux usages. À l'affichage de l'étape, le
+     * layout n'est pas prêt et on repasse par `requestAnimationFrame`. Au
+     * clic, le layout l'est forcément — l'utilisateur voit l'écran — et une
+     * tentative synchrone suffit : elle ne planifie aucune frame, ce qui
+     * évite d'empiler des rappels à chaque validation refusée.
+     *
+     * Le cas qui nous occupait n'était d'ailleurs pas l'épuisement des vingt
+     * tentatives : passé ce compte, le code retombe plus bas et crée le pad
+     * à 300 px. Le blocage réel survient quand `requestAnimationFrame` ne se
+     * déclenche jamais — onglet masqué ou en arrière-plan — et que le
+     * compteur reste figé à zéro.
+     *
+     * Renvoie true si un pad est disponible à la sortie.
+     */
+    function initSignaturePad(tentatives, differer = true) {
+        const canvas  = document.getElementById('signature-pad');
+        const wrapper = document.getElementById('signature-wrapper');
+        if (!canvas || !wrapper) return false;
+
+        const w = wrapper.offsetWidth;
+        if (w === 0 && differer && tentatives < 20) {
+            // Layout pas encore prêt — on retente à la frame suivante
+            requestAnimationFrame(() => initSignaturePad(tentatives + 1));
+            return false;
+        }
+
+        const ratio = window.devicePixelRatio || 1;
+        // Dimensions RÉELLES du canvas (résolution native)
+        const largeur = Math.max(w, 300) * ratio;
+        const hauteur = 220 * ratio;
+
+        // Un pad valide est déjà en place, aux mêmes dimensions : on n'y
+        // touche pas. C'est le cas d'un aller-retour 8 → 7 → 8, où l'on
+        // repassait jusqu'ici par une réinitialisation complète. Or affecter
+        // `canvas.width` vide le canvas — même en réécrivant la valeur
+        // existante — et `new SignaturePad` repart d'un pad vide : la
+        // signature déjà tracée par le parent était perdue sans un mot.
+        if (signaturePad && signaturePad.canvas === canvas
+            && canvas.width === largeur && canvas.height === hauteur) {
+            return true;
+        }
+
+        // Redimensionnement réel (rotation de l'écran, première venue). On
+        // sauve le tracé avant de vider le canvas, pour le remettre après.
+        //
+        // Les dimensions passées à `fromDataURL` ne sont pas facultatives :
+        // sans elles, SignaturePad redessine à `canvas.width / ratio` et,
+        // sur un écran à ratio 2, l'image se retrouve réduite au quart dans
+        // le coin supérieur gauche. Mesuré : 903 pixels d'encre restitués
+        // contre 3425 à l'origine, contre 3425 avec les dimensions.
+        const traceAvant = (signaturePad && !signaturePad.isEmpty())
+            ? signaturePad.toDataURL('image/png')
+            : null;
+
+        canvas.width  = largeur;
+        canvas.height = hauteur;
+        const ctx = canvas.getContext('2d');
+        // IMPORTANT : réinitialiser la transformation avant d'appliquer
+        // le ratio — évite le double-scale si initSignaturePad est appelé
+        // plusieurs fois (retour arrière + avancement).
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(ratio, ratio);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Le pad précédent est détaché avant d'en créer un autre : jamais
+        // deux instances actives sur le même canvas.
+        if (signaturePad) signaturePad.off();
+        signaturePad = new SignaturePad(canvas, {
+            backgroundColor: 'rgb(255, 255, 255)',
+            penColor: 'rgb(0, 0, 0)',
+            minWidth: 1.5,
+            maxWidth: 3,
+        });
+        if (traceAvant) {
+            signaturePad.fromDataURL(traceAvant, { width: largeur, height: hauteur });
+        }
+        return true;
+    }
 
     function updateWizardUI() {
         for (let i = 1; i <= totalSteps; i++) {
@@ -1019,41 +1105,6 @@
         if (currentStep !== 4 && stream) stopCamera();
 
         if (currentStep === 8) {
-            // Sur tablette (devicePixelRatio ≥ 2), wrapper.offsetWidth peut être 0
-            // si le layout n'est pas encore calculé à 100 ms. On réessaie via
-            // requestAnimationFrame jusqu'à obtenir une largeur réelle.
-            const initSignaturePad = (tentatives) => {
-                const canvas  = document.getElementById('signature-pad');
-                const wrapper = document.getElementById('signature-wrapper');
-                if (!canvas || !wrapper) return;
-
-                const w = wrapper.offsetWidth;
-                if (w === 0 && tentatives < 20) {
-                    // Layout pas encore prêt — on retente à la frame suivante
-                    requestAnimationFrame(() => initSignaturePad(tentatives + 1));
-                    return;
-                }
-
-                const ratio = window.devicePixelRatio || 1;
-                // On fixe les dimensions RÉELLES du canvas (résolution native)
-                canvas.width  = Math.max(w, 300) * ratio;
-                canvas.height = 220 * ratio;
-                const ctx = canvas.getContext('2d');
-                // IMPORTANT : réinitialiser la transformation avant d'appliquer
-                // le ratio — évite le double-scale si initSignaturePad est appelé
-                // plusieurs fois (retour arrière + avancement).
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.scale(ratio, ratio);
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                if (signaturePad) signaturePad.off();
-                signaturePad = new SignaturePad(canvas, {
-                    backgroundColor: 'rgb(255, 255, 255)',
-                    penColor: 'rgb(0, 0, 0)',
-                    minWidth: 1.5,
-                    maxWidth: 3,
-                });
-            };
             setTimeout(() => initSignaturePad(0), 100);
         }
 
@@ -1103,7 +1154,24 @@
             }
         }
         if (step === 8) {
-            if (signaturePad && signaturePad.isEmpty()) {
+            // `signaturePad` reste null tant que updateWizardUI ne l'a pas créé :
+            // il l'instancie 100 ms après l'affichage de l'étape, et diffère
+            // encore tant que la largeur du conteneur vaut 0 — jusqu'à vingt
+            // frames sur tablette, puis renonce sans rien dire.
+            //
+            // L'ancien test `signaturePad && signaturePad.isEmpty()` laissait
+            // donc passer le cas le plus grave : pad absent, donc condition
+            // fausse, donc validation réussie. Le dossier partait sans
+            // signature, et `submitInscription` n'enregistrait aucune
+            // signature_url. Un pad manquant doit bloquer, pas autoriser.
+            // Rattrapage : le clic prouve que l'étape est visible et le layout
+            // calculé. Une tentative synchrone, sans planifier de frame.
+            if (!signaturePad) initSignaturePad(0, false);
+            if (!signaturePad) {
+                alert("La zone de signature n'a pas pu être affichée. Revenez à l'étape précédente puis relancez, ou rechargez la page.");
+                return false;
+            }
+            if (signaturePad.isEmpty()) {
                 alert("La signature du responsable légal est requise.");
                 return false;
             }
