@@ -42,7 +42,7 @@ export default function SurveillantApp({ user, onLogout }) {
     setSelectedIncident(incident)
     setSanctionForm({
       pts: ptsParGravite[incident.gravite] || 5,
-      type: ['grave', 'critique'].includes(incident.gravite) ? 'samedi' : 'retenue',
+      type: ['grave', 'critique'].includes(incident.gravite) ? 'direction' : 'retenue',
       duree: 10,
       details: '',
     })
@@ -199,21 +199,29 @@ export default function SurveillantApp({ user, onLogout }) {
   const validateIncident = async () => {
     if (!selectedIncident) return
     setSaving(true)
+    const transmisDirection = sanctionForm.type === 'direction'
     const { error: updErr } = await supabase.from('disciplines').update({
-      statut: 'validé',
+      statut: transmisDirection ? 'transmis_direction' : 'validé',
       surveillant_id: user.id,
-      points_perdus: sanctionForm.pts,
+      points_perdus: transmisDirection ? 0 : sanctionForm.pts,
       sanction_type: sanctionForm.type,
-      sanction_duree: sanctionForm.duree,
+      sanction_duree: sanctionForm.type === 'retenue' ? sanctionForm.duree : null,
       sanction_details: sanctionForm.details
     }).eq('id', selectedIncident.id)
 
     if (!updErr) {
-      // Deduct points from student
-      const newPts = Math.max(0, (selectedIncident.eleves?.points_discipline || 100) - sanctionForm.pts)
-      await supabase.from('eleves').update({ points_discipline: newPts }).eq('id', selectedIncident.eleve_id)
-      
-      // Notify parent logic could go here
+      if (transmisDirection) {
+        await pushNotification('directeur', {
+          titre: '⚖️ Incident transmis par le surveillant',
+          message: `${selectedIncident.eleves?.prenom || ''} ${selectedIncident.eleves?.nom || ''} · ${selectedIncident.eleves?.classes?.nom || ''} · ${selectedIncident.motif || 'Signalement disciplinaire'}`,
+          type: 'discipline',
+          tabTarget: 'discipline',
+          ref: selectedIncident.id,
+        })
+      } else {
+        const newPts = Math.max(0, (selectedIncident.eleves?.points_discipline || 100) - sanctionForm.pts)
+        await supabase.from('eleves').update({ points_discipline: newPts }).eq('id', selectedIncident.eleve_id)
+      }
       
       loadData()
       setSelectedIncident(null)
@@ -488,19 +496,21 @@ export default function SurveillantApp({ user, onLogout }) {
 
             <div style={{fontSize:14, fontWeight:900, marginBottom:12}}>Décision du surveillant</div>
             
-            <div className="form-group">
+            {sanctionForm.type !== 'direction' && <div className="form-group">
               <label className="form-label">Points à retirer</label>
               <input type="number" className="form-input" value={sanctionForm.pts} onChange={e => setSanctionForm({...sanctionForm, pts: parseInt(e.target.value)||0})} />
-            </div>
+            </div>}
 
             <div className="form-group">
               <label className="form-label">Type de Sanction</label>
               <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
-                {[['retenue','Retenue'],['tig','TIG'],['samedi','Retenue Samedi']].map(([v,l])=>(
-                  <div key={v} onClick={()=>setSanctionForm({...sanctionForm, type:v})} style={{flex:1, textAlign:'center', padding:8, borderRadius:10, fontSize:11, fontWeight:600, border:'1.5px solid '+(sanctionForm.type===v?'var(--accent)':'var(--border)'), background:sanctionForm.type===v?'rgba(26,175,224,.1)':'var(--bg)', color:sanctionForm.type===v?'var(--accent)':'var(--muted)', cursor:'pointer'}}>{l}</div>
+                {[['retenue','Retenue'],['tig','TIG'],['direction','Direction']].map(([v,l])=>(
+                  <div key={v} onClick={()=>setSanctionForm({...sanctionForm, type:v, pts:v === 'direction' ? 0 : sanctionForm.pts})} style={{flex:'1 1 110px', textAlign:'center', padding:8, borderRadius:10, fontSize:11, fontWeight:600, border:'1.5px solid '+(sanctionForm.type===v?'var(--accent)':'var(--border)'), background:sanctionForm.type===v?'rgba(26,175,224,.1)':'var(--bg)', color:sanctionForm.type===v?'var(--accent)':'var(--muted)', cursor:'pointer'}}>{l}</div>
                 ))}
               </div>
             </div>
+
+            {sanctionForm.type === 'direction' && <div style={{padding:10, borderRadius:10, background:'#fff7ed', color:'#9a3412', fontSize:11, fontWeight:700, marginBottom:12}}>Le signalement complet sera transmis à la direction. Aucun point ne sera retiré par le surveillant à cette étape.</div>}
 
             {sanctionForm.type === 'retenue' && (
               <div className="form-group">
@@ -518,7 +528,7 @@ export default function SurveillantApp({ user, onLogout }) {
               <textarea className="form-input" rows={2} value={sanctionForm.details} onChange={e => setSanctionForm({...sanctionForm, details: e.target.value})} placeholder="Ex: Nettoyage de la cour, etc." />
             </div>
 
-            <button className="btn btn-primary" onClick={validateIncident} disabled={saving}>{saving ? 'Validation...' : 'Confirmer la sanction'}</button>
+            <button className="btn btn-primary" onClick={validateIncident} disabled={saving}>{saving ? 'Validation...' : sanctionForm.type === 'direction' ? 'Envoyer à la direction' : 'Confirmer la sanction'}</button>
             <button className="btn-cancel" onClick={() => setSelectedIncident(null)}>Annuler</button>
           </div>
         </div>
