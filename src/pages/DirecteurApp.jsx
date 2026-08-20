@@ -13,6 +13,7 @@ import AffectationsMatieres from './AffectationsMatieres'
 import ActivitePersonnel from './ActivitePersonnel'
 import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
+import FichesEffectifs from './FichesEffectifs'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { statutDe, libelleStatut, ponctualiteAuDepot, raconter } from '../lib/preparations'
 
@@ -209,13 +210,16 @@ export default function DirecteurApp({ user, onLogout }) {
       const inscs = results[11].data || []
 
       // Convertir les inscriptions officielles en format élève pour affichage
-      const elInscs = inscs.map(i => {
+      const elevesExistants = new Set(el.flatMap(e => [e.matricule, e.inscription_id].filter(Boolean).map(String)))
+      const elInscs = inscs.filter(i => !elevesExistants.has(String(i.matricule)) && !elevesExistants.has(String(i.id))).map(i => {
         const matchingCl = cl.find(c => (c.nom || '').toLowerCase().trim() === (i.classe_demandee || '').toLowerCase().trim());
         return {
           id: i.id,
           nom: i.nom,
           prenom: i.prenom,
           matricule: i.matricule,
+          date_naissance: i.date_naissance,
+          sexe: i.sexe,
           classe_id: matchingCl ? matchingCl.id : null,
           classe_nom: i.classe_demandee,
           points_discipline: 100,
@@ -869,48 +873,7 @@ export default function DirecteurApp({ user, onLogout }) {
                   </div>
                 </div>
               )}
-              {(subTabEleve === 'liste' || subTabEleve === 'dossiers') && (
-                <div className="card" style={{ padding: '1.2rem' }}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: 16 }}>🎒 Effectifs et Liste des Élèves</h3>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
-                          <th style={{ textAlign: 'left', padding: '10px 12px' }}>Nom &amp; Prénom</th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px' }}>Classe</th>
-                          <th style={{ textAlign: 'center', padding: '10px 12px' }}>Document / Carte</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {eleves.map(e => (
-                          <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '10px 12px', fontWeight: 700 }}>{e.prenom} {e.nom}</td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <span className="chip chip-blue">{e.classe_nom || classes.find(c => c.id === e.classe_id)?.nom || '—'}</span>
-                            </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                              <button 
-                                className="btn-sm" 
-                                style={{ background: 'var(--accent)', color: '#fff', marginRight: 6 }}
-                                onClick={() => setSubTabEleve('certificat')}
-                              >
-                                📜 Certificat
-                              </button>
-                              <button 
-                                className="btn-sm" 
-                                style={{ background: 'var(--green)', color: '#fff' }}
-                                onClick={() => setSubTabEleve('cartes')}
-                              >
-                                💳 Carte
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              {(subTabEleve === 'liste' || subTabEleve === 'dossiers') && <FichesEffectifs eleves={eleves} classes={classes} onCertificat={() => setSubTabEleve('certificat')} onCarte={() => setSubTabEleve('cartes')} />}
             </div>
           )}
 

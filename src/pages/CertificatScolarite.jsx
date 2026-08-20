@@ -3,11 +3,11 @@ import { supabase } from '../lib/supabase'
 
 export default function CertificatScolarite() {
   const [eleves, setEleves] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [selectedEleve, setSelectedEleve] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [motifDelivrance, setMotifDelivrance] = useState('Servir et valoir ce que de droit')
-  const [dateFormatee, setDateFormatee] = useState(new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }))
+  const dateFormatee = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   useEffect(() => {
     loadEleves()
@@ -93,9 +93,14 @@ export default function CertificatScolarite() {
   const formatDateFr = (dateStr) => {
     if (!dateStr) return ''
     try {
-      const d = new Date(dateStr)
+      const texte = String(dateStr).trim()
+      const fr = texte.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      const d = fr
+        ? new Date(Number(fr[3]), Number(fr[2]) - 1, Number(fr[1]))
+        : new Date(texte)
+      if (Number.isNaN(d.getTime())) return texte.toLowerCase().includes('invalid') ? 'Non renseignée' : texte
       return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    } catch (e) {
+    } catch {
       return dateStr
     }
   }
@@ -183,140 +188,93 @@ export default function CertificatScolarite() {
         </div>
       </div>
 
-      {/* RENDU ULTRA-PREMIUM DU CERTIFICAT DE SCOLARITÉ (STYLE IDENTIQUE AU MENU RESTAURATION) */}
+      {/* Certificat A4 officiel - une seule composition pour l'écran et le papier. */}
       {selectedEleve && (
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', overflowX: 'auto', padding: '0 8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', overflowX: 'auto', padding: '0 8px 24px' }}>
           <div
             id="certificat-print-area"
             style={{
               width: 760,
-              maxWidth: '100%',
-              minHeight: 1040,
-              background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
-              padding: '3rem 2.8rem',
+              height: 1075,
+              background: '#fff',
+              padding: '46px 52px 38px',
               boxSizing: 'border-box',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
+              boxShadow: '0 22px 55px rgba(15,35,60,.16)',
               position: 'relative',
               color: '#0f172a',
               fontFamily: 'system-ui, -apple-system, sans-serif',
-              borderRadius: 32,
+              borderRadius: 8,
               overflow: 'hidden',
-              border: '3px double #d97706'
+              border: '1px solid #dbe3ea'
             }}
           >
-            {/* Filigrane officiel couronne impériale */}
-            <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 280, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 16, bottom: 0, background: '#174E72' }} />
+            <div style={{ position: 'absolute', top: 0, left: 16, width: 5, height: 170, background: '#F28C28' }} />
+            <div style={{ position: 'absolute', inset: 24, border: '1px solid #D5DEE6', pointerEvents: 'none' }} />
+            <img src="/logo-ideal-symbole.png" alt="" style={{ position: 'absolute', width: 260, height: 220, objectFit: 'contain', opacity: .025, right: 85, top: 390, pointerEvents: 'none' }} />
 
-            {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & TITRE DE DOCUMENT */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
-              <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 95, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
-
+            <header style={{ display: 'grid', gridTemplateColumns: '120px 1fr', alignItems: 'center', gap: 24, paddingBottom: 24, borderBottom: '3px solid #174E72' }}>
+              <img src="/logo-ideal-symbole.png" alt="IDEAL" style={{ width: 112, height: 92, objectFit: 'contain' }} />
               <div>
-                <div style={{ fontSize: 26, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                  ÉCOLE INTERNATIONALE BILINGUE IDEAL
-                </div>
-                <div style={{ fontSize: 36, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
-                  CERTIFICAT DE SCOLARITÉ
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#174E72', letterSpacing: .6 }}>IDEAL ÉCOLE</div>
+                <div style={{ marginTop: 4, fontSize: 13, color: '#64748B', fontWeight: 750, letterSpacing: 1 }}>ÉCOLE INTERNATIONALE BILINGUE</div>
+                <div style={{ marginTop: 7, fontSize: 12, color: '#85929F', fontWeight: 650 }}>Faladié Sema - Bamako, Mali</div>
               </div>
-            </div>
+            </header>
 
-            {/* BARRE BLEU FONCÉ : ATTESTATION OFFICIELLE DE FRÉQUENTATION SCOLAIRE */}
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <div style={{ display: 'inline-block', background: '#0f172a', color: '#ffffff', padding: '14px 44px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase' }}>
-                  📜 ATTESTATION OFFICIELLE • ANNÉE SCOLAIRE 2026 - 2027
+            <section style={{ textAlign: 'center', marginTop: 26 }}>
+              <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 850, color: '#F28C28', letterSpacing: 2.2 }}>DOCUMENT OFFICIEL</div>
+              <h1 style={{ margin: '8px 0 0', fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 37, fontWeight: 700, color: '#17364D', letterSpacing: 1.2 }}>CERTIFICAT DE SCOLARITÉ</h1>
+              <div style={{ width: 90, height: 4, margin: '14px auto 0', background: '#F28C28' }} />
+              <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, color: '#64748B', letterSpacing: 1 }}>ANNÉE SCOLAIRE 2026 - 2027</div>
+            </section>
+
+            <section style={{ marginTop: 26, fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 16.5, lineHeight: 1.55, color: '#263B4B' }}>
+              <p style={{ margin: 0 }}>Je soussigné, Directeur de l'École Internationale Bilingue IDEAL, certifie que :</p>
+
+              <div style={{ margin: '16px 0', padding: '15px 24px', background: '#F3F6F8', borderLeft: '5px solid #174E72' }}>
+                <div style={{ fontFamily: 'system-ui, sans-serif', fontSize: 12, fontWeight: 850, color: '#7B8792', letterSpacing: 1.4 }}>ÉLÈVE</div>
+                <div style={{ marginTop: 5, fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 24, lineHeight: 1.15, fontWeight: 700, color: '#174E72', textTransform: 'uppercase', overflowWrap: 'anywhere' }}>
+                  {selectedEleve.prenom} {selectedEleve.nom}
                 </div>
-              </div>
-            </div>
-
-            {/* BLOC PRINCIPAL AVEC FOND PASTEL COLORÉ SANS BORDURES */}
-            <div style={{ background: '#fffbeb', borderRadius: 24, border: 'none', padding: '28px 24px', marginBottom: 28, boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
-              
-              <div style={{ background: '#d97706', color: '#ffffff', padding: '10px 20px', borderRadius: 14, textAlign: 'center', fontWeight: 900, fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-                IDENTITÉ &amp; INFORMATIONS DE L'ÉLÈVE
-              </div>
-
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  LE PRÉSENT CERTIFICAT EST DÉLIVRÉ À :
-                </div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', marginTop: 4 }}>
-                  {selectedEleve.nom.toUpperCase()} <span style={{ color: '#d97706' }}>{selectedEleve.prenom}</span>
-                </div>
-              </div>
-
-              {/* GRILLE D'INFORMATIONS ÉLÉGANTE SUR FOND BLANC */}
-              <div style={{ background: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: 16, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, fontSize: 14 }}>
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>MATRICULE SCOLAIRE</span>
-                  <span style={{ fontSize: 18, fontWeight: 900, color: '#0f172a' }}>{selectedEleve.matricule}</span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>CLASSE FREQUENTÉE</span>
-                  <span style={{ fontSize: 18, fontWeight: 900, color: '#047857' }}>{selectedEleve.classe_nom}</span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>DATE &amp; LIEU DE NAISSANCE</span>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: '#334155' }}>{formatDateFr(selectedEleve.date_naissance)} à {selectedEleve.lieu_naissance}</span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>NATIONALITÉ</span>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: '#334155' }}>{selectedEleve.nationalite || 'Malienne'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* TEXTE D'ATTESTATION OFFICIEL DANS UN BLOC BLEU OCEAN SANS BORDURES */}
-            <div style={{ background: '#f0f9ff', borderRadius: 24, padding: '24px', marginBottom: 32, textAlign: 'center' }}>
-              <div style={{ fontSize: 14, lineHeight: 1.8, color: '#0f172a', fontWeight: 700 }}>
-                Le Directeur Général soussigné certifie que l'élève désigné(e) ci-dessus est régulièrement inscrit(e) et fréquente assidûment les cours dispensés au sein de notre établissement pour l'année académique en cours.
-              </div>
-              <div style={{ fontSize: 13, color: '#0284c7', fontWeight: 800, marginTop: 10 }}>
-                ✦ En foi de quoi, le présent certificat lui est délivré pour : <u>{motifDelivrance}</u>.
-              </div>
-            </div>
-
-            {/* ALIGNEMENT SIGNATURE ET DATE */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, paddingTop: 10 }}>
-              <div style={{ textAlign: 'center', minWidth: 180 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>DATE DE DÉLIVRANCE</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a', marginTop: 4, background: '#ffffff', padding: '8px 18px', borderRadius: 12, border: '1px solid #cbd5e1' }}>
-                  {dateFormatee}
+                <div style={{ marginTop: 13, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px 30px', fontFamily: 'system-ui, sans-serif' }}>
+                  {[
+                    ['Matricule', selectedEleve.matricule],
+                    ['Classe fréquentée', selectedEleve.classe_nom],
+                    ['Né(e) le', `${formatDateFr(selectedEleve.date_naissance)} à ${selectedEleve.lieu_naissance}`],
+                    ['Nationalité', selectedEleve.nationalite || 'Malienne'],
+                  ].map(([label, valeur]) => (
+                    <div key={label}>
+                      <div style={{ fontSize: 11, color: '#7B8792', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .8 }}>{label}</div>
+                      <div style={{ marginTop: 3, fontSize: 14, lineHeight: 1.25, color: '#20394B', fontWeight: 800 }}>{valeur}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* SCEAU DE GARANTIE DORÉ AU CENTRE */}
+              <p style={{ margin: 0 }}>
+                est régulièrement inscrit(e) dans notre établissement et fréquente les cours de la classe indiquée ci-dessus durant l'année scolaire 2026 - 2027.
+              </p>
+              <p style={{ margin: '12px 0 0' }}>
+                En foi de quoi, le présent certificat lui est délivré pour <strong style={{ color: '#174E72' }}>{motifDelivrance.toLowerCase()}</strong>.
+              </p>
+            </section>
+
+            <section style={{ marginTop: 22, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 70, alignItems: 'end' }}>
+              <div style={{ fontSize: 14, color: '#536575', lineHeight: 1.6 }}>
+                Fait à Bamako,<br />le <strong style={{ color: '#17364D' }}>{dateFormatee}</strong>
+              </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ width: 75, height: 75, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(217,119,6,0.35)', margin: '0 auto 6px auto', border: '3px solid #ffffff' }}>
-                  <div style={{ fontSize: 20 }}>👑</div>
-                  <div style={{ fontSize: 7, fontWeight: 900, letterSpacing: '1px' }}>IDEAL</div>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 900, color: '#b45309' }}>SEAU D'AUTHENTICITÉ</div>
+                <div style={{ fontSize: 12, fontWeight: 850, color: '#17364D', letterSpacing: 1 }}>LE DIRECTEUR</div>
+                <div style={{ height: 68, marginTop: 6, borderBottom: '1px solid #A7B4BE' }} />
+                <div style={{ marginTop: 8, fontSize: 11, color: '#7B8792' }}>Signature et cachet officiels</div>
               </div>
+            </section>
 
-              <div style={{ textAlign: 'center', width: 230 }}>
-                <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', marginBottom: 6 }}>
-                  LE DIRECTEUR GÉNÉRAL
-                </div>
-                <div style={{ height: 90, background: '#ffffff', border: '2px solid #0f172a', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 11, fontWeight: 700, fontStyle: 'italic' }}>
-                  (Signature &amp; Cachet Officiel)
-                </div>
-              </div>
-            </div>
-
-            {/* PIED DE PAGE SCEAU DE QUALITÉ ACCRÉDITÉ */}
-            <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, color: '#b45309', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🏅</span> ACCRÉDITATION EXCELLENCE ACADÉMIQUE
-              </div>
-              <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-                ÉCOLE INTERNATIONALE BILINGUE IDEAL — Bamako, Mali
-              </div>
-            </div>
+            <footer style={{ position: 'absolute', left: 52, right: 52, bottom: 38, paddingTop: 14, borderTop: '1px solid #D5DEE6', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#7B8792', fontWeight: 700 }}>
+              <span>École Internationale Bilingue IDEAL</span>
+              <span>Réf. {selectedEleve.matricule} / 2026-2027</span>
+            </footer>
           </div>
         </div>
       )}
@@ -324,22 +282,21 @@ export default function CertificatScolarite() {
       {/* Style d'impression A4 */}
       <style>{`
         @media print {
-          .no-print, header, nav, .topbar, .bottom-nav, button {
-            display: none !important;
-          }
-          body {
-            background: #fff !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
+          @page { size: A4 portrait; margin: 0; }
+          html, body { width: 210mm; height: 297mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          body * { visibility: hidden !important; }
+          #certificat-print-area, #certificat-print-area * { visibility: visible !important; }
           #certificat-print-area {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
             box-shadow: none !important;
-            border: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-height: 100vh !important;
-            padding: 15mm !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: 12.7mm 13.8mm 10mm !important;
             border-radius: 0 !important;
+            border: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
