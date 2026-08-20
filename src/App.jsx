@@ -6,6 +6,7 @@ import ProfApp from './pages/ProfApp'
 import SurveillantApp from './pages/SurveillantApp'
 import ConseillerApp from './pages/ConseillerApp'
 import CuisiniereApp from './pages/CuisiniereApp'
+import MaternelleApp from './pages/MaternelleApp'
 import './App.css'
 
 class ErrorBoundary extends Component {
@@ -64,6 +65,7 @@ export default function App() {
     if (!user) {
       document.title = "Connexion - IDEAL EcoleApp"
     } else {
+      const poste = String(user.fonction || user.poste_id || '').toLowerCase()
       const roleMap = {
         'directeur': 'Direction',
         'professeur': 'Espace Enseignant',
@@ -72,7 +74,9 @@ export default function App() {
         'responsable_administratif': 'Administration',
         'cuisiniere': 'Cuisine & Cantine'
       }
-      document.title = `${roleMap[user.role] || 'Portail'} - IDEAL EcoleApp`
+      const titreMaternelle = poste.startsWith('assistante-') ? 'Assistante Maternelle'
+        : poste.startsWith('maitresse-') ? 'Maîtresse Maternelle' : null
+      document.title = `${titreMaternelle || roleMap[user.role] || 'Portail'} - IDEAL EcoleApp`
     }
   }, [user])
 
@@ -99,6 +103,10 @@ export default function App() {
   const renderApp = () => {
     if (!user) return <LoginPage onLogin={handleLogin} />
     const r = (user.fonction === 'cuisiniere' || user.custom_role === 'cuisiniere') ? 'cuisiniere' : user.role
+    const poste = String(user.fonction || user.poste_id || '').toLowerCase()
+    if (poste.startsWith('maitresse-') || poste.startsWith('assistante-')) {
+      return <MaternelleApp user={user} onLogout={handleLogout} />
+    }
     if (r === 'directeur' || r === 'responsable_administratif') {
       return <DirecteurApp user={user} onLogout={handleLogout} />
     }

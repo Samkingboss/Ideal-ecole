@@ -4,6 +4,7 @@ import SuiviStock from './SuiviStock'
 import { journaliser } from '../lib/audit'
 import NotificationCenter from './NotificationCenter'
 import { pushNotification } from '../lib/notifications'
+import { MaternelleSurveillance } from './MaternelleApp'
 
 const RECREES = [
   { id:'r1', label:'9h40 - Recreation matin' },
@@ -236,7 +237,15 @@ export default function SurveillantApp({ user, onLogout }) {
           <div className="nav-icon" aria-hidden="true">📦</div>
           <span>Stock</span>
         </button>
+        <button className={`nav-item ${tab==='maternelle'?'active':''}`} onClick={()=>setTab('maternelle')} role="tab" aria-selected={tab === 'maternelle'} aria-label="Contrôle de la maternelle">
+          <div className="nav-icon" aria-hidden="true">🧸</div>
+          <span>Maternelle</span>
+        </button>
       </div>
+
+      {tab === 'maternelle' && (
+        <div className="page-content" style={{ paddingBottom: 100 }}><MaternelleSurveillance user={user} /></div>
+      )}
 
       {tab === 'stock' && (
         <div className="page-content" style={{ padding: '1.2rem 1rem calc(130px + env(safe-area-inset-bottom))' }}>

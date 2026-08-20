@@ -17,6 +17,7 @@ import FichesEffectifs from './FichesEffectifs'
 import InscriptionsValidation from './InscriptionsValidation'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { statutDe, libelleStatut, ponctualiteAuDepot, raconter } from '../lib/preparations'
+import { MaternelleDirection } from './MaternelleApp'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -35,6 +36,7 @@ const TOP_TABS = [
   { id:'discipline', icon:'⚖️', label:'Discipline' },
   { id:'pedagogie', icon:'📚', label:'Pédagogie' },
   { id:'emploi', icon:'🗓️', label:'Emploi du temps' },
+  { id:'maternelle', icon:'🧸', label:'Maternelle' },
 ]
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
@@ -451,6 +453,7 @@ export default function DirecteurApp({ user, onLogout }) {
         langue: newProf.langue, 
         code_acces: code, 
         plafond_salaire: newProf.plafond_salaire,
+        fonction: newProf.poste_id || null,
         actif: true 
       }, { onConflict: 'id' }).select().single()
 
@@ -1155,11 +1158,12 @@ export default function DirecteurApp({ user, onLogout }) {
     { id: 'rh',         icon: '💼', label: 'RH' },
     { id: 'personnel',  icon: '👥', label: 'Gestion du Personnel' },
     { id: 'pedagogie',  icon: '📚', label: 'Pédagogie' },
+    { id: 'maternelle', icon: '🧸', label: 'Maternelle' },
     { id: 'discipline', icon: '⚖️', label: 'Discipline' },
     { id: 'synthese',   icon: '📊', label: 'Synthèse' },
   ]
 
-  const activeDirectorTab = ['agenda', 'rh', 'personnel', 'profs', 'points', 'pedagogie', 'discipline', 'synthese', 'dashboard', 'emploi'].includes(tab)
+  const activeDirectorTab = ['agenda', 'rh', 'personnel', 'profs', 'points', 'pedagogie', 'discipline', 'synthese', 'dashboard', 'emploi', 'maternelle'].includes(tab)
     ? tab
     : 'synthese'
 
@@ -1644,6 +1648,12 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         )}
 
+        {activeDirectorTab === 'maternelle' && (
+          <div className="page-content" style={{ paddingBottom: 100 }}>
+            <MaternelleDirection />
+          </div>
+        )}
+
         {/* ════════════════ 6. SYNTHÈSE ════════════════ */}
         {(activeDirectorTab === 'synthese' || activeDirectorTab === 'dashboard') && (() => {
           const cpParClasse = classes.map(cl => {
@@ -1748,12 +1758,24 @@ export default function DirecteurApp({ user, onLogout }) {
               <select className="form-select" value={newProf.poste_id || postes.find(p => p.mensuel === newProf.plafond_salaire)?.id || ''}
                 onChange={e => {
                   const p = postes.find(x => x.id === e.target.value)
-                  setNewProf({ ...newProf, poste_id: e.target.value, plafond_salaire: p ? p.mensuel : newProf.plafond_salaire })
+                  const maternelle = /^(maitresse|assistante)-(fr|en)-mat$/.test(e.target.value)
+                  const langueMat = e.target.value.includes('-en-') ? 'en' : 'fr'
+                  setNewProf({
+                    ...newProf,
+                    poste_id: e.target.value,
+                    plafond_salaire: p ? p.mensuel : newProf.plafond_salaire,
+                    ...(maternelle ? { role: 'professeur', langue: langueMat } : {})
+                  })
                 }}>
                 <option value="">— Choisir un poste —</option>
                 {postes.map(p => <option key={p.id} value={p.id}>{p.label} ({fmtFCFA(p.mensuel)}/mois)</option>)}
               </select>
               <div style={{fontSize:10, color:'var(--muted)', marginTop:4}}>Liste modifiable via « 💼 Postes & salaires » (onglet Équipe) — synchronisée avec la comptabilité.</div>
+              {/^(maitresse|assistante)-(fr|en)-mat$/.test(newProf.poste_id || '') && (
+                <div style={{fontSize:11, color:'#0369a1', marginTop:6, fontWeight:700}}>
+                  🧸 Le compte ouvrira automatiquement l’espace Maternelle ({(newProf.poste_id || '').includes('-en-') ? 'anglais' : 'français'}).
+                </div>
+              )}
             </div>
 
             {newProf.role === 'professeur' && (
