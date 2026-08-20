@@ -372,18 +372,18 @@ export default function ConseillerApp({ user, onLogout }) {
                 >
                   <span style={{display:'block', fontSize:18, fontWeight:900}}>✓ ARRIVÉE</span>
                   <span style={{display:'block', marginTop:5, fontSize:13}}>
-                    {pointagePersonnel?.heure_arrivee ? pointagePersonnel.heure_arrivee.slice(0, 5) : 'Pointer maintenant'}
+                    {pointagePersonnel?.heure_arrivee ? `Heure enregistrée : ${pointagePersonnel.heure_arrivee.slice(0, 5)}` : 'Pointer maintenant'}
                   </span>
                 </button>
                 <button
                   className="btn-primary"
                   disabled={pointageEnCours || !pointagePersonnel?.heure_arrivee || Boolean(pointagePersonnel?.heure_depart)}
                   onClick={() => pointerPersonnel('depart')}
-                  style={{minHeight:74, background:'#16883b', opacity:(!pointagePersonnel?.heure_arrivee || pointagePersonnel?.heure_depart) ? .7 : 1}}
+                  style={{minHeight:74, background:'#f59e0b', color:'#fff', opacity:(!pointagePersonnel?.heure_arrivee || pointagePersonnel?.heure_depart) ? .7 : 1}}
                 >
                   <span style={{display:'block', fontSize:18, fontWeight:900}}>↗ DÉPART</span>
                   <span style={{display:'block', marginTop:5, fontSize:13}}>
-                    {pointagePersonnel?.heure_depart ? pointagePersonnel.heure_depart.slice(0, 5) : 'Pointer maintenant'}
+                    {pointagePersonnel?.heure_depart ? `Heure enregistrée : ${pointagePersonnel.heure_depart.slice(0, 5)}` : 'Pointer maintenant'}
                   </span>
                 </button>
               </div>
