@@ -84,9 +84,7 @@ function PiedDePage({ nominatif }) {
 }
 
 export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], onClose }) {
-  // Par défaut l'exemplaire de classe : c'est le tirage courant, et le
-  // publipostage consomme trente feuilles qu'on ne lance pas par mégarde.
-  const [nominatif, setNominatif] = useState(false)
+  const [messagesOuverts, setMessagesOuverts] = useState(false)
 
   const list = devoirsList || []
   const laClasse = classeNom || 'la classe'
@@ -103,9 +101,19 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], o
     )
   }
 
-  const destinataires = nominatif && eleves.length
-    ? eleves.map(e => [e.prenom, e.nom].filter(Boolean).join(' '))
-    : [null]
+  const vise = (devoir, eleve) => {
+    const ciblage = devoir.contenu || {}
+    return ciblage.destinataire_mode !== 'choix' || (ciblage.eleve_ids || []).some(id => String(id) === String(eleve.id))
+  }
+  // Union des destinataires : chaque enfant reçoit une page nominative ne
+  // contenant que les devoirs qui le concernent.
+  const destinataires = eleves.filter(e => list.some(d => vise(d, e)))
+  const nomComplet = e => [e.prenom, e.nom].filter(Boolean).join(' ')
+  const messagePour = e => {
+    const sesDevoirs = list.filter(d => vise(d, e))
+    const lignes = sesDevoirs.map(d => `• ${d.matiere || 'Devoir'} : ${d.description || 'voir la fiche'} — à rendre le ${dateLisible(d.date_rendu) || 'date indiquée'}`)
+    return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n— Ideal École Internationale Bilingue`
+  }
 
   return (
     <DocumentPrintStudio
@@ -113,53 +121,44 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], o
       documentTitle="CAHIER DE DEVOIRS DE MAISON"
       subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • TRAVAUX AUTONOMES DU SOIR"
       eleveInfo={{
-        nom: nominatif && eleves.length ? `PUBLIPOSTAGE · ${eleves.length} ÉLÈVES` : `CLASSE DE ${laClasse.toUpperCase()}`,
+        nom: `PUBLIPOSTAGE · ${destinataires.length} ÉLÈVES`,
         classe: laClasse,
         date: aujourdhui,
       }}
       onClose={onClose}
     >
-      {/* Le choix du tirage ne s'imprime pas. */}
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18, padding: '10px 14px', background: '#f1f5f9', borderRadius: 12 }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>Tirage :</span>
-        <button onClick={() => setNominatif(false)}
-          style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: 'pointer',
-            border: '2px solid ' + (!nominatif ? '#0284c7' : '#cbd5e1'),
-            background: !nominatif ? '#0284c7' : '#fff', color: !nominatif ? '#fff' : '#64748b' }}>
-          Un exemplaire pour la classe
-        </button>
-        <button onClick={() => setNominatif(true)} disabled={eleves.length === 0}
-          style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800,
-            cursor: eleves.length ? 'pointer' : 'not-allowed',
-            border: '2px solid ' + (nominatif ? '#0284c7' : '#cbd5e1'),
-            background: nominatif ? '#0284c7' : '#fff', color: nominatif ? '#fff' : '#64748b',
-            opacity: eleves.length ? 1 : .5 }}>
-          Un exemplaire par élève ({eleves.length})
-        </button>
-        {eleves.length === 0 && (
-          <span style={{ fontSize: 11, color: '#64748b' }}>Aucun élève inscrit dans cette classe.</span>
-        )}
+      <div className="no-print" style={{ marginBottom: 18, padding: '12px 14px', background: '#f1f5f9', borderRadius: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>{destinataires.length} fiche(s) nominative(s) prête(s)</span>
+          <button className="btn-sm" onClick={() => setMessagesOuverts(!messagesOuverts)} style={{ background: '#16a34a', color: '#fff', padding: '8px 13px' }}>📲 Informer les parents via l’école</button>
+        </div>
+        {messagesOuverts && <div style={{ marginTop: 10, display: 'grid', gap: 7 }}>
+          <div style={{ fontSize: 11, color: '#475569' }}>Chaque bouton ouvre un message personnalisé vers le WhatsApp officiel de l’école (+223 90 19 00 07). La vie scolaire le transmet ensuite au parent concerné.</div>
+          {destinataires.map(e => <a key={e.id} href={`https://wa.me/22390190007?text=${encodeURIComponent(messagePour(e))}`} target="_blank" rel="noreferrer"
+            style={{ display: 'block', textDecoration: 'none', background: '#fff', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 9, padding: '8px 10px', fontSize: 12, fontWeight: 800 }}>
+            📤 Message pour {nomComplet(e)}
+          </a>)}
+        </div>}
       </div>
 
-      {destinataires.map((nomEleve, iPage) => (
-        <div key={iPage} style={iPage > 0 ? { breakBefore: 'page', pageBreakBefore: 'always', paddingTop: 24 } : undefined}>
+      {destinataires.map((eleve, iPage) => {
+        const devoirsEleve = list.filter(d => vise(d, eleve))
+        return <div key={eleve.id || iPage} style={iPage > 0 ? { breakBefore: 'page', pageBreakBefore: 'always', paddingTop: 24 } : undefined}>
           {/* Page de garde nominative : le nom de l'élève, en tête de sa
               feuille, pour que le cahier se rende et se signe sans confusion. */}
-          {nomEleve && (
-            <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '18px 24px', marginBottom: 18 }}>
+          <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '18px 24px', marginBottom: 18 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1px', opacity: .85 }}>DEVOIRS DE MAISON — {laClasse.toUpperCase()}</div>
-              <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>{nomEleve}</div>
+              <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>{nomComplet(eleve)}</div>
               <div style={{ fontSize: 12, marginTop: 4, opacity: .9 }}>Remis le {aujourdhui}</div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {list.map((item, idx) => <CarteDevoir key={item.id || idx} item={item} />)}
           </div>
 
-          <PiedDePage nominatif={Boolean(nomEleve)} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {devoirsEleve.map((item, idx) => <CarteDevoir key={item.id || idx} item={item} />)}
+          </div>
+
+          <PiedDePage nominatif />
         </div>
-      ))}
+      })}
     </DocumentPrintStudio>
   )
 }

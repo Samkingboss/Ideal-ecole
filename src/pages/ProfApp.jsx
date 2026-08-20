@@ -76,7 +76,7 @@ export default function ProfApp({ user, onLogout }) {
   // devoir d'exemple codé en dur, qui s'affichait dans toutes les classes et
   // faisait croire que le cahier fonctionnait.
   const [devoirs, setDevoirs] = useState([])
-  const [newDevoir, setNewDevoir] = useState({ matiere: '', objectif: '', aRendrePour: '', fichiers: [] })
+  const [newDevoir, setNewDevoir] = useState({ matiere: '', objectif: '', aRendrePour: '', fichiers: [], destinataire_mode: 'classe', eleve_ids: [] })
   // Les matières que l'enseignant assure réellement. Il n'a pas à les
   // retaper : elles sont déjà dans ses affectations, et une matière saisie à
   // la main finit toujours par diverger de celle de l'emploi du temps
@@ -248,6 +248,9 @@ export default function ProfApp({ user, onLogout }) {
     // constraint », que l'enseignant n'a aucun moyen d'interpréter.
     if (!newDevoir.aRendrePour)      { setDevoirErreur('Indiquez la date de remise.'); return }
     if (!selectedClasse)             { setDevoirErreur('Sélectionnez d’abord une classe.'); return }
+    if (newDevoir.destinataire_mode === 'choix' && newDevoir.eleve_ids.length === 0) {
+      setDevoirErreur('Sélectionnez au moins un élève, ou choisissez toute la classe.'); return
+    }
 
     setDevoirEnCours(true)
     try {
@@ -270,6 +273,12 @@ export default function ProfApp({ user, onLogout }) {
         description: newDevoir.objectif.trim(),
         date_donne: new Date().toISOString().slice(0, 10),
         date_rendu: newDevoir.aRendrePour,
+        // La table porte déjà `contenu` (jsonb), utilisé par la plateforme
+        // historique. On y conserve le ciblage sans ajouter une seconde table.
+        contenu: {
+          destinataire_mode: newDevoir.destinataire_mode,
+          eleve_ids: newDevoir.destinataire_mode === 'classe' ? [] : newDevoir.eleve_ids,
+        },
         // `fichiers` porte la liste complète ; `fichier_url` et `fichier_nom`
         // gardent la première image, pour les écrans qui ne lisent qu'elle.
         fichiers,
@@ -279,7 +288,7 @@ export default function ProfApp({ user, onLogout }) {
       if (error) throw new Error("Enregistrement refusé : " + error.message)
 
       setDevoirs([data, ...devoirs])
-      setNewDevoir({ matiere: '', objectif: '', aRendrePour: '', fichiers: [] })
+      setNewDevoir({ matiere: '', objectif: '', aRendrePour: '', fichiers: [], destinataire_mode: 'classe', eleve_ids: [] })
       const champ = document.getElementById('devoir-fichier')
       if (champ) champ.value = ''
     } catch (e) {
@@ -636,6 +645,34 @@ export default function ProfApp({ user, onLogout }) {
                   )}
                 </div>
 
+                <div>
+                  <label className="form-label">Élèves concernés *</label>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
+                    <button type="button" className="btn-sm" onClick={() => setNewDevoir({ ...newDevoir, destinataire_mode: 'classe', eleve_ids: [] })}
+                      style={{ background: newDevoir.destinataire_mode === 'classe' ? '#0284c7' : 'var(--bg)', color: newDevoir.destinataire_mode === 'classe' ? '#fff' : 'var(--text)' }}>
+                      Toute la classe ({classEleves.length})
+                    </button>
+                    <button type="button" className="btn-sm" onClick={() => setNewDevoir({ ...newDevoir, destinataire_mode: 'choix' })}
+                      style={{ background: newDevoir.destinataire_mode === 'choix' ? '#0284c7' : 'var(--bg)', color: newDevoir.destinataire_mode === 'choix' ? '#fff' : 'var(--text)' }}>
+                      Choisir certains élèves
+                    </button>
+                  </div>
+                  {newDevoir.destinataire_mode === 'choix' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 7, background: 'var(--bg)', padding: 10, borderRadius: 10, maxHeight: 190, overflowY: 'auto' }}>
+                      {classEleves.map(el => {
+                        const actif = newDevoir.eleve_ids.includes(el.id)
+                        return <label key={el.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700 }}>
+                          <input type="checkbox" checked={actif} onChange={() => setNewDevoir({ ...newDevoir, eleve_ids: actif ? newDevoir.eleve_ids.filter(id => id !== el.id) : [...newDevoir.eleve_ids, el.id] })} />
+                          {el.prenom} {el.nom}
+                        </label>
+                      })}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                    Les fiches porteront automatiquement le nom de chaque élève concerné.
+                  </div>
+                </div>
+
                 {/* `multiple` ouvre la photothèque en sélection multiple : un
                     devoir tient rarement sur une seule page de cahier. */}
                 <div>
@@ -686,6 +723,11 @@ export default function ProfApp({ user, onLogout }) {
                       <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>OBJECTIF · </span>{d.description}
                     </div>
                   )}
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 7, fontWeight: 700 }}>
+                    👥 {d.contenu?.destinataire_mode === 'choix'
+                      ? `${d.contenu?.eleve_ids?.length || 0} élève(s) sélectionné(s)`
+                      : `Toute la classe (${classEleves.length} élèves)`}
+                  </div>
                   {(d.fichiers?.length ? d.fichiers : (d.fichier_url ? [{ url: d.fichier_url, nom: d.fichier_nom }] : [])).map((f, k) => (
                     <a key={k} href={f.url} target="_blank" rel="noreferrer"
                       style={{ display: 'inline-block', marginTop: 8, marginRight: 12, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
