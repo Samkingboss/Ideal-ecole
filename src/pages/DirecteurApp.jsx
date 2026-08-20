@@ -53,6 +53,18 @@ const fmtRole = r => {
   return map[r] || r
 }
 
+const FONCTIONS_MATERNELLE = {
+  maitresse_fr_maternelle: { role: 'professeur', fonction: 'maitresse-fr-mat', langue: 'fr', label: 'Maîtresse de français — Maternelle' },
+  maitresse_en_maternelle: { role: 'professeur', fonction: 'maitresse-en-mat', langue: 'en', label: 'English Teacher — Kindergarten' },
+  assistante_fr_maternelle: { role: 'professeur', fonction: 'assistante-fr-mat', langue: 'fr', label: 'Assistante de français — Maternelle' },
+  assistante_en_maternelle: { role: 'professeur', fonction: 'assistante-en-mat', langue: 'en', label: 'English Teaching Assistant — Kindergarten' },
+}
+
+const libelleFonction = user => {
+  const entree = Object.values(FONCTIONS_MATERNELLE).find(x => x.fonction === user?.fonction)
+  return entree?.label || fmtRole(user?.role)
+}
+
 // Référentiel par défaut des postes (seed si app_state rh/postes est vide).
 // Doit rester aligné avec SALAIRES_DETAIL de public/comptabilite.html.
 const DEFAULT_POSTES = [
@@ -445,15 +457,19 @@ export default function DirecteurApp({ user, onLogout }) {
     setLoading(true)
     try {
       const code = newProf.code_acces || generateCode()
+      const fonctionMaternelle = FONCTIONS_MATERNELLE[newProf.role]
+      const roleCompte = fonctionMaternelle?.role || newProf.role
+      const fonctionCompte = fonctionMaternelle?.fonction || newProf.poste_id || null
+      const langueCompte = fonctionMaternelle?.langue || newProf.langue
       let { data: userData, error } = await supabase.from('users').upsert({ 
         id: newProf.id || undefined,
         prenom: newProf.prenom, 
         nom: newProf.nom, 
-        role: newProf.role, 
-        langue: newProf.langue, 
+        role: roleCompte,
+        langue: langueCompte,
         code_acces: code, 
         plafond_salaire: newProf.plafond_salaire,
-        fonction: newProf.poste_id || null,
+        fonction: fonctionCompte,
         actif: true 
       }, { onConflict: 'id' }).select().single()
 
@@ -480,13 +496,13 @@ export default function DirecteurApp({ user, onLogout }) {
         alert('❌ Compte non enregistré : ' + (error.message || 'Erreur inattendue'))
         setMsg('Erreur: ' + error.message)
       } else if (userData) {
-        if (newProf.role === 'professeur') {
+        if (roleCompte === 'professeur') {
           await supabase.from('prof_classes').delete().eq('user_id', userData.id)
           if (newProf.classe_ids?.length > 0) {
             const links = newProf.classe_ids.map(cid => ({ 
               user_id: userData.id, 
               classe_id: cid,
-              langue: newProf.langue || 'fr'
+              langue: langueCompte || 'fr'
             }))
             const { error: linkErr } = await supabase.from('prof_classes').insert(links)
             if (linkErr) {
@@ -1048,7 +1064,7 @@ export default function DirecteurApp({ user, onLogout }) {
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                            Rôle: <b style={{ color: 'var(--accent)' }}>{fmtRole(p.role)}</b> {p.langue ? `(${p.langue.toUpperCase()})` : ''}
+                            Rôle: <b style={{ color: 'var(--accent)' }}>{libelleFonction(p)}</b> {p.langue ? `(${p.langue.toUpperCase()})` : ''}
                           </div>
                         </div>
                       </div>
@@ -1743,9 +1759,20 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="modal-title">Nouveau membre de l'équipe</div>
             <div className="form-group"><label className="form-label">Prénom</label><input className="form-input" value={newProf.prenom} onChange={e=>setNewProf({...newProf,prenom:e.target.value})} /></div>
             <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newProf.nom} onChange={e=>setNewProf({...newProf,nom:e.target.value})} /></div>
-            <div className="form-group"><label className="form-label">Rôle</label>
-              <select className="form-select" value={newProf.role} onChange={e=>setNewProf({...newProf,role:e.target.value})}>
+            <div className="form-group"><label className="form-label">Rôle / fonction</label>
+              <select className="form-select" value={newProf.role} onChange={e=>{
+                const config = FONCTIONS_MATERNELLE[e.target.value]
+                setNewProf({...newProf, role:e.target.value, ...(config ? { poste_id:config.fonction, langue:config.langue } : {})})
+              }}>
                 <option value="professeur">Enseignant</option>
+                <optgroup label="Maternelle — Français">
+                  <option value="maitresse_fr_maternelle">Maîtresse de français</option>
+                  <option value="assistante_fr_maternelle">Assistante de français</option>
+                </optgroup>
+                <optgroup label="Kindergarten — English">
+                  <option value="maitresse_en_maternelle">English Teacher</option>
+                  <option value="assistante_en_maternelle">English Teaching Assistant</option>
+                </optgroup>
                 <option value="surveillant">Surveillant</option>
                 <option value="conseiller_vie_scolaire">Conseiller de vie scolaire</option>
                 <option value="responsable_administratif">Responsable administratif</option>
@@ -1760,11 +1787,15 @@ export default function DirecteurApp({ user, onLogout }) {
                   const p = postes.find(x => x.id === e.target.value)
                   const maternelle = /^(maitresse|assistante)-(fr|en)-mat$/.test(e.target.value)
                   const langueMat = e.target.value.includes('-en-') ? 'en' : 'fr'
+                  const roleMat = e.target.value === 'maitresse-fr-mat' ? 'maitresse_fr_maternelle'
+                    : e.target.value === 'maitresse-en-mat' ? 'maitresse_en_maternelle'
+                    : e.target.value === 'assistante-fr-mat' ? 'assistante_fr_maternelle'
+                    : e.target.value === 'assistante-en-mat' ? 'assistante_en_maternelle' : newProf.role
                   setNewProf({
                     ...newProf,
                     poste_id: e.target.value,
                     plafond_salaire: p ? p.mensuel : newProf.plafond_salaire,
-                    ...(maternelle ? { role: 'professeur', langue: langueMat } : {})
+                    ...(maternelle ? { role: roleMat, langue: langueMat } : {})
                   })
                 }}>
                 <option value="">— Choisir un poste —</option>
@@ -1778,7 +1809,7 @@ export default function DirecteurApp({ user, onLogout }) {
               )}
             </div>
 
-            {newProf.role === 'professeur' && (
+            {(['professeur', ...Object.keys(FONCTIONS_MATERNELLE)].includes(newProf.role)) && (
               <>
                 <div className="form-group">
                   <label className="form-label">Langue enseignée</label>
