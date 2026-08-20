@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE, sequenceDansGrille, semainePaire } from '../lib/sequences'
 import FichePreparation from './FichePreparation'
 import { statutDe, libelleStatut } from '../lib/preparations'
+import EmploiDuTempsMaternelle from './EmploiDuTempsMaternelle'
 
 // Emploi du temps personnel de l'enseignant, en page d'accueil.
 //
@@ -53,7 +54,15 @@ const enJours = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const jourMois = iso =>
   new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
+const estCompteMaternelle = user => /^(maitresse|assistante)-/.test(String(user?.fonction || user?.poste_id || '').toLowerCase())
+
 export default function MonEmploiDuTemps({ user }) {
+  return estCompteMaternelle(user)
+    ? <EmploiDuTempsMaternelle user={user} />
+    : <EmploiDuTempsStandard user={user} />
+}
+
+function EmploiDuTempsStandard({ user }) {
   const [creneaux, setCreneaux] = useState([])   // { jour, sequence, matiere, groupe }
   const [preparees, setPreparees] = useState(new Map())  // "date|sequence" → statut
   const [ouverte, setOuverte] = useState(null)   // { creneau, dateCours }

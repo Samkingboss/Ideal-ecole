@@ -36,13 +36,25 @@ export default function SurveillantApp({ user, onLogout }) {
 
   const today = new Date().toISOString().slice(0, 10)
 
+  const ouvrirIncident = (incident) => {
+    if (!incident) return
+    const ptsParGravite = { mineure: 5, moyenne: 15, grave: 30, critique: 50, blâme: 50, exclusion: 50 }
+    setSelectedIncident(incident)
+    setSanctionForm({
+      pts: ptsParGravite[incident.gravite] || 5,
+      type: ['grave', 'critique'].includes(incident.gravite) ? 'samedi' : 'retenue',
+      duree: 10,
+      details: '',
+    })
+  }
+
   useEffect(() => { loadData() }, [])
   useEffect(() => {
     if (!incidentCible) return
     const incident = disciplines.find(d => String(d.id) === String(incidentCible))
     if (incident) {
       setTab('discipline')
-      setSelectedIncident(incident)
+      ouvrirIncident(incident)
       setIncidentCible(null)
     }
   }, [incidentCible, disciplines])
@@ -411,11 +423,7 @@ export default function SurveillantApp({ user, onLogout }) {
                 <div style={{background:'rgba(0,0,0,0.03)', padding:8, borderRadius:8, fontSize:11, fontStyle:'italic', marginBottom:12}}>
                   "{d.motif}"
                 </div>
-                <button className="btn-sm" style={{width:'100%', background:'var(--accent)', color:'#fff', border:'none'}} onClick={() => {
-                  setSelectedIncident(d)
-                  const ptsDict = { mineure: 5, moyenne: 15, grave: 30, blâme: 50, exclusion: 50 }
-                  setSanctionForm({ pts: ptsDict[d.gravite]||5, type: d.gravite==='grave'?'samedi':'retenue', duree: 10, details: '' })
-                }}>Valider & Sanctionner</button>
+                <button className="btn-sm" style={{width:'100%', background:'var(--accent)', color:'#fff', border:'none'}} onClick={() => ouvrirIncident(d)}>Voir le signalement et décider</button>
               </div>
             </div>
           ))}
@@ -459,8 +467,26 @@ export default function SurveillantApp({ user, onLogout }) {
         <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setSelectedIncident(null)}>
           <div className="modal">
             <div className="modal-handle"></div>
-            <div className="modal-title">Valider la sanction</div>
-            <div style={{fontSize:12, marginBottom:16, color:'var(--muted)'}}>Élève: <b>{selectedIncident.eleves?.prenom} {selectedIncident.eleves?.nom}</b></div>
+            <div className="modal-title">Détail du signalement</div>
+
+            <div style={{background:'#f0f8fc', border:'1px solid var(--border)', borderRadius:14, padding:14, marginBottom:18}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:10, color:'var(--muted)', fontWeight:800, textTransform:'uppercase', letterSpacing:'.06em'}}>Élève concerné</div>
+                  <div style={{fontSize:15, fontWeight:900}}>{selectedIncident.eleves?.prenom} {selectedIncident.eleves?.nom}</div>
+                  <div style={{fontSize:11, color:'var(--muted)'}}>Classe : {selectedIncident.eleves?.classes?.nom || 'Non renseignée'}</div>
+                </div>
+                <span className={`chip ${['grave', 'critique'].includes(selectedIncident.gravite) ? 'chip-red' : 'chip-amber'}`} style={{fontSize:9, textTransform:'uppercase'}}>{selectedIncident.gravite || 'Non précisée'}</span>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10, fontSize:11}}>
+                <div><span style={{color:'var(--muted)'}}>Signalé par</span><br/><b>{selectedIncident.users?.prenom || ''} {selectedIncident.users?.nom || ''}</b></div>
+                <div><span style={{color:'var(--muted)'}}>Date et heure</span><br/><b>{new Date(selectedIncident.created_at || selectedIncident.date_incident).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'})}</b></div>
+              </div>
+              <div style={{fontSize:10, color:'var(--muted)', fontWeight:800, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5}}>Faits rapportés</div>
+              <div style={{background:'#fff', borderRadius:10, padding:10, fontSize:12, lineHeight:1.5, whiteSpace:'pre-wrap'}}>{selectedIncident.motif || 'Aucune description transmise.'}</div>
+            </div>
+
+            <div style={{fontSize:14, fontWeight:900, marginBottom:12}}>Décision du surveillant</div>
             
             <div className="form-group">
               <label className="form-label">Points à retirer</label>
