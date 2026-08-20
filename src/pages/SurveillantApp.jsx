@@ -274,18 +274,18 @@ export default function SurveillantApp({ user, onLogout }) {
       </div>
 
       {tab === 'maternelle' && (
-        <div className="page-content" style={{ paddingBottom: 100 }}><MaternelleSurveillance user={user} /></div>
+        <div className="page-content ux-page" style={{ paddingBottom: 100 }}><MaternelleSurveillance user={user} /></div>
       )}
 
       {tab === 'stock' && (
-        <div className="page-content" style={{ padding: '1.2rem 1rem calc(130px + env(safe-area-inset-bottom))' }}>
+        <div className="page-content ux-page" style={{ padding: '1.2rem 1rem calc(130px + env(safe-area-inset-bottom))' }}>
           <div className="section-head"><div className="section-title">Stock &amp; demandes de matériel</div></div>
           <SuiviStock user={user} />
         </div>
       )}
 
       {tab === 'pointage' && (
-        <div className="page-content" style={{paddingBottom:80}}>
+        <div className="page-content ux-page" style={{paddingBottom:80}}>
           <div className="section-head">
             <div className="section-title">Pointage du jour</div>
             <div style={{fontSize:12,color:'var(--muted)'}}>{new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'})}</div>
@@ -397,7 +397,7 @@ export default function SurveillantApp({ user, onLogout }) {
       )}
 
       {tab === 'discipline' && (
-        <div className="page-content" style={{paddingBottom:80}}>
+        <div className="page-content ux-page" style={{paddingBottom:80}}>
           <div className="section-head">
             <div className="section-title">⚖️ Gestion Discipline</div>
             <div style={{fontSize:11, color:'var(--muted)'}}>{eleves.filter(e => e.points_discipline < 100).length} élèves signalés</div>

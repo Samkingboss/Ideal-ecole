@@ -282,7 +282,7 @@ export default function ConseillerApp({ user, onLogout }) {
         </button>
       </div>
 
-      <div className="page-content" style={{paddingBottom:100}}>
+      <div className="page-content ux-page" style={{paddingBottom:100}}>
         {tab === 'dashboard' && (
           <>
             <div className="section-head"><div className="section-title">Tableau de Bord</div></div>

@@ -12,6 +12,7 @@ import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
 import SommaireBoscherDocument from './SommaireBoscherDocument'
+import AccordionCard from '../components/ui/AccordionCard'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -523,7 +524,7 @@ export default function ProfApp({ user, onLogout }) {
         </div>
       </div>
 
-      <div className="page-content" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
+      <div className="page-content ux-page" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
         {/* Bandeau permanent prime d'été */}
         {tab !== 'prime' && <MaPrime user={user} compact onOuvrir={() => { setActiveProfSession('perfs'); setTab('prime'); }} />}
 
@@ -618,8 +619,12 @@ export default function ProfApp({ user, onLogout }) {
             </div>
 
             {/* Saisie d'un Devoir */}
-            <div className="card" style={{ padding: 20, marginBottom: 20, borderRadius: 16 }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 900 }}>+ Ajouter un Devoir de Maison</h3>
+            <AccordionCard
+              title="Ajouter un devoir de maison"
+              subtitle="Matière, objectif, date de remise, élèves et pièces jointes"
+              icon="➕"
+              defaultOpen
+            >
 
               <div style={{ display: 'grid', gap: 12 }}>
                 {/* La matière se choisit, elle ne se tape pas : l'enseignant
@@ -738,7 +743,7 @@ export default function ProfApp({ user, onLogout }) {
                 disabled={devoirEnCours} onClick={handleAddDevoir}>
                 {devoirEnCours ? 'Enregistrement…' : 'Ajouter au Cahier de Devoirs'}
               </button>
-            </div>
+            </AccordionCard>
 
             {/* Liste des Devoirs Enregistrés */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

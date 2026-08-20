@@ -12,7 +12,19 @@
   --muted: #4b5563; /* Amélioré de #6b7280 pour l'accessibilité */
   --border: #d0e8f0;
   --red: #c53030; /* Amélioré pour le contraste */
-  --radius: 16px;
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 24px;
+  --space-1: .375rem;
+  --space-2: .625rem;
+  --space-3: .875rem;
+  --space-4: 1.125rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.75rem;
+  --shadow-sm: 0 2px 10px rgba(13,42,59,.05);
+  --shadow-md: 0 12px 34px rgba(13,42,59,.08);
+  --focus-ring: 0 0 0 4px rgba(26,175,224,.14);
 }
 html {
   scroll-behavior: smooth;
@@ -40,11 +52,11 @@ body {
 
 /* ── LAYOUT ── */
 .app-shell { display:flex; flex-direction:column; min-height:100vh; width: 100%; max-width: 1400px; margin:0 auto; }
-.topbar { background:var(--dark); padding:.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
-.topbar-brand { display:flex; align-items:center; gap:8px; }
+.topbar { background:var(--dark); padding:var(--space-3) var(--space-4); display:flex; justify-content:space-between; align-items:center; gap:var(--space-4); position:sticky; top:0; z-index:100; box-shadow:0 8px 28px rgba(5,25,36,.16); }
+.topbar-brand { display:flex; align-items:center; gap:var(--space-2); min-width:0; }
 .topbar-logo { font-size:22px; font-weight:900; color:#fff; }
 .topbar-sub { font-size:9px; color:rgba(255,255,255,.5); font-weight:600; letter-spacing:.04em; }
-.topbar-user { display:flex; align-items:center; gap:8px; }
+.topbar-user { display:flex; align-items:center; justify-content:flex-end; gap:var(--space-2); min-width:0; }
 .role-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .role-directeur { background:rgba(192,86,33,.1); color:#C05621; } /* Amélioré de #F7941D */
 .role-professeur { background:rgba(0,119,162,.1); color:#0077A2; } /* Amélioré de #1AAFE0 */
@@ -56,7 +68,13 @@ body {
    alors à gonfler la colonne à 524 px dans une coque de 375, et toute la
    page débordait latéralement. Avec 0, la colonne suit la coque et le
    contenu passe à la ligne. */
-.page-content { flex:1; min-width:0; max-width:100%; padding:0.5rem 1.2rem calc(130px + env(safe-area-inset-bottom)) !important; }
+.page-content { flex:1; min-width:0; max-width:100%; padding:var(--space-5) var(--space-4) calc(130px + env(safe-area-inset-bottom)) !important; }
+.ux-page { display:flex; flex-direction:column; gap:var(--space-5); }
+.ux-page > * { min-width:0; }
+.ux-page > div > h1:first-child,
+.ux-page > h1:first-child { margin-bottom:var(--space-2) !important; line-height:1.15; letter-spacing:-.025em; }
+.ux-page > div > h1:first-child + p,
+.ux-page > h1:first-child + p { max-width:72ch; line-height:1.6; }
 
 /* Les titres longs coupent au besoin plutôt que d'imposer leur largeur. */
 .page-content h1, .page-content h2, .page-content h3 { overflow-wrap: anywhere; }
@@ -111,24 +129,28 @@ body {
 .nav-icon { font-size:22px; line-height:1; }
 
 /* ── CARDS & SECTIONS ── */
-.section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
-.section-title { font-size:20px; font-weight:900; }
-.card { background:var(--card); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; margin-bottom:8px; }
-.card-header { background:var(--dark); color:#fff; padding:8px 14px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
-.card-body { padding:1rem; }
+.section-head { display:flex; justify-content:space-between; align-items:center; gap:var(--space-4); margin-bottom:var(--space-4); }
+.section-title { font-size:clamp(20px,3vw,26px); font-weight:900; line-height:1.2; letter-spacing:-.02em; }
+.card { background:var(--card); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; margin-bottom:var(--space-4); box-shadow:var(--shadow-sm); }
+.card-header { background:linear-gradient(135deg,var(--dark),#174b67); color:#fff; padding:var(--space-3) var(--space-4); font-size:11px; font-weight:800; letter-spacing:.065em; text-transform:uppercase; }
+.card-body { padding:var(--space-5); }
+.panel-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:var(--space-4); }
+.section-stack { display:flex; flex-direction:column; gap:var(--space-4); }
+.surface-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:var(--space-5); box-shadow:var(--shadow-sm); }
 .empty-state { text-align:center; padding:3rem 1rem; color:var(--muted); }
 .empty-icon { font-size:48px; margin-bottom:.5rem; }
 
 /* ── FORMS ── */
-.form-group { margin-bottom:1rem; }
-.form-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:5px; }
-.form-input, .form-select { width:100%; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; padding:.7rem 1rem; color:var(--text); font-family:inherit; font-size:14px; outline:none; transition:border-color .2s; }
-.form-input:focus, .form-select:focus { border-color:var(--accent); }
-.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.form-group { margin-bottom:var(--space-4); min-width:0; }
+.form-label { font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.065em; display:block; margin-bottom:var(--space-2); }
+.form-input, .form-select { width:100%; min-height:46px; background:#f8fbfc; border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:.78rem 1rem; color:var(--text); font-family:inherit; font-size:14px; outline:none; transition:border-color .2s,box-shadow .2s,background .2s; }
+.form-input:hover, .form-select:hover { border-color:#9bcddd; }
+.form-input:focus, .form-select:focus { border-color:var(--accent); background:#fff; box-shadow:var(--focus-ring); }
+.form-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-4); }
 .form-textarea { resize:none; line-height:1.5; }
 
 /* ── BUTTONS ── */
-.btn { border:none; border-radius:12px; padding:.7rem 1.2rem; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; display:inline-flex; align-items:center; gap:6px; justify-content:center; }
+.btn { border:none; border-radius:var(--radius-sm); min-height:44px; padding:.75rem 1.2rem; font-family:inherit; font-size:14px; font-weight:750; cursor:pointer; transition:transform .2s,filter .2s,box-shadow .2s; display:inline-flex; align-items:center; gap:8px; justify-content:center; }
 .btn-primary { background:var(--accent); color:#fff; width:100%; }
 .btn-dark { background:var(--dark); color:#fff; }
 .btn-green { background:var(--green); color:#fff; }
@@ -138,26 +160,26 @@ body {
 
 /* ── LOGIN ── */
 .login-page { min-height:100vh; display:flex; flex-direction:column; background:linear-gradient(160deg,#0d2a3b,#1565a0 60%,#1AAFE0); }
-.login-hero { padding:3rem 2rem 2rem; display:flex; flex-direction:column; align-items:center; gap:12px; }
+.login-hero { padding:var(--space-7) var(--space-6) var(--space-6); display:flex; flex-direction:column; align-items:center; gap:var(--space-3); }
 .login-icon { font-size:64px; }
 .login-title { font-size:28px; font-weight:900; color:#fff; }
 .login-sub { font-size:13px; color:rgba(255,255,255,.6); }
-.login-card { background:var(--card); border-radius:24px 24px 0 0; flex:1; padding:2rem 1.5rem; }
+.login-card { background:var(--card); border-radius:var(--radius-lg) var(--radius-lg) 0 0; flex:1; padding:var(--space-6) var(--space-5); box-shadow:0 -18px 50px rgba(13,42,59,.16); }
 .login-card h2 { font-size:20px; font-weight:900; margin-bottom:1.5rem; }
 .code-input { font-size:24px; font-weight:700; letter-spacing:.3em; text-align:center; }
 .error-msg { background:rgba(237,28,36,.08); border:1px solid rgba(237,28,36,.2); border-radius:10px; padding:.7rem 1rem; font-size:13px; color:var(--red); margin-bottom:1rem; }
 
 /* ── MODAL ── */
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn .2s; }
-.modal { background:var(--card); border-radius:24px 24px 0 0; width:100%; max-width:480px; height:88vh; max-height:88vh; overflow-y:scroll; -webkit-overflow-scrolling:touch; padding:1.5rem 1.2rem; animation:slideUp .25s; }
+.modal-overlay { position:fixed; inset:0; background:rgba(5,25,36,.62); backdrop-filter:blur(5px); z-index:200; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn .2s; padding-top:env(safe-area-inset-top); }
+.modal { background:var(--card); border-radius:var(--radius-lg) var(--radius-lg) 0 0; width:100%; max-width:560px; height:88vh; max-height:88vh; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:var(--space-5); animation:slideUp .25s; box-shadow:0 -20px 60px rgba(13,42,59,.2); }
 .modal-handle { width:36px; height:4px; background:var(--border); border-radius:20px; margin:0 auto 1.2rem; }
 .modal-title { font-size:18px; font-weight:900; margin-bottom:1rem; }
 @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
 @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
 
 /* ── KPIs ── */
-.kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1rem; }
-.kpi-card { background:var(--card); border-radius:14px; border:1px solid var(--border); padding:.8rem; position:relative; overflow:hidden; }
+.kpi-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-4); margin-bottom:var(--space-5); }
+.kpi-card { background:var(--card); border-radius:var(--radius); border:1px solid var(--border); padding:var(--space-4); position:relative; overflow:hidden; box-shadow:var(--shadow-sm); }
 .kpi-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; }
 .kpi-accent::before { background:var(--accent); }
 .kpi-green::before { background:var(--green); }
@@ -221,9 +243,31 @@ input[type=range] { accent-color:var(--accent); width:80px; }
 .badge-red { background: #fee2e2; color: #991b1b; }
 
 /* ── TABLES ── */
-.table { width: 100%; border-collapse: collapse; }
-.table th { background: #f8fafc; text-align: left; padding: 12px; font-size: 10px; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--border); }
-.table td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.table { width:100%; border-collapse:separate; border-spacing:0; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
+.table th { background:#f3f8fa; text-align:left; padding:14px 16px; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border-bottom:2px solid var(--border); white-space:nowrap; }
+.table td { padding:14px 16px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+.table tr:last-child td { border-bottom:0; }
+.table tbody tr { transition:background .15s; }
+.ux-page table:not(.table) { width:100%; border-collapse:separate; border-spacing:0; }
+.ux-page table:not(.table) th { background:#f3f8fa; color:var(--muted); font-size:11px; font-weight:850; letter-spacing:.04em; }
+.ux-page table:not(.table) th,
+.ux-page table:not(.table) td { padding:14px 16px; border-bottom:1px solid var(--border); vertical-align:middle; }
+
+/* Panneau latéral normalisé pour les écrans qui utilisent une vue maître/détail. */
+.split-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-5); }
+.side-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:var(--space-5); box-shadow:var(--shadow-md); min-width:0; }
+
+/* ── ACCORDÉONS / BLOCS REPLIABLES ── */
+.accordion-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); overflow:hidden; }
+.accordion-card + .accordion-card { margin-top:var(--space-4); }
+.accordion-trigger { width:100%; display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); padding:var(--space-4) var(--space-5); border:0; background:var(--card); color:var(--dark); text-align:left; cursor:pointer; font:inherit; }
+.accordion-trigger:hover { background:#f8fbfc; }
+.accordion-title { font-size:15px; font-weight:850; line-height:1.3; }
+.accordion-subtitle { margin-top:3px; color:var(--muted); font-size:12px; line-height:1.45; }
+.accordion-chevron { flex:none; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:var(--accent); background:rgba(26,175,224,.1); transition:transform .2s; }
+.accordion-card.is-open .accordion-chevron { transform:rotate(180deg); }
+.accordion-content { padding:0 var(--space-5) var(--space-5); border-top:1px solid var(--border); }
+.accordion-content[hidden] { display:none; }
 
 /* ── PRINT ── */
 @media print {
@@ -266,7 +310,7 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
   .app-shell { max-width: 760px; }
   .bottom-nav { max-width: 760px; }
 
-  .page-content { padding: 1rem 1.6rem 90px; }
+  .page-content { padding:var(--space-6) var(--space-6) 100px !important; }
   .topbar, .top-nav-secondary { padding-left: 1.6rem; padding-right: 1.6rem; }
 
   /* Les tuiles de chiffres passent de 2 à 4 par ligne quand la place le permet */
@@ -281,19 +325,21 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
 @media (min-width: 1100px) {
   .app-shell { max-width: 1120px; }
 
-  .page-content { padding: 1.4rem 2rem 2rem; }
+  .page-content { padding:var(--space-7) var(--space-7) 7rem !important; }
   .topbar, .top-nav-secondary { padding-left: 2rem; padding-right: 2rem; }
 
   /* La navigation du bas devient une barre pleine largeur ancrée au shell */
   .bottom-nav { max-width: 1120px; justify-content: center; gap: 3rem; }
 
   .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .split-layout { grid-template-columns:minmax(0,1fr) minmax(300px,380px); align-items:start; }
+  .side-panel { position:sticky; top:110px; max-height:calc(100vh - 140px); overflow:auto; }
 
   /* Les fenêtres modales deviennent de vraies boîtes de dialogue centrées
      au lieu de feuilles glissant du bas */
   .modal-overlay { align-items: center; }
   .modal {
-    max-width: 640px;
+    max-width: 720px;
     height: auto;
     max-height: 85vh;
     border-radius: 20px;
@@ -305,6 +351,14 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
   body { -webkit-user-select: auto; user-select: auto; }
 }
 
+@media (max-width: 640px) {
+  .form-row { grid-template-columns:1fr; gap:0; }
+  .section-head { align-items:flex-start; flex-direction:column; }
+  .section-head > .btn, .section-head > button { width:100%; }
+  .card-body { padding:var(--space-4); }
+  .table { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+}
+
 /* ── GRAND ÉCRAN (≥ 1500 px) ── */
 @media (min-width: 1500px) {
   .app-shell { max-width: 1320px; }
@@ -314,7 +368,8 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
 /* ── SURVOL SOURIS uniquement (évite les états collants au tactile) ── */
 @media (hover: hover) and (pointer: fine) {
   .top-nav-item:hover { background: var(--border); }
-  .btn:hover, .btn-sm:hover { filter: brightness(1.08); }
+  .btn:hover, .btn-sm:hover { filter:brightness(1.04); transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+  .table tbody tr:hover { background:#f8fbfc; }
   .nav-item:hover { color: var(--accent); }
 }
 

@@ -718,7 +718,7 @@ export default function DirecteurApp({ user, onLogout }) {
           </button>
         </div>
 
-        <div className="page-content" style={{ padding: '1.5rem 1.2rem 40px' }}>
+        <div className="page-content ux-page" style={{ padding: '1.5rem 1.2rem 40px' }}>
 
           {/* ════════════════ SESSION 1 : GESTION ÉLÈVES ════════════════ */}
           {activeSession === 'eleves' && (
@@ -1304,7 +1304,7 @@ export default function DirecteurApp({ user, onLogout }) {
           })}
       </div>
 
-      <div className="page-content" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
+      <div className="page-content ux-page" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
         {msg && <div className="error-msg" style={{background:'rgba(141,198,63,.1)',borderColor:'var(--green)',color:'var(--green)',marginBottom:'1rem'}} onClick={()=>setMsg('')}>{msg}</div>}
 
         {/* ════════════════ 1. EMPLOI DU TEMPS & AGENDA ════════════════ */}
@@ -1743,7 +1743,7 @@ export default function DirecteurApp({ user, onLogout }) {
         )}
 
         {activeDirectorTab === 'maternelle' && (
-          <div className="page-content" style={{ paddingBottom: 100 }}>
+          <div className="page-content ux-page" style={{ paddingBottom: 100 }}>
             <MaternelleDirection />
           </div>
         )}
