@@ -24,6 +24,16 @@ const RECREE_CHECKS = [
   { id:'cle', label:'Clé déposée à l\'heure' },
 ]
 
+const MESSAGE_PARENT_INITIAL = {
+  date: new Date().toISOString().slice(0, 10),
+  heure: new Date().toTimeString().slice(0, 5),
+  gravite: 'mineur',
+  lieu: 'en classe',
+  nature: 'a perturbé le déroulement du cours',
+  description: '', sanction: '', matiere: '', note: '',
+  appreciation: 'Très bien', libre: '',
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // SESSIONS ENSEIGNANT (Refonte 6 Sessions pour simplifier la navigation)
 // ═══════════════════════════════════════════════════════════════════
@@ -60,7 +70,7 @@ export default function ProfApp({ user, onLogout }) {
   const [msgBody, setMsgBody] = useState('')
   const [selectedCpDate, setSelectedCpDate] = useState(null)
   const [msgPreview, setMsgPreview] = useState(false)
-  const [msgDetails, setMsgDetails] = useState({})
+  const [msgDetails, setMsgDetails] = useState(MESSAGE_PARENT_INITIAL)
   const [schoolNum] = useState('22390190007')
   const [selectedMatiere, setSelectedMatiere] = useState(null)
   const [myPerfs, setMyPerfs] = useState([])
@@ -351,9 +361,38 @@ export default function ProfApp({ user, onLogout }) {
     setDiscLoading(false)
   }
 
+  const buildParentMessage = (eleve) => {
+    if (!eleve) return
+    const classe = eleve.classes?.nom || selectedClasse?.nom || 'classe non renseignée'
+    const signature = `\n\n— ${user?.prenom || ''} ${user?.nom || ''}\nIdeal École Internationale Bilingue`
+    let corps = ''
+    if (msgType === 'comportement') {
+      const date = msgDetails.date ? new Date(`${msgDetails.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long' }) : "aujourd’hui"
+      const gravites = { mineur:'🟡 Mineur', modere:'🟠 Modéré', grave:'🔴 Grave' }
+      const positif = msgDetails.nature?.includes('exemplaire')
+      corps = `Chers parents de *${eleve.prenom} ${eleve.nom}* (${classe}),\n\n`
+      if (positif) {
+        corps += `Nous avons le plaisir de vous informer que votre enfant ${msgDetails.nature} le ${date}${msgDetails.heure ? ` à ${msgDetails.heure}` : ''} ${msgDetails.lieu}.`
+        if (msgDetails.description.trim()) corps += `\n\n📝 *Détails :* ${msgDetails.description.trim()}`
+        corps += `\n\nContinuez à l’encourager dans cette belle direction ! 🌟`
+      } else {
+        corps += `Nous vous informons d’un incident survenu le ${date}${msgDetails.heure ? ` à ${msgDetails.heure}` : ''} ${msgDetails.lieu}.\n\n`
+        corps += `⚠️ *Niveau de gravité :* ${gravites[msgDetails.gravite]}\n📌 *Nature :* ${msgDetails.nature}`
+        if (msgDetails.description.trim()) corps += `\n\n📝 *Description :* ${msgDetails.description.trim()}`
+        if (msgDetails.sanction) corps += `\n\n🔔 *Mesure appliquée :* ${msgDetails.sanction}`
+        corps += `\n\nNous comptons sur votre soutien pour accompagner votre enfant.`
+      }
+    } else if (msgType === 'resultats') {
+      corps = `Chers parents de *${eleve.prenom} ${eleve.nom}* (${classe}),\n\nVoici les résultats de votre enfant :\n\n📚 *Matière :* ${msgDetails.matiere || '[matière]'}\n📝 *Note :* ${msgDetails.note || '[note]'}\n⭐ *Appréciation :* ${msgDetails.appreciation}\n\nPour toute question, n’hésitez pas à nous contacter.`
+    } else {
+      corps = `Chers parents de *${eleve.prenom} ${eleve.nom}* (${classe}),\n\n${msgDetails.libre.trim() || '[Votre message ici]'}`
+    }
+    return corps + signature
+  }
+
   const sendWhatsApp = (eleve) => {
     if (!eleve) return
-    const msg = msgBody || `Chers parents de *${eleve.prenom} ${eleve.nom}*,\n\n${msgType === 'comportement' ? 'Nous souhaitons vous informer d un incident.' : 'Voici les resultats de votre enfant.'}\n\n— IDEAL Ecole Internationale Bilingue\n+223 90 19 00 07`
+    const msg = msgBody || buildParentMessage(eleve)
     window.open(`https://wa.me/${schoolNum}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
@@ -743,17 +782,55 @@ export default function ProfApp({ user, onLogout }) {
         {tab === 'messages' && (
           <div>
             <div className="section-head"><div className="section-title">Messages parents (WhatsApp)</div></div>
-            <div className="form-group">
-              <label className="form-label">Sélectionnez un élève</label>
-              <select className="form-select" value={msgEleve?.id || ''} onChange={e => { setMsgEleve(classEleves.find(el => el.id === e.target.value)); setMsgBody(''); }}>
+            <div style={{background:'var(--dark)', color:'#fff', borderRadius:14, padding:14, marginBottom:14, display:'flex', gap:10, alignItems:'center'}}>
+              <span style={{fontSize:24}}>💬</span><div><b>Via le WhatsApp officiel de l’école</b><div style={{fontSize:11, opacity:.7}}>Le message arrive au +223 90 19 00 07, puis l’école le transmet aux parents.</div></div>
+            </div>
+            <div className="card" style={{padding:14, marginBottom:12}}>
+              <div className="form-label">1. Choisir l’élève</div>
+              <select className="form-select" value={msgEleve?.id || ''} onChange={e => { setMsgEleve(classEleves.find(el => el.id === e.target.value)); setMsgBody('') }}>
                 <option value="">-- Sélectionnez un élève --</option>
                 {classEleves.map(el => <option key={el.id} value={el.id}>{el.prenom} {el.nom}</option>)}
               </select>
             </div>
             {msgEleve && (
-              <div>
-                <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={() => sendWhatsApp(msgEleve)}>📲 Envoyer Message WhatsApp au Parent</button>
-              </div>
+              <>
+                <div className="card" style={{padding:14, marginBottom:12}}>
+                  <div className="form-label">2. Type de message</div>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7}}>
+                    {[['comportement','📋','Comportement'],['resultats','📊','Résultats'],['libre','✍️','Libre']].map(([value, icon, label]) => (
+                      <button key={value} type="button" onClick={() => { setMsgType(value); setMsgBody('') }} style={{padding:'10px 4px', borderRadius:10, border:`1.5px solid ${msgType===value?'var(--accent)':'var(--border)'}`, background:msgType===value?'rgba(26,175,224,.1)':'var(--bg)', color:'var(--text)', fontWeight:800}}>{icon}<br/><span style={{fontSize:10}}>{label}</span></button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card" style={{padding:14, marginBottom:12}}>
+                  <div className="form-label">3. Composer le message</div>
+                  {msgType === 'comportement' && <div style={{display:'grid', gap:10}}>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
+                      <label><span className="form-label">Date</span><input className="form-input" type="date" value={msgDetails.date} onChange={e=>{setMsgDetails({...msgDetails,date:e.target.value});setMsgBody('')}}/></label>
+                      <label><span className="form-label">Heure</span><input className="form-input" type="time" value={msgDetails.heure} onChange={e=>{setMsgDetails({...msgDetails,heure:e.target.value});setMsgBody('')}}/></label>
+                    </div>
+                    <label><span className="form-label">Gravité</span><select className="form-select" value={msgDetails.gravite} onChange={e=>{setMsgDetails({...msgDetails,gravite:e.target.value});setMsgBody('')}}><option value="mineur">🟡 Mineur</option><option value="modere">🟠 Modéré</option><option value="grave">🔴 Grave</option></select></label>
+                    <label><span className="form-label">Lieu</span><select className="form-select" value={msgDetails.lieu} onChange={e=>{setMsgDetails({...msgDetails,lieu:e.target.value});setMsgBody('')}}><option>en classe</option><option>en récréation</option><option>dans le couloir</option><option>à la cantine</option><option>dans la cour</option></select></label>
+                    <label><span className="form-label">Nature du comportement</span><select className="form-select" value={msgDetails.nature} onChange={e=>{setMsgDetails({...msgDetails,nature:e.target.value});setMsgBody('')}}><option value="a perturbé le déroulement du cours">Perturbation du cours</option><option value="a fait preuve d’irrespect envers l’enseignant">Irrespect envers l’enseignant</option><option value="a été impliqué(e) dans une bagarre">Bagarre</option><option value="a tenu des propos inappropriés">Propos inappropriés</option><option value="a refusé de travailler">Refus de travailler</option><option value="a adopté un comportement exemplaire">Comportement exemplaire ✓</option></select></label>
+                    <label><span className="form-label">Description précise</span><textarea className="form-input" rows={3} value={msgDetails.description} onChange={e=>{setMsgDetails({...msgDetails,description:e.target.value});setMsgBody('')}} placeholder="Décrivez précisément les faits…"/></label>
+                    <label><span className="form-label">Mesure appliquée</span><select className="form-select" value={msgDetails.sanction} onChange={e=>{setMsgDetails({...msgDetails,sanction:e.target.value});setMsgBody('')}}><option value="">Aucune mesure</option><option value="un avertissement verbal">Avertissement verbal</option><option value="un avertissement écrit">Avertissement écrit</option><option value="une retenue">Retenue</option><option value="une convocation des parents">Convocation des parents</option><option value="une suspension temporaire">Suspension temporaire</option></select></label>
+                  </div>}
+                  {msgType === 'resultats' && <div style={{display:'grid', gap:10}}>
+                    <label><span className="form-label">Matière</span><input className="form-input" value={msgDetails.matiere} onChange={e=>{setMsgDetails({...msgDetails,matiere:e.target.value});setMsgBody('')}}/></label>
+                    <label><span className="form-label">Note obtenue</span><input className="form-input" value={msgDetails.note} onChange={e=>{setMsgDetails({...msgDetails,note:e.target.value});setMsgBody('')}} placeholder="Ex. 15/20"/></label>
+                    <label><span className="form-label">Appréciation</span><select className="form-select" value={msgDetails.appreciation} onChange={e=>{setMsgDetails({...msgDetails,appreciation:e.target.value});setMsgBody('')}}><option>Très bien</option><option>Bien</option><option>Assez bien</option><option>Passable</option><option>Insuffisant</option></select></label>
+                  </div>}
+                  {msgType === 'libre' && <label><span className="form-label">Votre message</span><textarea className="form-input" rows={5} value={msgDetails.libre} onChange={e=>{setMsgDetails({...msgDetails,libre:e.target.value});setMsgBody('')}} placeholder="Écrivez votre message ici…"/></label>}
+                </div>
+
+                <div className="card" style={{padding:14}}>
+                  <div className="form-label">4. Aperçu et envoi</div>
+                  <textarea className="form-input" rows={10} value={msgBody || buildParentMessage(msgEleve)} onChange={e=>setMsgBody(e.target.value)} style={{lineHeight:1.5, resize:'vertical'}}/>
+                  <button className="btn btn-primary" style={{width:'100%', marginTop:10, background:'#25D366'}} onClick={() => sendWhatsApp(msgEleve)}>📲 Envoyer via WhatsApp</button>
+                  <div style={{fontSize:10, color:'var(--muted)', textAlign:'center', marginTop:6}}>WhatsApp s’ouvrira sur le numéro officiel de l’école.</div>
+                </div>
+              </>
             )}
           </div>
         )}
