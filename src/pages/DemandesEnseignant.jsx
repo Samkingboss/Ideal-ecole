@@ -190,6 +190,49 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
     setSuccessMsg('')
     setErreurSaisie('')
 
+    // Ne conserver que les informations propres au type choisi. Auparavant,
+    // tout `formData` était enregistré : les valeurs par défaut de maternité
+    // et de congé polluaient alors les prêts, avances et achats.
+    const detailsCommuns = { motif: formData.motif }
+    const detailsParType = {
+      pret: {
+        montant: formData.montant,
+        duree_mois: String(echeancier.nb),
+      },
+      avance: {
+        montant: formData.montant,
+        mois_paie: formData.mois_paie,
+      },
+      absence: {
+        date_debut: formData.date_debut,
+        date_fin: formData.date_fin,
+        fichier_justificatif: formData.fichier_justificatif,
+        fichier_nom: formData.fichier_nom,
+      },
+      permission: {
+        type_permission: formData.type_permission,
+        date_debut: formData.date_debut,
+        heure_debut: formData.heure_debut,
+        heure_fin: formData.heure_fin,
+        remplacant: formData.remplacant,
+      },
+      achat: {
+        materiel_nom: formData.materiel_nom,
+        materiel_quantite: formData.materiel_quantite,
+        materiel_estimation: formData.materiel_estimation,
+        urgence: formData.urgence,
+      },
+      maternite: {
+        stade_grossesse: formData.stade_grossesse,
+        date_dpa: formData.date_dpa,
+        complications_grossesse: Boolean(formData.complications_grossesse),
+        date_debut: formData.date_debut,
+        date_fin: formData.date_fin,
+        fichier_justificatif: formData.fichier_justificatif,
+        fichier_nom: formData.fichier_nom,
+      },
+    }
+
     const nouvelleDemande = {
       id: Date.now(),
       user_id: user?.id,
@@ -201,7 +244,7 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
       date_soumission: new Date().toISOString(),
       statut: 'En attente', // En attente | Approuvée | Refusée
       reponse_direction: '',
-      details: { ...formData }
+      details: { ...detailsCommuns, ...(detailsParType[typeDemande] || {}) }
     }
 
     try {
@@ -271,6 +314,9 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
         materiel_quantite: '1',
         materiel_estimation: '',
         urgence: 'Moyen',
+        stade_grossesse: '2 mois (8 SA)',
+        date_dpa: '',
+        complications_grossesse: false,
         motif: '',
         fichier_justificatif: null,
         fichier_nom: ''
@@ -702,11 +748,13 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
                   {/* Résumé des détails */}
                   <div style={{ background: '#fff', padding: '0.8rem 1rem', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, margin: '8px 0' }}>
                     {d.details?.montant && <div style={{ marginBottom: 4 }}>💵 Montant: <b style={{ color: 'var(--accent)' }}>{Number(d.details.montant).toLocaleString('fr-FR')} FCFA</b> {d.details?.duree_mois ? `(Remboursement sur ${d.details.duree_mois} mois)` : ''}</div>}
-                    {d.details?.stade_grossesse && <div style={{ marginBottom: 4, color: '#be185d', fontWeight: 800 }}>🤰 Stade de grossesse: {d.details.stade_grossesse} {d.details?.date_dpa ? `· DPA prévisionnelle: ${d.details.date_dpa}` : ''}</div>}
+                    {d.type === 'maternite' && d.details?.stade_grossesse && <div style={{ marginBottom: 4, color: '#be185d', fontWeight: 800 }}>🤰 Stade de grossesse: {d.details.stade_grossesse} {d.details?.date_dpa ? `· DPA prévisionnelle: ${d.details.date_dpa}` : ''}</div>}
                     {d.details?.materiel_nom && <div style={{ marginBottom: 4 }}>📦 Matériel: <b>{d.details.materiel_nom}</b> (Qté: {d.details.materiel_quantite || 1})</div>}
-                    {d.details?.date_debut && <div style={{ marginBottom: 4 }}>📅 Période congé: Du <b>{d.details.date_debut}</b> au <b>{d.details.date_fin || d.details.date_debut}</b></div>}
+                    {d.type === 'absence' && d.details?.date_debut && <div style={{ marginBottom: 4 }}>📅 Période d’absence: Du <b>{d.details.date_debut}</b> au <b>{d.details.date_fin || d.details.date_debut}</b></div>}
+                    {d.type === 'permission' && d.details?.date_debut && <div style={{ marginBottom: 4 }}>📅 Date de permission: <b>{d.details.date_debut}</b></div>}
+                    {d.type === 'maternite' && d.details?.date_debut && <div style={{ marginBottom: 4 }}>📅 Congé maternité: Du <b>{d.details.date_debut}</b> au <b>{d.details.date_fin || d.details.date_debut}</b></div>}
                     {d.details?.motif && <div>💬 Motif / Notes: <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>« {d.details.motif} »</span></div>}
-                    {d.details?.fichier_nom && <div style={{ marginTop: 6, color: 'var(--green)', fontWeight: 800 }}>📎 Pièce jointe / Échographie: {d.details.fichier_nom}</div>}
+                    {d.details?.fichier_nom && <div style={{ marginTop: 6, color: 'var(--green)', fontWeight: 800 }}>📎 {d.type === 'maternite' ? 'Échographie' : 'Pièce justificative'}: {d.details.fichier_nom}</div>}
                   </div>
 
                   {d.reponse_direction && (
