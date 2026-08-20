@@ -14,6 +14,7 @@ import ActivitePersonnel from './ActivitePersonnel'
 import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
 import FichesEffectifs from './FichesEffectifs'
+import InscriptionsValidation from './InscriptionsValidation'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { statutDe, libelleStatut, ponctualiteAuDepot, raconter } from '../lib/preparations'
 
@@ -84,6 +85,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [stats, setStats] = useState({ profs:0, eleves:0, checkpoints:0 })
   const [profs, setProfs] = useState([])
   const [eleves, setEleves] = useState([])
+  const [inscriptions, setInscriptions] = useState([])
   const [classes, setClasses] = useState([])
   const [periodes, setPeriodes] = useState([])
   const [evenements, setEvenements] = useState([])
@@ -170,6 +172,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [journal, setJournal] = useState([])
   const [journalOuvert, setJournalOuvert] = useState(false)
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
+  const [inscriptionCiblee, setInscriptionCiblee] = useState(null)
   const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
   const [ficheMarcheCantine, setFicheMarcheCantine] = useState({ budget: 0, articles: [] })
   const [justificatifsCuisine, setJustificatifsCuisine] = useState([])
@@ -235,6 +238,7 @@ export default function DirecteurApp({ user, onLogout }) {
       setPreparations(prep)
 
       setEleves(allCombinedEleves)
+      setInscriptions(inscs)
       setClasses(cl)
       setEvenements(ev)
       if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
@@ -873,7 +877,8 @@ export default function DirecteurApp({ user, onLogout }) {
                   </div>
                 </div>
               )}
-              {(subTabEleve === 'liste' || subTabEleve === 'dossiers') && <FichesEffectifs eleves={eleves} classes={classes} onCertificat={() => setSubTabEleve('certificat')} onCarte={() => setSubTabEleve('cartes')} />}
+              {subTabEleve === 'dossiers' && <InscriptionsValidation inscriptions={inscriptions} directeur={user} onValidated={loadData} inscriptionCiblee={inscriptionCiblee} />}
+              {subTabEleve === 'liste' && <FichesEffectifs eleves={eleves} classes={classes} onCertificat={() => setSubTabEleve('certificat')} onCarte={() => setSubTabEleve('cartes')} />}
             </div>
           )}
 
@@ -1111,7 +1116,15 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={(t, ref) => { setTab(t); setDemandeCiblee(ref || null) }} />
+          <NotificationCenter user={user} role={user.role || 'directeur'} onNavigateTab={(t, ref) => {
+            setTab(t)
+            if (t === 'eleves') {
+              setSubTabEleve('dossiers')
+              setInscriptionCiblee(ref || null)
+            } else {
+              setDemandeCiblee(ref || null)
+            }
+          }} />
           <span className="role-badge role-directeur">Directeur v2.5</span>
           <button className="btn-logout" onClick={onLogout}>Deconnexion</button>
         </div>

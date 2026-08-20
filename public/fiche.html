@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INSCRIPTION VALIDÉE — IDEAL</title>
+    <title>DOSSIER D'INSCRIPTION — IDEAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
@@ -339,7 +339,9 @@ window.addEventListener('load', async () => {
         set('f-classe2', ins.classe_demandee);
         set('f-anc-ecole', ins.ancienne_ecole || 'Première inscription');
         set('f-anc-classe', ins.classe_precedente || '—');
-        set('f-type', 'Dossier validé ✓');
+        const dossierValide = ins.statut === 'validee';
+        set('f-type', dossierValide ? 'Inscription validée par la Direction ✓' : 'En attente de la signature du directeur ⏳');
+        document.title = `${dossierValide ? 'INSCRIPTION VALIDÉE' : 'INSCRIPTION EN COURS'} — IDEAL`;
 
         // Responsable légal
         set('f-r1-nom', `${r1.nom || ''} ${r1.prenom || ''}`);
