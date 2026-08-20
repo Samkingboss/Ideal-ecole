@@ -16,7 +16,7 @@ import CertificatScolarite from './CertificatScolarite'
 import FichesEffectifs from './FichesEffectifs'
 import InscriptionsValidation from './InscriptionsValidation'
 import DocumentPrintStudio from './DocumentPrintStudio'
-import { statutDe, libelleStatut, ponctualiteAuDepot, raconter } from '../lib/preparations'
+import { statutDe, libelleStatut, ponctualiteAuDepot, raconter, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
 
 const BOTTOM_TABS = [
@@ -115,6 +115,8 @@ export default function DirecteurApp({ user, onLogout }) {
   const [preparations, setPreparations] = useState([])
   // Carte de préparation dépliée pour montrer sa frise d'historique.
   const [prepOuverte, setPrepOuverte] = useState(null)
+  const [prepDetail, setPrepDetail] = useState(null)
+  const [prepAvis, setPrepAvis] = useState({ appreciations: {}, commentaire: '' })
   const [checkpoints, setCheckpoints] = useState([])
   const [syntheseData, setSyntheseData] = useState([])
   const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
@@ -145,6 +147,15 @@ export default function DirecteurApp({ user, onLogout }) {
     const fin = setTimeout(() => setDemandeCiblee(null), 6000)
     return () => { clearTimeout(t); clearTimeout(fin) }
   }, [demandeCiblee, demandesRH])
+
+  useEffect(() => {
+    if (!demandeCiblee || tab !== 'pedagogie') return
+    const prep = preparations.find(p => String(p.id) === String(demandeCiblee))
+    if (prep) {
+      setPrepDetail(prep)
+      setPrepAvis({ appreciations: prep.appreciations || {}, commentaire: '' })
+    }
+  }, [demandeCiblee, preparations, tab])
 
   // Reponse de la direction a une demande RH.
   //
@@ -181,6 +192,52 @@ export default function DirecteurApp({ user, onLogout }) {
     if (!transmise) {
       alert("Reponse enregistree, mais la notification n'a pas pu etre envoyee a l'enseignant. Prevenez-le de vive voix.")
     }
+  }
+
+  const traiterPreparation = async (decision) => {
+    if (!prepDetail) return
+    const statutActuel = prepDetail.status === 'en_attente' ? 'deposee' : prepDetail.status === 'retard' ? 'en_retard' : prepDetail.status
+    const statutSuivant = decision === 'valider' ? 'validee' : 'a_corriger'
+    if (!peutPasser(statutActuel, statutSuivant)) {
+      alert(`Cette préparation ne peut pas passer de « ${libelleStatut(statutActuel)} » à « ${libelleStatut(statutSuivant)} ».`)
+      return
+    }
+    if (decision === 'corriger' && !prepAvis.commentaire.trim()) {
+      alert('Précisez les corrections demandées au professeur.')
+      return
+    }
+    const note = noteDeduite(prepAvis.appreciations)
+    if (decision === 'valider' && note === null) {
+      alert('Évaluez les cinq critères avant de valider la préparation.')
+      return
+    }
+    setLoading(true)
+    const historique = ajouterHistorique(prepDetail.historique_statuts, {
+      statut: statutSuivant,
+      action: decision === 'valider' ? ACTIONS.validation : ACTIONS.correction_demandee,
+      commentaire: prepAvis.commentaire.trim() || `Contrôle pédagogique : ${note}/20`,
+      utilisateur: user,
+    })
+    const { error } = await supabase.from('preparations').update({
+      status: statutSuivant,
+      appreciations: prepAvis.appreciations,
+      note_ia: note,
+      historique_statuts: historique,
+    }).eq('id', prepDetail.id)
+    if (error) {
+      alert(`Décision non enregistrée : ${error.message}`)
+      setLoading(false)
+      return
+    }
+    await pushNotification(prepDetail.user_id, {
+      titre: decision === 'valider' ? '✅ Préparation validée' : '↩️ Préparation à corriger',
+      message: prepAvis.commentaire.trim() || `Votre préparation a été validée avec la note de ${note}/20.`,
+      type: 'preparation', tabTarget: 'preparation', ref: prepDetail.id,
+    })
+    setPrepDetail(null)
+    setDemandeCiblee(null)
+    await loadData()
+    setLoading(false)
   }
   const [pointsConfig, setPointsConfig] = useState(CONFIG_DEFAUT)
   const [personnelRH, setPersonnelRH] = useState({})
@@ -1595,6 +1652,16 @@ export default function DirecteurApp({ user, onLogout }) {
                           Ouvrir le document déposé
                         </a>
                       )}
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => {
+                          setPrepDetail(prep)
+                          setPrepAvis({ appreciations: prep.appreciations || {}, commentaire: '' })
+                        }}
+                        style={{ width: '100%', marginTop: 10, padding: '9px 12px', fontSize: 12 }}
+                      >
+                        👁 Voir, corriger et valider
+                      </button>
                       {frise.length > 0 && (
                         <div style={{ marginTop: 8 }}>
                           <button onClick={() => setPrepOuverte(ouverte ? null : prep.id)}
@@ -2001,6 +2068,120 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         </div>
       )}
+
+      {prepDetail && (() => {
+        const contenu = prepDetail.contenu || {}
+        const prof = prepDetail.users
+          ? `${prepDetail.users.prenom || ''} ${prepDetail.users.nom || ''}`.trim()
+          : 'Enseignant non renseigné'
+        const classe = prepDetail.classes?.nom || prepDetail.groupe || '—'
+        const pieces = Array.isArray(prepDetail.pieces_jointes) ? prepDetail.pieces_jointes : []
+        const sequences = Array.isArray(contenu.sequences) ? contenu.sequences : []
+        const note = noteDeduite(prepAvis.appreciations)
+        const statutNormalise = prepDetail.status === 'en_attente' ? 'deposee' : prepDetail.status === 'retard' ? 'en_retard' : prepDetail.status
+        const peutDecider = ['deposee', 'en_retard'].includes(statutNormalise)
+        const rubriques = [
+          ['Objectif pédagogique', contenu.objectif],
+          ['Prérequis', contenu.prerequis],
+          ['Matériel nécessaire', contenu.materiel],
+          ['Différenciation', contenu.differenciation],
+          ['Évaluation prévue', contenu.evaluation],
+          ['Trace / synthèse', contenu.trace],
+        ].filter(([, valeur]) => valeur)
+        return (
+          <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setPrepDetail(null)} style={{ zIndex: 999999 }}>
+            <div style={{ background: '#fff', borderRadius: 24, width: 'min(94%, 920px)', maxHeight: '92vh', overflowY: 'auto', padding: 24, margin: '20px auto' }}>
+              <div className="modal-handle"></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 18 }}>
+                <div>
+                  <h2 style={{ margin: 0, color: 'var(--dark)', fontSize: 23 }}>📚 Contrôle de la préparation</h2>
+                  <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 5 }}>
+                    <b>{prof}</b> · {classe} · {prepDetail.matiere || 'Matière non renseignée'}
+                  </div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 3 }}>
+                    Cours du {prepDetail.date_cours || '—'}{prepDetail.heure_cours ? ` à ${String(prepDetail.heure_cours).slice(0, 5)}` : ''} · {libelleStatut(prepDetail.status)}
+                  </div>
+                </div>
+                <button onClick={() => setPrepDetail(null)} aria-label="Fermer" style={{ border: 0, background: 'var(--bg)', borderRadius: 50, width: 38, height: 38, fontSize: 20, cursor: 'pointer' }}>×</button>
+              </div>
+
+              {contenu.programme?.titre && (
+                <div style={{ background: 'rgba(0,168,224,.08)', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                  <b>Programme :</b> {contenu.programme.titre}
+                  {contenu.programme.domaines && <div style={{ fontSize: 12, marginTop: 4 }}>{contenu.programme.domaines}</div>}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10, marginBottom: 16 }}>
+                {rubriques.map(([titre, valeur]) => (
+                  <div key={titre} style={{ border: '1px solid var(--border)', borderRadius: 13, padding: 13, background: 'var(--bg)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 5 }}>{titre}</div>
+                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45, fontSize: 13 }}>{valeur}</div>
+                  </div>
+                ))}
+              </div>
+
+              {sequences.map((sequence, index) => (
+                <div key={index} style={{ border: '1px solid var(--border)', borderRadius: 15, padding: 14, marginBottom: 12 }}>
+                  <h4 style={{ margin: '0 0 10px', color: 'var(--dark)' }}>Séquence {index + 1}{sequence.titre ? ` — ${sequence.titre}` : ''}</h4>
+                  {Object.entries(sequence.etapes || {}).map(([nom, etape]) => etape?.texte ? (
+                    <div key={nom} style={{ borderTop: '1px solid var(--border)', padding: '9px 0' }}>
+                      <b style={{ textTransform: 'capitalize' }}>{nom.replaceAll('_', ' ')}</b>{etape.minutes ? ` · ${etape.minutes} min` : ''}
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>{etape.texte}</div>
+                    </div>
+                  ) : null)}
+                </div>
+              ))}
+
+              {(prepDetail.url_doc || pieces.length > 0) && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 13, marginBottom: 18 }}>
+                  <b>📎 Pièces jointes</b>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 9 }}>
+                    {prepDetail.url_doc && <a className="btn btn-secondary" href={prepDetail.url_doc} target="_blank" rel="noreferrer">Document principal</a>}
+                    {pieces.map((piece, index) => <a key={index} className="btn btn-secondary" href={piece.url} target="_blank" rel="noreferrer">{piece.nom || `Pièce ${index + 1}`}</a>)}
+                  </div>
+                </div>
+              )}
+
+              <h3 style={{ margin: '0 0 10px', color: 'var(--dark)', fontSize: 17 }}>Grille de correction pédagogique</h3>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 15, overflow: 'hidden', marginBottom: 14 }}>
+                {CRITERES.map((critere, index) => (
+                  <div key={critere.id} style={{ padding: 12, borderTop: index ? '1px solid var(--border)' : 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 8 }}>{critere.label}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                      {Object.values(APPRECIATIONS).map(appreciation => {
+                        const active = prepAvis.appreciations?.[critere.id] === appreciation.code
+                        return <button key={appreciation.code} onClick={() => setPrepAvis(v => ({ ...v, appreciations: { ...v.appreciations, [critere.id]: appreciation.code } }))}
+                          style={{ border: `2px solid ${active ? appreciation.couleur : 'var(--border)'}`, color: active ? appreciation.couleur : 'var(--muted)', background: active ? 'var(--bg)' : '#fff', borderRadius: 20, padding: '7px 11px', fontWeight: 800, cursor: 'pointer' }}>
+                          {appreciation.libelle} · {appreciation.points}/4
+                        </button>
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontWeight: 900, color: note === null ? 'var(--amber)' : 'var(--dark)', marginBottom: 12 }}>
+                Note : {note === null ? 'complétez les 5 critères' : `${note}/20`}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Corrections, observations et conseils au professeur</label>
+                <textarea className="form-input" rows={5} value={prepAvis.commentaire} onChange={e => setPrepAvis(v => ({ ...v, commentaire: e.target.value }))} placeholder="Indiquez précisément les améliorations attendues ou votre appréciation..." />
+              </div>
+              {peutDecider ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                  <button className="btn" onClick={() => traiterPreparation('corriger')} disabled={loading} style={{ flex: '1 1 230px', background: 'var(--amber)', color: '#fff' }}>↩️ Demander une correction</button>
+                  <button className="btn btn-primary" onClick={() => traiterPreparation('valider')} disabled={loading} style={{ flex: '1 1 230px' }}>✅ Valider la préparation</button>
+                </div>
+              ) : (
+                <div style={{ padding: 12, borderRadius: 12, background: 'var(--bg)', textAlign: 'center', fontWeight: 800 }}>
+                  Cette préparation est déjà au statut « {libelleStatut(statutNormalise)} ».
+                </div>
+              )}
+              <button className="btn-cancel" onClick={() => setPrepDetail(null)}>Fermer</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {showModal === 'evenement' && (
         <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
