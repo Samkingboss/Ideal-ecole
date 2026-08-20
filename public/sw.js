@@ -1,7 +1,7 @@
 // Service Worker IDEAL ÉcoleApp
 // Stratégie : réseau d'abord (toujours la dernière version),
 // cache en secours quand la connexion coupe.
-const CACHE = 'ideal-v2';
+const CACHE = 'ideal-v3';
 
 // Fichiers de base mis en cache dès l'installation
 const CORE = [
@@ -21,7 +21,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });

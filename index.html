@@ -17,11 +17,44 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(error => {
-            console.error('Service worker non enregistré :', error);
-          });
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+            .then(registration => registration.update())
+            .catch(error => console.error('Service worker non enregistré :', error));
         });
       }
+
+      // Une SPA déjà ouverte conserve son ancien bundle JavaScript en mémoire,
+      // même après un déploiement Vercel. Toutes les 60 secondes — et dès que
+      // l'utilisateur revient dans l'application — on compare le fichier JS
+      // annoncé par l'index en ligne à celui actuellement exécuté. Si Vercel
+      // en annonce un nouveau, un seul rechargement suffit à basculer dessus.
+      (() => {
+        let verificationEnCours = false;
+        const assetActuel = () => document.querySelector('script[type="module"][src]')?.getAttribute('src') || '';
+        const verifierVersion = async () => {
+          if (verificationEnCours || document.visibilityState === 'hidden') return;
+          verificationEnCours = true;
+          try {
+            const reponse = await fetch(`/?version=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+            if (!reponse.ok) return;
+            const html = await reponse.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const assetEnLigne = doc.querySelector('script[type="module"][src]')?.getAttribute('src') || '';
+            if (assetEnLigne && assetActuel() && assetEnLigne !== assetActuel()) {
+              window.location.reload();
+            }
+          } catch (_) {
+            // Hors connexion : le service worker continue de servir le cache.
+          } finally {
+            verificationEnCours = false;
+          }
+        };
+        window.addEventListener('load', verifierVersion);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') verifierVersion();
+        });
+        setInterval(verifierVersion, 60000);
+      })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
