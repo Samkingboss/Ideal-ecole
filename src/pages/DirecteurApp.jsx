@@ -462,7 +462,7 @@ export default function DirecteurApp({ user, onLogout }) {
       const code = newProf.code_acces || generateCode()
       const fonctionMaternelle = FONCTIONS_MATERNELLE[newProf.role]
       const roleCompte = fonctionMaternelle?.role || newProf.role
-      const fonctionCompte = fonctionMaternelle?.fonction || newProf.poste_id || null
+      const fonctionCompte = fonctionMaternelle?.fonction || null
       const langueCompte = fonctionMaternelle?.langue || newProf.langue
       let { data: userData, error } = await supabase.from('users').upsert({ 
         id: newProf.id || undefined,
@@ -471,7 +471,6 @@ export default function DirecteurApp({ user, onLogout }) {
         role: roleCompte,
         langue: langueCompte,
         code_acces: code, 
-        plafond_salaire: newProf.plafond_salaire,
         fonction: fonctionCompte,
         actif: true 
       }, { onConflict: 'id' }).select().single()
@@ -487,7 +486,6 @@ export default function DirecteurApp({ user, onLogout }) {
           fonction: 'cuisiniere',
           langue: newProf.langue, 
           code_acces: code, 
-          plafond_salaire: newProf.plafond_salaire,
           actif: true 
         }, { onConflict: 'id' }).select().single()
 
@@ -1288,22 +1286,13 @@ export default function DirecteurApp({ user, onLogout }) {
           <div>
             <div style={{ marginBottom: 20 }}>
               <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>💼 Session : Ressources Humaines (RH)</h1>
-              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Référentiel des postes, masse salariale, indemnités et émargement mensuel du personnel.</p>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Demandes RH, congés et suivi administratif du personnel.</p>
             </div>
 
-            {/* KPI Masse Salariale */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
               <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}>{stats.profs}</div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
-              </div>
-              <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(141,198,63,0.2)' }}>
-                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--green)' }}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0))}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / mois</div>
-              </div>
-              <div style={{ background: 'rgba(236,0,140,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(236,0,140,0.2)' }}>
-                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--pink)' }}>{fcfa((postes || []).reduce((s, x) => s + (Number(x.mensuel) || 0), 0) * 12)}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Masse salariale / an</div>
               </div>
             </div>
 
@@ -1407,35 +1396,6 @@ export default function DirecteurApp({ user, onLogout }) {
               )
             })()}
 
-            {/* Référentiel des Postes */}
-            <div className="card" style={{ padding: '1.2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel Salarial du Personnel</h3>
-                <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setPosteDraft(postes.map(p => ({ ...p }))); setShowModal('postes') }}>
-                  ✏️ Éditer les Postes
-                </button>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '10px 12px' }}>Poste / Fonction</th>
-                      <th style={{ textAlign: 'right', padding: '10px 12px' }}>Salaire Mensuel</th>
-                      <th style={{ textAlign: 'right', padding: '10px 12px' }}>Cumul Annuel (12 mois)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(postes || []).map((p, i) => (
-                      <tr key={p.id || i} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>{p.label}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{fcfa(p.mensuel)}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{fcfa((p.mensuel || 0) * 12)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1829,35 +1789,6 @@ export default function DirecteurApp({ user, onLogout }) {
                 <option value="responsable_administratif">Responsable administratif</option>
                 <option value="cuisiniere">Chef Cuisinière / Cantine</option>
               </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Poste / Catégorie de paie</label>
-              <select className="form-select" value={newProf.poste_id || postes.find(p => p.mensuel === newProf.plafond_salaire)?.id || ''}
-                onChange={e => {
-                  const p = postes.find(x => x.id === e.target.value)
-                  const maternelle = /^(maitresse|assistante)-(fr|en)-mat$/.test(e.target.value)
-                  const langueMat = e.target.value.includes('-en-') ? 'en' : 'fr'
-                  const roleMat = e.target.value === 'maitresse-fr-mat' ? 'maitresse_fr_maternelle'
-                    : e.target.value === 'maitresse-en-mat' ? 'maitresse_en_maternelle'
-                    : e.target.value === 'assistante-fr-mat' ? 'assistante_fr_maternelle'
-                    : e.target.value === 'assistante-en-mat' ? 'assistante_en_maternelle' : newProf.role
-                  setNewProf({
-                    ...newProf,
-                    poste_id: e.target.value,
-                    plafond_salaire: p ? p.mensuel : newProf.plafond_salaire,
-                    ...(maternelle ? { role: roleMat, langue: langueMat } : {})
-                  })
-                }}>
-                <option value="">— Choisir un poste —</option>
-                {postes.map(p => <option key={p.id} value={p.id}>{p.label} ({fmtFCFA(p.mensuel)}/mois)</option>)}
-              </select>
-              <div style={{fontSize:10, color:'var(--muted)', marginTop:4}}>Liste modifiable via « 💼 Postes & salaires » (onglet Équipe) — synchronisée avec la comptabilité.</div>
-              {/^(maitresse|assistante)-(fr|en)-mat$/.test(newProf.poste_id || '') && (
-                <div style={{fontSize:11, color:'#0369a1', marginTop:6, fontWeight:700}}>
-                  🧸 Le compte ouvrira automatiquement l’espace Maternelle ({(newProf.poste_id || '').includes('-en-') ? 'anglais' : 'français'}).
-                </div>
-              )}
             </div>
 
             {(['professeur', ...Object.keys(FONCTIONS_MATERNELLE)].includes(newProf.role)) && (
