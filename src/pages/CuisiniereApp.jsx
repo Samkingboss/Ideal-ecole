@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import SuiviStock from './SuiviStock'
 import { supabase } from '../lib/supabase'
 import NotificationCenter from './NotificationCenter'
+import DossierPersonnel from './DossierPersonnel'
+import DemandesEnseignant from './DemandesEnseignant'
 import html2canvas from 'html2canvas'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
@@ -13,6 +15,14 @@ const DAY_COLOR_SCHEMES = {
   Mercredi: { cardBg: '#e0f2fe', headerBg: '#0284c7', headerText: '#ffffff' },
   Jeudi: { cardBg: '#fce7f3', headerBg: '#db2777', headerText: '#ffffff' },
   Vendredi: { cardBg: '#e2e8f0', headerBg: '#0f172a', headerText: '#ffffff' }
+}
+
+const DAY_LABELS_EN = {
+  Lundi: 'Monday',
+  Mardi: 'Tuesday',
+  Mercredi: 'Wednesday',
+  Jeudi: 'Thursday',
+  Vendredi: 'Friday'
 }
 
 // Exemple officiel de menu hebdomadaire haute gastronomie
@@ -86,6 +96,16 @@ const EMPTY_MENU_SEMAINE = {
 
 const getTodayString = () => new Date().toISOString().split('T')[0]
 
+const lireDateMenu = valeur => {
+  const texte = String(valeur || '').trim()
+  const fr = texte.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  const iso = texte.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  const date = fr
+    ? new Date(Number(fr[3]), Number(fr[2]) - 1, Number(fr[1]))
+    : iso ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])) : null
+  return date && !Number.isNaN(date.getTime()) ? date : null
+}
+
 // Ingrédients du marché vides par défaut
 const EMPTY_FICHE_MARCHE = {
   type_periode: 'journalier',
@@ -99,6 +119,18 @@ const EMPTY_FICHE_MARCHE = {
 const getPosterMenuDateTitle = (menu) => {
   const debut = (menu?.date_debut && String(menu.date_debut).trim()) || '12/01/2026'
   const fin = (menu?.date_fin && String(menu.date_fin).trim()) || '16/01/2026'
+  const dateDebut = lireDateMenu(debut)
+  const dateFin = lireDateMenu(fin)
+
+  if (dateDebut && dateFin) {
+    const moisFin = dateFin.toLocaleDateString('fr-FR', { month: 'long' }).toUpperCase()
+    const anneeFin = dateFin.getFullYear()
+    const memeMois = dateDebut.getMonth() === dateFin.getMonth() && dateDebut.getFullYear() === anneeFin
+    const debutLisible = memeMois
+      ? String(dateDebut.getDate())
+      : dateDebut.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }).toUpperCase()
+    return `MENU DE LA SEMAINE PROCHAINE · DU ${debutLisible} AU ${dateFin.getDate()} ${moisFin} ${anneeFin}`
+  }
 
   if (menu?.dates_semaine && String(menu.dates_semaine).trim() && !menu?.date_debut) {
     const uppercaseDates = String(menu.dates_semaine).trim().toUpperCase()
@@ -107,7 +139,7 @@ const getPosterMenuDateTitle = (menu) => {
     return `MENU DU ${uppercaseDates}`
   }
 
-  return `MENU DU ${debut} AU ${fin}`
+  return `MENU DE LA SEMAINE PROCHAINE · DU ${debut} AU ${fin}`
 }
 
 // Données démo élèves cantine (chargées depuis Supabase si actives)
@@ -119,8 +151,9 @@ const DEMO_ELEVES_CANTINE = [
   { id: 'el-5', nom: 'KEITA', prenom: 'Oumar', classe: 'CE2', cantine: true, allergies: 'Aucune', restrictions: 'Aucune' }
 ]
 
-export default function CuisiniereApp({ user, onLogout }) {
-  const [tab, setTab] = useState('eleves')
+export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' }) {
+  const [tab, setTab] = useState(initialTab)
+  const [rhTab, setRhTab] = useState('dossier')
   const [eleves, setEleves] = useState(DEMO_ELEVES_CANTINE)
   const [menuSemaine, setMenuSemaine] = useState(SAMPLE_MENU_SEMAINE)
   const [ficheMarche, setFicheMarche] = useState(EMPTY_FICHE_MARCHE)
@@ -199,24 +232,45 @@ export default function CuisiniereApp({ user, onLogout }) {
   const exportMenuJpeg = async () => {
     const posterElem = document.getElementById('menu-whatsapp-poster')
     if (!posterElem) return
-    setMsg('⏳ Génération du visuel de restauration Ultra-Premium HD en cours...')
+    setMsg('⏳ Génération de l’affiche A4 HD en cours...')
+    const stylesAvant = {
+      width: posterElem.style.width,
+      maxWidth: posterElem.style.maxWidth,
+      height: posterElem.style.height,
+      minHeight: posterElem.style.minHeight,
+      borderRadius: posterElem.style.borderRadius,
+    }
     try {
+      // Dimensions CSS d'une feuille A4 portrait à 96 dpi. html2canvas les
+      // multiplie ensuite par 3 pour produire un JPEG net de 2382 × 3369 pixels.
+      Object.assign(posterElem.style, {
+        width: '794px', maxWidth: 'none', height: '1123px', minHeight: '1123px', borderRadius: '28px'
+      })
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      if (posterElem.scrollHeight > 1123) {
+        throw new Error('Le contenu dépasse une page A4. Raccourcissez légèrement les descriptions des plats.')
+      }
       const canvas = await html2canvas(posterElem, {
-        scale: 3, // Ultra Retina Quality 3x pour un rendu presse/magazine sur WhatsApp
+        scale: 3,
         useCORS: true,
         backgroundColor: '#fffdfa',
-        logging: false
+        logging: false,
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
       })
       const dataUrl = canvas.toDataURL('image/jpeg', 0.98)
       const link = document.createElement('a')
       link.download = `Menu_Service_Restauration_IDEAL_${getTodayString()}.jpg`
       link.href = dataUrl
       link.click()
-      setMsg('📸 Affiche Ultra-Premium JPEG téléchargée avec succès ! Prête pour diffusion WhatsApp.')
+      setMsg('📸 Affiche A4 HD téléchargée avec succès ! Prête pour l’envoi du vendredi aux familles.')
       setTimeout(() => setMsg(''), 4000)
     } catch (err) {
       console.error(err)
       alert('Erreur lors de la création du JPEG : ' + err.message)
+    } finally {
+      Object.assign(posterElem.style, stylesAvant)
     }
   }
 
@@ -317,9 +371,13 @@ export default function CuisiniereApp({ user, onLogout }) {
   const saveFicheMarche = async (updatedMarche) => {
     setFicheMarche(updatedMarche)
     try {
-      await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updatedMarche, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updatedMarche, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      if (error) throw error
+      return true
     } catch (e) {
       console.error(e)
+      setMsg(`Enregistrement impossible : ${e.message}`)
+      return false
     }
   }
 
@@ -400,7 +458,8 @@ export default function CuisiniereApp({ user, onLogout }) {
       date_validation: timestamp
     }
 
-    saveFicheMarche(updatedMarche)
+    const ficheEnregistree = await saveFicheMarche(updatedMarche)
+    if (!ficheEnregistree) return
 
     // Transmettre la fiche signée dans l'historique des justificatifs Supabase pour le Responsable Administratif
     try {
@@ -420,24 +479,25 @@ export default function CuisiniereApp({ user, onLogout }) {
         statut: 'VALIDE_CUISINE'
       }
 
-      const { data: stateJustifs } = await supabase.from('app_state').select('value').eq('key', 'cantine_justificatifs_historique').single()
+      const { data: stateJustifs, error: lectureError } = await supabase.from('app_state').select('value').eq('app', 'cantine').eq('key', 'cantine_justificatifs_historique').maybeSingle()
+      if (lectureError) throw lectureError
       const currentList = (stateJustifs && Array.isArray(stateJustifs.value)) ? stateJustifs.value : []
       const filteredList = currentList.filter(j => j.date_du_jour !== justificatifEntry.date_du_jour || j.type_periode !== justificatifEntry.type_periode)
       const newList = [justificatifEntry, ...filteredList]
 
-      await supabase.from('app_state').upsert({
+      const { error: transmissionError } = await supabase.from('app_state').upsert({
         app: 'cantine',
         key: 'cantine_justificatifs_historique',
         value: newList,
         updated_at: new Date().toISOString()
-      })
+      }, { onConflict: 'app,key' })
+      if (transmissionError) throw transmissionError
 
       setMsg('📜 Fiche du marché validée, signée par la cuisinière et enregistrée dans les justificatifs du Responsable Administratif !')
       setTimeout(() => setMsg(''), 5000)
     } catch (e) {
       console.error('Erreur transmission justificatif:', e)
-      setMsg('📜 Fiche du marché signée et transmise avec succès !')
-      setTimeout(() => setMsg(''), 4000)
+      setMsg(`⚠️ La fiche est signée, mais sa transmission a échoué : ${e.message}`)
     }
   }
 
@@ -494,69 +554,73 @@ export default function CuisiniereApp({ user, onLogout }) {
         style={{
           background: scheme.cardBg,
           border: 'none', // SANS BORDURE
-          borderRadius: 24,
-          padding: '22px 20px',
+          borderRadius: 18,
+          padding: '12px 14px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 9,
+          alignSelf: 'start',
           boxShadow: '0 8px 24px rgba(0,0,0,0.04)'
         }}
       >
         {/* En-tête Cadre simple avec juste le jour dedans (SANS POINTILLÉS ET SANS TIRETS) */}
-        <div style={{ background: scheme.headerBg, color: scheme.headerText, padding: '10px 16px', borderRadius: 14, textAlign: 'center', fontWeight: 900, fontSize: 16, textTransform: 'uppercase', letterSpacing: '1.5px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-          {j}
+        <div style={{ background: scheme.headerBg, color: scheme.headerText, padding: '6px 12px', borderRadius: 11, textAlign: 'center', fontWeight: 900, fontSize: 14, textTransform: 'uppercase', letterSpacing: '1.3px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+          {DAY_LABELS_EN[j] || j}
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 9, alignItems: 'start' }}>
 
         {/* ENTRÉE DU CHEF */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, lineHeight: 1.25, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 4 }}>
             <span>🥗</span> ENTRÉE DU CHEF
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
+          <div style={{ fontSize: 12, lineHeight: 1.2, fontWeight: 900, color: '#0f172a' }}>
             “{item.entreeTitre || item.entree || 'Entrée fraîche'}”
           </div>
-          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 10.5, color: '#475569', fontWeight: 600, marginTop: 3, lineHeight: 1.3 }}>
             <span style={{ color: '#d97706' }}>✦</span> {item.entreeDesc || 'Composition fraîcheur préparée le matin.'}
           </div>
         </div>
 
         {/* PLAT PRINCIPAL CHAUD (FOND BLANC ÉLÉGANT) */}
-        <div style={{ background: 'rgba(255,255,255,0.85)', padding: '12px 14px', borderRadius: 14, border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
+        <div style={{ background: 'rgba(255,255,255,0.85)', padding: '7px 9px', borderRadius: 11, border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, lineHeight: 1.25, fontWeight: 900, color: '#047857', textTransform: 'uppercase', marginBottom: 4 }}>
             <span>🍲</span> PLAT PRINCIPAL CHAUD
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#064e3b' }}>
+          <div style={{ fontSize: 12, lineHeight: 1.2, fontWeight: 900, color: '#064e3b' }}>
             “{item.platTitre || item.plat || 'Plat du Chef'}”
           </div>
-          <div style={{ fontSize: 12, color: '#334155', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 10.5, color: '#334155', fontWeight: 600, marginTop: 3, lineHeight: 1.3 }}>
             <span style={{ color: '#047857' }}>✦</span> {item.platDesc || 'Recette gourmande adaptée à la nutrition infantile.'}
           </div>
         </div>
 
         {/* DESSERT & FRUITS */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#d97706', textTransform: 'uppercase', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, lineHeight: 1.25, fontWeight: 900, color: '#d97706', textTransform: 'uppercase', marginBottom: 4 }}>
             <span>🍎</span> DESSERT &amp; FRUITS
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
+          <div style={{ fontSize: 12, lineHeight: 1.2, fontWeight: 900, color: '#0f172a' }}>
             “{item.dessertTitre || item.dessert || 'Dessert du jour'}”
           </div>
-          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 10.5, color: '#475569', fontWeight: 600, marginTop: 3, lineHeight: 1.3 }}>
             <span style={{ color: '#d97706' }}>✦</span> {item.dessertDesc || 'Sélection de fruits mûrs et naturels.'}
           </div>
         </div>
 
         {/* GOÛTER & COLLATION */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, lineHeight: 1.25, fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', marginBottom: 4 }}>
             <span>🍪</span> GOÛTER &amp; COLLATION
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
+          <div style={{ fontSize: 12, lineHeight: 1.2, fontWeight: 900, color: '#0f172a' }}>
             “{item.gouterTitre || item.boisson || 'Collation douce'}”
           </div>
-          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 4, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 10.5, color: '#475569', fontWeight: 600, marginTop: 3, lineHeight: 1.3 }}>
             <span style={{ color: '#e11d48' }}>✦</span> {item.gouterDesc || 'Collation légère adaptée aux petites mains.'}
           </div>
+        </div>
         </div>
       </div>
     )
@@ -630,6 +694,13 @@ export default function CuisiniereApp({ user, onLogout }) {
             onClick={() => setTab('stock')}
           >
             <span>🥫 6. Stock Alimentaire</span>
+          </button>
+          <button
+            className={`top-nav-item ${tab === 'rh' ? 'active' : ''}`}
+            onClick={() => setTab('rh')}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <span>💼 7. Mon espace RH</span>
           </button>
       </div>
 
@@ -1193,65 +1264,73 @@ export default function CuisiniereApp({ user, onLogout }) {
               id="menu-whatsapp-poster"
               style={{
                 width: '100%',
-                maxWidth: 820,
+                maxWidth: 794,
+                minHeight: 1123,
                 margin: '0 auto',
-                padding: '1.8rem 1.2rem',
+                padding: '14px 18px 12px',
                 background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
                 color: '#0f172a',
-                borderRadius: 24,
+                borderRadius: 28,
                 boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
                 border: '3px double #d97706',
                 position: 'relative',
                 overflow: 'hidden',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
               {/* Filigrane de sécurité couronne impériale */}
               <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 220, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
 
               {/* EN-TÊTE ÉLÉGANT LUXE */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 16, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-                {/* Logo a gauche bien visible SANS cercle */}
-                <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 70, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28, borderBottom: '2px solid rgba(217,119,6,0.3)', padding: '5px 8px 10px', marginBottom: 5, textAlign: 'left' }}>
+                <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 48, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
 
-                <div style={{ maxWidth: '100%' }}>
-                  <div style={{ fontSize: 'clamp(16px, 4.5vw, 22px)', fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase', wordBreak: 'break-word' }}>
-                    ÉCOLE INTERNATIONALE BILINGUE IDEAL
+                <div style={{ width: '100%' }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    IDEAL ÉCOLE INTERNATIONALE BILINGUE
                   </div>
-                  <div style={{ fontSize: 'clamp(22px, 6vw, 32px)', fontWeight: 900, color: '#0f172a', letterSpacing: '1.2px', marginTop: 2 }}>
+                  <div style={{ fontSize: 23, fontWeight: 900, color: '#0f172a', letterSpacing: '1.2px', marginTop: 5 }}>
                     SERVICE DE RESTAURATION
                   </div>
                 </div>
               </div>
 
-              {/* BARRE BLEU FONCÉ : DATES */}
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ display: 'inline-block', backgroundColor: '#0f172a', background: '#0f172a', color: '#ffffff', padding: '10px 24px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)', maxWidth: '100%', boxSizing: 'border-box' }}>
-                  <div style={{ fontSize: 'clamp(13px, 3.8vw, 17px)', fontWeight: 900, color: '#ffffff', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'system-ui, -apple-system, sans-serif', wordBreak: 'break-word' }}>
+              {/* PÉRIODE TOUJOURS VISIBLE DANS L'IMAGE EXPORTÉE */}
+              <div style={{ textAlign: 'center', marginBottom: 6 }}>
+                <div style={{ display: 'block', background: '#174e72', color: '#ffffff', padding: '8px 18px', borderRadius: 14, border: '2px solid #d97706', boxShadow: '0 4px 12px rgba(23,78,114,.2)', width: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ fontSize: 15, lineHeight: 1.25, fontWeight: 900, color: '#ffffff', letterSpacing: '.8px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
                     {getPosterMenuDateTitle(menuSemaine)}
                   </div>
                 </div>
               </div>
 
+              <div style={{ background: 'linear-gradient(90deg,#fff7e8,#fffdf7,#eef8f1)', borderRadius: 13, padding: '6px 16px', marginBottom: 7, textAlign: 'center', border: '1px solid #f3d7ab' }}>
+                <div style={{ fontSize: 13, lineHeight: 1.35, color: '#17364d', fontWeight: 800 }}>
+                  🌟 Chers parents, découvrez en avant-première le menu de la semaine prochaine !
+                </div>
+                <div style={{ marginTop: 2, fontSize: 11, color: '#667784', fontWeight: 700 }}>
+                  Nous souhaitons à tous nos élèves une semaine pleine d’énergie et une excellente dégustation. 😋
+                </div>
+              </div>
+
               {/* DISPOSITION RESPONSIVE DES JOURS */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
-                {/* RANGÉE 1 : LUNDI, MARDI, MERCREDI */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateRows: 'auto auto', alignContent: 'space-evenly', gap: 14, marginBottom: 10, flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'start' }}>
                   {['Lundi', 'Mardi', 'Mercredi'].map(j => renderDayCard(j))}
                 </div>
-
-                {/* RANGÉE 2 : JEUDI, VENDREDI */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, alignItems: 'start' }}>
                   {['Jeudi', 'Vendredi'].map(j => renderDayCard(j))}
                 </div>
               </div>
 
               {/* PIED DE PAGE HAUTE QUALITÉ AVEC SCEAU DE GARANTIE */}
-              <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 20, padding: '5px 12px', fontSize: 11, fontWeight: 900, color: '#b45309', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span>🏅</span> CERTIFIÉ QUALITÉ &amp; NUTRITION GASTRONOMIQUE
+                    <span>🍽️</span> PRÉPARÉ AVEC SOIN POUR NOS ÉLÈVES
                   </div>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>
                     Produits 100% Frais — Cuisine Chef IDEAL
@@ -1272,6 +1351,38 @@ export default function CuisiniereApp({ user, onLogout }) {
             <div className="section-head"><div className="section-title">🥫 Stock alimentaire &amp; fluides</div></div>
             <SuiviStock user={user} magasin="cuisine" />
           </div>
+        )}
+
+        {tab === 'rh' && (
+          <section>
+            <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div>
+                  <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#0d2a3b' }}>💼 Mon espace Ressources Humaines</h1>
+                  <p style={{ margin: '5px 0 0', fontSize: 13, color: '#64748b' }}>Dossier administratif, demandes, congés et justificatifs du personnel de cuisine.</p>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn"
+                    onClick={() => setRhTab('dossier')}
+                    style={{ background: rhTab === 'dossier' ? '#0d2a3b' : '#f1f5f9', color: rhTab === 'dossier' ? '#fff' : '#334155', borderRadius: 20, fontWeight: 800 }}
+                  >
+                    📂 Mon dossier RH
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setRhTab('demandes')}
+                    style={{ background: rhTab === 'demandes' ? '#0d2a3b' : '#f1f5f9', color: rhTab === 'demandes' ? '#fff' : '#334155', borderRadius: 20, fontWeight: 800 }}
+                  >
+                    📩 Demandes &amp; justificatifs
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {rhTab === 'dossier' && <DossierPersonnel user={user} profInfo={user} roleLabel="Personnel de cuisine" />}
+            {rhTab === 'demandes' && <DemandesEnseignant user={user} portalLabel="Portail du personnel de cuisine" personnelLabel="Collègue" />}
+          </section>
         )}
 
         {tab === 'marche' && (

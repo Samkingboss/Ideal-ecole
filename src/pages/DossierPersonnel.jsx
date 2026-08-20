@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function DossierPersonnel({ user, profInfo }) {
+export default function DossierPersonnel({ user, profInfo, roleLabel = 'Enseignant' }) {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showPrintModal, setShowPrintModal] = useState(false)
@@ -211,12 +211,12 @@ export default function DossierPersonnel({ user, profInfo }) {
           </div>
 
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>DOSSIER RH &amp; ADMINISTRATIF DE L'ENSEIGNANT</div>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>DOSSIER RH &amp; ADMINISTRATIF — {roleLabel}</div>
             <h2 style={{ margin: '4px 0 6px', fontSize: '1.4rem', fontWeight: 900, color: '#fff' }}>
               {formData.prenom || 'Prénom'} {formData.nom || 'Nom'}
             </h2>
             <div style={{ fontSize: 12, opacity: 0.85, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <span>💼 {formData.specialite || 'Enseignant'}</span>
+              <span>💼 {formData.specialite || roleLabel}</span>
               <span>📄 Contrat: <b>{formData.type_contrat}</b></span>
               <span>📅 Embauche: <b>{formData.date_embauche || '2023'}</b></span>
             </div>
@@ -643,7 +643,7 @@ export default function DossierPersonnel({ user, profInfo }) {
                   {formData.prenom || '—'} {formData.nom || '—'}
                 </h3>
                 <div style={{ fontSize: '0.85rem', color: '#00a8e0', fontWeight: 800, marginTop: 2 }}>
-                  {formData.specialite || 'Enseignant'} · Contrat {formData.type_contrat} (Prise de service: {formData.date_embauche || '2023'})
+                  {formData.specialite || roleLabel} · Contrat {formData.type_contrat} (Prise de service: {formData.date_embauche || '2023'})
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: 4 }}>
                   📍 Adresse: {formData.adresse || 'Bamako'} · 📞 Tel: {formData.telephone || '—'} · ✉️ {formData.email || '—'}

@@ -32,7 +32,7 @@ export const echeancierPret = (date = new Date()) => {
 
 import { pushNotification } from '../lib/notifications'
 
-export default function DemandesEnseignant({ user }) {
+export default function DemandesEnseignant({ user, portalLabel = 'Portail enseignant', personnelLabel = 'Enseignant' }) {
   const [tabType, setTabType] = useState('nouvelle') // 'nouvelle' | 'historique'
   const [loading, setLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
@@ -196,7 +196,7 @@ export default function DemandesEnseignant({ user }) {
       // Le compte porte `prenom` et `nom` à plat ; `user_metadata` n'existe pas
       // ici. Toutes les demandes étaient donc enregistrées au nom
       // d'« Enseignant », et la direction ne savait pas qui écrivait.
-      user_name: `${user?.prenom || ''} ${user?.nom || ''}`.trim() || user?.email || 'Enseignant',
+      user_name: `${user?.prenom || ''} ${user?.nom || ''}`.trim() || user?.email || personnelLabel,
       type: typeDemande,
       date_soumission: new Date().toISOString(),
       statut: 'En attente', // En attente | Approuvée | Refusée
@@ -305,7 +305,7 @@ export default function DemandesEnseignant({ user }) {
       
       {/* Header */}
       <div className="card" style={{ background: 'linear-gradient(135deg, #0d2a3b 0%, #00a8e0 100%)', color: '#fff', borderRadius: 20, padding: '1.8rem', marginBottom: '1.5rem', boxShadow: '0 10px 30px rgba(13,42,59,0.15)' }}>
-        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>PORTAIL ENSEIGNANT</div>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>{portalLabel}</div>
         <h2 style={{ margin: '4px 0 6px', fontSize: '1.4rem', fontWeight: 900, color: '#fff' }}>
           📩 Demandes, Prêts &amp; Justificatifs RH
         </h2>
@@ -509,7 +509,7 @@ export default function DemandesEnseignant({ user }) {
                     <input type="date" required value={formData.date_debut} onChange={(e) => setFormData({ ...formData, date_debut: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)' }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Enseignant remplaçant (optionnel)</label>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>{personnelLabel} remplaçant (optionnel)</label>
                     <input type="text" value={formData.remplacant} onChange={(e) => setFormData({ ...formData, remplacant: e.target.value })} className="inp" style={{ width: '100%', padding: '0.6rem', borderRadius: 8, border: '1px solid var(--border)' }} placeholder="Ex: M. KITA" />
                   </div>
                 </div>

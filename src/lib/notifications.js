@@ -87,13 +87,34 @@ export async function pushNotification(target, notifData) {
     }
     if (echec) return false
 
+    const params = new URLSearchParams()
+    if (newNotif.tabTarget) params.set('notificationTab', newNotif.tabTarget)
+    if (newNotif.ref) params.set('notificationRef', newNotif.ref)
+    const pushUrl = `/?${params.toString()}`
+
+    // La file Supabase déclenche l'Edge Function `send-web-push`. Ainsi le
+    // message arrive aussi lorsque l'application n'est pas ouverte.
+    const { error: pushError } = await supabase.rpc('emettre_notification_push', {
+      p_cibles: targets,
+      p_titre: newNotif.titre,
+      p_message: newNotif.message,
+      p_url: pushUrl,
+      p_tag: `ideal-${newNotif.type}-${newNotif.ref || newNotif.id}`,
+    })
+    if (pushError) {
+      console.error('Notification Web Push non mise en file :', pushError.message)
+      return false
+    }
+
     // Si le compte courant fait partie des destinataires, déclencher la notification système
     const isRecipient = targets.includes(currentRole) || targets.includes(currentUserId) || targets.includes('global')
     if (isRecipient && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(newNotif.titre, {
+        const registration = await navigator.serviceWorker?.ready
+        if (registration) await registration.showNotification(newNotif.titre, {
           body: newNotif.message,
-          icon: '/logo-ideal.png'
+          icon: '/icons/icon-192.png',
+          data: { url: pushUrl }
         })
       } catch (e) {
         console.log('Push système error:', e)

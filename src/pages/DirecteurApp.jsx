@@ -173,6 +173,27 @@ export default function DirecteurApp({ user, onLogout }) {
   const [journalOuvert, setJournalOuvert] = useState(false)
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
   const [inscriptionCiblee, setInscriptionCiblee] = useState(null)
+
+  // Une notification système peut ouvrir l'application après sa fermeture.
+  // Sa cible voyage alors dans l'URL, puisque le service worker ne partage pas
+  // l'état React. On rejoue exactement la même navigation que pour la cloche.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const target = params.get('notificationTab')
+    const ref = params.get('notificationRef')
+    if (!target) return
+    setTab(target)
+    if (target === 'eleves') {
+      setSubTabEleve('dossiers')
+      setInscriptionCiblee(ref || null)
+    } else {
+      setDemandeCiblee(ref || null)
+    }
+    params.delete('notificationTab')
+    params.delete('notificationRef')
+    const reste = params.toString()
+    window.history.replaceState({}, '', `${window.location.pathname}${reste ? `?${reste}` : ''}${window.location.hash}`)
+  }, [])
   const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
   const [ficheMarcheCantine, setFicheMarcheCantine] = useState({ budget: 0, articles: [] })
   const [justificatifsCuisine, setJustificatifsCuisine] = useState([])
@@ -212,9 +233,26 @@ export default function DirecteurApp({ user, onLogout }) {
       const disc = results[10].data || []
       const inscs = results[11].data || []
 
-      // Convertir les inscriptions officielles en format élève pour affichage
-      const elevesExistants = new Set(el.flatMap(e => [e.matricule, e.inscription_id].filter(Boolean).map(String)))
-      const elInscs = inscs.filter(i => !elevesExistants.has(String(i.matricule)) && !elevesExistants.has(String(i.id))).map(i => {
+      // Les données médicales et l'inscription cantine appartiennent au
+      // dossier d'inscription. On les rattache à l'élève actif sans créer une
+      // seconde source de vérité dans `eleves`.
+      const elevesEnrichis = el.map(e => {
+        const dossier = inscs.find(i => String(i.id) === String(e.inscription_id) || (e.matricule && i.matricule === e.matricule))
+        return {
+          ...e,
+          cantine: dossier?.cantine ?? false,
+          allergies: dossier?.allergies || '',
+          restrictions: dossier?.restrictions || '',
+          inscription_id: e.inscription_id || dossier?.id || null,
+          matricule: e.matricule || dossier?.matricule || null,
+        }
+      })
+
+      // Seuls les dossiers signés par la Direction deviennent des élèves
+      // actifs. Un dossier « en attente » reste visible dans le registre de
+      // validation, mais ne gonfle ni les effectifs ni la cantine.
+      const elevesExistants = new Set(elevesEnrichis.flatMap(e => [e.matricule, e.inscription_id].filter(Boolean).map(String)))
+      const elInscs = inscs.filter(i => i.statut === 'validee' && !elevesExistants.has(String(i.matricule)) && !elevesExistants.has(String(i.id))).map(i => {
         const matchingCl = cl.find(c => (c.nom || '').toLowerCase().trim() === (i.classe_demandee || '').toLowerCase().trim());
         return {
           id: i.id,
@@ -231,7 +269,7 @@ export default function DirecteurApp({ user, onLogout }) {
         };
       });
 
-      const allCombinedEleves = [...el, ...elInscs];
+      const allCombinedEleves = [...elevesEnrichis, ...elInscs];
 
       setDisciplines(disc)
       if (param) setJoursOuvresGlobal(param.jours_ouvres);
@@ -482,6 +520,23 @@ export default function DirecteurApp({ user, onLogout }) {
     setLoading(false)
   }
 
+  const majDossierCantine = async (eleve, changements) => {
+    const avant = eleves
+    setEleves(liste => liste.map(item => item.id === eleve.id ? { ...item, ...changements } : item))
+    let requete = supabase.from('inscriptions').update(changements)
+    requete = eleve.inscription_id
+      ? requete.eq('id', eleve.inscription_id)
+      : requete.eq('matricule', eleve.matricule || '__sans_matricule__')
+    const { error } = await requete
+    if (error) {
+      setEleves(avant)
+      setMsg(`Mise à jour cantine impossible : ${error.message}`)
+      return false
+    }
+    setMsg('Dossier cantine mis à jour.')
+    return true
+  }
+
   const saveEvenement = async () => {
     if (!newEvenement.titre || !newEvenement.date_event) { setMsg('Titre et date obligatoires'); return }
     setLoading(true)
@@ -541,7 +596,15 @@ export default function DirecteurApp({ user, onLogout }) {
             </div>
           </div>
           <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <NotificationCenter user={user} role={user.role} onNavigateTab={(t, ref) => { setTab(t); setDemandeCiblee(ref || null) }} />
+            <NotificationCenter user={user} role={user.role} onNavigateTab={(t, ref) => {
+              setTab(t)
+              if (t === 'eleves') {
+                setSubTabEleve('dossiers')
+                setInscriptionCiblee(ref || null)
+              } else {
+                setDemandeCiblee(ref || null)
+              }
+            }} />
             <span className="role-badge" style={{ background: 'rgba(0,168,224,0.18)', color: '#00a8e0', border: '1px solid #00a8e0', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
               Responsable Admin
             </span>
@@ -672,7 +735,7 @@ export default function DirecteurApp({ user, onLogout }) {
                       <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid #ef4444', borderRadius: 12, padding: 14 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: '#dc2626' }}>DÉPENSES RÉELLES DU MARCHÉ</div>
                         <div style={{ fontSize: 22, fontWeight: 900, color: '#dc2626', margin: '4px 0' }}>
-                          {fcfa((ficheMarcheCantine.articles || []).reduce((s, a) => s + (Number(a.pu) * (parseFloat(a.quantite) || 1)), 0))}
+                          {fcfa((ficheMarcheCantine.articles || []).reduce((s, a) => a.en_stock ? s : s + (Number(a.pu) * (parseFloat(a.quantite) || 1)), 0))}
                         </div>
                         <div style={{ fontSize: 10, color: 'var(--muted)' }}>{(ficheMarcheCantine.articles || []).length} achats saisis par la cuisinière</div>
                       </div>
@@ -680,7 +743,7 @@ export default function DirecteurApp({ user, onLogout }) {
                       <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid #10b981', borderRadius: 12, padding: 14 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: '#16a34a' }}>SOLDE DISPONIBLE (RESTE)</div>
                         <div style={{ fontSize: 22, fontWeight: 900, color: '#16a34a', margin: '4px 0' }}>
-                          {fcfa((ficheMarcheCantine.budget || 0) - (ficheMarcheCantine.articles || []).reduce((s, a) => s + (Number(a.pu) * (parseFloat(a.quantite) || 1)), 0))}
+                          {fcfa((ficheMarcheCantine.budget || 0) - (ficheMarcheCantine.articles || []).reduce((s, a) => a.en_stock ? s : s + (Number(a.pu) * (parseFloat(a.quantite) || 1)), 0))}
                         </div>
                         <div style={{ fontSize: 10, color: 'var(--muted)' }}>Synchronisé en temps réel</div>
                       </div>
@@ -702,7 +765,7 @@ export default function DirecteurApp({ user, onLogout }) {
                           </thead>
                           <tbody>
                             {(ficheMarcheCantine.articles || []).map((art, idx) => {
-                              const totalArt = Number(art.pu) * (parseFloat(art.quantite) || 1)
+                              const totalArt = art.en_stock ? 0 : Number(art.pu) * (parseFloat(art.quantite) || 1)
                               return (
                                 <tr key={art.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
                                   <td style={{ padding: '8px 10px', fontWeight: 700 }}>{art.nom}</td>
@@ -710,7 +773,7 @@ export default function DirecteurApp({ user, onLogout }) {
                                   <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fcfa(art.pu)}</td>
                                   <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>{fcfa(totalArt)}</td>
                                   <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                    <span className={`chip ${art.achete ? 'chip-green' : 'chip-amber'}`}>{art.achete ? '✓ Acheté' : 'À acheter'}</span>
+                                    <span className={`chip ${art.en_stock || art.achete ? 'chip-green' : 'chip-amber'}`}>{art.en_stock ? 'En stock' : art.achete ? '✓ Acheté' : 'À acheter'}</span>
                                   </td>
                                 </tr>
                               )
@@ -827,10 +890,7 @@ export default function DirecteurApp({ user, onLogout }) {
                                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                                   <button
                                     onClick={async () => {
-                                      const updatedCantine = !estInscrit
-                                      const updatedEleves = eleves.map(x => x.id === e.id ? { ...x, cantine: updatedCantine } : x)
-                                      setEleves(updatedEleves)
-                                      await supabase.from('eleves').update({ cantine: updatedCantine }).eq('id', e.id)
+                                      await majDossierCantine(e, { cantine: !estInscrit })
                                     }}
                                     style={{
                                       padding: '6px 14px',
@@ -852,8 +912,7 @@ export default function DirecteurApp({ user, onLogout }) {
                                     style={{ fontSize: 12, padding: '4px 8px' }}
                                     defaultValue={e.allergies || 'Aucune'}
                                     onBlur={async (evt) => {
-                                      const val = evt.target.value
-                                      await supabase.from('eleves').update({ allergies: val }).eq('id', e.id)
+                                      await majDossierCantine(e, { allergies: evt.target.value.trim() })
                                     }}
                                   />
                                 </td>
@@ -863,8 +922,7 @@ export default function DirecteurApp({ user, onLogout }) {
                                     style={{ fontSize: 12, padding: '4px 8px' }}
                                     defaultValue={e.restrictions || 'Aucune'}
                                     onBlur={async (evt) => {
-                                      const val = evt.target.value
-                                      await supabase.from('eleves').update({ restrictions: val }).eq('id', e.id)
+                                      await majDossierCantine(e, { restrictions: evt.target.value.trim() })
                                     }}
                                   />
                                 </td>

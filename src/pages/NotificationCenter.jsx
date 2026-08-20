@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { APP_NOTIFS } from '../lib/notifications'
+import { abonnementPushActif, activerNotificationsPush } from '../lib/push'
 
 // Les notifications lues sont mémorisées par utilisateur, sur son appareil.
 // Sans cela, la relecture toutes les 6 secondes recharge la version stockée
@@ -27,7 +28,9 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
 
   useEffect(() => {
     if ('Notification' in window) {
-      setPushStatus(Notification.permission)
+      Promise.resolve(abonnementPushActif())
+        .then(active => setPushStatus(Notification.permission === 'granted' && active ? 'granted' : 'default'))
+        .catch(() => setPushStatus(Notification.permission))
     }
 
     loadNotifications()
@@ -54,19 +57,23 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     }
 
     try {
-      const perm = await Notification.requestPermission()
-      setPushStatus(perm)
-      if (perm === 'granted') {
-        alert('✅ Notifications push activées avec succès sur cet appareil !')
-        new Notification('IDEAL École', {
-          body: 'Vous recevrez désormais les alertes directement sur votre écran !',
-          icon: '/logo-ideal.png'
-        })
-      } else {
-        alert('⚠️ Permission refusée ou restreinte par le navigateur.')
-      }
+      const { registration } = await activerNotificationsPush(user, role || user?.role)
+      setPushStatus('granted')
+      await registration.showNotification('IDEAL École', {
+        body: 'Les notifications sont activées, même lorsque l’application est fermée.',
+        icon: '/icons/icon-192.png',
+        data: { url: '/' }
+      })
+      alert('✅ Notifications activées sur cet appareil.')
     } catch (e) {
       console.error('Erreur demande permission push:', e)
+      setPushStatus(Notification.permission)
+      const messages = {
+        connexion_securisee_requise: 'Les notifications nécessitent la version sécurisée HTTPS de l’application.',
+        push_non_supporte: 'Ce navigateur ne prend pas en charge les notifications en arrière-plan.',
+        permission_refusee: 'La permission a été refusée. Autorisez les notifications dans les réglages du navigateur.',
+      }
+      alert(`⚠️ ${messages[e?.message] || `Activation impossible : ${e?.message || 'erreur inconnue'}`}`)
     }
   }
 
@@ -346,7 +353,7 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
             {pushStatus !== 'granted' && (
               <div style={{ background: 'rgba(0,168,224,0.08)', padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>
-                  📲 Recevoir les bannières sur l'écran verrouillé du téléphone ?
+                  📲 Autoriser les notifications système sur cet appareil ?
                 </div>
                 <button
                   type="button"
