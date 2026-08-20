@@ -7,6 +7,7 @@ import SurveillantApp from './pages/SurveillantApp'
 import ConseillerApp from './pages/ConseillerApp'
 import CuisiniereApp from './pages/CuisiniereApp'
 import MaternelleApp from './pages/MaternelleApp'
+import SignalementIncident from './pages/SignalementIncident'
 import { posteEnAnglais, useEnglishInterface } from './lib/interfaceLanguage'
 import './App.css'
 
@@ -123,6 +124,7 @@ export default function App() {
   return (
     <ErrorBoundary key={interfaceAnglaise ? 'interface-en' : 'interface-fr'}>
       {renderApp()}
+      {user && (user.role !== 'professeur' || /^(maitresse|assistante)-/.test(String(user.fonction || user.poste_id || '').toLowerCase())) && <SignalementIncident user={user} flottant />}
     </ErrorBoundary>
   )
 }

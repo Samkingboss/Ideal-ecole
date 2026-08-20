@@ -31,11 +31,21 @@ export default function SurveillantApp({ user, onLogout }) {
   const [disciplines, setDisciplines] = useState([])
   const [eleves, setEleves] = useState([])
   const [selectedIncident, setSelectedIncident] = useState(null)
+  const [incidentCible, setIncidentCible] = useState(null)
   const [sanctionForm, setSanctionForm] = useState({ pts: 0, type: 'retenue', duree: 10, details: '' })
 
   const today = new Date().toISOString().slice(0, 10)
 
   useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    if (!incidentCible) return
+    const incident = disciplines.find(d => String(d.id) === String(incidentCible))
+    if (incident) {
+      setTab('discipline')
+      setSelectedIncident(incident)
+      setIncidentCible(null)
+    }
+  }, [incidentCible, disciplines])
 
   const loadData = async () => {
     const { data: u } = await supabase.from('users').select('*').eq('role','professeur').eq('actif',true)
@@ -218,7 +228,7 @@ export default function SurveillantApp({ user, onLogout }) {
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <NotificationCenter user={user} role="surveillant" onNavigateTab={setTab} />
+          <NotificationCenter user={user} role="surveillant" onNavigateTab={(t, ref) => { setTab(t); if (t === 'discipline' && ref) setIncidentCible(ref) }} />
           <span className="role-badge role-surveillant">Surveillant</span>
           <button className="btn-logout" onClick={onLogout} style={{padding:'4px 12px', fontSize:11, borderRadius:8, width:'auto', height:'auto', marginLeft:10}}>Déconnexion</button>
         </div>

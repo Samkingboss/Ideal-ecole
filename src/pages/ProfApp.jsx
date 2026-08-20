@@ -7,6 +7,7 @@ import FinDeCours from './FinDeCours'
 import MonEmploiDuTemps from './MonEmploiDuTemps'
 import DossierPersonnel from './DossierPersonnel'
 import DemandesEnseignant from './DemandesEnseignant'
+import SignalementIncident from './SignalementIncident'
 import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
@@ -717,14 +718,7 @@ export default function ProfApp({ user, onLogout }) {
 
         {/* ════════ SESSION 4 : DISCIPLINE ════════ */}
         {tab === 'discipline' && (
-          <div>
-            <div className="section-head"><div className="section-title">⚖️ Signalement Incident Discipline</div></div>
-            <div className="form-group">
-              <label className="form-label">Motif de l'incident</label>
-              <textarea className="form-input" rows={3} placeholder="Description..." value={discMotif} onChange={e => setDiscMotif(e.target.value)} />
-            </div>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={reportIncident}>Signaler au Surveillant Général</button>
-          </div>
+          <SignalementIncident user={user} />
         )}
 
         {/* ════════ SESSION 5 : PERFORMANCES & MA PRIME ════════ */}
