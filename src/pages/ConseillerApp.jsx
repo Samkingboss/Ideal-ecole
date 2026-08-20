@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import AgendaCalendrier from './AgendaCalendrier'
 import NotificationCenter from './NotificationCenter'
-import { MINUTES_JOUR } from '../lib/sequences'
 
-// Horaires officiels : arrivée 08h00, départ 16h00
-const timeToMin = t => { if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m }
-const retardMatin = ha => { const v = timeToMin(ha); return v == null ? 0 : Math.max(0, v - 480) }  // 8h00
-const retardSoir  = hd => { const v = timeToMin(hd); return v == null ? 0 : Math.max(0, v - 960) }  // 16h00
+const dateLocale = () => new Intl.DateTimeFormat('fr-CA', {
+  timeZone: 'Africa/Bamako', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(new Date())
+
+const heureLocale = () => new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Africa/Bamako', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+}).format(new Date())
 
 // Jours restants avant le prochain anniversaire (récurrent)
 const joursAvantAnniv = (dn) => {
@@ -31,6 +33,8 @@ export default function ConseillerApp({ user, onLogout }) {
   const [devoirs, setDevoirs] = useState([])
   const [loading, setLoading] = useState(false)
   const [selectedClass, setSelectedClass] = useState(null)
+  const [pointagePersonnel, setPointagePersonnel] = useState(null)
+  const [pointageEnCours, setPointageEnCours] = useState(false)
 
   const TRIMESTRES = {
     T1: { start: '2025-09-01', end: '2025-12-31', label: '1er Trimestre' },
@@ -38,7 +42,7 @@ export default function ConseillerApp({ user, onLogout }) {
     T3: { start: '2026-04-01', end: '2026-06-30', label: '3ème Trimestre' }
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData(); loadPointagePersonnel() }, [])
   useEffect(() => { if (tab === 'retards') loadRetardStats() }, [tab, selectedTrimester, selectedClass])
 
   const loadRetardStats = async () => {
@@ -112,55 +116,33 @@ export default function ConseillerApp({ user, onLogout }) {
   // conseiller ne cree ni ne modifie plus d'eleve. Les inscriptions et les
   // dossiers sont tenus par le responsable administratif.
 
-  const markPresence = async (eleveId, statut, minutes = 0, justification = null) => {
-    const today = new Date().toISOString().slice(0, 10)
-    const { data, error } = await supabase.from('presences_eleves').upsert({
-      eleve_id: eleveId,
-      date_jour: today,
-      statut,
-      minutes_retard: minutes,
-      justification
-    }, { onConflict: 'eleve_id, date_jour' }).select().single()
-
-    if (!error) {
-      setPresences(prev => ({ ...prev, [eleveId]: data }))
-    }
+  const loadPointagePersonnel = async () => {
+    if (!user?.id) return
+    const { data } = await supabase.from('performances').select('*')
+      .eq('prof_id', user.id).eq('date_jour', dateLocale()).maybeSingle()
+    setPointagePersonnel(data || null)
   }
 
-  // Absence : motif OBLIGATOIRE. Une journée manquée coûte MINUTES_JOUR de
-  // cours, soit 360 minutes — les douze séquences de 30 min de l'emploi du
-  // temps officiel. Le chiffre de 480 utilisé jusqu'ici comptait aussi les
-  // récréations et le déjeuner, qui ne sont pas du temps d'enseignement.
-  const markAbsent = async (eleveId) => {
-    const motif = prompt("Motif de l'absence (obligatoire) :\nEx : Maladie, Voyage, Rendez-vous, Non justifiée…")
-    if (motif === null) return
-    if (!motif.trim()) { alert("Le motif de l'absence est obligatoire."); return }
-    const today = new Date().toISOString().slice(0, 10)
-    const { data } = await supabase.from('presences_eleves').upsert({
-      eleve_id: eleveId, date_jour: today, statut: 'absent',
-      heure_arrivee: null, heure_depart: null, retard_matin: 0, retard_soir: 0,
-      minutes_retard: MINUTES_JOUR, justification: motif.trim()
-    }, { onConflict: 'eleve_id, date_jour' }).select().single()
-    if (data) setPresences(prev => ({ ...prev, [eleveId]: data }))
-  }
-
-  // Pointage par heures : la plateforme calcule les retards automatiquement
-  const savePointage = async (eleveId, patch) => {
-    const today = new Date().toISOString().slice(0, 10)
-    const cur = presences[eleveId] || {}
-    const heure_arrivee = patch.heure_arrivee !== undefined ? patch.heure_arrivee : (cur.heure_arrivee || '')
-    const heure_depart  = patch.heure_depart  !== undefined ? patch.heure_depart  : (cur.heure_depart  || '')
-    const rm = retardMatin(heure_arrivee), rs = retardSoir(heure_depart)
-    let statut = patch.statut
-    if (!statut) statut = heure_arrivee ? (rm > 0 ? 'retard' : 'present') : (cur.statut || 'present')
-    const row = {
-      eleve_id: eleveId, date_jour: today, statut,
-      heure_arrivee: heure_arrivee || null, heure_depart: heure_depart || null,
-      retard_matin: rm, retard_soir: rs, minutes_retard: rm + rs
-    }
-    const { data, error } = await supabase.from('presences_eleves').upsert(row, { onConflict: 'eleve_id, date_jour' }).select().single()
-    if (!error && data) setPresences(prev => ({ ...prev, [eleveId]: data }))
-    else if (error) alert('Erreur : ' + error.message)
+  const pointerPersonnel = async (type) => {
+    if (!user?.id || pointageEnCours) return
+    if (type === 'arrivee' && pointagePersonnel?.heure_arrivee) return
+    if (type === 'depart' && (!pointagePersonnel?.heure_arrivee || pointagePersonnel?.heure_depart)) return
+    setPointageEnCours(true)
+    const maintenant = new Date().toISOString()
+    const heure = heureLocale()
+    const patch = type === 'arrivee'
+      ? { heure_arrivee: heure, arrivee_reelle: maintenant }
+      : { heure_depart: heure }
+    const { data, error } = await supabase.from('performances').upsert({
+      prof_id: user.id,
+      date_jour: dateLocale(),
+      ...patch,
+      saisi_par: user.id,
+      saisi_le: maintenant
+    }, { onConflict: 'prof_id,date_jour' }).select().single()
+    if (error) alert(`Impossible d'enregistrer le pointage : ${error.message}`)
+    else setPointagePersonnel(data)
+    setPointageEnCours(false)
   }
 
   const generateCartography = (eleve, toGroup = false) => {
@@ -375,54 +357,40 @@ export default function ConseillerApp({ user, onLogout }) {
         {tab === 'pointage' && (
           <>
             <div className="section-head">
-              <div className="section-title">Pointage (arrivée / départ)</div>
-              <select className="form-input" style={{width:'auto'}} value={selectedClass||''} onChange={e=>setSelectedClass(e.target.value)}>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-              </select>
+              <div className="section-title">Mon pointage du jour</div>
             </div>
-            <div style={{fontSize:11, color:'var(--muted)', margin:'-6px 0 12px'}}>
-              Horaires : arrivée <b>08h00</b> · départ <b>16h00</b>. Les minutes de retard sont calculées automatiquement.
+            <div className="card" style={{padding:20, textAlign:'center', maxWidth:560, margin:'0 auto'}}>
+              <div style={{fontSize:13, color:'var(--muted)', marginBottom:18}}>
+                {new Date().toLocaleDateString('fr-FR', {timeZone:'Africa/Bamako', weekday:'long', day:'numeric', month:'long', year:'numeric'})}
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:12}}>
+                <button
+                  className="btn-primary"
+                  disabled={pointageEnCours || Boolean(pointagePersonnel?.heure_arrivee)}
+                  onClick={() => pointerPersonnel('arrivee')}
+                  style={{minHeight:74, background:'#22a447', opacity:pointagePersonnel?.heure_arrivee ? .7 : 1}}
+                >
+                  <span style={{display:'block', fontSize:18, fontWeight:900}}>✓ ARRIVÉE</span>
+                  <span style={{display:'block', marginTop:5, fontSize:13}}>
+                    {pointagePersonnel?.heure_arrivee ? pointagePersonnel.heure_arrivee.slice(0, 5) : 'Pointer maintenant'}
+                  </span>
+                </button>
+                <button
+                  className="btn-primary"
+                  disabled={pointageEnCours || !pointagePersonnel?.heure_arrivee || Boolean(pointagePersonnel?.heure_depart)}
+                  onClick={() => pointerPersonnel('depart')}
+                  style={{minHeight:74, background:'#16883b', opacity:(!pointagePersonnel?.heure_arrivee || pointagePersonnel?.heure_depart) ? .7 : 1}}
+                >
+                  <span style={{display:'block', fontSize:18, fontWeight:900}}>↗ DÉPART</span>
+                  <span style={{display:'block', marginTop:5, fontSize:13}}>
+                    {pointagePersonnel?.heure_depart ? pointagePersonnel.heure_depart.slice(0, 5) : 'Pointer maintenant'}
+                  </span>
+                </button>
+              </div>
+              <div style={{fontSize:12, color:'var(--muted)', marginTop:16, lineHeight:1.5}}>
+                L’heure de Bamako est enregistrée automatiquement. Le départ devient disponible après le pointage d’arrivée.
+              </div>
             </div>
-            {eleves.filter(e => e.classe_id === selectedClass).map(el => {
-              const p = presences[el.id] || {}
-              const rm = p.retard_matin ?? retardMatin(p.heure_arrivee)
-              const rs = p.retard_soir ?? retardSoir(p.heure_depart)
-              const absent = p.statut === 'absent'
-              return (
-                <div key={el.id} className="card" style={{marginBottom:10, padding:12}}>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
-                    <div style={{fontWeight:700}}>{el.prenom} {el.nom}</div>
-                    <div className={`chip ${absent?'chip-red':(rm>0||rs>0)?'chip-amber':p.heure_arrivee?'chip-green':''}`}>
-                      {absent ? 'Absent' : (rm>0||rs>0) ? `Retard ${rm+rs}'` : p.heure_arrivee ? 'À l\'heure' : 'Non pointé'}
-                    </div>
-                  </div>
-                  {!absent && (
-                    <div style={{display:'flex', gap:10, marginBottom:8}}>
-                      <label style={{flex:1, fontSize:11, color:'var(--muted)'}}>Arrivée (8h)
-                        <input type="time" className="form-input" style={{marginTop:3}} value={p.heure_arrivee||''}
-                          onChange={e=>savePointage(el.id,{heure_arrivee:e.target.value})}/>
-                        {rm>0 && <span style={{color:'var(--red)', fontWeight:700}}>+{rm} min</span>}
-                      </label>
-                      <label style={{flex:1, fontSize:11, color:'var(--muted)'}}>Départ (16h)
-                        <input type="time" className="form-input" style={{marginTop:3}} value={p.heure_depart||''}
-                          onChange={e=>savePointage(el.id,{heure_depart:e.target.value})}/>
-                        {rs>0 && <span style={{color:'var(--red)', fontWeight:700}}>+{rs} min</span>}
-                      </label>
-                    </div>
-                  )}
-                  {absent && (
-                    <div style={{fontSize:12, color:'var(--red)', fontWeight:600, marginBottom:8}}>
-                      🔴 <b>{MINUTES_JOUR} min</b> de cours manqués (12 séquences de 30 min)<br/>
-                      <span style={{color:'var(--muted)', fontWeight:400}}>Motif : {p.justification || '—'}</span>
-                    </div>
-                  )}
-                  <button className="btn-sm" style={{width:'100%', background:absent?'var(--red)':'#eee', color:absent?'#fff':'#333'}}
-                    onClick={()=> absent ? savePointage(el.id,{statut:'present',heure_arrivee:'',heure_depart:''}) : markAbsent(el.id)}>
-                    {absent ? '↩ Annuler l\'absence' : '✕ Marquer absent'}
-                  </button>
-                </div>
-              )
-            })}
           </>
         )}
 
