@@ -123,6 +123,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [postes, setPostes] = useState(DEFAULT_POSTES)
   const [posteDraft, setPosteDraft] = useState([])
   const [demandesRH, setDemandesRH] = useState([])
+  const [demandeRHDetail, setDemandeRHDetail] = useState(null)
 
   // Demande désignée par une notification. La cloche transmet son identifiant ;
   // l'écran déroule jusqu'à elle et l'encadre quelques secondes. Sans cela, le
@@ -133,6 +134,8 @@ export default function DirecteurApp({ user, onLogout }) {
 
   useEffect(() => {
     if (!demandeCiblee) return
+    const demande = demandesRH.find(d => String(d.id) === String(demandeCiblee))
+    if (demande) setDemandeRHDetail(demande)
     // On laisse le temps à la session RH de se rendre avant de chercher la ligne.
     const t = setTimeout(() => {
       const el = document.getElementById(`demande-${demandeCiblee}`)
@@ -1334,8 +1337,8 @@ export default function DirecteurApp({ user, onLogout }) {
                             // Encadrée quelques secondes quand on arrive par une
                             // notification : c'est ce qui fait la différence
                             // entre « la bonne page » et « la bonne ligne ».
-                            background: demandeCiblee === d.id ? 'rgba(0,168,224,0.12)' : 'transparent',
-                            outline: demandeCiblee === d.id ? '2px solid var(--accent)' : 'none',
+                            background: String(demandeCiblee) === String(d.id) ? 'rgba(0,168,224,0.12)' : 'transparent',
+                            outline: String(demandeCiblee) === String(d.id) ? '2px solid var(--accent)' : 'none',
                             transition: 'background .3s',
                           }}
                         >
@@ -1343,7 +1346,7 @@ export default function DirecteurApp({ user, onLogout }) {
                               colonne affichait « Enseignant » pour tout le monde. */}
                           <td style={{ padding: '10px 12px', fontWeight: 700 }}>{d.user_name || 'Enseignant'}</td>
                           <td style={{ padding: '10px 12px' }}>{d.type}</td>
-                          <td style={{ padding: '10px 12px' }}>{d.motif}</td>
+                          <td style={{ padding: '10px 12px' }}>{d.details?.motif || '—'}</td>
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, fontWeight: 700, background: d.statut === 'Approuvée' ? 'rgba(16,185,129,0.1)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)' }}>
                               {d.statut}
@@ -1351,11 +1354,12 @@ export default function DirecteurApp({ user, onLogout }) {
                           </td>
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                             {d.statut === 'En attente' ? (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setDemandeRHDetail(d)}>👁 Détails</button>
                                 <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if (rep !== null) await repondreDemande(d, 'Approuvée', rep) }}>✓ Approuver</button>
                                 <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if (rep) await repondreDemande(d, 'Refusée', rep) }}>✖ Refuser</button>
                               </div>
-                            ) : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Traitée</span>}
+                            ) : <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setDemandeRHDetail(d)}>👁 Voir les détails</button>}
                           </td>
                         </tr>
                       ))}
@@ -1364,6 +1368,55 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               )}
             </div>
+
+            {demandeRHDetail && (() => {
+              const d = demandesRH.find(x => String(x.id) === String(demandeRHDetail.id)) || demandeRHDetail
+              const infos = d.details || {}
+              const typeLabel = {
+                pret: 'Demande de prêt', avance: 'Avance sur salaire', absence: 'Justificatif d’absence',
+                permission: 'Demande de permission', achat: 'Achat de matériel pédagogique', maternite: 'Congé maternité',
+              }[d.type] || d.type
+              return (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(13,42,59,.68)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setDemandeRHDetail(null)}>
+                  <div className="card" style={{ width: 'min(620px, 100%)', maxHeight: '88vh', overflowY: 'auto', padding: '1.3rem', borderRadius: 18 }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+                      <div>
+                        <div style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' }}>Détail de la demande RH</div>
+                        <h3 style={{ margin: '3px 0 2px', fontSize: 19 }}>{typeLabel}</h3>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.user_name || 'Personnel'} · {d.date_soumission ? new Date(d.date_soumission).toLocaleString('fr-FR') : ''}</div>
+                      </div>
+                      <button className="btn-sm" onClick={() => setDemandeRHDetail(null)} style={{ background: 'var(--bg)', color: 'var(--dark)', fontSize: 18 }}>×</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 8, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, fontSize: 13 }}>
+                      {infos.montant && <div>💵 <b>Montant :</b> {Number(infos.montant).toLocaleString('fr-FR')} FCFA</div>}
+                      {infos.duree_mois && d.type === 'pret' && <div>🗓️ <b>Remboursement :</b> {infos.duree_mois} mois</div>}
+                      {infos.mois_paie && <div>🗓️ <b>Mois de paie :</b> {infos.mois_paie}</div>}
+                      {infos.type_permission && <div>📝 <b>Nature :</b> {infos.type_permission}</div>}
+                      {infos.date_debut && <div>📅 <b>{d.type === 'permission' ? 'Date' : 'Début'} :</b> {infos.date_debut}</div>}
+                      {infos.date_fin && d.type !== 'permission' && <div>📅 <b>Fin :</b> {infos.date_fin}</div>}
+                      {infos.heure_debut && d.type === 'permission' && <div>🕐 <b>Horaire :</b> {infos.heure_debut} – {infos.heure_fin || '—'}</div>}
+                      {infos.remplacant && <div>👤 <b>Remplaçant :</b> {infos.remplacant}</div>}
+                      {infos.materiel_nom && <div>📦 <b>Matériel :</b> {infos.materiel_nom} · quantité {infos.materiel_quantite || 1}</div>}
+                      {infos.materiel_estimation && <div>💰 <b>Coût estimé :</b> {Number(infos.materiel_estimation).toLocaleString('fr-FR')} FCFA</div>}
+                      {infos.urgence && <div>⚠️ <b>Urgence :</b> {infos.urgence}</div>}
+                      {d.type === 'maternite' && infos.stade_grossesse && <div>🤰 <b>Stade de grossesse :</b> {infos.stade_grossesse}</div>}
+                      {d.type === 'maternite' && infos.date_dpa && <div>👶 <b>DPA prévisionnelle :</b> {infos.date_dpa}</div>}
+                      {infos.motif && <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>💬 <b>Motif détaillé :</b><div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{infos.motif}</div></div>}
+                      {infos.fichier_nom && <div>📎 <b>Pièce jointe :</b> {infos.fichier_nom}</div>}
+                      {d.reponse_direction && <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>🏛️ <b>Réponse enregistrée :</b> {d.reponse_direction}</div>}
+                    </div>
+
+                    {d.statut === 'En attente' && (
+                      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                        <button className="btn-sm" style={{ flex: 1, background: 'var(--green)', color: '#fff', padding: 12 }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if (rep !== null) { await repondreDemande(d, 'Approuvée', rep); setDemandeRHDetail(null) } }}>✓ Approuver</button>
+                        <button className="btn-sm" style={{ flex: 1, background: 'var(--red)', color: '#fff', padding: 12 }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if (rep) { await repondreDemande(d, 'Refusée', rep); setDemandeRHDetail(null) } }}>✖ Refuser</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Référentiel des Postes */}
             <div className="card" style={{ padding: '1.2rem' }}>
