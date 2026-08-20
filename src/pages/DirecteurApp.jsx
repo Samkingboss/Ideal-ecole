@@ -1315,58 +1315,47 @@ export default function DirecteurApp({ user, onLogout }) {
               </div>
               {(demandesRH || []).length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '1.5rem' }}>Aucune demande RH soumise.</div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
-                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Employé</th>
-                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Type</th>
-                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Motif</th>
-                        <th style={{ textAlign: 'center', padding: '10px 12px' }}>Statut</th>
-                        <th style={{ textAlign: 'center', padding: '10px 12px' }}>Décision</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(demandesRH || []).map(d => (
-                        <tr
-                          key={d.id}
-                          id={`demande-${d.id}`}
-                          style={{
-                            borderBottom: '1px solid var(--border)',
-                            // Encadrée quelques secondes quand on arrive par une
-                            // notification : c'est ce qui fait la différence
-                            // entre « la bonne page » et « la bonne ligne ».
-                            background: String(demandeCiblee) === String(d.id) ? 'rgba(0,168,224,0.12)' : 'transparent',
-                            outline: String(demandeCiblee) === String(d.id) ? '2px solid var(--accent)' : 'none',
-                            transition: 'background .3s',
-                          }}
-                        >
-                          {/* `prof_nom` n'a jamais existé sur ces demandes : la
-                              colonne affichait « Enseignant » pour tout le monde. */}
-                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>{d.user_name || 'Enseignant'}</td>
-                          <td style={{ padding: '10px 12px' }}>{d.type}</td>
-                          <td style={{ padding: '10px 12px' }}>{d.details?.motif || '—'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, fontWeight: 700, background: d.statut === 'Approuvée' ? 'rgba(16,185,129,0.1)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)' }}>
-                              {d.statut}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            {d.statut === 'En attente' ? (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                                <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setDemandeRHDetail(d)}>👁 Détails</button>
-                                <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if (rep !== null) await repondreDemande(d, 'Approuvée', rep) }}>✓ Approuver</button>
-                                <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if (rep) await repondreDemande(d, 'Refusée', rep) }}>✖ Refuser</button>
-                              </div>
-                            ) : <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setDemandeRHDetail(d)}>👁 Voir les détails</button>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              ) : (demandesRH || []).map(d => (
+                <div
+                  key={d.id}
+                  id={`demande-${d.id}`}
+                  onClick={() => setDemandeRHDetail(d)}
+                  style={{
+                    border: String(demandeCiblee) === String(d.id) ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    borderRadius: 12, padding: '12px 14px', marginBottom: 9, cursor: 'pointer',
+                    background: String(demandeCiblee) === String(d.id) ? 'rgba(0,168,224,0.12)' : '#fff',
+                    transition: 'background .3s',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 900, fontSize: 14 }}>{d.user_name || 'Personnel'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                        {d.type}{d.details?.montant ? ` · ${Number(d.details.montant).toLocaleString('fr-FR')} F` : ''}
+                        {d.date_soumission ? ` · ${new Date(d.date_soumission).toLocaleDateString('fr-FR')}` : ''}
+                      </div>
+                    </div>
+                    <span style={{
+                      flex: 'none', fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 7,
+                      background: d.statut === 'Approuvée' ? 'rgba(16,185,129,0.12)' : d.statut === 'Refusée' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
+                      color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)',
+                    }}>{d.statut}</span>
+                  </div>
+
+                  <div style={{ fontSize: 12, lineHeight: 1.45, marginTop: 6 }}>
+                    {d.details?.motif ? `« ${d.details.motif} »` : 'Aucun motif renseigné.'}
+                  </div>
+                  {d.reponse_direction && <div style={{ fontSize: 12, marginTop: 5 }}><b style={{ color: 'var(--accent)' }}>Réponse :</b> {d.reponse_direction}</div>}
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
+                    <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setDemandeRHDetail(d)}>👁 Voir tous les détails</button>
+                    {d.statut === 'En attente' && <>
+                      <button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const rep = prompt('Commentaire d\'approbation :', 'Approuvé'); if (rep !== null) await repondreDemande(d, 'Approuvée', rep) }}>✓ Approuver</button>
+                      <button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const rep = prompt('Motif du refus :', 'Refusé'); if (rep) await repondreDemande(d, 'Refusée', rep) }}>✖ Refuser</button>
+                    </>}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
 
             {demandeRHDetail && (() => {
