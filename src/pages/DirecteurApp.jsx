@@ -138,7 +138,7 @@ export default function DirecteurApp({ user, onLogout }) {
     if (demande) setDemandeRHDetail(demande)
     // On laisse le temps à la session RH de se rendre avant de chercher la ligne.
     const t = setTimeout(() => {
-      const el = document.getElementById(`demande-${demandeCiblee}`)
+      const el = document.getElementById(`demande-${demandeCiblee}`) || document.getElementById(`preparation-${demandeCiblee}`)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 350)
     // La mise en évidence s'efface d'elle-même : elle sert à trouver, pas à rester.
@@ -1607,7 +1607,16 @@ export default function DirecteurApp({ user, onLogout }) {
                     const frise = Array.isArray(prep.historique_statuts) ? prep.historique_statuts : []
                     const ouverte = prepOuverte === prep.id
                     return (
-                    <div key={prep.id || i} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
+                    <div
+                      key={prep.id || i}
+                      id={`preparation-${prep.id}`}
+                      style={{
+                        background: String(demandeCiblee) === String(prep.id) ? 'rgba(0,168,224,0.12)' : 'var(--bg)',
+                        border: String(demandeCiblee) === String(prep.id) ? '2px solid var(--accent)' : '1px solid var(--border)',
+                        borderRadius: 12,
+                        padding: '14px',
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)', minWidth: 0 }}>
                           {prep.matiere || 'Préparation'}{prep.sequence ? ` · séquence ${prep.sequence}` : ''}

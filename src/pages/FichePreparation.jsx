@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS } from '../lib/preparations'
+import { pushNotification } from '../lib/notifications'
 
 // Fiche de préparation d'une notion.
 //
@@ -401,10 +402,28 @@ export default function FichePreparation({
 
     const survivantes = (apres || []).filter(e => e.sequence >= creneau.sequence + nb)
 
+    if (survivantes.length) {
+      setEnCours(false)
+      setMessage({ type: 'err', texte: `Enregistré, mais ${survivantes.length} séquence(s) de l'ancienne durée n'ont pas pu être supprimées. Signalez-le à la direction.` })
+      return
+    }
+
+    // La soumission et l'enregistrement forment une seule action. Une fois les
+    // lignes confirmées en base, la direction est prévenue et la notification
+    // pointe vers la première séquence de cette préparation.
+    const premiere = (apres || []).find(e => e.sequence >= creneau.sequence && e.sequence < creneau.sequence + nb)
+    const transmise = await pushNotification('directeur', {
+      titre: estDejaPreparee ? '📚 Préparation mise à jour' : '📚 Nouvelle préparation soumise',
+      message: `${user?.prenom || ''} ${user?.nom || ''} · ${creneau.matiere} · ${creneau.groupe} · cours du ${dateCours}`.trim(),
+      type: 'preparation',
+      tabTarget: 'pedagogie',
+      ref: premiere?.id,
+    })
+
     setEnCours(false)
-    setMessage(survivantes.length
-      ? { type: 'err', texte: `Enregistré, mais ${survivantes.length} séquence(s) de l'ancienne durée n'ont pas pu être supprimées. Signalez-le à la direction.` }
-      : { type: 'ok', texte: nb > 1 ? `${nb} séquences enregistrées ✓` : 'Préparation enregistrée ✓' })
+    setMessage(transmise
+      ? { type: 'ok', texte: nb > 1 ? `${nb} séquences soumises à la direction ✓` : 'Préparation soumise à la direction ✓' }
+      : { type: 'err', texte: 'La préparation est bien enregistrée, mais la notification à la direction a échoué. Réessayez ou prévenez la direction.' })
     onEnregistre && onEnregistre()
   }
 
@@ -830,12 +849,12 @@ export default function FichePreparation({
               style={{ flex: 2, minWidth: 180, padding: 12, borderRadius: 12, fontWeight: 800 }}
             >
               {enCours
-                ? 'Enregistrement…'
+                ? 'Soumission…'
                 : estDejaPreparee
-                  ? 'Enregistrer les modifications'
+                  ? 'Soumettre les modifications à la direction'
                   : nb > 1
-                    ? `Valider les ${nb} séquences`
-                    : 'Valider la préparation'
+                    ? `Soumettre les ${nb} séquences à la direction`
+                    : 'Soumettre la préparation à la direction'
               }
             </button>
           )}
