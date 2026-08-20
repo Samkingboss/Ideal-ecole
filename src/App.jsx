@@ -6,7 +6,6 @@ import ProfApp from './pages/ProfApp'
 import SurveillantApp from './pages/SurveillantApp'
 import ConseillerApp from './pages/ConseillerApp'
 import CuisiniereApp from './pages/CuisiniereApp'
-import MaternelleApp from './pages/MaternelleApp'
 import SignalementIncident from './pages/SignalementIncident'
 import { posteEnAnglais, useEnglishInterface } from './lib/interfaceLanguage'
 import './App.css'
@@ -109,7 +108,7 @@ export default function App() {
     const r = (user.fonction === 'cuisiniere' || user.custom_role === 'cuisiniere') ? 'cuisiniere' : user.role
     const poste = String(user.fonction || user.poste_id || '').toLowerCase()
     if (poste.startsWith('maitresse-') || poste.startsWith('assistante-')) {
-      return <MaternelleApp user={user} onLogout={handleLogout} />
+      return <ProfApp user={user} onLogout={handleLogout} />
     }
     if (r === 'directeur' || r === 'responsable_administratif') {
       return <DirecteurApp user={user} onLogout={handleLogout} />
@@ -124,7 +123,7 @@ export default function App() {
   return (
     <ErrorBoundary key={interfaceAnglaise ? 'interface-en' : 'interface-fr'}>
       {renderApp()}
-      {user && (user.role !== 'professeur' || /^(maitresse|assistante)-/.test(String(user.fonction || user.poste_id || '').toLowerCase())) && <SignalementIncident user={user} flottant />}
+      {user && user.role !== 'professeur' && !/^(maitresse|assistante)-/.test(String(user.fonction || user.poste_id || '').toLowerCase()) && <SignalementIncident user={user} flottant />}
     </ErrorBoundary>
   )
 }
