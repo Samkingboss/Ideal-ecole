@@ -7,6 +7,7 @@ import SurveillantApp from './pages/SurveillantApp'
 import ConseillerApp from './pages/ConseillerApp'
 import CuisiniereApp from './pages/CuisiniereApp'
 import MaternelleApp from './pages/MaternelleApp'
+import { posteEnAnglais, useEnglishInterface } from './lib/interfaceLanguage'
 import './App.css'
 
 class ErrorBoundary extends Component {
@@ -54,6 +55,8 @@ class ErrorBoundary extends Component {
 export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const interfaceAnglaise = posteEnAnglais(user)
+  useEnglishInterface(interfaceAnglaise)
 
   useEffect(() => {
     const stored = localStorage.getItem('ideal_user')
@@ -118,7 +121,7 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary key={interfaceAnglaise ? 'interface-en' : 'interface-fr'}>
       {renderApp()}
     </ErrorBoundary>
   )
