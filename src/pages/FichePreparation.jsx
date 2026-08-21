@@ -85,6 +85,13 @@ const horaireDe = seq => {
 }
 
 const heureAff = seq => (horaireDe(seq) || '').replace(':', 'h')
+const horaireDuCreneau = (creneau, seq = creneau.sequence) =>
+  seq === creneau.sequence && creneau.heure_debut
+    ? creneau.heure_debut
+    : horaireDe(seq)
+
+const heureAffCreneau = (creneau, seq = creneau.sequence) =>
+  (horaireDuCreneau(creneau, seq) || '').replace(':', 'h')
 
 const dateLisible = iso =>
   new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', {
@@ -112,6 +119,7 @@ const commentaireDepot = (dateCours, heureCours, moment) => {
 
 export default function FichePreparation({
   user, creneau, dateCours,
+  objectifsOfficiels = [],
   lectureSeule = false,
   onFerme, onEnregistre,
 }) {
@@ -302,7 +310,7 @@ export default function FichePreparation({
 
     for (let i = 0; i < nb; i++) {
       const seqNum = creneau.sequence + i
-      const h = horaireDe(seqNum) ?? horaireDe(creneau.sequence) ?? '08:00'
+      const h = horaireDuCreneau(creneau, seqNum) ?? horaireDuCreneau(creneau) ?? '08:00'
 
       // Une échéance inconnue ne doit jamais devenir un dépôt à l'heure : la
       // source unique renvoie `null` plutôt que d'inventer un statut, et l'on
@@ -441,7 +449,7 @@ export default function FichePreparation({
     const blocsSeq = seqs.map((seq, idx) => {
       const total = ETAPES.reduce((s, e) => s + Number(seq.etapes?.[e.id]?.minutes || 0), 0)
       const seqNum = creneau.sequence + idx
-      const h = horaireDe(seqNum) ?? ''
+      const h = horaireDuCreneau(creneau, seqNum) ?? ''
       return `
         <div class="seq-titre">
           ${nb > 1 ? `Séquence ${idx + 1}/${nb} · S${seqNum}${h ? ' · ' + h.replace(':', 'h') : ''}` : 'Déroulement'}
@@ -567,7 +575,7 @@ export default function FichePreparation({
             <div style={{ fontSize: 16, fontWeight: 800 }}>{creneau.matiere} — {creneau.groupe}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>
               {dateLisible(dateCours)} · à partir de S{creneau.sequence}
-              {horaireDe(creneau.sequence) ? ` · ${heureAff(creneau.sequence)}` : ''}
+              {horaireDuCreneau(creneau) ? ` · ${heureAffCreneau(creneau)}` : ''}
             </div>
           </div>
           <button className="btn-sm" onClick={onFerme}>Fermer</button>
@@ -720,6 +728,22 @@ export default function FichePreparation({
           </div>
         )}
 
+        {objectifsOfficiels.length > 0 && !lectureSeule && (
+          <label style={{ display: 'block', marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
+            OBJECTIF PÉDAGOGIQUE OFFICIEL <span style={{ color: 'var(--red)' }}>*</span>
+            <select
+              value={objectifsOfficiels.some(o => o.description === fiche.objectif) ? fiche.objectif : ''}
+              onChange={e => setFiche({ ...fiche, objectif: e.target.value })}
+              style={{ ...champ, background: 'var(--bg)' }}>
+              <option value="">— sélectionner l’objectif travaillé —</option>
+              {objectifsOfficiels.map(o => <option key={o.id} value={o.description}>{o.description}</option>)}
+            </select>
+            <div style={{ marginTop: 5, fontSize: 10, lineHeight: 1.4, fontWeight: 500 }}>
+              Objectifs du trimestre pour {creneau.groupe} · {creneau.matiere}
+            </div>
+          </label>
+        )}
+
         {/* ── Rubriques communes — partie 1 (objectif, prérequis, matériel) ── */}
         {RUBRIQUES.slice(0, 3).map(r => (
           <label key={r.id} style={{ display: 'block', marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
@@ -740,7 +764,7 @@ export default function FichePreparation({
         {seqs.map((seq, idx) => {
           const totalSeq = ETAPES.reduce((s, e) => s + Number(seq.etapes?.[e.id]?.minutes || 0), 0)
           const seqNum   = creneau.sequence + idx
-          const h        = heureAff(seqNum)
+          const h        = heureAffCreneau(creneau, seqNum)
 
           return (
             <div key={idx} style={{
