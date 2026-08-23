@@ -11,11 +11,16 @@ D=scripts/gardes
 ECHECS=0
 
 lance() { "$D/$1" || ECHECS=$((ECHECS+1)); }
+# Les gardes écrites en JS sont lancées par Node : pas de shebang à maintenir,
+# pas de bit exécutable à perdre au fil des copies.
+lanceJS() { node "$D/$1" || ECHECS=$((ECHECS+1)); }
 
 case "${1:-}" in
-  --statique) lance statiques.sh; lance ecrans.sh; lance cliquets.sh ;;
+  --statique) lance statiques.sh; lance ecrans.sh; lance cliquets.sh
+              lanceJS test-chargement.mjs; lanceJS test-programmes.mjs ;;
   --metier)   lance invariants.sh ;;
   *)          lance statiques.sh; lance ecrans.sh; lance cliquets.sh
+              lanceJS test-chargement.mjs; lanceJS test-programmes.mjs
               lance invariants.sh; lance reseau.sh ;;
 esac
 

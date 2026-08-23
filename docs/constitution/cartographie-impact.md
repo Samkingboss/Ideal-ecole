@@ -70,34 +70,44 @@ d'interface hérité** :
 
 ### La preuve : les deux copies ont déjà divergé
 
-Comparaison programmatique des 67 entrées codées en dur dans le JSX contre les 69
+Comparaison programmatique des 70 entrées codées en dur dans le JSX contre les 69
 leçons de `lecture-cp2.js` :
 
 | | |
 |---|---|
 | titres identiques | 52 |
-| titres divergents | **15** |
-| leçons présentes dans les données, **absentes du document imprimé** | **2** — pages 58 et 65 |
+| titres divergents | **18** |
+| leçons absentes du document imprimé | aucune |
 
-Et la copie dégradée est celle qu'on imprime. Le fichier de données porte les
-attributions d'auteur que le document a perdues :
+**Rectification.** Une première passe avait annoncé deux leçons manquantes. C'était
+un défaut de mon extraction — les titres contenant une apostrophe échappée
+échappaient au motif. Aucune leçon ne manque. Le reste du constat tient, et il est
+plus net que le chiffre erroné ne le laissait croire.
+
+La divergence est systématique et orientée : **le document imprimé est la copie
+appauvrie.** Sur les quatorze morceaux choisis des pages 59 à 72, il a perdu
+**toutes les attributions d'auteur** que le fichier de données conserve :
 
 ```
-p. 61   JSX  « Le petit Poucet »
-        data « Le petit Poucet (d'après Charles Perrault) »
-p. 67   JSX  « La chèvre de M. Seguin »
-        data « La chèvre de M. Seguin (Alphonse Daudet) »
-p. 69   JSX  « Le petit sapin »
-        data « Le petit sapin (d'après Hans Christian Andersen) »
+p. 61   imprimé  « Le petit Poucet »
+        données  « Le petit Poucet (d'après Charles Perrault) »
+p. 67   imprimé  « La chèvre de M. Seguin »
+        données  « La chèvre de M. Seguin (Alphonse Daudet) »
+p. 69   imprimé  « Le petit sapin »
+        données  « Le petit sapin (d'après Hans Christian Andersen) »
+p. 71   imprimé  « Jean et Jeanne à la pêche »
+        données  « Jean et Jeanne à la pêche (Anatole France) »
 ```
 
-**Le « Sommaire Officiel » distribué aux enseignants est incomplet de deux leçons et
-appauvri sur douze autres, par rapport au programme que l'école détient elle-même.**
-Ce n'est plus un risque de divergence : la divergence a eu lieu.
+Perrault, Daudet, Andersen, Verhaeren, Van Lerberghe, Delarue-Mardrus, Anatole
+France, Paul Fort, les Margueritte, le Roman de Renart : dix attributions
+disparaissent du seul document que l'enseignant a réellement en main. Sur un
+programme de lecture, ce n'est pas une perte cosmétique.
 
-C'est l'argument décisif contre la duplication, et il vaut pour les 21 autres manuels :
-tout document pédagogique qui recopie son contenu au lieu de le lire finira au même
-endroit.
+Ce n'est donc plus un risque de divergence : **la divergence a eu lieu**, et elle
+s'est faite au détriment du document distribué. C'est l'argument décisif contre la
+duplication, et il vaut pour les 21 autres manuels : tout document pédagogique qui
+recopie son contenu au lieu de le lire finira au même endroit.
 
 **Trous de couverture, visibles seulement dans une vue matière-d'abord :**
 CE1-CE2 n'a pas de manuel de Lecture ; CM1-CM2 n'a ni Français, ni Maths (fr), ni
@@ -513,7 +523,7 @@ Aucune écriture en base, aucun schéma touché. Réversibles par `git revert`.
 
 | # | travail | fracture | preuve établie |
 |---|---|---|---|
-| A1 | Faire lire au sommaire Boscher `lecture-cp2.js` au lieu de son JSX codé en dur | 1 | 2 leçons manquantes, 15 titres divergents |
+| A1 | Faire lire au sommaire Boscher `lecture-cp2.js` au lieu de son JSX codé en dur | 1 | 18 titres divergents, 10 auteurs perdus |
 | A2 | Retirer `custom_role` et `poste_id` du routeur — colonnes inexistantes | 3, 8 | absentes du schéma `users` |
 | A3 | Rendre l'écran vie scolaire honnête sur une source jamais alimentée | 2 | zéro voie d'écriture vers `presences_eleves` |
 | A4 | Retirer le numéro personnel codé en dur de `DevoirsDocument.jsx:137` | 4 | contredit le V2.1 §8 |
@@ -521,7 +531,8 @@ Aucune écriture en base, aucun schéma touché. Réversibles par `git revert`.
 | A6 | Statuer sur les orphelins `BulletinPrimaire.jsx` + `.css` | 6 | non montés, non importés |
 
 **A1 est le plus rentable** : il supprime une source de vérité en double sur une
-donnée réelle de catégorie B, et rétablit deux leçons perdues pour les enseignants.
+donnée réelle de catégorie B, et rend aux enseignants les attributions d'auteur que
+le document imprimé avait perdues.
 
 ### B — Composants réutilisables
 

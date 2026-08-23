@@ -30,6 +30,15 @@ export default {
   // Le livre ne numérote pas ses leçons : chaque page en est une.
   numerote: false,
 
+  // Pages liminaires : affichées sur le sommaire imprimé, jamais comptées
+  // comme des séances. `leconsDe()` ne les voit pas, l'avancement non plus —
+  // c'est exactement la distinction posée en tête de ce fichier. Elles étaient
+  // jusqu'ici codées en dur dans le document ; les voici à leur place.
+  liminaire: [
+    { page: '1 – 2', titre: "Page de titre et crédits d'édition (Éditions Belin)" },
+    { page: '3',     titre: 'Préface et conseils pédagogiques aux enseignants et aux parents' },
+  ],
+
   unites: [
     {
       numero: 1,
