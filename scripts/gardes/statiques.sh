@@ -53,4 +53,9 @@ titre "STATIQUES · aucun fichier suivi ne doit être vide"
 NB_VIDES=$(git ls-files -z | xargs -0 -I{} sh -c '[ -f "{}" ] && [ ! -s "{}" ] && echo {}' 2>/dev/null | wc -l | tr -d ' ')
 cliquet "fichiers_vides" "H13 · fichiers suivis à 0 octet" "$NB_VIDES"
 
+# Une clé `service_role` contourne toute RLS. Committée, elle annule tout le
+# travail de sécurité en une ligne. Le rôle est inscrit en clair dans le JWT.
+garde "H14 · aucune cle service_role dans le depot" \
+  "git grep -lE 'service_role' -- ':!scripts/gardes' ':!scripts/auth-migration.mjs' ':!docs' 2>/dev/null | wc -l | tr -d ' '" "0"
+
 bilan
