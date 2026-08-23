@@ -55,16 +55,25 @@ export default function LoginPage({ onLogin }) {
     setLoading(true)
     setError('')
     try {
+      // Le code d'accès ne vit plus dans `users` : il a été déplacé dans
+      // `users_secrets`, table à laquelle la clé anonyme n'a aucun droit.
+      // La comparaison se fait donc côté serveur, dans une fonction
+      // SECURITY DEFINER qui ne renvoie jamais de champ secret.
+      //
+      // Le contrat de retour est volontairement identique à celui de
+      // l'ancien `.maybeSingle()` : la ligne du compte, ou `null`. Rien
+      // d'autre dans ce fichier n'a eu à changer.
       const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('code_acces', propre)
-        .eq('actif', true)
-        .maybeSingle()
+        .rpc('authentifier_par_code', { p_code: propre })
 
       // Ne pas confondre « mauvais code » et « serveur injoignable » : sur une
       // connexion coupée, annoncer un code incorrect envoie chercher un
       // problème là où il n'y en a pas.
+      //
+      // C'est aussi pourquoi la fonction SQL renvoie `null` sur code inconnu
+      // au lieu de lever une exception : une exception arriverait ici comme
+      // une `error` et ferait afficher « serveur injoignable » à quelqu'un
+      // qui s'est simplement trompé de code.
       if (error) {
         setError(estPanneReseau(error)
           ? 'Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.'
