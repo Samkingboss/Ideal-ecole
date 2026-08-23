@@ -46,6 +46,21 @@ garde "L6 · code inconnu → null, jamais d'exception" \
 
 titre "RÉSEAU · intégrité des données   [INV-SEC-04, INV-CONT-03]"
 
+# ── Les champs lus par le code existent-ils réellement ? ──────────────────
+#
+# `custom_role` et `poste_id` ont été lus pendant des mois par le routeur.
+# Aucune des deux colonnes n'a jamais existé : les tests étaient toujours
+# faux, silencieusement. La liste est relue dans App.jsx plutôt que recopiée
+# ici — une garde qui recopie ce qu'elle surveille ne surveille plus rien.
+CHAMPS=$(sed -n '/^const CHAMPS_SESSION = \[/,/^\]/p' src/App.jsx \
+         | grep -oE "'[a-z_]+'" | tr -d "'" | paste -sd, -)
+garde "L11 · tout champ de session existe sur users" \
+      "http 'users?select=$CHAMPS&limit=1'" "200"
+# Contrôle négatif : la garde doit savoir échouer. Une colonne absente donne
+# bien 400 — c'est ce que L11 aurait renvoyé pour custom_role.
+garde "L12 · une colonne absente est bien refusée" \
+      "http 'users?select=custom_role&limit=1'" "400"
+
 garde    "L7 · volume users — données de recette préservées" "compte users" "13"
 plancher "journal_audit" "L8 · journal_audit ne perd aucune ligne" "$(compte journal_audit)"
 garde    "L9 · users_secrets existe" \

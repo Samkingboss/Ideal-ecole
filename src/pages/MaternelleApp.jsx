@@ -13,7 +13,7 @@ const DOMAINES = [
 ]
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi']
 const CRENEAUX = ['08:00', '08:30', '09:00', '09:30', '10:15', '10:45', '11:15', '13:30', '14:00', '14:30']
-const fonction = u => String(u?.fonction || u?.poste_id || u?.custom_role || '').toLowerCase()
+const fonction = u => String(u?.fonction || '').toLowerCase()
 const estAssistante = u => fonction(u).includes('assistante')
 const langueDe = u => fonction(u).includes('-en-') || u?.langue === 'en' ? 'en' : 'fr'
 const estObjectifAnglais = texte => /^(Mastered|Names?|Identifies|Writes?|Counts?|Recognizes|Performs?|Responds?|Draws?|Demonstrates|Washes|Throws|Eats|Flushes|Traces|Executes|Sorts|Conducts|Participates|Coordinates|Explores|Uses|Takes|Revises|Associates|Knows|Sings|Respects)\b/i.test(texte)

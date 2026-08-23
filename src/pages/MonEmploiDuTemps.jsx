@@ -54,7 +54,7 @@ const enJours = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const jourMois = iso =>
   new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
-const estCompteMaternelle = user => /^(maitresse|assistante)-/.test(String(user?.fonction || user?.poste_id || '').toLowerCase())
+const estCompteMaternelle = user => /^(maitresse|assistante)-/.test(String(user?.fonction || '').toLowerCase())
 
 export default function MonEmploiDuTemps({ user }) {
   return estCompteMaternelle(user)

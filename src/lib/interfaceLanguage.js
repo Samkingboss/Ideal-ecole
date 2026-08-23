@@ -113,7 +113,7 @@ function traduireNoeud(node) {
 }
 
 export const posteEnAnglais = user => {
-  const poste = String(user?.fonction || user?.poste_id || user?.custom_role || '').toLowerCase()
+  const poste = String(user?.fonction || '').toLowerCase()
   return user?.langue === 'en' || /-(en|english)-/.test(`-${poste}-`) || poste.includes('anglais')
 }
 

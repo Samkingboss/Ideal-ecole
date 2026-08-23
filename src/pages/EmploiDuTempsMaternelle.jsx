@@ -47,7 +47,7 @@ const PROGRAMME = {
   ],
 }
 
-const fonction = user => String(user?.fonction || user?.poste_id || user?.custom_role || '').toLowerCase()
+const fonction = user => String(user?.fonction || '').toLowerCase()
 const langueDe = user => fonction(user).includes('-en-') || user?.langue === 'en' ? 'en' : 'fr'
 const lundiDe = date => {
   const d = new Date(date)

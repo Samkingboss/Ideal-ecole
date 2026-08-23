@@ -61,14 +61,14 @@ class ErrorBoundary extends Component {
 //
 // Liste blanche explicite plutôt que retrait des champs sensibles : une
 // liste de champs interdits laisse passer tout ce qu'on n'a pas prévu, et
-// c'est précisément ce qui s'est produit. Ces neuf champs sont les seuls
+// c'est précisément ce qui s'est produit. Ces sept champs sont les seuls
 // que le code lise réellement sur l'objet de session.
 //
 // La session reste falsifiable — c'est la phase 3 qui y remédiera. Ce qui
 // change ici, c'est qu'elle ne transporte plus de secret.
 const CHAMPS_SESSION = [
   'id', 'prenom', 'nom', 'role', 'actif',
-  'fonction', 'langue', 'poste_id', 'custom_role',
+  'fonction', 'langue',
 ]
 
 const CHAMPS_SENSIBLES = ['code_acces', 'plafond_salaire']
@@ -121,7 +121,7 @@ export default function App() {
     if (!user) {
       document.title = "Connexion - IDEAL EcoleApp"
     } else {
-      const poste = String(user.fonction || user.poste_id || '').toLowerCase()
+      const poste = String(user.fonction || '').toLowerCase()
       const roleMap = {
         'directeur': 'Direction',
         'professeur': 'Espace Enseignant',
@@ -137,7 +137,7 @@ export default function App() {
   }, [user])
 
   const handleLogin = (u) => {
-    if (u && (u.fonction === 'cuisiniere' || u.custom_role === 'cuisiniere')) {
+    if (u && u.fonction === 'cuisiniere') {
       u.role = 'cuisiniere'
     }
     // Assainissement après la réaffectation de rôle ci-dessus, pour que
@@ -161,8 +161,8 @@ export default function App() {
 
   const renderApp = () => {
     if (!user) return <LoginPage onLogin={handleLogin} />
-    const r = (user.fonction === 'cuisiniere' || user.custom_role === 'cuisiniere') ? 'cuisiniere' : user.role
-    const poste = String(user.fonction || user.poste_id || '').toLowerCase()
+    const r = user.fonction === 'cuisiniere' ? 'cuisiniere' : user.role
+    const poste = String(user.fonction || '').toLowerCase()
     if (poste.startsWith('maitresse-') || poste.startsWith('assistante-')) {
       return <ProfApp user={user} onLogout={handleLogout} />
     }
@@ -179,7 +179,7 @@ export default function App() {
   return (
     <ErrorBoundary key={interfaceAnglaise ? 'interface-en' : 'interface-fr'}>
       {renderApp()}
-      {user && user.role !== 'professeur' && !/^(maitresse|assistante)-/.test(String(user.fonction || user.poste_id || '').toLowerCase()) && <SignalementIncident user={user} flottant />}
+      {user && user.role !== 'professeur' && !/^(maitresse|assistante)-/.test(String(user.fonction || '').toLowerCase()) && <SignalementIncident user={user} flottant />}
     </ErrorBoundary>
   )
 }

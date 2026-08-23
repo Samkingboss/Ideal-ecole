@@ -419,7 +419,7 @@ export default function DirecteurApp({ user, onLogout }) {
       
       const enrichedProfs = u.map(p => ({
         ...p,
-        role: (p.fonction === 'cuisiniere' || p.custom_role === 'cuisiniere') ? 'cuisiniere' : p.role,
+        role: p.fonction === 'cuisiniere' ? 'cuisiniere' : p.role,
         classe_ids: pc.filter(link => link.user_id === p.id).map(link => link.classe_id)
       }))
       setProfs(enrichedProfs)
@@ -1977,7 +1977,7 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="form-group"><label className="form-label">Rôle / fonction</label>
               <select className="form-select" value={newProf.role} onChange={e=>{
                 const config = FONCTIONS_MATERNELLE[e.target.value]
-                setNewProf({...newProf, role:e.target.value, ...(config ? { poste_id:config.fonction, langue:config.langue } : {})})
+                setNewProf({...newProf, role:e.target.value, ...(config ? { langue:config.langue } : {})})
               }}>
                 <option value="professeur">Enseignant</option>
                 <optgroup label="Maternelle — Français">
