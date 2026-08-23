@@ -97,35 +97,31 @@ export default function LoginPage({ onLogin }) {
         return
       }
 
-      // ── Repli de transition ────────────────────────────────────────
+      // ── Plus de repli ──────────────────────────────────────────────
       //
-      // Tant que la migration n'est pas achevée, un compte dont l'identité
-      // Auth n'existe pas encore doit pouvoir entrer. Ce repli disparaît à
-      // l'étape 4, avec `users_secrets`.
+      // Un repli vers `authentifier_par_code` a couvert la migration. Il est
+      // devenu un contournement : `--reparer-codes` a changé les mots de
+      // passe Auth, pas `users_secrets`, qui détient encore les anciens
+      // codes en clair. Un compte banni par Auth pouvait donc entrer par
+      // cette porte avec son ancien code.
       //
-      // Une panne réseau ne doit pas emprunter ce chemin : elle se traite
-      // comme une panne, pas comme un identifiant inconnu.
+      // Les treize identités Auth existent et sont vérifiées. Supabase Auth
+      // fait seul autorité.
       if (estPanneReseau(errAuth)) {
         setError('Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.')
         setLoading(false)
         return
       }
 
-      const { data, error } = await supabase.rpc('authentifier_par_code', { p_code: propre })
-
-      if (error) {
-        setError(estPanneReseau(error)
-          ? 'Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.'
-          : 'Connexion impossible : ' + (error.message || 'erreur inattendue'))
-        setLoading(false)
-        return
-      }
-      if (!data) {
-        setError('Identifiant ou code incorrect, ou compte inactif.')
-        setLoading(false)
-        return
-      }
-      onLogin(data)
+      // GoTrue ne distingue pas un identifiant inconnu d'un mauvais code —
+      // c'est délibéré, cela empêche d'énumérer les comptes. Un compte
+      // désactivé, lui, est refusé explicitement.
+      const banni = /banned|user_banned/i.test(errAuth?.message || '') || errAuth?.code === 'user_banned'
+      setError(banni
+        ? "Ce compte est désactivé. Contactez la direction."
+        : 'Identifiant ou code incorrect.')
+      setLoading(false)
+      return
     } catch (err) {
       setError(estPanneReseau(err)
         ? 'Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.'
