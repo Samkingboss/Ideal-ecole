@@ -595,18 +595,36 @@ parce qu'il crée des écritures en production.
 
 Par dépendance, du plus sûr au plus engageant.
 
+### Fait
+
+| # | livré | commit |
+|---|---|---|
+| A1 | le sommaire imprimé lit les programmes ; générique aux 22 manuels | `8e49776` |
+| A2 | `custom_role` et `poste_id` retirés du code | `9e89e2c` |
+| A4 | identité de l'école centralisée dans `src/lib/ecole.js` | `d5da24b` |
+| A5 | `ÉCOLE IDÉAL` corrigé | `d5da24b` |
+| A3 | l'écran vie scolaire ne présente plus comme vérifié ce qui n'a jamais été mesuré | `b7cc683` |
+
+Gardes ajoutées au passage : P1–P5 sur les programmes (dont P4, auto-testée,
+qui rejoue la régression d'origine), L11–L12 sur l'existence des colonnes lues.
+`test-chargement.mjs`, que personne ne lançait, est câblé.
+
+**A6 n'est pas fait** : garder ou retirer `BulletinPrimaire` est votre décision,
+pas la mienne.
+
+### Reste à faire
+
 ```
 0.  Une inscription validée de bout en bout          ← votre autorisation
       débloque : anniversaires · timeline · appels parents · rapport
-1.  A1 A2 A4 A5    corrections pures, réversibles
-2.  A3 A6          après arbitrage sur les orphelins
-3.  C6             assainir les affectations orphelines
-4.  C1             écran de saisie des présences
-5.  D1             sortir les codes en clair — clôt la phase 3
-6.  B1 B2 B3       module de charte, après vos deux décisions
-7.  C2 C4 C5       schéma : agenda, messages, responsabilités
-8.  D2 D3 D4       RLS, puis multi-rôles, puis confidentialité
-9.  B4 E1          timeline, puis rapport hebdomadaire
+1.  A6             après votre arbitrage sur les orphelins
+2.  C6             assainir les affectations orphelines
+3.  C1             écran de saisie des présences
+4.  D1             sortir les codes en clair — clôt la phase 3
+5.  B1 B2 B3       module de charte, après vos deux décisions
+6.  C2 C4 C5       schéma : agenda, messages, responsabilités
+7.  D2 D3 D4       RLS, puis multi-rôles, puis confidentialité
+8.  B4 E1          timeline, puis rapport hebdomadaire
 ```
 
 L'étape 0 n'est pas un préalable formel : c'est le seul acte qui transforme quatre
