@@ -16,6 +16,7 @@ import CertificatScolarite from './CertificatScolarite'
 import FichesEffectifs from './FichesEffectifs'
 import InscriptionsValidation from './InscriptionsValidation'
 import { FicheAlimentaire } from './CuisiniereApp'
+import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { statutDe, libelleStatut, ponctualiteAuDepot, raconter, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
@@ -41,6 +42,12 @@ const TOP_TABS = [
 ]
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
+
+// Un indicateur dont la source a échoué affiche « — ». Un zéro serait une
+// valeur, et quelqu'un déciderait avec.
+const Kpi = ({ v, echec }) => (echec || v === null || v === undefined)
+  ? <span title="Donnée indisponible — le chargement a échoué" style={{ opacity: .55 }}>—</span>
+  : <>{v}</>
 
 const fmtRole = r => {
   const map = {
@@ -249,6 +256,12 @@ export default function DirecteurApp({ user, onLogout }) {
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
   const [inscriptionCiblee, setInscriptionCiblee] = useState(null)
   const [allergenesRef, setAllergenesRef] = useState([])
+  // Trois états, jamais deux : on distingue « en cours », « échoué » et
+  // « abouti mais vide ». Les confondre, c'est ce qui produit un « 0 élève »
+  // indiscernable d'un vrai zéro.
+  const [chargement, setChargement] = useState(true)
+  const [blocsEnEchec, setBlocsEnEchec] = useState([])
+  const [erreurGlobale, setErreurGlobale] = useState('')
 
   // Une notification système peut ouvrir l'application après sa fermeture.
   // Sa cible voyage alors dans l'URL, puisque le service worker ne partage pas
@@ -280,6 +293,9 @@ export default function DirecteurApp({ user, onLogout }) {
   }, [])
 
   const loadData = async () => {
+    setChargement(true)
+    setErreurGlobale('')
+    setBlocsEnEchec([])
     try {
       const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       const results = await Promise.all([
@@ -298,18 +314,44 @@ export default function DirecteurApp({ user, onLogout }) {
         supabase.from('allergenes').select('code, libelle, ordre').eq('actif', true).order('ordre')
       ])
 
-      const u = results[0].data || []
-      const el = results[1].data || []
-      const cl = results[2].data || []
-      const ev = results[4].data || []
-      const docs = results[5].data || []
-      const param = results[6].data
-      const prep = results[7].data || []
-      const cp = results[8].data || []
-      const pc = results[9].data || []
-      const disc = results[10].data || []
-      const inscs = results[11].data || []
-      setAllergenesRef(Array.isArray(results[12]?.data) ? results[12].data : [])
+      // Douze requêtes en parallèle, et jusqu'ici douze `|| []`. Une seule
+      // en échec — un refus RLS, une session non prête — et le tableau de
+      // bord annonçait « 0 élève » avec le même aplomb qu'il aurait annoncé
+      // 12. On nomme désormais chaque bloc et on relève ceux qui ont échoué.
+      const parBloc = {
+        personnel:    results[0],
+        eleves:       results[1],
+        classes:      results[2],
+        periodes:     results[3],
+        evenements:   results[4],
+        documents:    results[5],
+        parametres:   results[6],
+        preparations: results[7],
+        checkpoints:  results[8],
+        affectations: results[9],
+        discipline:   results[10],
+        inscriptions: results[11],
+        allergenes:   results[12],
+      }
+      const bilan = agreger(parBloc)
+      setBlocsEnEchec(bilan.blocsEnEchec)
+
+      // On continue avec ce qui a abouti : signaler par bloc, jamais par
+      // page. Perdre les onze autres parce que l'une échoue remplacerait
+      // une panne discrète par une panne totale.
+      const liste = (r) => Array.isArray(r?.data) ? r.data : []
+      const u     = liste(results[0])
+      const el    = liste(results[1])
+      const cl    = liste(results[2])
+      const ev    = liste(results[4])
+      const docs  = liste(results[5])
+      const param = results[6]?.data
+      const prep  = liste(results[7])
+      const cp    = liste(results[8])
+      const pc    = liste(results[9])
+      const disc  = liste(results[10])
+      const inscs = liste(results[11])
+      setAllergenesRef(liste(results[12]))
 
       // Les données médicales et l'inscription cantine appartiennent au
       // dossier d'inscription. On les rattache à l'élève actif sans créer une
@@ -318,9 +360,16 @@ export default function DirecteurApp({ user, onLogout }) {
         const dossier = inscs.find(i => String(i.id) === String(e.inscription_id) || (e.matricule && i.matricule === e.matricule))
         return {
           ...e,
-          cantine: dossier?.cantine ?? false,
-          allergies: dossier?.allergies || '',
-          restrictions: dossier?.restrictions || '',
+          // `?? false` transformait l'inconnu en « non inscrit » et écrasait
+          // la colonne à trois états posée en phase 1. Le dossier élève fait
+          // foi ; l'inscription ne sert qu'à combler ce qu'il ignore encore.
+          cantine: e.cantine ?? dossier?.cantine ?? null,
+          // `allergies` et `restrictions` ne sont plus lues ici : la fiche
+          // validée vit sur `eleves`, avec son statut. Seule la déclaration
+          // brute du parent remonte, et jamais comme une validation.
+          declaration_alim_parent: e.declaration_alim_parent
+            || [dossier?.allergies, dossier?.restrictions].filter(Boolean).join(' · ')
+            || null,
           inscription_id: e.inscription_id || dossier?.id || null,
           matricule: e.matricule || dossier?.matricule || null,
         }
@@ -358,7 +407,14 @@ export default function DirecteurApp({ user, onLogout }) {
       setClasses(cl)
       setEvenements(ev)
       if (docs && docs.length > 0) setCalendrierUrl(docs[0].url)
-      setStats({ profs: u.length, eleves: allCombinedEleves.length, checkpoints: cp.length })
+      // Un indicateur en échec vaut `null`, pas zéro : l'écran affichera
+      // « — » plutôt qu'un chiffre faux sur lequel on déciderait.
+      setStats({
+        profs:       parBloc.personnel?.error   ? null : u.length,
+        eleves:      (parBloc.eleves?.error || parBloc.inscriptions?.error) ? null : allCombinedEleves.length,
+        checkpoints: parBloc.checkpoints?.error ? null : cp.length,
+        classes:     parBloc.classes?.error     ? null : cl.length,
+      })
       setCheckpoints(cp)
       
       const enrichedProfs = u.map(p => ({
@@ -432,12 +488,17 @@ export default function DirecteurApp({ user, onLogout }) {
       setSourcesPoints({
         preparations: prep || [],
         checkpoints: cp || [],
-        performances: perfRes.data || [],
-        rapports: (rapRes.data || []).map(r => r.value).filter(Boolean),
+        performances: Array.isArray(perfRes.data) ? perfRes.data : [],
+        rapports: (Array.isArray(rapRes.data) ? rapRes.data : []).map(r => r.value).filter(Boolean),
         saisieManuelle: manRes.data?.value || {},
       })
     } catch (e) {
+      // Une exception ici ne laisse aucune donnée : c'est le seul cas où
+      // l'écran entier doit se déclarer en panne.
       console.error('Error loading data:', e)
+      setErreurGlobale(messageLisible(e))
+    } finally {
+      setChargement(false)
     }
   }
 
@@ -723,6 +784,40 @@ export default function DirecteurApp({ user, onLogout }) {
         </div>
 
         <div className="page-content ux-page" style={{ padding: '1.5rem 1.2rem 40px' }}>
+          {/* Rendre la panne observable. Sans ce bandeau, un refus RLS ou
+              une coupure réseau se lisait « 0 élève » — un chiffre faux
+              présenté avec le même aplomb qu'un vrai. */}
+          {chargement && (
+            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 10,
+                          padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#475569' }}>
+              Chargement des données…
+            </div>
+          )}
+          {!chargement && erreurGlobale && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderLeft: '5px solid #dc2626',
+                          borderRadius: 10, padding: '14px 18px', marginBottom: 14 }}>
+              <div style={{ fontWeight: 900, color: '#991b1b', fontSize: 14 }}>⛔ Aucune donnée n'a pu être chargée</div>
+              <div style={{ fontSize: 12.5, color: '#7f1d1d', marginTop: 4 }}>{erreurGlobale}</div>
+              <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 6 }}>
+                Les chiffres affichés ne sont pas fiables. Ne décidez pas sur cette base.
+              </div>
+              <button className="btn-sm" style={{ marginTop: 10 }} onClick={loadData}>Réessayer</button>
+            </div>
+          )}
+          {!chargement && !erreurGlobale && blocsEnEchec.length > 0 && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderLeft: '5px solid #f59e0b',
+                          borderRadius: 10, padding: '12px 18px', marginBottom: 14 }}>
+              <div style={{ fontWeight: 900, color: '#92400e', fontSize: 13.5 }}>
+                ⚠️ {blocsEnEchec.length} source(s) de données indisponible(s)
+              </div>
+              <div style={{ fontSize: 12.5, color: '#92400e', marginTop: 4 }}>
+                {blocsEnEchec.join(' · ')} — les indicateurs correspondants affichent «&nbsp;—&nbsp;»
+                plutôt qu'un chiffre. Le reste de la page est à jour.
+              </div>
+              <button className="btn-sm" style={{ marginTop: 8 }} onClick={loadData}>Réessayer</button>
+            </div>
+          )}
+
 
           {/* ════════════════ SESSION 1 : GESTION ÉLÈVES ════════════════ */}
           {activeSession === 'eleves' && (
@@ -1083,7 +1178,7 @@ export default function DirecteurApp({ user, onLogout }) {
               {/* KPI Masse Salariale */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
                 <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}>{stats.profs}</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}><Kpi v={stats.profs} echec={blocsEnEchec.includes('personnel')} /></div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
                 </div>
                 <div style={{ background: 'rgba(141,198,63,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(141,198,63,0.2)' }}>
@@ -1312,6 +1407,40 @@ export default function DirecteurApp({ user, onLogout }) {
       </div>
 
       <div className="page-content ux-page" style={{ padding: '1.5rem 1.2rem calc(130px + env(safe-area-inset-bottom))' }}>
+          {/* Rendre la panne observable. Sans ce bandeau, un refus RLS ou
+              une coupure réseau se lisait « 0 élève » — un chiffre faux
+              présenté avec le même aplomb qu'un vrai. */}
+          {chargement && (
+            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 10,
+                          padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#475569' }}>
+              Chargement des données…
+            </div>
+          )}
+          {!chargement && erreurGlobale && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderLeft: '5px solid #dc2626',
+                          borderRadius: 10, padding: '14px 18px', marginBottom: 14 }}>
+              <div style={{ fontWeight: 900, color: '#991b1b', fontSize: 14 }}>⛔ Aucune donnée n'a pu être chargée</div>
+              <div style={{ fontSize: 12.5, color: '#7f1d1d', marginTop: 4 }}>{erreurGlobale}</div>
+              <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 6 }}>
+                Les chiffres affichés ne sont pas fiables. Ne décidez pas sur cette base.
+              </div>
+              <button className="btn-sm" style={{ marginTop: 10 }} onClick={loadData}>Réessayer</button>
+            </div>
+          )}
+          {!chargement && !erreurGlobale && blocsEnEchec.length > 0 && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderLeft: '5px solid #f59e0b',
+                          borderRadius: 10, padding: '12px 18px', marginBottom: 14 }}>
+              <div style={{ fontWeight: 900, color: '#92400e', fontSize: 13.5 }}>
+                ⚠️ {blocsEnEchec.length} source(s) de données indisponible(s)
+              </div>
+              <div style={{ fontSize: 12.5, color: '#92400e', marginTop: 4 }}>
+                {blocsEnEchec.join(' · ')} — les indicateurs correspondants affichent «&nbsp;—&nbsp;»
+                plutôt qu'un chiffre. Le reste de la page est à jour.
+              </div>
+              <button className="btn-sm" style={{ marginTop: 8 }} onClick={loadData}>Réessayer</button>
+            </div>
+          )}
+
         {msg && <div className="error-msg" style={{background:'rgba(141,198,63,.1)',borderColor:'var(--green)',color:'var(--green)',marginBottom:'1rem'}} onClick={()=>setMsg('')}>{msg}</div>}
 
         {/* ════════════════ 1. EMPLOI DU TEMPS & AGENDA ════════════════ */}
@@ -1355,7 +1484,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
               <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}>{stats.profs}</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}><Kpi v={stats.profs} echec={blocsEnEchec.includes('personnel')} /></div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
               </div>
             </div>
@@ -1776,19 +1905,19 @@ export default function DirecteurApp({ user, onLogout }) {
               {/* KPI Cards */}
               <div className="kpi-grid" style={{ marginBottom: 20 }}>
                 <div className="kpi-card kpi-accent">
-                  <div className="kpi-value">{stats.profs}</div>
+                  <div className="kpi-value"><Kpi v={stats.profs} echec={blocsEnEchec.includes('personnel')} /></div>
                   <div className="kpi-label">Enseignants</div>
                 </div>
                 <div className="kpi-card kpi-green">
-                  <div className="kpi-value">{stats.eleves}</div>
+                  <div className="kpi-value"><Kpi v={stats.eleves} echec={blocsEnEchec.includes('eleves')} /></div>
                   <div className="kpi-label">Élèves</div>
                 </div>
                 <div className="kpi-card kpi-amber">
-                  <div className="kpi-value">{classes.length}</div>
+                  <div className="kpi-value"><Kpi v={stats.classes ?? classes.length} echec={blocsEnEchec.includes('classes')} /></div>
                   <div className="kpi-label">Classes</div>
                 </div>
                 <div className="kpi-card kpi-pink">
-                  <div className="kpi-value">{preparations.length}</div>
+                  <div className="kpi-value"><Kpi v={preparations.length} echec={blocsEnEchec.includes('preparations')} /></div>
                   <div className="kpi-label">Préparations</div>
                 </div>
               </div>

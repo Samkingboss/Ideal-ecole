@@ -21,8 +21,8 @@ export default function CertificatScolarite() {
         supabase.from('inscriptions').select('*')
       ])
 
-      const rawEleves = resEleves.data || []
-      const rawInsc = resInsc.data || []
+      const rawEleves = Array.isArray(resEleves.data) ? resEleves.data : []
+      const rawInsc = Array.isArray(resInsc.data) ? resInsc.data : []
 
       const merged = rawEleves.map(e => {
         const matchingInsc = rawInsc.find(i => i.matricule === e.matricule || i.id === e.inscription_id)

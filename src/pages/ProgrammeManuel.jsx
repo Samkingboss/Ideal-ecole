@@ -57,7 +57,7 @@ export default function ProgrammeManuel({ user }) {
     // Une matière peut porter plusieurs manuels — l'anglais en a deux. On
     // liste donc des manuels, pas des matières : chacun a son avancement.
     const avec = [], sans = []
-    ;(data || []).forEach(a => {
+    ;(Array.isArray(data) ? data : []).forEach(a => {
       const manuels = manuelsPour(a.groupe, a.matiere)
       if (!manuels.length) { sans.push({ ...a, manuel: null }); return }
       manuels.forEach(manuel => avec.push({ ...a, manuel }))
@@ -80,7 +80,7 @@ export default function ProgrammeManuel({ user }) {
         .order('date_cours')
       if (annule) return
       if (error) { setErreur('Avancement illisible : ' + error.message); return }
-      setPreparations(data || [])
+      setPreparations(Array.isArray(data) ? data : [])
     })()
     return () => { annule = true }
   }, [choix])

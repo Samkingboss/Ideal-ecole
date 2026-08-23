@@ -3,7 +3,7 @@
   "phase": "1-en-cours",
   "etape_migration": "apres-retrait",
   "plafonds": {
-    "data_ou_vide": 67,
+    "data_ou_vide": 5,
     "eslint": 158,
     "ecrans_orphelins": 6,
     "wa_me_disperses": 10,

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { messageLisible } from '../lib/chargement'
 import { supabase } from '../lib/supabase'
 import { journaliserChamps } from '../lib/audit'
 
@@ -20,6 +21,7 @@ const getBadge = (note) => {
 
 export default function CorrectionDirecteur() {
   const [preparations, setPreparations] = useState([])
+  const [erreurChargement, setErreurChargement] = useState('')
   const [selected, setSelected] = useState(null)
   const [notes, setNotes] = useState({ structure: 0, objectifs: 0, contenu: 0, methodes: 0, evaluation: 0 })
   const [commentaire, setCommentaire] = useState('')
@@ -33,8 +35,16 @@ export default function CorrectionDirecteur() {
       .from('preparations')
       .select('*, classes(nom)')
       .order('heure_depot', { ascending: false })
-    if (error) console.warn('Chargement des préparations impossible :', error.message)
-    setPreparations(data || [])
+    // Un `console.warn` n'est pas un signalement : personne ne regarde la
+    // console. La direction ne doit pas lire « aucune préparation déposée »
+    // quand la lecture a échoué — c'est son écran de contrôle qualité.
+    if (error) {
+      setErreurChargement(messageLisible(error))
+      setPreparations([])
+      return
+    }
+    setErreurChargement('')
+    setPreparations(Array.isArray(data) ? data : [])
   }
 
   const ouvrirCorrection = async (prep) => {
@@ -170,10 +180,27 @@ export default function CorrectionDirecteur() {
           ))}
         </div>
       </div>
-      {prepsFiltrees.length === 0 ? (
+      {/* « Aucune préparation » est une affirmation forte sur l'écran de
+          contrôle qualité de la direction : elle veut dire que les
+          enseignants n'ont rien déposé. Elle ne doit pas s'afficher quand
+          c'est la lecture qui a échoué. */}
+      {erreurChargement ? (
+        <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderLeft:'5px solid #dc2626',
+                      borderRadius:10, padding:'16px 18px' }}>
+          <div style={{ fontWeight:900, color:'#991b1b', fontSize:14 }}>
+            ⛔ Les préparations n'ont pas pu être chargées
+          </div>
+          <div style={{ fontSize:12.5, color:'#7f1d1d', marginTop:4 }}>{erreurChargement}</div>
+          <div style={{ fontSize:12, color:'#7f1d1d', marginTop:5 }}>
+            Cet écran est vide parce que la lecture a échoué, pas parce qu'aucune
+            préparation n'a été déposée.
+          </div>
+          <button className="btn-sm" style={{ marginTop:10 }} onClick={loadPreparations}>Réessayer</button>
+        </div>
+      ) : prepsFiltrees.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--muted)' }}>
           <div style={{ fontSize: 48, marginBottom: '.5rem' }}>📋</div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Aucune preparation</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Aucune preparation deposee</div>
         </div>
       ) : prepsFiltrees.map(prep => {
         const badge = prep.note_ia !== null ? getBadge(prep.note_ia) : null

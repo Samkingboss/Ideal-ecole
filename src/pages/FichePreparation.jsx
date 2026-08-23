@@ -194,7 +194,7 @@ export default function FichePreparation({
         .lt('date_cours', dateCours)
       // On marque de quel manuel vient cette lecture : elle arrive après
       // coup, et l'enseignant a pu changer de livre entre-temps.
-      if (!annule) setAvant({ cle: manuel.cle, ...avancement(manuel, data || []) })
+      if (!annule) setAvant({ cle: manuel.cle, ...avancement(manuel, Array.isArray(data) ? data : []) })
     })()
     return () => { annule = true }
   }, [manuel?.cle, creneau.groupe, creneau.matiere, dateCours])

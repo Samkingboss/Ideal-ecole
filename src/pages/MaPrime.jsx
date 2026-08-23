@@ -3,8 +3,22 @@ import { supabase } from '../lib/supabase'
 import {
   CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction, avantagesDe, detailIndicateur,
 } from '../lib/points'
+import { agreger, messageLisible } from '../lib/chargement'
 
 const fcfa = n => (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' F'
+
+// Libellés des sources, pour nommer la panne en français plutôt qu'en tables.
+const LIBELLE_BLOC = {
+  bareme: 'barème des points',
+  saisie_manuelle: 'saisies de la direction',
+  preparations: 'préparations',
+  fins_de_cours: 'fiches de fin de cours',
+  pointages: 'pointages',
+  rapports: 'rapports élèves',
+  absences: 'absences',
+  affectations: 'affectations de matières',
+  emploi_du_temps: 'emploi du temps',
+}
 
 /**
  * Vue enseignant : ce que ses efforts lui rapportent pour les vacances.
@@ -22,10 +36,21 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
   const [donnees, setDonnees] = useState(null)
   const [triOuvert, setTriOuvert] = useState(null)
   const [detailOuvert, setDetailOuvert] = useState(null)
+  // La prime est un chiffre unique agrégé : contrairement à un tableau de bord
+  // où chaque bloc vit sa vie, une seule source manquante fausse le total. On
+  // refuse alors d'afficher un montant — un « 0 F » ferait croire à un
+  // enseignant qu'il n'a rien gagné.
+  const [erreur, setErreur] = useState(null)
+  const [blocsEnEchec, setBlocsEnEchec] = useState([])
+  const [avantagesEnEchec, setAvantagesEnEchec] = useState(false)
 
   useEffect(() => { charger() }, [user?.id])
 
   const charger = async () => {
+    setChargement(true)
+    setErreur(null)
+    setBlocsEnEchec([])
+    setAvantagesEnEchec(false)
     try {
       const [cfgRes, persRes, manRes, prepRes, cpRes, perfRes, rapRes, absRes, affRes, edtRes] = await Promise.all([
         supabase.from('app_state').select('value').eq('app', 'rh').eq('key', 'points_config').maybeSingle(),
@@ -40,24 +65,49 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
         supabase.from('emploi_du_temps').select('groupe, matiere'),
       ])
 
+      // Toutes ces sources alimentent un seul et même total. Une seule en
+      // échec — un refus RLS, une session non prête — et le calcul rend un
+      // pourcentage inférieur au réel, sans que rien ne le signale.
+      const sourcesDuCalcul = {
+        bareme: cfgRes,
+        saisie_manuelle: manRes,
+        preparations: prepRes,
+        fins_de_cours: cpRes,
+        pointages: perfRes,
+        rapports: rapRes,
+        absences: absRes,
+        affectations: affRes,
+        emploi_du_temps: edtRes,
+      }
+      const bilan = agreger(sourcesDuCalcul)
+      if (bilan.aDesEchecs) {
+        const premiere = sourcesDuCalcul[bilan.blocsEnEchec[0]].error
+        setBlocsEnEchec(bilan.blocsEnEchec.map(cle => LIBELLE_BLOC[cle] || cle))
+        setErreur(messageLisible(premiere))
+        setCalc(null)
+        setDonnees(null)
+        return
+      }
+
       const cfg = cfgRes.data?.value ? { ...CONFIG_DEFAUT, ...cfgRes.data.value } : CONFIG_DEFAUT
       setConfig(cfg)
 
       const nomComplet = `${user.prenom || ''} ${user.nom || ''}`.trim()
+      const liste = r => (Array.isArray(r?.data) ? r.data : [])
       // Charge hebdomadaire réelle : 30 min par créneau des matières qui lui
       // sont confiées. Elle sert à proratiser les cibles, pour ne pas exiger
       // d'un enseignant à 10 h ce qu'on attend d'un enseignant à 20 h.
-      const miennes = new Set((affRes.data || []).map(a => `${a.groupe}|${a.matiere}`))
-      const creneaux = (edtRes.data || []).filter(c => miennes.has(`${c.groupe}|${c.matiere}`)).length
+      const miennes = new Set(liste(affRes).map(a => `${a.groupe}|${a.matiere}`))
+      const creneaux = liste(edtRes).filter(c => miennes.has(`${c.groupe}|${c.matiere}`)).length
       const heures = creneaux ? (creneaux * 30) / 60 : null
 
       const donnees = {
-        preparations: prepRes.data || [],
-        comprehensions: cpRes.data || [],
-        performances: perfRes.data || [],
-        rapports: (rapRes.data || []).map(r => r.value).filter(Boolean),
+        preparations: liste(prepRes),
+        comprehensions: liste(cpRes),
+        performances: liste(perfRes),
+        rapports: liste(rapRes).map(r => r.value).filter(Boolean),
         saisieManuelle: manRes.data?.value || {},
-        absencesEnseignants: absRes.data || [],
+        absencesEnseignants: liste(absRes),
         heuresParProf: heures ? { [user.id]: heures } : {},
       }
 
@@ -65,17 +115,82 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
       const c = calculerPoints(cfg, donnees, user.id, nomComplet)
       setCalc(c)
       setEte(montantEte(c.pourcentage, cfg))
-      const perso = (persRes.data?.value || {})[user.id]
-      setAv(avantagesDe(c.pourcentage, (perso || {}).dateEmbauche, perso, cfg))
+      // La fiche RH ne pèse que sur l'ancienneté et les bourses, pas sur le
+      // total des points : son échec ne condamne pas l'écran, mais il ne doit
+      // pas se lire comme « aucune ancienneté ».
+      if (persRes.error) {
+        setAvantagesEnEchec(true)
+        setAv(null)
+      } else {
+        const perso = (persRes.data?.value || {})[user.id]
+        setAv(avantagesDe(c.pourcentage, (perso || {}).dateEmbauche, perso, cfg))
+      }
     } catch (e) {
       console.error('Chargement de la prime impossible', e)
+      setErreur(messageLisible(e))
+      setCalc(null)
     } finally {
       setChargement(false)
     }
   }
 
-  if (chargement || !calc) {
+  if (chargement) {
     return compact ? null : <div className="empty-state"><div className="empty-icon">🏆</div><p>Calcul en cours…</p></div>
+  }
+
+  // Erreur — et surtout pas « 0 F ». Un enseignant qui lit zéro conclut qu'il
+  // n'a rien gagné ; il faut qu'il lise que la plateforme, elle, ne sait pas.
+  if (erreur || !calc) {
+    const detail = blocsEnEchec.length > 0
+      ? `Sources indisponibles : ${blocsEnEchec.join(', ')}.`
+      : null
+    const message = erreur || 'Chargement impossible. Réessayez dans un instant.'
+
+    if (compact) {
+      return (
+        <div style={{
+          background: 'rgba(220,38,38,.1)', border: '1px solid var(--red)', borderRadius: 16,
+          padding: '1rem 1.2rem', marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 11, opacity: .85, fontWeight: 700, color: 'var(--red)' }}>MES VACANCES GAGNÉES</div>
+          <div style={{ fontSize: 26, fontWeight: 900, marginTop: 2, color: 'var(--red)' }}>—</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+            Montant indisponible : {message} Ce n’est pas un montant nul.
+          </div>
+          <button onClick={e => { e.stopPropagation(); charger() }}
+            style={{ marginTop: 8, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--red)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+            Réessayer
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <>
+        <div className="section-head">
+          <div className="section-title">Ma prime d'été</div>
+        </div>
+        <div style={{ background: 'rgba(220,38,38,.08)', border: '1px solid var(--red)', borderLeft: '4px solid var(--red)', borderRadius: 14, padding: '1.1rem 1.2rem' }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--red)' }}>Prime non calculable pour l’instant</div>
+          <div style={{ fontSize: 34, fontWeight: 900, color: 'var(--red)', margin: '6px 0 4px' }}>—</div>
+          <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6 }}>
+            {message}
+          </div>
+          {detail && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>{detail}</div>
+          )}
+          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
+            Aucun montant n’est affiché tant que toutes les sources n’ont pas répondu : un total
+            calculé sur des données partielles serait inférieur au vôtre. <b>Ce tiret ne veut pas
+            dire zéro.</b> Si le problème persiste, signalez-le à la direction.
+          </div>
+          <button onClick={charger}
+            style={{ marginTop: 12, padding: '7px 16px', borderRadius: 8, border: 'none', background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+            Réessayer
+          </button>
+        </div>
+      </>
+    )
   }
 
   const aujourdhui = new Date().toISOString().slice(0, 10)
@@ -223,7 +338,18 @@ export default function MaPrime({ user, compact = false, onOuvrir }) {
       <div className="card">
         <div className="card-header">Mes avantages</div>
         <div className="card-body">
-          {av?.anciennete !== null && av?.anciennete !== undefined && (
+          {/* Une ancienneté absente et une ancienneté illisible ne sont pas la
+              même chose : la seconde conditionne des bourses, elle se dit. */}
+          {avantagesEnEchec ? (
+            <div style={{fontSize:11, color:'var(--red)', marginBottom:8, lineHeight:1.6}}>
+              Ancienneté : — · votre fiche de rémunération n’a pas pu être lue. Les bourses qui en
+              dépendent ne sont pas vérifiables ici pour l’instant.
+              <button onClick={charger}
+                style={{marginLeft:8, padding:'3px 9px', borderRadius:7, border:'1px solid var(--red)', background:'transparent', color:'var(--red)', fontSize:10, fontWeight:800, cursor:'pointer'}}>
+                Réessayer
+              </button>
+            </div>
+          ) : av?.anciennete !== null && av?.anciennete !== undefined && (
             <div style={{fontSize:11, color:'var(--muted)', marginBottom:8}}>Ancienneté : {av.anciennete} an{av.anciennete > 1 ? 's' : ''}</div>
           )}
           {config.paliers.map(p => {

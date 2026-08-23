@@ -59,9 +59,9 @@ export default function DemandeMateriel({ user }) {
     const echec = [mat, dem].find(r => r.error)
     if (echec) { setErreur('Chargement impossible : ' + echec.error.message); setChargement(false); return }
 
-    setMateriels(mat.data || [])
-    setMesDemandes(dem.data || [])
-    setGroupes([...new Set((aff.data || []).map(a => a.groupe))].sort())
+    setMateriels(Array.isArray(mat.data) ? mat.data : [])
+    setMesDemandes(Array.isArray(dem.data) ? dem.data : [])
+    setGroupes([...new Set((Array.isArray(aff.data) ? aff.data : []).map(a => a.groupe))].sort())
     setChargement(false)
   }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { messageLisible } from '../lib/chargement'
 import AgendaCalendrier from './AgendaCalendrier'
 import NotificationCenter from './NotificationCenter'
 
@@ -32,6 +33,10 @@ export default function ConseillerApp({ user, onLogout }) {
   const [presences, setPresences] = useState({})
   const [devoirs, setDevoirs] = useState([])
   const [loading, setLoading] = useState(false)
+  // LOADING ≠ EMPTY ≠ ERROR. Sans ces deux états, un registre vide parce
+  // que la requête a échoué se lit « aucun retard aujourd'hui ».
+  const [erreur, setErreur] = useState('')
+  const [blocsEnEchec, setBlocsEnEchec] = useState([])
   const [selectedClass, setSelectedClass] = useState(null)
   const [pointagePersonnel, setPointagePersonnel] = useState(null)
   const [pointageEnCours, setPointageEnCours] = useState(false)
@@ -57,9 +62,19 @@ export default function ConseillerApp({ user, onLogout }) {
       .gte('date_jour', period.start)
       .lte('date_jour', period.end)
 
-    if (!error) {
+    // `if (!error)` sans branche `else` : sur échec, la fonction ne faisait
+    // rien et l'écran conservait les statistiques du trimestre précédent,
+    // sans que rien ne l'indique. Le conseiller lisait des retards périmés.
+    if (error) {
+      setErreur(messageLisible(error))
+      setRetardStats([])
+      setLoading(false)
+      return
+    }
+    setErreur('')
+    {
       // Filtrer par classe (car le join via select ne filtre pas la racine)
-      const classRetards = (data || []).filter(r => r.eleves?.classe_id === selectedClass)
+      const classRetards = (Array.isArray(data) ? data : []).filter(r => r.eleves?.classe_id === selectedClass)
       
       // Aggréger par élève
       const stats = {}
@@ -82,13 +97,16 @@ export default function ConseillerApp({ user, onLogout }) {
   const loadData = async () => {
     setLoading(true)
     const today = new Date().toISOString().slice(0, 10)
+    // Six requêtes dont aucune erreur n'était déstructurée. Un refus RLS
+    // sur `eleves` vidait le registre du jour sans un mot — et le registre
+    // de présence est la source officielle de l'école (V2.1 §7).
     const [
-      { data: el },
-      { data: cl },
-      { data: disc },
-      { data: cp },
-      { data: pres },
-      { data: dev }
+      { data: el, error: eEl },
+      { data: cl, error: eCl },
+      { data: disc, error: eDisc },
+      { data: cp, error: eCp },
+      { data: pres, error: ePres },
+      { data: dev, error: eDev }
     ] = await Promise.all([
       supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom'),
       supabase.from('classes').select('*').order('ordre'),
@@ -98,14 +116,25 @@ export default function ConseillerApp({ user, onLogout }) {
       supabase.from('devoirs').select('*').gte('date_rendu', today)
     ])
     
-    setEleves(el || [])
-    setClasses(cl || [])
-    setDisciplines(disc || [])
-    setCheckpoints(cp || [])
-    setDevoirs(dev || [])
-    
+    const enEchec = [
+      ['élèves', eEl], ['classes', eCl], ['incidents', eDisc],
+      ['checkpoints', eCp], ['présences', ePres], ['devoirs', eDev],
+    ].filter(([, e]) => e)
+
+    // Signaler par bloc : une requête en échec ne doit pas faire perdre les
+    // cinq autres, mais elle ne doit pas non plus passer inaperçue.
+    setBlocsEnEchec(enEchec.map(([nom]) => nom))
+    setErreur(enEchec.length ? messageLisible(enEchec[0][1]) : '')
+
+    const liste = (d) => Array.isArray(d) ? d : []
+    setEleves(liste(el))
+    setClasses(liste(cl))
+    setDisciplines(liste(disc))
+    setCheckpoints(liste(cp))
+    setDevoirs(liste(dev))
+
     const pMap = {}
-    ;(pres || []).forEach(p => { pMap[p.eleve_id] = p })
+    liste(pres).forEach(p => { pMap[p.eleve_id] = p })
     setPresences(pMap)
     
     if (cl && cl.length > 0 && !selectedClass) setSelectedClass(cl[0].id)
@@ -283,6 +312,28 @@ export default function ConseillerApp({ user, onLogout }) {
       </div>
 
       <div className="page-content ux-page" style={{paddingBottom:100}}>
+        {/* Le registre de présence est la source officielle de l'école
+            (V2.1 §7). Un registre vide parce que la lecture a échoué doit se
+            distinguer d'une journée sans incident. */}
+        {loading && (
+          <div style={{ background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:10,
+                        padding:'10px 16px', marginBottom:12, fontSize:13, color:'#475569' }}>
+            Chargement du registre…
+          </div>
+        )}
+        {!loading && erreur && (
+          <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderLeft:'5px solid #dc2626',
+                        borderRadius:10, padding:'14px 18px', marginBottom:12 }}>
+            <div style={{ fontWeight:900, color:'#991b1b', fontSize:13.5 }}>
+              ⛔ Registre incomplet{blocsEnEchec.length ? ` — ${blocsEnEchec.join(', ')}` : ''}
+            </div>
+            <div style={{ fontSize:12.5, color:'#7f1d1d', marginTop:4 }}>{erreur}</div>
+            <div style={{ fontSize:12, color:'#7f1d1d', marginTop:5 }}>
+              Ce qui s'affiche n'est pas la situation du jour. Ne clôturez pas l'appel sur cette base.
+            </div>
+            <button className="btn-sm" style={{ marginTop:9 }} onClick={loadData}>Réessayer</button>
+          </div>
+        )}
         {tab === 'dashboard' && (
           <>
             <div className="section-head"><div className="section-title">Tableau de Bord</div></div>

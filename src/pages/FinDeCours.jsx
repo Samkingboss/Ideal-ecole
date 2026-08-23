@@ -61,7 +61,7 @@ export default function FinDeCours({ user, selectedClasse, classEleves, programm
       setTableManquante(false)
       if (!matiere) { setNotes({}); setObservations({}); return }
       const n = {}, o = {}
-      ;(data || []).forEach(r => { n[r.eleve_id] = r.note; if (r.observation) o[r.eleve_id] = r.observation })
+      ;(Array.isArray(data) ? data : []).forEach(r => { n[r.eleve_id] = r.note; if (r.observation) o[r.eleve_id] = r.observation })
       setNotes(n); setObservations(o)
       if (data && data.length && data[0].lecon) setLecon(data[0].lecon)
     }

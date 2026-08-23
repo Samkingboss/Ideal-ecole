@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { DUREE_SEQUENCE } from '../lib/sequences'
 import { journaliser } from '../lib/audit'
+import { messageLisible } from '../lib/chargement'
 
 // Affectation des enseignants aux matières de l'emploi du temps.
 //
@@ -29,12 +30,19 @@ export default function AffectationsMatieres({ user }) {
   const [profs, setProfs] = useState([])
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
+  // Les volumes horaires et la liste des enseignants sont deux sources
+  // distinctes de celle des affectations. Sans elles, l'écran reste utilisable
+  // — mais il ne doit ni afficher « 0 h », ni conclure qu'un enseignant
+  // n'existe pas parce que la requête qui le nommait a échoué.
+  const [volumesEnEchec, setVolumesEnEchec] = useState(null)
+  const [profsEnEchec, setProfsEnEchec] = useState(null)
   const [groupeOuvert, setGroupeOuvert] = useState('CP1')
 
   useEffect(() => { charger() }, [])
 
   async function charger() {
     setChargement(true); setErreur(null)
+    setVolumesEnEchec(null); setProfsEnEchec(null)
     const [aff, edt, usr] = await Promise.all([
       supabase.from('affectations_matieres').select('*, users(prenom, nom)').order('groupe').order('matiere'),
       supabase.from('emploi_du_temps').select('groupe, matiere'),
@@ -44,18 +52,31 @@ export default function AffectationsMatieres({ user }) {
       // 42P01 : le script SQL n'a pas encore été exécuté.
       setErreur(aff.error.code === '42P01'
         ? "L'emploi du temps n'est pas encore installé. Le script sql/emploi_du_temps.sql doit être exécuté une fois dans Supabase."
-        : 'Chargement impossible : ' + aff.error.message)
+        : messageLisible(aff.error))
       setChargement(false)
       return
     }
+
+    const liste = r => (Array.isArray(r?.data) ? r.data : [])
+
+    // Volumes horaires : leur absence se rend en « — », jamais en « 0 h ».
+    // Une matière à zéro heure et une matière dont on ignore l'horaire
+    // n'appellent pas la même décision d'affectation.
+    setVolumesEnEchec(edt.error ? messageLisible(edt.error) : null)
     const v = {}
-    ;(edt.data || []).forEach(l => {
+    liste(edt).forEach(l => {
       const c = `${l.groupe}|${l.matiere}`
       v[c] = (v[c] || 0) + DUREE_SEQUENCE
     })
     setVolumes(v)
-    setAffectations(aff.data || [])
-    setProfs(usr.data || [])
+
+    setAffectations(liste(aff))
+
+    // Une liste d'enseignants vide par échec ferait dire à l'écran que sept
+    // enseignants du document n'ont pas de compte — une affirmation fausse,
+    // et le directeur irait créer des doublons.
+    setProfsEnEchec(usr.error ? messageLisible(usr.error) : null)
+    setProfs(liste(usr))
     setChargement(false)
   }
 
@@ -96,8 +117,15 @@ export default function AffectationsMatieres({ user }) {
     <div className="empty-state">
       <div className="empty-icon">🛠️</div>
       <p>{erreur}</p>
+      <button onClick={charger}
+        style={{ marginTop: 10, padding: '7px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+        Réessayer
+      </button>
     </div>
   )
+
+  // Un volume horaire dont la source a échoué s'écrit « — ».
+  const heuresOuTiret = min => (volumesEnEchec ? '—' : heuresLisibles(min))
 
   return (
     <>
@@ -108,13 +136,37 @@ export default function AffectationsMatieres({ user }) {
         </span>
       </div>
 
+      {/* Rendre la panne observable plutôt que de la rendre en « 0 h ». */}
+      {(volumesEnEchec || profsEnEchec) && (
+        <div style={{ background: 'rgba(220,38,38,.07)', border: '1px solid var(--red)', borderLeft: '4px solid var(--red)', borderRadius: 12, padding: '11px 14px', marginBottom: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 900, color: 'var(--red)' }}>Données incomplètes</div>
+          {volumesEnEchec && (
+            <div style={{ fontSize: 11.5, color: 'var(--text)', marginTop: 4 }}>
+              Volumes horaires indisponibles — {volumesEnEchec} Les durées affichent «&nbsp;—&nbsp;» et non 0 h.
+            </div>
+          )}
+          {profsEnEchec && (
+            <div style={{ fontSize: 11.5, color: 'var(--text)', marginTop: 4 }}>
+              Liste des enseignants indisponible — {profsEnEchec} Les affectations ne peuvent pas être modifiées
+              tant qu’elle n’est pas chargée.
+            </div>
+          )}
+          <button onClick={charger}
+            style={{ marginTop: 8, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--red)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+            Réessayer
+          </button>
+        </div>
+      )}
+
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: 'var(--muted)' }}>
-        {heuresLisibles(minutesAffectees)} couvertes sur {heuresLisibles(minutesTotales)} à assurer chaque semaine.
+        {volumesEnEchec
+          ? <>Volume hebdomadaire indisponible («&nbsp;—&nbsp;» au lieu d’un total, qui serait faux). </>
+          : <>{heuresLisibles(minutesAffectees)} couvertes sur {heuresLisibles(minutesTotales)} à assurer chaque semaine. </>}
         Une matière n'a qu'un seul enseignant sur toute l'année.
       </div>
 
       {/* Charge de chaque enseignant, confrontée aux repères du document */}
-      {Object.keys(charges).length > 0 && (
+      {!volumesEnEchec && Object.keys(charges).length > 0 && (
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', marginBottom: 14 }}>
           <div style={{ background: '#0d2a3b', color: '#fff', padding: '8px 14px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
             Charge hebdomadaire
@@ -163,20 +215,34 @@ export default function AffectationsMatieres({ user }) {
                 <div style={{ flex: 1, minWidth: 130 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{l.matiere}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    {heuresLisibles(volumes[`${l.groupe}|${l.matiere}`] || 0)} par semaine
+                    {heuresOuTiret(volumes[`${l.groupe}|${l.matiere}`] || 0)} par semaine
                   </div>
                 </div>
-                <select
-                  value={l.prof_id || ''}
-                  onChange={e => affecter(l, e.target.value)}
-                  style={{
-                    minWidth: 170, padding: '7px 10px', borderRadius: 8, fontSize: 13,
-                    border: '1.5px solid ' + (l.prof_id ? 'var(--green)' : 'var(--border)'),
-                    background: 'var(--bg)',
-                  }}>
-                  <option value="">— à affecter —</option>
-                  {profs.map(p => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-                </select>
+                {/* Sans la liste des enseignants, le menu déroulant n'aurait
+                    aucune option correspondant à l'affectation en cours et
+                    afficherait « à affecter » sur une matière pourtant
+                    attribuée. On montre alors l'affectation telle qu'elle est
+                    en base, sans permettre de la modifier à l'aveugle. */}
+                {profsEnEchec ? (
+                  <div style={{ minWidth: 170, fontSize: 12.5, textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, color: l.prof_id ? 'var(--text)' : 'var(--muted)' }}>
+                      {l.users ? `${l.users.prenom} ${l.users.nom}` : l.prof_id ? '(enseignant inconnu)' : '— à affecter —'}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: 'var(--red)' }}>modification indisponible</div>
+                  </div>
+                ) : (
+                  <select
+                    value={l.prof_id || ''}
+                    onChange={e => affecter(l, e.target.value)}
+                    style={{
+                      minWidth: 170, padding: '7px 10px', borderRadius: 8, fontSize: 13,
+                      border: '1.5px solid ' + (l.prof_id ? 'var(--green)' : 'var(--border)'),
+                      background: 'var(--bg)',
+                    }}>
+                    <option value="">— à affecter —</option>
+                    {profs.map(p => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+                  </select>
+                )}
               </div>
             ))}
           </div>
@@ -186,6 +252,9 @@ export default function AffectationsMatieres({ user }) {
       {/* Le document nomme sept enseignants ; la base n'en connaît pas toujours
           autant. Le dire évite de chercher longtemps un nom absent de la liste. */}
       {(() => {
+        // Sans la liste des comptes, cette conclusion serait fausse pour les
+        // sept noms d'un coup — et enverrait créer des doublons.
+        if (profsEnEchec) return null
         const connus = profs.map(p => p.prenom.toLowerCase())
         const manquants = Object.keys(CHARGES_DOCUMENT).filter(n => !connus.includes(n.toLowerCase()))
         if (!manquants.length) return null

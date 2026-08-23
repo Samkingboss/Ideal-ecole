@@ -119,7 +119,7 @@ export default function ProfApp({ user, onLogout }) {
         .from('devoirs').select('*')
         .eq('classe_id', selectedClasse.id)
         .order('date_rendu', { ascending: false })
-      if (!annule) setDevoirs(data || [])
+      if (!annule) setDevoirs(Array.isArray(data) ? data : [])
     })()
     return () => { annule = true }
   }, [selectedClasse])
@@ -134,8 +134,9 @@ export default function ProfApp({ user, onLogout }) {
       const { data } = await supabase
         .from('affectations_matieres').select('groupe, matiere').eq('prof_id', user.id)
       if (annule) return
-      const pourLaClasse = (data || []).filter(a => !selectedClasse || a.groupe === selectedClasse.nom)
-      const liste = [...new Set((pourLaClasse.length ? pourLaClasse : data || []).map(a => a.matiere))].sort()
+      const affectations = Array.isArray(data) ? data : []
+      const pourLaClasse = affectations.filter(a => !selectedClasse || a.groupe === selectedClasse.nom)
+      const liste = [...new Set((pourLaClasse.length ? pourLaClasse : affectations).map(a => a.matiere))].sort()
       setMesMatieres(liste)
       setNewDevoir(d => (d.matiere && !liste.includes(d.matiere) ? { ...d, matiere: '' } : d))
     })()

@@ -18,8 +18,8 @@ export default function SignalementIncident({ user, flottant = false }) {
       supabase.from('classes').select('id,nom,ordre').order('ordre'),
       supabase.from('eleves').select('id,prenom,nom,classe_id').eq('actif', true).order('nom'),
     ]).then(([c, e]) => {
-      setClasses(c.data || [])
-      setEleves(e.data || [])
+      setClasses(Array.isArray(c.data) ? c.data : [])
+      setEleves(Array.isArray(e.data) ? e.data : [])
     })
   }, [ouvert])
 
