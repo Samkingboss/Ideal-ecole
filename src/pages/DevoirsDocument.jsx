@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import DocumentPrintStudio from './DocumentPrintStudio'
+import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 
 // Le cahier de devoirs imprimable.
 //
@@ -112,7 +113,7 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], o
   const messagePour = e => {
     const sesDevoirs = list.filter(d => vise(d, e))
     const lignes = sesDevoirs.map(d => `• ${d.matiere || 'Devoir'} : ${d.description || 'voir la fiche'} — à rendre le ${dateLisible(d.date_rendu) || 'date indiquée'}`)
-    return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n— Ideal École Internationale Bilingue`
+    return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n— ${NOM_ECOLE}`
   }
 
   return (
@@ -133,8 +134,8 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], o
           <button className="btn-sm" onClick={() => setMessagesOuverts(!messagesOuverts)} style={{ background: '#16a34a', color: '#fff', padding: '8px 13px' }}>📲 Informer les parents via l’école</button>
         </div>
         {messagesOuverts && <div style={{ marginTop: 10, display: 'grid', gap: 7 }}>
-          <div style={{ fontSize: 11, color: '#475569' }}>Chaque bouton ouvre un message personnalisé vers le WhatsApp officiel de l’école (+223 90 19 00 07). La vie scolaire le transmet ensuite au parent concerné.</div>
-          {destinataires.map(e => <a key={e.id} href={`https://wa.me/22390190007?text=${encodeURIComponent(messagePour(e))}`} target="_blank" rel="noreferrer"
+          <div style={{ fontSize: 11, color: '#475569' }}>Chaque bouton ouvre un message personnalisé vers le WhatsApp officiel de l’école ({WHATSAPP_ECOLE_LISIBLE}). La vie scolaire le transmet ensuite au parent concerné.</div>
+          {destinataires.map(e => <a key={e.id} href={lienWhatsAppEcole(messagePour(e))} target="_blank" rel="noreferrer"
             style={{ display: 'block', textDecoration: 'none', background: '#fff', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 9, padding: '8px 10px', fontSize: 12, fontWeight: 800 }}>
             📤 Message pour {nomComplet(e)}
           </a>)}

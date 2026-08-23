@@ -201,9 +201,16 @@ Dix points d'appel WhatsApp dans sept fichiers, tous en `window.open` :
 
 **Aucun n'enregistre quoi que ce soit.** Le message part, et l'école n'en garde rien.
 
-`src/pages/DevoirsDocument.jsx:137` code encore **un numéro personnel en dur**
-(`22390190007`) — contradiction directe avec le V2.1 §8, déjà consignée en fiche de
-domaine 6.
+**Rectification.** J'avais repris de la fiche de domaine 6 l'affirmation qu'un
+numéro **personnel** était codé en dur dans `DevoirsDocument.jsx`, en contradiction
+avec le §8. Vérification faite, c'est faux : `+223 90 19 00 07` est le numéro
+**officiel** de l'école — en-tête institutionnel de `comptabilite.html`, à côté de
+l'adresse, et numéro Wave de l'établissement. Le §8 est respecté.
+
+Le défaut réel est une duplication : le même numéro écrit en dur à cinq endroits
+(`ProfApp.jsx:76`, `DevoirsDocument.jsx:137`, `rapports.html:975`,
+`pedago-archive/app.js:899`, plus les libellés affichés). Un changement de numéro en
+aurait laissé cinq états différents.
 
 **Conséquence :** « suivi des appels aux parents » n'est pas une fonctionnalité neuve.
 C'est **le côté écriture manquant de dix actions qui existent déjà**. La demande et la
@@ -317,8 +324,7 @@ Ce qui y est juste et réutilisable : `CARTE_L = 54`, `CARTE_H = 85.6`, `PX_MM =
 - `BulletinPrimaire.css` (218 lignes) **n'est importé par aucun fichier**, et porte
   pourtant la seule définition A4 propre du dépôt côté React, dans une palette
   (`#14213D` / `#FCA311`) introuvable ailleurs. Code mort.
-- `DevoirsDocument.jsx:137` code toujours un numéro personnel en dur — déjà relevé
-  en fracture 4.
+- Le numéro officiel de l'école est dupliqué en cinq endroits — voir fracture 4.
 
 ### Deux décisions métier que je ne peux pas prendre
 
@@ -526,7 +532,7 @@ Aucune écriture en base, aucun schéma touché. Réversibles par `git revert`.
 | A1 | Faire lire au sommaire Boscher `lecture-cp2.js` au lieu de son JSX codé en dur | 1 | 18 titres divergents, 10 auteurs perdus |
 | A2 | Retirer `custom_role` et `poste_id` du routeur — colonnes inexistantes | 3, 8 | absentes du schéma `users` |
 | A3 | Rendre l'écran vie scolaire honnête sur une source jamais alimentée | 2 | zéro voie d'écriture vers `presences_eleves` |
-| A4 | Retirer le numéro personnel codé en dur de `DevoirsDocument.jsx:137` | 4 | contredit le V2.1 §8 |
+| A4 | Centraliser le numéro officiel de l'école, écrit en dur à cinq endroits | 4 | cinq copies d'un même fait |
 | A5 | Corriger `ÉCOLE IDÉAL` → forme canonique (`ConseillerApp.jsx:518`) | 6 | orthographe unique et erronée |
 | A6 | Statuer sur les orphelins `BulletinPrimaire.jsx` + `.css` | 6 | non montés, non importés |
 

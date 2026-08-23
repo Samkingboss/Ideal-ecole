@@ -12,6 +12,7 @@ import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
 import SommaireManuelDocument from './SommaireManuelDocument'
+import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import AccordionCard from '../components/ui/AccordionCard'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
@@ -73,7 +74,6 @@ export default function ProfApp({ user, onLogout }) {
   const [selectedCpDate, setSelectedCpDate] = useState(null)
   const [msgPreview, setMsgPreview] = useState(false)
   const [msgDetails, setMsgDetails] = useState(MESSAGE_PARENT_INITIAL)
-  const [schoolNum] = useState('22390190007')
   // « Transmis à l'école » est le seul statut qu'IDEAL puisse affirmer.
   const [msgTransmis, setMsgTransmis] = useState(false)
   const [selectedMatiere, setSelectedMatiere] = useState(null)
@@ -475,7 +475,7 @@ export default function ProfApp({ user, onLogout }) {
             + (r.telephone ? ` — ${r.telephone}` : ' — numéro absent du dossier')).join(' · ')}\n\n`
       : `[${eleve.prenom} ${eleve.nom} — ${eleve.classes?.nom || ''}]\n`
         + `⚠️ Aucun responsable enregistré au dossier : destinataire à identifier par l'école.\n\n`
-    window.open(`https://wa.me/${schoolNum}?text=${encodeURIComponent(entete + msg)}`, '_blank')
+    window.open(lienWhatsAppEcole(entete + msg), '_blank')
     setMsgTransmis(true)
   }
 
@@ -870,7 +870,7 @@ export default function ProfApp({ user, onLogout }) {
           <div>
             <div className="section-head"><div className="section-title">Messages parents (WhatsApp)</div></div>
             <div style={{background:'var(--dark)', color:'#fff', borderRadius:14, padding:14, marginBottom:14, display:'flex', gap:10, alignItems:'center'}}>
-              <span style={{fontSize:24}}>💬</span><div><b>Via le WhatsApp officiel de l’école</b><div style={{fontSize:11, opacity:.7}}>Le message arrive au +223 90 19 00 07, puis l’école le transmet aux parents.</div></div>
+              <span style={{fontSize:24}}>💬</span><div><b>Via le WhatsApp officiel de l’école</b><div style={{fontSize:11, opacity:.7}}>Le message arrive au {WHATSAPP_ECOLE_LISIBLE}, puis l’école le transmet aux parents.</div></div>
             </div>
             {/* ── Quatre états, jamais confondus ─────────────────────────
                 Un refus RLS ou une coupure réseau se lisait « aucun élève ».

@@ -120,9 +120,19 @@ effectif cantine calculé, aucune visibilité enseignant, aucun indicateur direc
 visibilité et peut demander explications ou corrections.**
 
 **Écart :** dix points d'appel `wa.me` dans sept fichiers, **aucune trace
-enregistrée**. Un numéro personnel codé en dur dans `DevoirsDocument.jsx` — en
-contradiction directe avec le §8. Aucune table `messages_parents`. **§23 : catalogue
-des notifications et modèles WhatsApp non formalisés.**
+enregistrée**. Aucune table `messages_parents`. **§23 : catalogue des notifications
+et modèles WhatsApp non formalisés.**
+
+**Rectification du 23/08/2026.** Cette fiche affirmait qu'un « numéro personnel codé
+en dur dans `DevoirsDocument.jsx` » contredisait le §8. **C'est faux.** Vérification
+faite, `+223 90 19 00 07` est le numéro officiel de l'école : il figure sur l'en-tête
+institutionnel de `comptabilite.html` à côté de l'adresse, sert de numéro Wave à
+l'établissement, et le code le désigne partout comme « le WhatsApp officiel de
+l'école ». Le §8 était respecté.
+
+Le défaut réel était une duplication : le même numéro écrit en dur à cinq endroits.
+Centralisé depuis dans `src/lib/ecole.js` pour la partie React ; les pages statiques
+de `public/` gardent leur copie, listée dans ce module.
 
 **Invariants :** `INV-FLUX-04`, `INV-FLUX-05`.
 
