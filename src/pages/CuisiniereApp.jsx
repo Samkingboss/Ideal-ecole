@@ -142,14 +142,10 @@ const getPosterMenuDateTitle = (menu) => {
   return `MENU DE LA SEMAINE PROCHAINE · DU ${debut} AU ${fin}`
 }
 
-// Données démo élèves cantine (chargées depuis Supabase si actives)
-const DEMO_ELEVES_CANTINE = [
-  { id: 'el-1', nom: 'TRAORÉ', prenom: 'Aïcha', classe: 'CP1 Bilingue', cantine: true, allergies: 'Allergie aux Arachides', restrictions: 'Sans Porc' },
-  { id: 'el-2', nom: 'SANOGO', prenom: 'Ibrahim', classe: 'CP1 Bilingue', cantine: true, allergies: 'Intolérance au Lactose', restrictions: 'Sans Lait' },
-  { id: 'el-3', nom: 'COULIBALY', prenom: 'Fatoumata', classe: 'CP2 A', cantine: true, allergies: 'Aucune', restrictions: 'Sans Porc' },
-  { id: 'el-4', nom: 'DIARRA', prenom: 'Mamadou', classe: 'CE1 B', cantine: true, allergies: 'Allergie au Poisson', restrictions: 'Végétarien' },
-  { id: 'el-5', nom: 'KEITA', prenom: 'Oumar', classe: 'CE2', cantine: true, allergies: 'Aucune', restrictions: 'Aucune' }
-]
+// Les cinq élèves de démonstration qui vivaient ici ont été supprimés.
+// Ils servaient d'état initial : quand la requête échouait, la cuisinière
+// lisait leurs allergies fictives en croyant lire les vraies. Le code mort
+// finit toujours par être réutilisé — celui-ci ne le sera pas.
 
 // ═══════════════════════════════════════════════════════════════════════
 // FICHE ALIMENTAIRE — décision D1, V2.1 §14
