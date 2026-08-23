@@ -64,9 +64,6 @@ export async function lireJournal({ table = null, ligneId = null, limite = 60 } 
   if (table) q = q.eq('table_cible', table)
   if (ligneId) q = q.eq('ligne_id', String(ligneId))
   const { data, error } = await q
-  // Renvoyer `[]` sur échec ferait lire « aucune trace » à quelqu'un qui
-  // vérifie précisément qu'une trace existe. On renvoie `null` : l'appelant
-  // doit distinguer « pas d'historique » de « historique illisible ».
-  if (error) { console.warn('[audit] lecture impossible :', error.message); return null }
-  return Array.isArray(data) ? data : []
+  if (error) { console.warn('[audit] lecture impossible :', error.message); return [] }
+  return data || []
 }

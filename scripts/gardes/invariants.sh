@@ -33,4 +33,20 @@ titre "MÉTIER · source unique — R1, R2"
 N=$(grep -rn "from('app_state')" src/ public/ 2>/dev/null | grep -cE 'insert|upsert' | tr -d ' ')
 cliquet "app_state_ecritures" "M5 · écritures dans app_state  → 0 en phase 5" "$N"
 
+titre "MÉTIER · authentification — D5"
+
+# Constat de la phase 3 : un compte désactivé obtenait quand même une
+# session, et n'était refusé qu'à la résolution du profil. La désactivation
+# doit être opposable des l'authentification, pas seulement apres.
+garde "M7 · desactivation opposable des l'authentification" \
+  "grep -c 'ban_duration' scripts/auth-migration.mjs | tr -d ' '" "2"
+
+# `ideal_role()` filtre sur actif = true. C'est ce qui refuse un role a un
+# employe desactive ; le retirer serait une regression de securite.
+# Les deux fonctions du socle — ideal_profil et ideal_role — doivent filtrer
+# sur actif. La propriete est « les deux filtrent », pas un compte fige : mon
+# attendu de 3 etait faux, il y en a deux.
+garde "M8 · ideal_profil et ideal_role refusent les inactifs" \
+  "[ \"$(grep -c 'actif = true' sql/phase3_1_socle_auth.sql)\" -ge 2 ] && echo present || echo absent" "present"
+
 bilan

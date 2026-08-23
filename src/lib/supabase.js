@@ -21,5 +21,37 @@ const clean = (v, fallback) => {
 
 export const supabase = createClient(
   clean(import.meta.env.VITE_SUPABASE_URL, URL_BASE),
-  clean(import.meta.env.VITE_SUPABASE_ANON_KEY, KEY_BASE)
+  clean(import.meta.env.VITE_SUPABASE_ANON_KEY, KEY_BASE),
+  {
+    auth: {
+      // Le réseau est instable à Bamako. La session doit survivre à une
+      // coupure, à un rechargement et à la fermeture du navigateur : sans
+      // persistance, chaque micro-panne renverrait à l'écran de connexion.
+      persistSession: true,
+      autoRefreshToken: true,
+      // Le jeton se renouvelle tout seul en tâche de fond. Ce n'est pas un
+      // appel par navigation : c'est une seule minuterie, qui échoue en
+      // silence et réessaie — exactement ce qu'il faut sur un réseau qui
+      // tombe et revient.
+      detectSessionInUrl: false,
+      storageKey: 'ideal-auth',
+      flowType: 'implicit',
+    },
+    global: {
+      headers: { 'x-application-name': 'ideal-ecole' },
+    },
+  }
 )
+
+// ═══════════════════════════════════════════════════════════════════════
+// IDENTIFIANT COURT → IDENTITÉ AUTH
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Le personnel saisit « bnabo », pas une adresse électronique. La
+// correspondance est déterministe et calculée ici : aucune requête
+// préalable n'est nécessaire pour se connecter, ce qui compte quand le
+// réseau est mauvais. Aucun courriel n'est jamais envoyé à ces adresses.
+export const DOMAINE_COMPTES = '@comptes.ideal-ecole.ml'
+
+export const identifiantVersEmail = (identifiant) =>
+  String(identifiant || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') + DOMAINE_COMPTES
