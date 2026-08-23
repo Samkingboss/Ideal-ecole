@@ -521,34 +521,24 @@ export default function DirecteurApp({ user, onLogout }) {
       const roleCompte = fonctionMaternelle?.role || newProf.role
       const fonctionCompte = fonctionMaternelle?.fonction || null
       const langueCompte = fonctionMaternelle?.langue || newProf.langue
-      let { data: userData, error } = await supabase.from('users').upsert({ 
-        id: newProf.id || undefined,
-        prenom: newProf.prenom, 
-        nom: newProf.nom, 
-        role: roleCompte,
-        langue: langueCompte,
-        code_acces: code, 
-        fonction: fonctionCompte,
-        actif: true 
-      }, { onConflict: 'id' }).select().single()
-
-      // Si la contrainte CHECK bloque le rôle en base, on fait un fallback transparent
-      if (error && error.message.includes('users_role_check')) {
-        console.warn('Contrainte users_role_check détectée. Application du fallback fonction: cuisiniere...')
-        const fallback = await supabase.from('users').upsert({
-          id: newProf.id || undefined,
-          prenom: newProf.prenom, 
-          nom: newProf.nom, 
-          role: 'surveillant',
-          fonction: 'cuisiniere',
-          langue: newProf.langue, 
-          code_acces: code, 
-          actif: true 
-        }, { onConflict: 'id' }).select().single()
-
-        userData = fallback.data
-        error = fallback.error
-      }
+      // `users` n'est plus accessible en écriture à la clé anonyme, et le
+      // code d'accès a quitté la table. L'enregistrement passe donc par une
+      // fonction SECURITY DEFINER qui écrit `users` et `users_secrets` dans
+      // une seule transaction, et refuse le rôle `directeur`.
+      //
+      // Le repli sur `users_role_check` n'a pas disparu : il a été déplacé
+      // dans la fonction SQL, où il s'exécute à l'intérieur de la même
+      // transaction. Vu d'ici, le comportement est inchangé.
+      const { data: userData, error } = await supabase.rpc('enregistrer_utilisateur', {
+        p_id: newProf.id || null,
+        p_prenom: newProf.prenom,
+        p_nom: newProf.nom,
+        p_role: roleCompte,
+        p_langue: langueCompte,
+        p_fonction: fonctionCompte,
+        p_code: code,
+        p_plafond: newProf.plafond_salaire ?? null,
+      })
 
       if (error) {
         alert('❌ Compte non enregistré : ' + (error.message || 'Erreur inattendue'))
@@ -647,7 +637,17 @@ export default function DirecteurApp({ user, onLogout }) {
 
 
   const deleteProf = async (id) => {
-    await supabase.from('users').update({ actif: false }).eq('id', id)
+    // Désactivation, jamais suppression — et par RPC, `users` étant
+    // désormais fermée en écriture à la clé anonyme.
+    const { error } = await supabase.rpc('desactiver_utilisateur', { p_id: id })
+
+    // L'échec était déjà silencieux avant ce changement. Il ne doit plus
+    // l'être : un compte qu'on croit désactivé et qui ne l'est pas est
+    // exactement le genre de panne qu'on découvre trop tard.
+    if (error) {
+      alert('❌ Compte non désactivé : ' + (error.message || 'Erreur inattendue'))
+      return
+    }
     loadData()
   }
 
@@ -1127,8 +1127,16 @@ export default function DirecteurApp({ user, onLogout }) {
                         </div>
                       </div>
 
-                      <div style={{ fontSize: 11, color: 'var(--text)', background: 'var(--card)', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 8 }}>
-                        🔑 Code d'accès : <b style={{ color: 'var(--accent)', fontFamily: 'monospace' }}>{p.code_acces}</b>
+                      {/* Le code d'accès a quitté `users` : il vit dans
+                          `users_secrets`, hors de portée de la clé anonyme.
+                          Il n'est donc plus affichable ici — et c'est le but.
+                          Il se montre une seule fois, à la création du compte.
+                          Un code perdu ne se retrouve pas : il se remplace. */}
+                      <div style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 8 }}>
+                        🔑 Code d'accès : <b style={{ fontFamily: 'monospace', letterSpacing: 2 }}>••••••••</b>
+                        <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>
+                          Communiqué une seule fois, à la création du compte.
+                        </span>
                       </div>
 
                       {p.role === 'professeur' && (
@@ -1146,11 +1154,14 @@ export default function DirecteurApp({ user, onLogout }) {
                       )}
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 11 }}>
-                        <span style={{ color: 'var(--muted)' }}>Plafond: <b>{fcfa(p.plafond_salaire || 0)}</b></span>
-                        <button 
-                          className="btn-sm" 
+                        {/* Le plafond salarial ne figure plus dans une liste
+                            générale : il reste modifiable au formulaire, mais
+                            n'est plus renvoyé aux lecteurs non habilités. */}
+                        <span style={{ color: 'var(--muted)' }}>{p.role ? fmtRole(p.role) : ''}</span>
+                        <button
+                          className="btn-sm"
                           style={{ background: 'rgba(142,68,173,0.1)', color: '#8e44ad', border: '1px solid #8e44ad', padding: '3px 8px', fontSize: 10 }}
-                          onClick={() => alert(`Dossier complet de ${p.prenom} ${p.nom}\n- Code: ${p.code_acces}\n- Rôle: ${p.role}\n- Statut: Actif`)}
+                          onClick={() => alert(`Dossier de ${p.prenom} ${p.nom}\n- Rôle: ${fmtRole(p.role)}\n- Statut: ${p.actif ? 'Actif' : 'Inactif'}\n\nLe code d'accès n'est plus consultable. En cas de perte, il faut en attribuer un nouveau.`)}
                         >
                           👁️ Voir Fiche
                         </button>
@@ -1510,8 +1521,9 @@ export default function DirecteurApp({ user, onLogout }) {
                     <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Rôle: <b style={{ color: 'var(--accent)' }}>{fmtRole(p.role)}</b></div>
-                      <div style={{ fontSize: 11, background: 'var(--card)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>
-                        🔑 Code : <b style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{p.code_acces}</b>
+                      {/* Masqué : voir le commentaire de la liste principale. */}
+                      <div style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>
+                        🔑 Code : <b style={{ fontFamily: 'monospace', letterSpacing: 2 }}>••••••••</b>
                       </div>
                       <button className="btn-sm" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', border: '1px solid var(--red)', width: '100%' }} onClick={() => deleteProf(p.id)}>
                         Supprimer

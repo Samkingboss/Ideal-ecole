@@ -52,6 +52,36 @@ class ErrorBoundary extends Component {
   }
 }
 
+// ── Session déposée dans le navigateur ────────────────────────────────
+//
+// Jusqu'au 23 août 2026, `LoginPage` lisait la ligne du compte avec
+// `select('*')` et l'objet complet — code d'accès inclus — était déposé
+// dans `localStorage`. Le secret dormait donc en clair sur le téléphone de
+// chaque membre du personnel, parfois partagé.
+//
+// Liste blanche explicite plutôt que retrait des champs sensibles : une
+// liste de champs interdits laisse passer tout ce qu'on n'a pas prévu, et
+// c'est précisément ce qui s'est produit. Ces neuf champs sont les seuls
+// que le code lise réellement sur l'objet de session.
+//
+// La session reste falsifiable — c'est la phase 3 qui y remédiera. Ce qui
+// change ici, c'est qu'elle ne transporte plus de secret.
+const CHAMPS_SESSION = [
+  'id', 'prenom', 'nom', 'role', 'actif',
+  'fonction', 'langue', 'poste_id', 'custom_role',
+]
+
+const CHAMPS_SENSIBLES = ['code_acces', 'plafond_salaire']
+
+const assainirSession = (u) => {
+  if (!u || typeof u !== 'object') return null
+  const propre = {}
+  for (const champ of CHAMPS_SESSION) {
+    if (u[champ] !== undefined) propre[champ] = u[champ]
+  }
+  return propre
+}
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -60,7 +90,30 @@ export default function App() {
 
   useEffect(() => {
     const stored = localStorage.getItem('ideal_user')
-    if (stored) { try { setUser(JSON.parse(stored)) } catch(e) {} }
+    if (stored) {
+      try {
+        const brut = JSON.parse(stored)
+
+        // Une session ouverte avant ce correctif transporte encore le code
+        // d'accès. On ne se contente pas de l'assainir en mémoire : la
+        // valeur resterait écrite sur le disque du navigateur jusqu'à la
+        // prochaine déconnexion. On efface, et la personne se reconnecte
+        // une fois.
+        const contaminee = CHAMPS_SENSIBLES.some(c => brut && brut[c] !== undefined)
+
+        if (contaminee) {
+          localStorage.removeItem('ideal_user')
+        } else {
+          const propre = assainirSession(brut)
+          // Réécrire si la session portait des champs inutiles : le
+          // stockage converge vers la liste blanche sans déconnecter.
+          if (propre && JSON.stringify(propre) !== stored) {
+            localStorage.setItem('ideal_user', JSON.stringify(propre))
+          }
+          setUser(propre)
+        }
+      } catch(e) {}
+    }
     setLoading(false)
   }, [])
 
@@ -87,8 +140,11 @@ export default function App() {
     if (u && (u.fonction === 'cuisiniere' || u.custom_role === 'cuisiniere')) {
       u.role = 'cuisiniere'
     }
-    localStorage.setItem('ideal_user', JSON.stringify(u))
-    setUser(u)
+    // Assainissement après la réaffectation de rôle ci-dessus, pour que
+    // celle-ci soit conservée.
+    const propre = assainirSession(u)
+    localStorage.setItem('ideal_user', JSON.stringify(propre))
+    setUser(propre)
   }
   const handleLogout = () => {
     localStorage.removeItem('ideal_user')
