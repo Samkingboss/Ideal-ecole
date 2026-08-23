@@ -23,9 +23,50 @@
 -- CAS A — interruption AVANT `phase0_2_retrait.sql`
 -- ═══════════════════════════════════════════════════════════════════════
 --
--- Les colonnes existent encore, le frontend d'origine fonctionne tel quel.
--- Il suffit de repromouvoir le déploiement Vercel précédent. Aucun SQL
--- n'est nécessaire.
+-- Les colonnes existent encore et le frontend d'origine fonctionne tel
+-- quel : repromouvoir le déploiement Vercel précédent suffit à revenir au
+-- comportement antérieur.
+--
+-- ── Mais un point de SQL reste nécessaire ──────────────────────────────
+--
+-- L'étape 2 relâche le NOT NULL de `users.code_acces`, et la nouvelle
+-- fonction range le code dans `users_secrets` sans l'écrire dans `users`.
+-- Tout compte créé entre l'étape 2 et le retour arrière a donc un
+-- `users.code_acces` à NULL — et le frontend d'origine, qui authentifie
+-- par cette colonne, ne saurait pas le connecter.
+--
+-- Ce bloc remet les codes en place et rétablit la contrainte. Il est sans
+-- effet si aucun compte n'a été créé pendant la fenêtre : c'est le cas
+-- normal, et l'exécuter reste alors inoffensif.
+
+begin;
+
+update public.users u
+   set code_acces = s.code_acces
+  from public.users_secrets s
+ where s.user_id = u.id
+   and u.code_acces is null;
+
+do $$
+declare
+  n_sans_code integer;
+begin
+  select count(*) into n_sans_code from public.users where code_acces is null;
+
+  if n_sans_code > 0 then
+    raise exception
+      'ARRET : % compte(s) sans code. NE PAS repromouvoir le frontend d''origine : '
+      'ces comptes ne pourraient pas se connecter. Verifier users_secrets d''abord.',
+      n_sans_code;
+  end if;
+end
+$$;
+
+alter table public.users alter column code_acces set not null;
+
+commit;
+
+-- Puis, et seulement ensuite, repromouvoir le déploiement Vercel précédent.
 --
 -- Pour effacer complètement les traces de l'étape 2 — facultatif, la
 -- présence de ces objets ne gêne rien :

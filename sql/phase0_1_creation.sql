@@ -60,7 +60,24 @@ create unique index if not exists users_secrets_code_unique
 revoke all on public.users_secrets from anon, authenticated;
 alter table public.users_secrets enable row level security;
 
--- ── 3 · Recopie, avec assertion ────────────────────────────────────────
+-- ── 3 · Relâcher NOT NULL sur `code_acces` ─────────────────────────────
+--
+-- Sans cette ligne, `enregistrer_utilisateur` échouerait pendant toute la
+-- fenêtre qui sépare ce script du retrait (étape 6) : la colonne existe
+-- encore, elle est NOT NULL, et la fonction n'écrit plus dedans — elle
+-- range désormais le code dans `users_secrets`. Toute création de compte
+-- au point de contrôle 5 se heurterait à un 23502.
+--
+-- Défaut trouvé en sondant la contrainte avant exécution. Il n'aurait pas
+-- été visible avant le point de contrôle 5, c'est-à-dire après le
+-- déploiement du frontend.
+--
+-- La colonne n'est pas supprimée ici : elle disparaît à l'étape 6. Le
+-- script de retour arrière rétablit la contrainte.
+
+alter table public.users alter column code_acces drop not null;
+
+-- ── 4 · Recopie, avec assertion ────────────────────────────────────────
 
 insert into public.users_secrets (user_id, code_acces, plafond_salaire)
 select id, code_acces, plafond_salaire
@@ -86,7 +103,7 @@ end
 $$;
 
 -- ═══════════════════════════════════════════════════════════════════════
--- 4 · AUTHENTIFICATION
+-- 5 · AUTHENTIFICATION
 -- ═══════════════════════════════════════════════════════════════════════
 --
 -- Remplace `select('*').eq('code_acces', …)` de LoginPage.jsx.
@@ -139,7 +156,7 @@ end;
 $function$;
 
 -- ═══════════════════════════════════════════════════════════════════════
--- 5 · ENREGISTREMENT D'UN COMPTE
+-- 6 · ENREGISTREMENT D'UN COMPTE
 -- ═══════════════════════════════════════════════════════════════════════
 --
 -- Remplace les deux `upsert` de DirecteurApp.jsx (lignes 524 et 538).
@@ -296,7 +313,7 @@ end;
 $function$;
 
 -- ═══════════════════════════════════════════════════════════════════════
--- 6 · DÉSACTIVATION
+-- 7 · DÉSACTIVATION
 -- ═══════════════════════════════════════════════════════════════════════
 --
 -- Remplace `update({actif:false})` de DirecteurApp.jsx ligne 650.
@@ -340,7 +357,7 @@ begin
 end;
 $function$;
 
--- ── 7 · Droits d'exécution ─────────────────────────────────────────────
+-- ── 8 · Droits d'exécution ─────────────────────────────────────────────
 --
 -- Accordées à `anon` : il n'y a pas encore d'autre rôle. C'est la limite
 -- assumée de la phase 0, levée en phase 3.
