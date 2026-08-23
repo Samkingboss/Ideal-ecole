@@ -154,20 +154,31 @@ async function migrer() {
   const { profils, comptes } = await etat()
   console.log(`\n${G}── MIGRATION VERS L'API ADMIN ──${N}\n`)
 
-  // 1 · Retirer les identités fabriquées par insertion directe.
-  for (const c of comptes) {
-    const { error } = await admin.auth.admin.deleteUser(c.id)
-    console.log(`  ${error ? R + '✗' : G + '·'}${N} retiré  ${c.email}${error ? ' — ' + error.message : ''}`)
-  }
-
-  // 2 · Recréer par le mécanisme supporté, et vérifier chacune.
+  // Un compte à la fois : retirer, recréer, vérifier.
+  //
+  // La première version supprimait les treize identités puis les recréait
+  // toutes. Une panne au milieu aurait laissé des profils sans identité —
+  // c'est-à-dire personne capable de se connecter. Ici, un échec ne touche
+  // qu'un compte, et les douze autres restent opérationnels.
+  //
+  // L'adresse étant unique, on ne peut pas créer avant de supprimer : la
+  // fenêtre d'indisponibilité par compte est de quelques millisecondes.
   const codes = []
   let ok = 0, ko = 0
 
   for (const p of profils) {
     const email = `${p.identifiant}${DOMAINE}`
-    const code = genererCode()
+    const ancienne = comptes.find(c => c.email === email || c.id === p.auth_user_id)
 
+    if (ancienne) {
+      const { error } = await admin.auth.admin.deleteUser(ancienne.id)
+      if (error) {
+        console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} retrait impossible : ${error.message}`)
+        ko++; continue
+      }
+    }
+
+    const code = genererCode()
     const { data, error } = await admin.auth.admin.createUser({
       email,
       password: code,
@@ -188,11 +199,11 @@ async function migrer() {
       ko++; continue
     }
 
-    // 3 · La vérification que l'insertion directe ne permettait pas :
-    //     une vraie connexion, avec la clé publique, comme le fera le
-    //     personnel.
+    // La vérification que l'insertion directe ne permettait pas : une vraie
+    // connexion, avec la clé publique, exactement comme le fera le personnel.
     const client = createClient(URL, ANON, { auth: { persistSession: false } })
     const { data: sess, error: eConn } = await client.auth.signInWithPassword({ email, password: code })
+    const fournisseurs = (sess?.user?.identities || []).map(i => i.provider)
     await client.auth.signOut()
 
     if (eConn || !sess?.user) {
@@ -201,7 +212,8 @@ async function migrer() {
     }
 
     codes.push({ identifiant: p.identifiant, nom: `${p.prenom} ${p.nom}`, role: p.role, actif: p.actif, code })
-    console.log(`  ${V}✓${N} ${p.identifiant.padEnd(14)} créée, liée, connexion vérifiée`)
+    console.log(`  ${V}✓${N} ${p.identifiant.padEnd(14)} recréée, liée, connexion vérifiée` +
+                (fournisseurs.length ? ` (${fournisseurs.join(',')})` : ''))
     ok++
   }
 
