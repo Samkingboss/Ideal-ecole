@@ -272,3 +272,43 @@ inaltérable, mais `auteur_id` reste une affirmation du client jusqu'à la phase
 IDEAL 1, mais chaque table créée sans cette dimension augmente le coût futur.
 **Recommandation technique, à valider :** introduire la colonne sur les tables
 nouvelles, avec une valeur par défaut.
+
+---
+
+## Annexe — Dérive dépôt / production, mesurée le 23/08/2026
+
+Audit délégué à l'agent `supabase-securite`, en lecture seule.
+
+| Mesure | Valeur |
+|---|---|
+| Fichiers dans `sql/` | 22 |
+| Tables `public.*` définies dans `sql/` | **15** |
+| Tables distinctes référencées par le code | **39** |
+| **Tables sans aucun DDL au dépôt** | **25 — soit 64 %** |
+| Fonctions versionnées | 8 |
+| Fichiers `sql/` portant des politiques RLS | 8 sur 22, 43 politiques |
+
+**Les 25 tables en dérive sont le noyau métier :** `app_state`, `checkpoints`,
+`classes`, `devoirs`, `disciplines`, `documents`, `eleves`, `evenements`,
+`financement_params`, `inscriptions`, `journal_audit`, `manquements`, `matieres`,
+`objectifs`, `parametres_mois`, `performances`, `periodes`, `planifications`,
+`preparations`, `presences_eleves`, `prof_classes`, `progressions`, `recrees`,
+`responsables`, `users`.
+
+Le dépôt ne versionne que la périphérie ajoutée récemment. **Aucune politique RLS
+versionnée ne concerne ces 25 tables.**
+
+Deux RPC appelées par le code n'ont pas de définition au dépôt :
+`emettre_notification_push` et `enregistrer_abonnement_push`. L'Edge Function
+`send-web-push` non plus.
+
+**Aucun registre de migrations.** Rien n'indique quel fichier de `sql/` a été
+appliqué ; seul `.ideal-etat.json` porte un jalon, et uniquement pour la phase 0.
+
+**Conséquence :** une reconstruction depuis le dépôt est impossible, et le forfait
+Supabase gratuit n'offre aucune restauration ponctuelle. C'est le risque structurel
+le plus élevé qui subsiste après la phase 0. Traitement prévu en phase 7.
+
+**Non vérifié**, faute d'accès au catalogue : la conformité colonne par colonne des
+15 tables versionnées, l'état réel des politiques RLS en production, et les droits
+en écriture des tables non sondées.

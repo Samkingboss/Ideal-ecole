@@ -99,6 +99,17 @@ le forfait Supabase gratuit n'offre aucune restauration ponctuelle.
 Les RPC `authentifier_par_code`, `enregistrer_utilisateur` et `desactiver_utilisateur`
 sont accordées à `anon` et ne peuvent pas vérifier leur appelant. Le journal
 l'enregistre honnêtement (`acteur non authentifié`) au lieu de prétendre le contraire.
-La session `localStorage` reste falsifiable. Toutes les tables hors `inscriptions`,
-`responsables`, `documents_inscription`, `users` et `journal_audit` restent ouvertes
-en écriture à la clé anonyme.
+La session `localStorage` reste falsifiable.
+
+**Écriture** : fermée à `anon` sur `inscriptions`, `responsables`,
+`documents_inscription`, `users`, `journal_audit` (ajout seul) et `users_secrets`.
+Ouverte sur les 33 autres tables.
+
+**Lecture** : ouverte à `anon` sur les 39 tables, `users_secrets` exceptée. Cela
+inclut `users` et `journal_audit`. Seuls les secrets en ont été retirés — la
+fermeture en écriture n'est pas une fermeture en lecture.
+
+**Dérive dépôt/production** : 25 des 39 tables n'ont aucun DDL dans `sql/`, ni les
+RPC `emettre_notification_push` et `enregistrer_abonnement_push`, ni l'Edge Function
+`send-web-push`. Le dépôt ne permet pas de reconstruire la base. Aucun registre de
+migrations n'existe.
