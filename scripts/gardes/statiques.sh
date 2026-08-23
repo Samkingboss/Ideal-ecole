@@ -54,8 +54,10 @@ NB_VIDES=$(git ls-files -z | xargs -0 -I{} sh -c '[ -f "{}" ] && [ ! -s "{}" ] &
 cliquet "fichiers_vides" "H13 · fichiers suivis à 0 octet" "$NB_VIDES"
 
 # Une clé `service_role` contourne toute RLS. Committée, elle annule tout le
-# travail de sécurité en une ligne. Le rôle est inscrit en clair dans le JWT.
-garde "H14 · aucune cle service_role dans le depot" \
-  "git grep -lE 'service_role' -- ':!scripts/gardes' ':!scripts/auth-migration.mjs' ':!docs' 2>/dev/null | wc -l | tr -d ' '" "0"
+# travail de sécurité en une ligne. On décode la charge utile de chaque JWT
+# suivi par git : chercher le mot « service_role » ne trouverait rien, il est
+# encodé en base64 dans le jeton.
+garde "H14 · aucun JWT autre que anon dans le depot" \
+  "node scripts/gardes/detecter-service-role.mjs >/dev/null 2>&1 && echo propre || echo fuite" "propre"
 
 bilan

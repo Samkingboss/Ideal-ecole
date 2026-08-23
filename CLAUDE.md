@@ -41,6 +41,7 @@ Limites d'oscillation et règles d'escalade : `docs/constitution/loops.md`.
 |---|---|---|
 | 1 | `docs/constitution/IDEAL_Cahier_des_charges_V2.1.pdf` | Le cahier des charges. Prime sur tout. |
 | 2 | `docs/constitution/decisions.md` | Décisions du promoteur là où le V2.1 laisse ouvert. |
+| 2 | `docs/constitution/classification-donnees.md` | Ce qui est jetable, ce qui est réel, ce qui se conserve. |
 | 3 | `docs/audits/` | Audits dérivés. Indice, jamais preuve. |
 | 4 | Le code et la base | Décrit ce qui **est**, jamais ce qui **doit être**. |
 
@@ -61,6 +62,11 @@ et appliquer le skill `impact-metier`.
 4. Une signature enregistre l'autorité **et** le signataire réel, séparément.
 5. Une erreur ne se rend jamais comme un vide. Chargement, erreur et vide sont trois états.
 6. Ne jamais supprimer une table, fonction ou composant sans analyser ses dépendances (V2.1 §21).
+7. « Créé pendant le développement » ne vaut pas « donnée de test ». Les identités
+   sont fictives ; les programmes, prévisions financières et référentiels sont
+   réels. En cas de doute, conserver — voir `classification-donnees.md`.
+8. Un test ne mute jamais une donnée métier réelle. Fixtures dédiées, ou
+   transaction annulée.
 
 Les points 2, 3 et 4 sont les décisions D1, D3 et D2. Le 6 est du V2.1.
 Liste complète et traçable : `docs/constitution/invariants.md`.
