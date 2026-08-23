@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && ./scripts/gardes.sh --statique 2>&1 | grep -E '✗|EN ÉCHEC' || true",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

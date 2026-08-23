@@ -1,0 +1,19 @@
+{
+  "_": "État de progression et dette tenue par cliquet. Les plafonds ne remontent jamais ; ils baissent seuls quand la dette baisse. Ne jamais les relever à la main pour faire passer une garde.",
+  "phase": "0-close",
+  "etape_migration": "apres-retrait",
+  "plafonds": {
+    "data_ou_vide": 67,
+    "eslint": 158,
+    "ecrans_orphelins": 6,
+    "wa_me_disperses": 10,
+    "allergies_repli_aucune": 8,
+    "demo_en_etat_initial": 2,
+    "app_state_ecritures": 13
+  },
+  "planchers": {
+    "journal_audit": 78,
+    "gardes_au_vert": 0
+  },
+  "orphelins_assumes": []
+}
