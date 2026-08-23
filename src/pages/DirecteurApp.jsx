@@ -15,6 +15,7 @@ import CartesScolaires from './CartesScolaires'
 import CertificatScolarite from './CertificatScolarite'
 import FichesEffectifs from './FichesEffectifs'
 import InscriptionsValidation from './InscriptionsValidation'
+import { FicheAlimentaire } from './CuisiniereApp'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { statutDe, libelleStatut, ponctualiteAuDepot, raconter, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
@@ -247,6 +248,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [journalOuvert, setJournalOuvert] = useState(false)
   const [subTabEleve, setSubTabEleve] = useState('dossiers')
   const [inscriptionCiblee, setInscriptionCiblee] = useState(null)
+  const [allergenesRef, setAllergenesRef] = useState([])
 
   // Une notification système peut ouvrir l'application après sa fermeture.
   // Sa cible voyage alors dans l'URL, puisque le service worker ne partage pas
@@ -292,7 +294,8 @@ export default function DirecteurApp({ user, onLogout }) {
         supabase.from('checkpoints').select('*'),
         supabase.from('prof_classes').select('*'),
         supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false }),
-        supabase.from('inscriptions').select('*').order('created_at', { ascending: false })
+        supabase.from('inscriptions').select('*').order('created_at', { ascending: false }),
+        supabase.from('allergenes').select('code, libelle, ordre').eq('actif', true).order('ordre')
       ])
 
       const u = results[0].data || []
@@ -306,6 +309,7 @@ export default function DirecteurApp({ user, onLogout }) {
       const pc = results[9].data || []
       const disc = results[10].data || []
       const inscs = results[11].data || []
+      setAllergenesRef(Array.isArray(results[12]?.data) ? results[12].data : [])
 
       // Les données médicales et l'inscription cantine appartiennent au
       // dossier d'inscription. On les rattache à l'élève actif sans créer une
@@ -983,25 +987,17 @@ export default function DirecteurApp({ user, onLogout }) {
                                     {estInscrit ? '🟢 Inscrit' : '⚪ Non inscrit'}
                                   </button>
                                 </td>
-                                <td style={{ padding: '10px 12px' }}>
-                                  <input
-                                    className="form-input"
-                                    style={{ fontSize: 12, padding: '4px 8px' }}
-                                    defaultValue={e.allergies || 'Aucune'}
-                                    onBlur={async (evt) => {
-                                      await majDossierCantine(e, { allergies: evt.target.value.trim() })
-                                    }}
-                                  />
-                                </td>
-                                <td style={{ padding: '10px 12px' }}>
-                                  <input
-                                    className="form-input"
-                                    style={{ fontSize: 12, padding: '4px 8px' }}
-                                    defaultValue={e.restrictions || 'Aucune'}
-                                    onBlur={async (evt) => {
-                                      await majDossierCantine(e, { restrictions: evt.target.value.trim() })
-                                    }}
-                                  />
+                                {/* Ces deux champs affichaient `e.allergies || 'Aucune'`
+                                    sur une colonne qui n'existe pas : tout enfant
+                                    apparaissait donc « Aucune », validé ou non. Ils
+                                    écrivaient de surcroît dans `inscriptions`, fermée
+                                    en écriture depuis la phase 0.
+                                    La direction lit désormais la fiche validée ; la
+                                    validation elle-même a lieu au module cantine,
+                                    pour qu'il n'existe qu'un seul endroit où l'on
+                                    engage sa responsabilité. */}
+                                <td style={{ padding: '10px 12px' }} colSpan={2}>
+                                  <FicheAlimentaire el={e} referentiel={allergenesRef} />
                                 </td>
                               </tr>
                             )

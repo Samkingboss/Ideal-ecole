@@ -151,11 +151,85 @@ const DEMO_ELEVES_CANTINE = [
   { id: 'el-5', nom: 'KEITA', prenom: 'Oumar', classe: 'CE2', cantine: true, allergies: 'Aucune', restrictions: 'Aucune' }
 ]
 
+// ═══════════════════════════════════════════════════════════════════════
+// FICHE ALIMENTAIRE — décision D1, V2.1 §14
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Trois états, et un seul autorise le mot « Aucune ».
+//
+//   non_validee            → « FICHE NON VALIDÉE ». Personne n'a vérifié.
+//   validee_sans_allergie  → « Aucune allergie », avec le nom du valideur
+//                            et la date. C'est une affirmation, elle est
+//                            donc signée.
+//   validee_avec_allergies → la liste.
+//
+// L'absence d'information n'est pas une absence d'allergie. C'est cette
+// confusion qui faisait afficher « ✅ Aucune allergie médicale » à des
+// enfants dont personne n'avait jamais lu la fiche.
+export const etatFiche = (el) => {
+  const statut = el?.fiche_alim_statut || 'non_validee'
+  if (statut === 'validee_avec_allergies') return { etat: 'avec',      libelle: 'Fiche validée' }
+  if (statut === 'validee_sans_allergie')  return { etat: 'sans',      libelle: 'Aucune allergie — validée' }
+  return { etat: 'non_validee', libelle: 'FICHE NON VALIDÉE' }
+}
+
+const libelleAllergene = (code, referentiel) =>
+  referentiel.find(a => a.code === code)?.libelle || code
+
+// Rend la fiche d'un élève sans jamais transformer un silence en réponse.
+export function FicheAlimentaire({ el, referentiel, compact = false }) {
+  const { etat } = etatFiche(el)
+  const codes = [...(el.allergies_connues || []), ...(el.restrictions_alimentaires || [])]
+
+  if (etat === 'non_validee') return (
+    <span style={{ color: '#b45309', fontWeight: 800, fontSize: compact ? 10 : 11,
+                   background: '#fef3c7', padding: '2px 7px', borderRadius: 5,
+                   border: '1px solid #fcd34d' }}>
+      ⚠️ FICHE NON VALIDÉE
+    </span>
+  )
+
+  if (etat === 'sans') return (
+    <span style={{ color: '#16a34a', fontWeight: 700, fontSize: compact ? 10 : 11 }}>
+      ✅ Aucune allergie
+      {!compact && el.fiche_alim_validee_le && (
+        <span style={{ color: '#64748b', fontWeight: 400, display: 'block', fontSize: 10 }}>
+          validée le {new Date(el.fiche_alim_validee_le).toLocaleDateString('fr-FR')}
+        </span>
+      )}
+    </span>
+  )
+
+  return (
+    <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+      {codes.map(c => (
+        <span key={c} style={{ background: '#fee2e2', color: '#b91c1c', fontWeight: 800,
+                               fontSize: compact ? 9 : 10, padding: '2px 7px', borderRadius: 5,
+                               border: '1px solid #fca5a5' }}>
+          ⚠️ {libelleAllergene(c, referentiel)}
+        </span>
+      ))}
+      {el.notes_alimentaires && !compact && (
+        <span style={{ color: '#b45309', fontSize: 10, display: 'block', width: '100%' }}>
+          Note : {el.notes_alimentaires}
+        </span>
+      )}
+    </span>
+  )
+}
+
 export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' }) {
   const [tab, setTab] = useState(initialTab)
   const [rhTab, setRhTab] = useState('dossier')
-  const [eleves, setEleves] = useState(DEMO_ELEVES_CANTINE)
-  const [menuSemaine, setMenuSemaine] = useState(SAMPLE_MENU_SEMAINE)
+  // Plus de données de démonstration en état initial. Elles restaient à
+  // l'écran quand la requête échouait, et cinq enfants fictifs avec des
+  // allergies fictives s'affichaient à la place des vrais. [INV-UI-03]
+  const [eleves, setEleves] = useState([])
+  const [erreurChargement, setErreurChargement] = useState('')
+  const [allergenes, setAllergenes] = useState([])
+  const [effectifJour, setEffectifJour] = useState(null)
+  const [analyseMenu, setAnalyseMenu] = useState(null)
+  const [menuSemaine, setMenuSemaine] = useState(EMPTY_MENU_SEMAINE)
   const [ficheMarche, setFicheMarche] = useState(EMPTY_FICHE_MARCHE)
   const [jourSelectionne, setJourSelectionne] = useState('Lundi')
   const [searchEleve, setSearchEleve] = useState('')
@@ -191,17 +265,42 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   const loadData = async () => {
     try {
       setLoading(true)
-      // Charger les élèves depuis Supabase
-      const { data: dataEleves } = await supabase.from('eleves').select('*').eq('actif', true)
-      if (dataEleves && dataEleves.length > 0) {
-        const cantineList = dataEleves.map(e => ({
-          ...e,
-          cantine: e.cantine !== false,
-          allergies: e.allergies || 'Aucune',
-          restrictions: e.restrictions || 'Aucune'
-        }))
-        setEleves(cantineList)
-      }
+      setErreurChargement('')
+
+      // ── Élèves et fiches alimentaires ────────────────────────────────
+      //
+      // L'erreur était ici purement et simplement ignorée : seul `data`
+      // était déstructuré, et une garde `length > 0` laissait l'écran sur
+      // cinq enfants fictifs quand la requête échouait. La cuisinière
+      // pouvait donc lire des allergies inventées en croyant lire les
+      // vraies. C'est corrigé : l'échec se voit.
+      const { data: dataEleves, error: errEleves } = await supabase
+        .from('eleves')
+        .select('*, classes(nom)')
+        .eq('actif', true)
+
+      if (errEleves) throw errEleves
+
+      // Aucune normalisation vers « Aucune ». D1 : une fiche non validée
+      // n'est pas une fiche sans allergie, et le silence ne doit jamais
+      // ressembler à une réponse.
+      const listeEleves = Array.isArray(dataEleves) ? dataEleves : []
+      setEleves(listeEleves.map(e => ({
+        ...e,
+        classeNom: e.classes?.nom || '—',
+        allergies_connues: Array.isArray(e.allergies_connues) ? e.allergies_connues : [],
+        restrictions_alimentaires: Array.isArray(e.restrictions_alimentaires) ? e.restrictions_alimentaires : [],
+      })))
+
+      // Référentiel des allergènes, pour afficher des libellés lisibles
+      // plutôt que des codes.
+      const { data: dataAllerg } = await supabase
+        .from('allergenes').select('code, libelle, ordre').eq('actif', true).order('ordre')
+      setAllergenes(Array.isArray(dataAllerg) ? dataAllerg : [])
+
+      // Effectif du jour — V2.1 §14 : les présences alimentent la cantine.
+      const { data: eff } = await supabase.rpc('effectif_cantine_du_jour', { p_date: datePointage })
+      setEffectifJour(eff || null)
 
       // Charger le menu de la semaine depuis Supabase
       const { data: stateMenu } = await supabase.from('app_state').select('value').eq('key', 'cantine_menu_semaine').single()
@@ -222,7 +321,12 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
       if (stateMarche && stateMarche.value) setFicheMarche(stateMarche.value)
 
     } catch (e) {
+      // Chargement, erreur et vide sont trois états distincts. Les
+      // confondre, c'est présenter une panne comme une absence de données —
+      // et en cuisine, une absence de données se lit « aucune allergie ».
       console.warn('Erreur chargement Supabase cantine :', e)
+      setErreurChargement(e?.message || 'Erreur inattendue')
+      setEleves([])
     } finally {
       setLoading(false)
     }
@@ -334,16 +438,118 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   }
 
   // Sauvegarder le menu de la semaine
-  const saveMenuSemaine = async (updatedMenu = menuSemaine) => {
+  // ═══════════════════════════════════════════════════════════════════
+  // COMPARAISON MENU / RESTRICTIONS — V2.1 §14
+  // ═══════════════════════════════════════════════════════════════════
+  //
+  // « Lors de la création d'un menu, le système compare les ingrédients aux
+  // restrictions alimentaires des enfants concernés. Une incompatibilité
+  // produit une alerte AVANT validation et permet de prévoir une
+  // alternative. »
+  //
+  // Les plats n'ont pas d'ingrédients structurés : ce sont des phrases. Le
+  // balayage se fait donc sur les motifs du référentiel, ce qui rend le §14
+  // applicable sans imposer à la cuisinière de ressaisir ses recettes.
+  //
+  // Conséquence assumée : cette analyse ne peut jamais conclure
+  // « compatible ». Elle dit ce qu'elle a trouvé, et dit aussi ce qu'elle ne
+  // peut pas garantir. Une fiche non validée remonte comme telle.
+  const platsDuMenu = (menu) => {
+    const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi']
+    const parties = [['entree', 'Entrée'], ['plat', 'Plat'], ['dessert', 'Dessert'], ['gouter', 'Goûter']]
+    const out = []
+    for (const j of jours) {
+      const d = menu?.[j]
+      if (!d) continue
+      for (const [cle, libelle] of parties) {
+        const titre = d[`${cle}Titre`] || ''
+        const desc = d[`${cle}Desc`] || ''
+        if (!titre && !desc) continue
+        out.push({ jour: j, plat: `${libelle} — ${titre}`.trim(), texte: `${titre} ${desc}` })
+      }
+    }
+    return out
+  }
+
+  const analyserMenu = async (menu = menuSemaine) => {
+    const plats = platsDuMenu(menu)
+    if (plats.length === 0) return { plats: 0, conflits: [], nonValidees: [], indeterminees: [], erreur: null }
+
+    const { data, error } = await supabase.rpc('analyser_menu_alimentaire', { p_plats: plats })
+    if (error) {
+      // Une analyse qui échoue n'est pas une analyse rassurante. On le dit.
+      return { plats: plats.length, conflits: [], nonValidees: [], indeterminees: [], erreur: error.message }
+    }
+    const lignes = Array.isArray(data) ? data : []
+
+    // Dédoublonnage : un plat qui contient plusieurs motifs du même
+    // allergène — « bolognaise » et « viande hachée » — décrit un seul
+    // conflit. Un compteur qui annonce trois alertes là où il y en a une
+    // apprend à ne plus le croire.
+    const vus = new Set()
+    const conflits = lignes.filter(l => {
+      if (l.niveau !== 'conflit') return false
+      const cle = `${l.eleve_id}|${l.jour}|${l.plat}|${l.allergene}`
+      if (vus.has(cle)) return false
+      vus.add(cle); return true
+    })
+
+    return {
+      plats: plats.length,
+      conflits,
+      nonValidees:   lignes.filter(l => l.niveau === 'fiche_non_validee'),
+      indeterminees: lignes.filter(l => l.niveau === 'cantine_indeterminee'),
+      erreur: null,
+    }
+  }
+
+  const saveMenuSemaine = async (updatedMenu = menuSemaine, options = {}) => {
     setMenuSemaine(updatedMenu)
+
+    // L'analyse précède l'enregistrement — c'est la lettre du §14 : l'alerte
+    // vient AVANT la validation, pas après. `sansAnalyse` sert aux champs de
+    // date, qui écrivent à la frappe et ne changent aucun plat.
+    if (!options.sansAnalyse) {
+      const a = await analyserMenu(updatedMenu)
+      setAnalyseMenu(a)
+
+      if (a.erreur) {
+        alert("⚠️ La vérification des allergies n'a pas pu être effectuée :\n\n" + a.erreur +
+              "\n\nLe menu n'a pas été enregistré. Sans cette vérification, rien ne garantit " +
+              "qu'il convient à tous les enfants.")
+        return false
+      }
+
+      if (a.conflits.length > 0) {
+        const parEleve = {}
+        for (const c of a.conflits) {
+          const k = `${c.prenom} ${c.nom} (${c.classe})`
+          parEleve[k] = parEleve[k] || []
+          parEleve[k].push(`${c.jour} · ${c.plat} → ${c.allergene}`)
+        }
+        const detail = Object.entries(parEleve)
+          .map(([e, l]) => `• ${e}\n    ${l.join('\n    ')}`).join('\n')
+
+        const ok = window.confirm(
+          `⛔ MENU INCOMPATIBLE — ${a.conflits.length} alerte(s) sur ${Object.keys(parEleve).length} enfant(s)\n\n` +
+          detail +
+          `\n\nPrévoyez une alternative pour ces enfants, ou modifiez le plat.\n\n` +
+          `Enregistrer quand même ? L'alerte restera affichée.`
+        )
+        if (!ok) return false
+      }
+    }
+
     try {
       // `app` fait partie de la clé primaire et ne peut être nulle : sans elle
       // l'écriture partait en 400 et la cantine ne quittait jamais l'appareil.
       await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
-      setMsg('✅ Menu de la semaine enregistré avec succès !')
+      setMsg('✅ Menu de la semaine enregistré.')
       setTimeout(() => setMsg(''), 4000)
+      return true
     } catch (e) {
       alert('Erreur enregistrement menu: ' + e.message)
+      return false
     }
   }
 
@@ -502,20 +708,56 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   }
 
   // Mettre à jour les allergies d'un élève
+  // Validation de la fiche alimentaire — le maillon humain qu'exige D1.
+  //
+  // L'ancienne version écrivait dans `eleves.allergies` et
+  // `eleves.restrictions`, colonnes qui n'ont jamais existé. Le `catch` était
+  // vide : chaque enregistrement échouait en silence depuis toujours, et la
+  // cuisinière croyait avoir sauvegardé.
   const saveEleveAllergie = async () => {
     if (!editEleveModal) return
-    const updatedEleves = eleves.map(e => e.id === editEleveModal.id ? editEleveModal : e)
-    setEleves(updatedEleves)
-    try {
-      await supabase.from('eleves').update({ allergies: editEleveModal.allergies, restrictions: editEleveModal.restrictions }).eq('id', editEleveModal.id)
-    } catch (e) {}
+    const m = editEleveModal
+    const aQuelqueChose = (m.allergies_connues || []).length > 0
+                       || (m.restrictions_alimentaires || []).length > 0
+
+    // Le statut découle de la saisie : on ne peut pas déclarer « sans
+    // allergie » tout en cochant des allergènes, ni l'inverse.
+    const statut = m.fiche_alim_statut === 'non_validee'
+      ? 'non_validee'
+      : (aQuelqueChose ? 'validee_avec_allergies' : 'validee_sans_allergie')
+
+    const { error } = await supabase.rpc('valider_fiche_alimentaire', {
+      p_eleve_id:     m.id,
+      p_statut:       statut,
+      p_allergies:    m.allergies_connues || [],
+      p_restrictions: m.restrictions_alimentaires || [],
+      p_notes:        m.notes_alimentaires || null,
+      p_valide_par:   statut === 'non_validee' ? null : (user?.id || null),
+      p_cantine:      m.cantine ?? null,
+    })
+
+    // Un échec ne doit plus être silencieux : une fiche qu'on croit
+    // enregistrée et qui ne l'est pas est exactement le scénario à éviter.
+    if (error) {
+      alert("❌ La fiche n'a pas été enregistrée :\n\n" + error.message)
+      return
+    }
+
     setEditEleveModal(null)
-    setMsg('✅ Restrictions alimentaires mises à jour !')
-    setTimeout(() => setMsg(''), 3000)
+    setMsg(statut === 'non_validee'
+      ? 'Fiche laissée non validée.'
+      : '✅ Fiche alimentaire validée et enregistrée.')
+    setTimeout(() => setMsg(''), 4000)
+    await loadData()
   }
 
   // Filtrage des élèves
+  // `cantine` a trois états : TRUE inscrit, FALSE non inscrit, NULL inconnu.
+  // On inclut l'inconnu — mieux vaut un couvert de trop qu'un enfant oublié —
+  // mais on le compte à part pour ne pas le présenter comme une certitude.
   const elevesInscrits = eleves.filter(e => e.cantine !== false)
+  const nbCantineIndeterminee = eleves.filter(e => e.cantine === null || e.cantine === undefined).length
+  const nbFichesNonValidees = elevesInscrits.filter(e => !e.fiche_alim_statut || e.fiche_alim_statut === 'non_validee').length
   const elevesFiltres = elevesInscrits.filter(e => {
     const matchSearch = `${e.nom} ${e.prenom} ${e.classe}`.toLowerCase().includes(searchEleve.toLowerCase())
     const matchClasse = filterClasse === 'ALL' || e.classe === filterClasse
@@ -523,7 +765,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   })
 
   const classesUniques = Array.from(new Set(elevesInscrits.map(e => e.classe || 'CP1'))).sort()
-  const nbAllergies = elevesInscrits.filter(e => e.allergies && e.allergies.toLowerCase() !== 'aucune').length
+  const nbAllergies = elevesInscrits.filter(e => etatFiche(e).etat === 'avec').length
 
   // Calcul dynamique du marché
   // Ce qu'on a déjà ne se paie pas : une ligne marquée « en stock » ne pèse
@@ -721,12 +963,67 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                 <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🥗 Session 1 : Élèves Inscrits à la Cantine</h1>
                 <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Liste officielle du service de restauration et précisions médicales sur les allergies &amp; régimes spéciaux.</p>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#991b1b' }}>
-                  🚨 {nbAllergies} Élève(s) avec Allergies
+                  🚨 {nbAllergies} avec allergies
                 </div>
+                {/* Ce compteur est le plus important de l'écran : il dit
+                    combien d'enfants mangent ici sans que personne n'ait
+                    vérifié ce qu'ils peuvent manger. */}
+                {nbFichesNonValidees > 0 && (
+                  <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 800, color: '#92400e' }}>
+                    ⚠️ {nbFichesNonValidees} fiche(s) NON VALIDÉE(S)
+                  </div>
+                )}
+                {nbCantineIndeterminee > 0 && (
+                  <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '8px 14px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#475569' }}>
+                    {nbCantineIndeterminee} inscription(s) cantine non déterminée(s)
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Chargement, erreur et vide sont trois écrans distincts.
+                Les confondre revient à présenter une panne comme une
+                absence d'allergie. */}
+            {loading && (
+              <div style={{ padding: 28, textAlign: 'center', color: '#64748b', fontSize: 14 }}>
+                Chargement des fiches alimentaires…
+              </div>
+            )}
+
+            {!loading && erreurChargement && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderLeft: '5px solid #dc2626',
+                            padding: '16px 18px', borderRadius: 10, marginBottom: 16 }}>
+                <div style={{ fontWeight: 900, color: '#991b1b', fontSize: 14, marginBottom: 5 }}>
+                  ⛔ Les fiches alimentaires n'ont pas pu être chargées
+                </div>
+                <div style={{ fontSize: 12.5, color: '#7f1d1d' }}>
+                  N'utilisez pas cet écran pour préparer le service : la liste affichée est vide
+                  parce que la connexion a échoué, pas parce qu'aucun enfant n'a d'allergie.
+                </div>
+                <button className="btn-sm" style={{ marginTop: 10 }} onClick={loadData}>Réessayer</button>
+              </div>
+            )}
+
+            {!loading && !erreurChargement && eleves.length === 0 && (
+              <div style={{ padding: 28, textAlign: 'center', color: '#64748b' }}>
+                Aucun élève actif enregistré.
+              </div>
+            )}
+
+            {/* Effectif du jour — V2.1 §14 : les présences alimentent la cantine. */}
+            {effectifJour && (
+              <div className="card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex',
+                                             gap: 22, flexWrap: 'wrap', alignItems: 'center', fontSize: 12.5 }}>
+                <b style={{ color: '#0d2a3b' }}>📊 Effectif du {new Date(effectifJour.date).toLocaleDateString('fr-FR')}</b>
+                <span>Inscrits cantine : <b>{effectifJour.inscrits_cantine}</b></span>
+                <span>Présents et inscrits : <b>{effectifJour.presents_et_cantine}</b></span>
+                <span style={{ color: effectifJour.presences_saisies === 0 ? '#b45309' : '#64748b' }}>
+                  {effectifJour.source_presences}
+                </span>
+              </div>
+            )}
 
             {/* Barre de Recherche & Filtres */}
             <div className="card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -746,8 +1043,8 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
             {/* Liste des cartes Élèves avec Badges Allergies */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
               {elevesFiltres.map(el => {
-                const aAllergie = el.allergies && el.allergies.toLowerCase() !== 'aucune'
-                const aRestriction = el.restrictions && el.restrictions.toLowerCase() !== 'aucune'
+                const aAllergie = etatFiche(el).etat === 'avec'
+                const aRestriction = etatFiche(el).etat === 'avec' && (el.restrictions_alimentaires || []).length > 0
 
                 return (
                   <div key={el.id} className="card" style={{ padding: '16px', borderLeft: aAllergie ? '5px solid #ef4444' : aRestriction ? '5px solid #f59e0b' : '5px solid #10b981', borderRadius: 14 }}>
@@ -757,7 +1054,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                           {(el.nom || '').toUpperCase()} {el.prenom}
                         </div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>
-                          🏫 Classe : {el.classe || 'CP1'}
+                          🏫 Classe : {el.classeNom || el.classe || '—'}
                         </div>
                       </div>
                       <button
@@ -770,26 +1067,25 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                        <span style={{ fontWeight: 800, color: '#475569', minWidth: 90 }}>🛑 Allergies :</span>
-                        {aAllergie ? (
-                          <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: 6, fontWeight: 800, fontSize: 11 }}>
-                            ⚠️ {el.allergies}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 11 }}>✅ Aucune allergie médicale</span>
-                        )}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12 }}>
+                        <span style={{ fontWeight: 800, color: '#475569', minWidth: 90 }}>🛑 Fiche :</span>
+                        <FicheAlimentaire el={el} referentiel={allergenes} />
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                        <span style={{ fontWeight: 800, color: '#475569', minWidth: 90 }}>🍽️ Régime / Porc :</span>
-                        {aRestriction ? (
-                          <span style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d', padding: '2px 8px', borderRadius: 6, fontWeight: 800, fontSize: 11 }}>
-                            ℹ️ {el.restrictions}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#64748b', fontSize: 11 }}>Standard</span>
-                        )}
+                      {el.declaration_alim_parent && (
+                        <div style={{ fontSize: 10.5, color: '#64748b', fontStyle: 'italic',
+                                      background: '#f8fafc', padding: '5px 8px', borderRadius: 5 }}>
+                          Déclaré par le parent, non validé : « {el.declaration_alim_parent} »
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
+                        <span style={{ fontWeight: 800, color: '#475569', minWidth: 90 }}>🍽️ Cantine :</span>
+                        {el.cantine === true
+                          ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Inscrit</span>
+                          : el.cantine === false
+                          ? <span style={{ color: '#64748b' }}>Non inscrit</span>
+                          : <span style={{ color: '#b45309', fontWeight: 700 }}>⚠️ Non déterminé</span>}
                       </div>
                     </div>
                   </div>
@@ -899,7 +1195,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   <tbody>
                     {elevesFiltres.map(el => {
                       const pt = pointage[el.id] || { matin: false, midi: false, gouter: false }
-                      const aAllergie = el.allergies && el.allergies.toLowerCase() !== 'aucune'
+                      const aAllergie = etatFiche(el).etat === 'avec'
 
                       return (
                         <tr key={el.id} style={{ borderBottom: '1px solid var(--border)', background: aAllergie ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
@@ -972,7 +1268,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                             {aAllergie ? (
                               <span style={{ color: '#dc2626', fontWeight: 800 }}>⚠️ {el.allergies}</span>
                             ) : (
-                              <span style={{ color: '#94a3b8' }}>Standard ({el.restrictions || 'Aucune'})</span>
+                              <FicheAlimentaire el={el} referentiel={allergenes} compact />
                             )}
                           </td>
                         </tr>
@@ -1027,7 +1323,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   <input
                     className="form-input"
                     value={menuSemaine.date_debut || '12/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value }, { sansAnalyse: true })}
                     placeholder="Ex: 12/01/2026"
                     style={{ fontWeight: 800 }}
                   />
@@ -1037,7 +1333,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   <input
                     className="form-input"
                     value={menuSemaine.date_fin || '16/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value }, { sansAnalyse: true })}
                     placeholder="Ex: 16/01/2026"
                     style={{ fontWeight: 800 }}
                   />
@@ -1047,7 +1343,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   <input
                     className="form-input"
                     value={menuSemaine.dates_semaine || '12 au 16 janvier 2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, dates_semaine: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, dates_semaine: e.target.value }, { sansAnalyse: true })}
                     placeholder="Ex: 12 au 16 janvier 2026"
                     style={{ fontWeight: 800 }}
                   />
@@ -1239,7 +1535,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   <input
                     className="form-input"
                     value={menuSemaine.date_debut || '12/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value }, { sansAnalyse: true })}
                     placeholder="12/01/2026"
                     style={{ width: 110, fontWeight: 800, color: '#0d2a3b', textAlign: 'center', padding: '6px 8px' }}
                   />
@@ -1247,7 +1543,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   <input
                     className="form-input"
                     value={menuSemaine.date_fin || '16/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value })}
+                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value }, { sansAnalyse: true })}
                     placeholder="16/01/2026"
                     style={{ width: 110, fontWeight: 800, color: '#0d2a3b', textAlign: 'center', padding: '6px 8px' }}
                   />
@@ -1882,24 +2178,110 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
             <div className="modal-handle"></div>
             <div className="modal-title">Précisions Alimentaires : {editEleveModal.nom} {editEleveModal.prenom}</div>
             
+            {/* La déclaration du parent, telle qu'il l'a écrite. Elle sert
+                à instruire, jamais à faire foi : « RAS » n'est pas une
+                absence d'allergie constatée (D1). */}
+            {editEleveModal.declaration_alim_parent ? (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '3px solid #94a3b8',
+                            padding: '10px 12px', borderRadius: 6, marginBottom: 14, fontSize: 12.5 }}>
+                <div style={{ fontWeight: 800, color: '#475569', fontSize: 10.5, letterSpacing: .5, marginBottom: 4 }}>
+                  DÉCLARÉ PAR LE PARENT À L'INSCRIPTION — NON VALIDÉ
+                </div>
+                <div style={{ fontStyle: 'italic', color: '#334155', whiteSpace: 'pre-line' }}>
+                  {editEleveModal.declaration_alim_parent}
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '10px 12px',
+                            borderRadius: 6, marginBottom: 14, fontSize: 12.5, color: '#92400e' }}>
+                Aucune déclaration du parent n'est rattachée à cet élève.
+                L'absence de déclaration n'est pas une absence d'allergie.
+              </div>
+            )}
+
             <div className="form-group">
-              <label className="form-label">🛑 Allergies Médicales (ex: Arachides, Lactose, Gluten)</label>
-              <input
-                className="form-input"
-                value={editEleveModal.allergies || ''}
-                onChange={e => setEditEleveModal({ ...editEleveModal, allergies: e.target.value })}
-                placeholder="Renseigner les allergies médicales..."
-              />
+              <label className="form-label">🛑 Allergies constatées</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {allergenes.map(a => {
+                  const coche = (editEleveModal.allergies_connues || []).includes(a.code)
+                  return (
+                    <button key={a.code} type="button"
+                      onClick={() => setEditEleveModal({ ...editEleveModal,
+                        allergies_connues: coche
+                          ? editEleveModal.allergies_connues.filter(c => c !== a.code)
+                          : [...(editEleveModal.allergies_connues || []), a.code] })}
+                      style={{ padding: '5px 11px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                               cursor: 'pointer',
+                               border: coche ? '1px solid #dc2626' : '1px solid #cbd5e1',
+                               background: coche ? '#fee2e2' : '#fff',
+                               color: coche ? '#b91c1c' : '#64748b' }}>
+                      {coche ? '⚠️ ' : ''}{a.libelle}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">🍽️ Restrictions Alimentaires &amp; Régimes (ex: Sans Porc, Végétarien)</label>
-              <input
-                className="form-input"
-                value={editEleveModal.restrictions || ''}
-                onChange={e => setEditEleveModal({ ...editEleveModal, restrictions: e.target.value })}
-                placeholder="Renseigner le régime alimentaire..."
-              />
+              <label className="form-label">🍽️ Restrictions et régimes</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {allergenes.map(a => {
+                  const coche = (editEleveModal.restrictions_alimentaires || []).includes(a.code)
+                  return (
+                    <button key={a.code} type="button"
+                      onClick={() => setEditEleveModal({ ...editEleveModal,
+                        restrictions_alimentaires: coche
+                          ? editEleveModal.restrictions_alimentaires.filter(c => c !== a.code)
+                          : [...(editEleveModal.restrictions_alimentaires || []), a.code] })}
+                      style={{ padding: '5px 11px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                               cursor: 'pointer',
+                               border: coche ? '1px solid #d97706' : '1px solid #cbd5e1',
+                               background: coche ? '#fef3c7' : '#fff',
+                               color: coche ? '#b45309' : '#64748b' }}>
+                      {coche ? 'ℹ️ ' : ''}{a.libelle}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Le référentiel ne peut pas tout prévoir. Ce champ existe pour
+                qu'aucune allergie ne soit perdue faute de terme. */}
+            <div className="form-group">
+              <label className="form-label">📝 Précisions (cas non listé, gravité, conduite à tenir)</label>
+              <textarea className="form-input" rows={2}
+                value={editEleveModal.notes_alimentaires || ''}
+                onChange={e => setEditEleveModal({ ...editEleveModal, notes_alimentaires: e.target.value })}
+                placeholder="Ce que le référentiel ne couvre pas..." />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">🍽️ Inscription cantine</label>
+              <select className="form-select"
+                value={editEleveModal.cantine === true ? 'oui' : editEleveModal.cantine === false ? 'non' : 'inconnu'}
+                onChange={e => setEditEleveModal({ ...editEleveModal,
+                  cantine: e.target.value === 'oui' ? true : e.target.value === 'non' ? false : null })}>
+                <option value="inconnu">⚠️ Non déterminé</option>
+                <option value="oui">Inscrit à la cantine</option>
+                <option value="non">Non inscrit</option>
+              </select>
+            </div>
+
+            <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: 6, marginBottom: 12, fontSize: 12 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
+                <input type="checkbox"
+                  checked={editEleveModal.fiche_alim_statut !== 'non_validee'}
+                  onChange={e => setEditEleveModal({ ...editEleveModal,
+                    fiche_alim_statut: e.target.checked ? 'validee_sans_allergie' : 'non_validee' })}
+                  style={{ marginTop: 3 }} />
+                <span>
+                  <b>Je valide cette fiche.</b> Tant qu'elle n'est pas validée, la cuisine
+                  affiche « FICHE NON VALIDÉE » — jamais « aucune allergie ».
+                  <span style={{ display: 'block', color: '#64748b', marginTop: 3 }}>
+                    Validée par {user?.prenom} {user?.nom}, le {new Date().toLocaleDateString('fr-FR')}.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <button className="btn btn-primary" onClick={saveEleveAllergie}>

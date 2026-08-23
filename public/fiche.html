@@ -391,8 +391,8 @@ window.addEventListener('load', async () => {
 
         if (ins.cantine && (ins.allergies || ins.restrictions)) {
             document.getElementById('allergies-zone').style.display = 'block';
-            set('f-allergies', ins.allergies || 'Aucune');
-            set('f-restrictions', ins.restrictions || 'Aucune');
+            set('f-allergies', ins.allergies || 'Non renseigné');
+            set('f-restrictions', ins.restrictions || 'Non renseigné');
         }
 
         // Message de confiance renouvelée
