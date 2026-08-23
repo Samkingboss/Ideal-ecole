@@ -138,12 +138,28 @@ garde "L6 · authentifier_par_code répond sans exception" \
   "rpc authentifier_par_code '{\"p_code\":\"CODEQUINEXISTEPAS\"}'" "null"
 
 garde "L7 · volume users inchangé" "compte users" "13"
-garde "L8 · volume journal_audit conforme" "compte journal_audit" "75"
+
+# L8 — le journal d'audit doit croitre, jamais decroitre : les ecritures y
+# sont legitimes, les suppressions non. Un seuil fige aurait echoue des la
+# premiere trace ; on compare a un plancher, qu'on releve ensuite.
+PLANCHER_AUDIT=$(cat .phase0-audit-plancher 2>/dev/null || echo 75)
+AUDIT_ACTUEL=$(compte journal_audit)
+garde "L8 · journal_audit ne perd aucune ligne (>= $PLANCHER_AUDIT)" \
+  "[ \"$AUDIT_ACTUEL\" -ge \"$PLANCHER_AUDIT\" ] 2>/dev/null && echo ok || echo perte" "ok"
+if [ "${AUDIT_ACTUEL:-0}" -gt "${PLANCHER_AUDIT:-0}" ] 2>/dev/null; then
+  echo "$AUDIT_ACTUEL" > .phase0-audit-plancher
+fi
 
 # L9 — sans secrets recopiés, l'étape 6 détruirait les codes. Le script SQL
 # refuse déjà de s'exécuter dans ce cas ; on le voit aussi d'ici.
 garde "L9 · users_secrets existe (créée à l'étape 2)" \
   "[ \"\$(http 'users_secrets?select=user_id')\" = '401' ] && echo present || echo absent" "present"
+
+# L10 — le generateur de codes est conserve pour les rotations ciblees, mais
+# ne doit jamais etre executable par anon : il rendrait tous les codes
+# devinables a volonte. 401 = droit revoque, et non 404 = fonction absente.
+garde "L10 · generer_code_acces non executable par anon" \
+  "http 'rpc/generer_code_acces'" "401"
 
 printf "\n"
 if [ "$KO" -eq 0 ]; then
