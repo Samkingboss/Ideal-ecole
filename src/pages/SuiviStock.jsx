@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { pushNotification } from '../lib/notifications'
+import { messageLisible } from '../lib/chargement'
 
 // Suivi du stock et demandes de matériel — espace du surveillant.
 //
@@ -48,6 +49,10 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
   const [mouvements, setMouvements] = useState([])
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
+  // Signaler par bloc, pas par page : un registre de mouvements illisible ne
+  // doit pas masquer un catalogue qui, lui, a répondu.
+  const [demandesEnEchec, setDemandesEnEchec] = useState(null)
+  const [mouvementsEnEchec, setMouvementsEnEchec] = useState(null)
   const [enCours, setEnCours] = useState(null)     // id de la ligne en cours de traitement
 
   // Formulaire d'ajout au catalogue
@@ -63,6 +68,7 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
 
   async function charger() {
     setChargement(true); setErreur(null)
+    setDemandesEnEchec(null); setMouvementsEnEchec(null)
     const [mat, dem, mvt] = await Promise.all([
       // On charge aussi les articles retirés : ils ne s'affichent pas dans le
       // catalogue, mais il faut pouvoir en reprendre un qu'on a retiré par
@@ -83,15 +89,31 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
       setErreur(MSG_INSTALL)
       setChargement(false); return
     }
-    const echec = [mat, dem, mvt].find(r => r.error)
-    if (echec) { setErreur('Chargement impossible : ' + echec.error.message); setChargement(false); return }
+    // Le catalogue est l'ossature de l'écran : sans lui il n'y a ni stock, ni
+    // inventaire, ni libellé de mouvement. Son échec est le seul qui doive
+    // faire tomber la page entière. Le message reste lisible — il ne recopie
+    // pas l'erreur PostgREST, qui nommerait la table au surveillant.
+    if (mat.error) {
+      setErreur(messageLisible(mat.error))
+      setChargement(false); return
+    }
 
-    setMateriels((mat.data || []).filter(m => m.actif !== false))
-    setRetires((mat.data || []).filter(m => m.actif === false))
-    setDemandes(dem.data || [])
+    const liste = r => (Array.isArray(r?.data) ? r.data : [])
+
+    setMateriels(liste(mat).filter(m => m.actif !== false))
+    setRetires(liste(mat).filter(m => m.actif === false))
+
+    // Demandes et mouvements sont des blocs indépendants : l'un en panne ne
+    // doit pas emporter le catalogue. Chacun garde son échec, et l'onglet
+    // concerné le dit au lieu d'afficher « aucune donnée » — ce qui, sur un
+    // registre de sorties de stock, se lirait comme une absence de mouvement.
+    setDemandesEnEchec(dem.error ? messageLisible(dem.error) : null)
+    setDemandes(dem.error ? [] : liste(dem))
+
     // Les mouvements des deux magasins vivent dans la même table : chacun ne
     // voit que le sien, sinon la cuisinière lirait les sorties de crayons.
-    setMouvements((mvt.data || []).filter(m => !m.materiels || m.materiels.magasin === magasin))
+    setMouvementsEnEchec(mvt.error ? messageLisible(mvt.error) : null)
+    setMouvements(mvt.error ? [] : liste(mvt).filter(m => !m.materiels || m.materiels.magasin === magasin))
     setChargement(false)
   }
 
@@ -338,7 +360,31 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
   // ── Rendu ──────────────────────────────────────────────────────────────
 
   if (chargement) return <div className="empty-state"><p>Chargement du stock…</p></div>
-  if (erreur) return <div className="empty-state"><div className="empty-icon">🛠️</div><p>{erreur}</p></div>
+  if (erreur) return (
+    <div className="empty-state">
+      <div className="empty-icon">🛠️</div>
+      <p>{erreur}</p>
+      <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+        Le catalogue n’a pas pu être lu. Aucune quantité n’est affichée : ce n’est pas un stock vide.
+      </p>
+      <button onClick={charger}
+        style={{ marginTop: 10, padding: '7px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+        Réessayer
+      </button>
+    </div>
+  )
+
+  // Bandeau d'échec d'un bloc : dit ce qui manque, et propose de recharger.
+  const bandeauEchec = (texte, message) => (
+    <div style={{ background: 'rgba(220,38,38,.07)', border: '1px solid var(--red)', borderLeft: '4px solid var(--red)', borderRadius: 12, padding: '11px 14px', marginBottom: 12 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 900, color: 'var(--red)' }}>{texte}</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text)', marginTop: 4 }}>{message}</div>
+      <button onClick={charger}
+        style={{ marginTop: 8, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--red)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+        Réessayer
+      </button>
+    </div>
+  )
 
   const enAttente = demandes.filter(d => d.statut === 'en_attente')
   const aLivrer   = demandes.filter(d => d.statut === 'validee')
@@ -385,9 +431,14 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
       {/* ── Demandes ── */}
       {avecDemandes && vue === 'demandes' && (
         <>
-          {enAttente.length === 0 && aLivrer.length === 0 && (
-            <div className="empty-state"><div className="empty-icon">📭</div><p>Aucune demande en cours.</p></div>
-          )}
+          {/* « Aucune demande en cours » est une réponse ; un chargement raté
+              n'en est pas une. Une demande en attente invisible, c'est une
+              classe qui attend son matériel sans que personne ne le sache. */}
+          {demandesEnEchec
+            ? bandeauEchec('Demandes illisibles — on ne sait pas s’il y en a', demandesEnEchec)
+            : enAttente.length === 0 && aLivrer.length === 0 && (
+              <div className="empty-state"><div className="empty-icon">📭</div><p>Aucune demande en cours.</p></div>
+            )}
 
           {[['À valider', enAttente, true], ['À livrer', aLivrer, false]].map(([titre, liste, aStatuer]) =>
             liste.length === 0 ? null : (
@@ -581,7 +632,16 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
             )}
 
             {/* Inventaires passés, relus depuis les mouvements qu'ils ont produits */}
+            {/* Les inventaires passés se relisent dans les mouvements : si ce
+                registre est illisible, l'absence du bloc ne doit pas se lire
+                comme « aucun inventaire n'a jamais été fait ». */}
+            {mouvementsEnEchec && (
+              <div style={{ fontSize: 11.5, color: 'var(--red)', padding: '4px 2px 10px' }}>
+                Historique des inventaires indisponible — {mouvementsEnEchec}
+              </div>
+            )}
             {(() => {
+              if (mouvementsEnEchec) return null
               const passes = mouvements.filter(m => m.motif === 'inventaire')
               if (!passes.length) return null
               const parJour = {}
@@ -613,7 +673,21 @@ export default function SuiviStock({ user, magasin = 'pedagogique' }) {
       {vue === 'mouvements' && (
         <div style={carte}>
           <div style={bandeau}>60 derniers mouvements</div>
-          {mouvements.length === 0 && (
+          {mouvementsEnEchec ? (
+            <div style={{ padding: '14px' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 900, color: 'var(--red)' }}>
+                Registre des mouvements illisible
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text)', marginTop: 4 }}>{mouvementsEnEchec}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                Ce n’est pas « aucun mouvement » : la liste n’a pas pu être lue.
+              </div>
+              <button onClick={charger}
+                style={{ marginTop: 8, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--red)', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                Réessayer
+              </button>
+            </div>
+          ) : mouvements.length === 0 && (
             <div style={{ padding: '14px', fontSize: 12, color: 'var(--muted)' }}>Aucun mouvement enregistré.</div>
           )}
           {mouvements.map(m => (

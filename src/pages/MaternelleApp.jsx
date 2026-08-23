@@ -55,8 +55,9 @@ export default function MaternelleApp({ user, onLogout }) {
     const err = p.error || l.error || c.error || a.error
     if (err) setErreurSchema("Le module attend le script SQL « maternelle_workflow.sql » dans Supabase.")
     else setErreurSchema('')
-    setPreps(p.data || []); setLectures(l.data || []); setControles(c.data || []); setAlertes(a.data || [])
-    const idsClasses = (classes.data || []).filter(x => /^(PS|GS|Petite Section|Grande Section)$/i.test(x.nom)).map(x=>x.id)
+    const L = (r) => Array.isArray(r?.data) ? r.data : []
+    setPreps(L(p)); setLectures(L(l)); setControles(L(c)); setAlertes(L(a))
+    const idsClasses = (Array.isArray(classes.data) ? classes.data : []).filter(x => /^(PS|GS|Petite Section|Grande Section)$/i.test(x.nom)).map(x=>x.id)
     if (idsClasses.length) {
       const {data:plans}=await supabase.from('planifications').select('id').in('classe_id',idsClasses)
       const ids=(plans||[]).map(x=>x.id)

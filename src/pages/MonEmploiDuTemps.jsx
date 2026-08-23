@@ -121,7 +121,7 @@ function EmploiDuTempsStandard({ user }) {
     // On retient le statut, pas seulement l'existence. Une séance déposée en
     // retard ou renvoyée pour correction se voyait jusqu'ici exactement comme
     // une séance prête : la pastille était verte dans les trois cas.
-    setPreparees(new Map((data || [])
+    setPreparees(new Map((Array.isArray(data) ? data : [])
       .filter(p => p.sequence != null)
       .map(p => [`${p.date_cours}|${p.sequence}`, p.status])))
   }

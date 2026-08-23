@@ -208,8 +208,8 @@ export default function CartesScolaires() {
         supabase.from('inscriptions').select('*')
       ])
 
-      const rawEleves = resEleves.data || []
-      const rawInsc = resInsc.data || []
+      const rawEleves = Array.isArray(resEleves.data) ? resEleves.data : []
+      const rawInsc = Array.isArray(resInsc.data) ? resInsc.data : []
 
       // Fusionner les données de la table eleves et inscriptions pour avoir photos, groupe sanguin, contacts
       const merged = rawEleves.map(e => {
@@ -331,7 +331,7 @@ export default function CartesScolaires() {
       }
 
       setEleves(liste)
-      setClasses(resClasses.data || [])
+      setClasses(Array.isArray(resClasses.data) ? resClasses.data : [])
       if (liste.length > 0) setSelectedEleve(liste[0])
     } catch (err) {
       console.error('Erreur chargement cartes scolaires:', err)

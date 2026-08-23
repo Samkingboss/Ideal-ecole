@@ -437,10 +437,22 @@ async function loadPointageForCurrent(){
   if(badge)badge.textContent='Synchronisation en cours…';
   if(synth)synth.innerHTML='';
 
-  const q=async(p)=>{ try{ const r=await fetch(SB_URL+'/rest/v1/'+p,{headers:H}); return r.ok?await r.json():[]; }catch(e){ return []; } };
+  // Ce helper convertissait TOUTE panne en liste vide : un 401, un 500, une
+  // coupure réseau produisaient le même rapport hebdomadaire qu'une semaine
+  // sans incident. Un rapport transmis à un parent doit dire ce qu'il sait,
+  // et dire ce qu'il ignore.
+  const echecs = [];
+  const q = async (p) => {
+    const nom = p.split('?')[0];
+    try {
+      const r = await fetch(SB_URL + '/rest/v1/' + p, { headers: H });
+      if (!r.ok) { echecs.push(nom); return null; }
+      return await r.json();
+    } catch (e) { echecs.push(nom); return null; }
+  };
   const enc=encodeURIComponent(eleveId);
 
-  const [presences,incidents,checkpoints,devoirsRow,manquements,comprehensions]=await Promise.all([
+  const [presencesR,incidentsR,checkpointsR,devoirsRowR,manquementsR,comprehensionsR]=await Promise.all([
     q(`presences_eleves?eleve_id=eq.${enc}&date_jour=gte.${monday}&date_jour=lte.${friday}&select=*`),
     q(`disciplines?eleve_id=eq.${enc}&date_incident=gte.${monday}&date_incident=lte.${friday}&select=date_incident,motif,gravite,points_perdus,sanction_type,prof_id,surveillant_id`),
     q(`checkpoints?date_checkpoint=gte.${monday}&date_checkpoint=lte.${friday}&select=id`),
@@ -448,6 +460,34 @@ async function loadPointageForCurrent(){
     q(`manquements?eleve_id=eq.${enc}&date_manque=gte.${monday}&date_manque=lte.${friday}&select=date_manque,type_manque,matiere,observation,signale_par`),
     q(`comprehensions?eleve_id=eq.${enc}&date_cours=gte.${monday}&date_cours=lte.${friday}&select=date_cours,matiere,lecon,note,observation`),
   ]);
+
+  // Les consommateurs plus bas appellent `.forEach` et `.filter` : on leur
+  // rend des tableaux. Ce que `null` portait — l'échec — est conservé dans
+  // `echecs` et affiché en tête de rapport, au lieu d'être perdu.
+  const vide = (x) => Array.isArray(x) ? x : [];
+  const presences     = vide(presencesR);
+  const incidents     = vide(incidentsR);
+  const checkpoints   = vide(checkpointsR);
+  const devoirsRow    = vide(devoirsRowR);
+  const manquements   = vide(manquementsR);
+  const comprehensions = vide(comprehensionsR);
+
+  // `null` signifie « on ne sait pas », `[]` signifie « rien à signaler ».
+  // Les confondre ferait passer une panne pour une semaine sans incident.
+  if (echecs.length) {
+    if (badge) {
+      badge.textContent = 'Rapport incomplet — ' + echecs.length + ' source(s) illisible(s)';
+      badge.style.color = '#dc2626';
+    }
+    if (synth) {
+      synth.innerHTML = '<div style="background:#fef2f2;border:1px solid #fca5a5;border-left:5px solid #dc2626;'
+        + 'padding:12px 16px;border-radius:8px;margin-bottom:12px;">'
+        + '<b style="color:#991b1b;">⛔ Ce rapport est incomplet</b>'
+        + '<div style="font-size:12.5px;color:#7f1d1d;margin-top:4px;">Sources indisponibles : '
+        + echecs.join(', ') + '. Les rubriques correspondantes sont vides parce que la lecture a '
+        + 'échoué, pas parce qu\'il n\'y a rien à signaler. Ne transmettez pas ce rapport en l\'état.</div></div>';
+    }
+  }
 
   const sources=[];
 

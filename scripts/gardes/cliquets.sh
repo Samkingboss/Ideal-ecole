@@ -23,4 +23,14 @@ if command -v npx >/dev/null 2>&1; then
   cliquet "eslint" "C3 · erreurs eslint" "$N"
 fi
 
+# Le test de non-régression du dispositif à trois états. Il reproduit le bug
+# « 0 élèves » et vérifie qu'il ne peut plus se produire.
+printf "  %-54s " "C4 · test des trois états (chargement/erreur/vide)"
+if node scripts/gardes/test-chargement.mjs >/dev/null 2>&1; then
+  printf "${C_OK}✓${C_FIN}\n"; OK=$((OK+1))
+else
+  printf "${C_KO}✗ le test échoue${C_FIN}\n"; KO=$((KO+1))
+  ALERTES+=("C4 : scripts/gardes/test-chargement.mjs échoue")
+fi
+
 bilan

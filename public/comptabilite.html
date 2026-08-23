@@ -5059,7 +5059,11 @@ function itemsExigibles(s, periode) {
     }
     if (typeof applyReductions === 'function') applyReductions(filteredEx, s.reductions);
     return filteredEx;
-  } catch(e) { return []; }
+  } catch(e) {
+    // Une liste vide se lit « rien à payer ». Ce n'est pas ce qu'on sait.
+    console.error("Calcul des lignes d'échéance impossible :", e);
+    return null;
+  }
 }
 
 function getMontantExigible(s, periode) {
@@ -5102,7 +5106,13 @@ function getMontantTotalAnnuel(s) {
     }
     if (typeof applyReductions === 'function') applyReductions(filteredAnnuel, s.reductions);
     return Math.round(filteredAnnuel.reduce((sum, it) => sum + it.amount, 0));
-  } catch(e) { return 0; }
+  } catch(e) {
+    // `return 0` ici signifiait « cet élève ne doit rien ». Un échec de
+    // calcul n'est pas une créance éteinte. On renvoie `null` : l'affichage
+    // montrera « — » et le total ne sera pas faussé par un zéro inventé.
+    console.error('Calcul de la scolarité annuelle impossible :', e);
+    return null;
+  }
 }
 
 // Number to letters conversion (OHADA requisite)
@@ -7098,7 +7108,9 @@ async function chargerAbsences() {
       : `<div class="p-note" style="color:#dc2626;">Lecture impossible : ${error.message}</div>`;
     return;
   }
-  _absLignes = data || [];
+  // L'erreur est traitée ci-dessus, avec un message à l'écran : ce
+  // `data` ne peut donc plus masquer un échec.
+  _absLignes = Array.isArray(data) ? data : [];
   if (!_absLignes.length) { zone.innerHTML = '<div class="p-note">Aucune absence enregistrée.</div>'; return; }
 
   zone.innerHTML = `<table class="tbl"><thead><tr>
@@ -7180,9 +7192,12 @@ async function openImportInscriptions() {
 
   if (error) { etat.innerHTML = `<span style="color:var(--red)">Lecture impossible : ${error.message}</span>`; return; }
 
+  // L'erreur est traitée ci-dessus : ces deux `|| []` ne peuvent plus
+  // masquer un échec, ils ne couvrent qu'un `data` nul sur succès.
+  const inscriptions = Array.isArray(data) ? data : [];
   const dejaImportes = new Set(studentsData.map(s => s.matricule).filter(Boolean));
-  _inscriptionsCandidates = (data || []).filter(i => !dejaImportes.has(i.matricule));
-  const ignores = (data || []).length - _inscriptionsCandidates.length;
+  _inscriptionsCandidates = inscriptions.filter(i => !dejaImportes.has(i.matricule));
+  const ignores = inscriptions.length - _inscriptionsCandidates.length;
 
   if (_inscriptionsCandidates.length === 0) {
     etat.innerHTML = `<span style="color:var(--green)">✅ Toutes les inscriptions sont déjà dans la base comptable (${ignores} élève(s) déjà présent(s)).</span>`;
