@@ -26,6 +26,11 @@ export default function ConseillerApp({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard')
   const [selectedTrimester, setSelectedTrimester] = useState('T3')
   const [retardStats, setRetardStats] = useState([])
+  // Combien d'enregistrements de présence existent sur la période, tous
+  // statuts confondus. Zéro retard sur un registre tenu et zéro retard sur un
+  // registre jamais ouvert s'affichaient à l'identique : le second n'est pas
+  // une bonne nouvelle, c'est une absence de mesure.
+  const [couverture, setCouverture] = useState(null)  // null = pas encore su
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
   const [disciplines, setDisciplines] = useState([])
@@ -55,10 +60,12 @@ export default function ConseillerApp({ user, onLogout }) {
     setLoading(true)
     const period = TRIMESTRES[selectedTrimester]
     
+    // Tous les statuts, pas seulement les retards : c'est le seul moyen de
+    // savoir si le registre a été tenu. Une requête, deux réponses — sur le
+    // réseau d'ici, un aller-retour économisé compte.
     const { data, error } = await supabase
       .from('presences_eleves')
-      .select('eleve_id, minutes_retard, eleves(prenom, nom, classe_id)')
-      .eq('statut', 'retard')
+      .select('eleve_id, statut, minutes_retard, eleves(prenom, nom, classe_id)')
       .gte('date_jour', period.start)
       .lte('date_jour', period.end)
 
@@ -68,13 +75,16 @@ export default function ConseillerApp({ user, onLogout }) {
     if (error) {
       setErreur(messageLisible(error))
       setRetardStats([])
+      setCouverture(null)   // on ne sait pas : surtout ne pas dire « registre vide »
       setLoading(false)
       return
     }
     setErreur('')
     {
       // Filtrer par classe (car le join via select ne filtre pas la racine)
-      const classRetards = (Array.isArray(data) ? data : []).filter(r => r.eleves?.classe_id === selectedClass)
+      const classPresences = (Array.isArray(data) ? data : []).filter(r => r.eleves?.classe_id === selectedClass)
+      const classRetards = classPresences.filter(r => r.statut === 'retard')
+      setCouverture(classPresences.length)
       
       // Aggréger par élève
       const stats = {}
@@ -520,6 +530,24 @@ export default function ConseillerApp({ user, onLogout }) {
               <p style={{margin:0, fontSize:15}}>Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong></p>
             </div>
 
+            {/* Un registre non tenu ne se lit pas comme un registre exemplaire.
+                V2.1 §7 : le registre de présence est la source officielle ; tant
+                qu'il n'est pas alimenté, aucun chiffre d'assiduité ne signifie
+                quoi que ce soit. Le dire ici vaut mieux que d'aligner des
+                pastilles vertes sur une mesure qui n'a pas eu lieu. */}
+            {couverture === 0 && (
+              <div style={{
+                background:'#fffbeb', border:'1px solid #fde68a', borderRadius:14,
+                padding:'14px 16px', marginBottom:14, fontSize:13, color:'#92400e',
+              }} role="status">
+                <strong>Registre non tenu sur cette période.</strong> Aucune présence n'a
+                été enregistrée pour cette classe entre le {TRIMESTRES[selectedTrimester].start.split('-').reverse().join('/')} et
+                le {TRIMESTRES[selectedTrimester].end.split('-').reverse().join('/')}. Les
+                totaux ci-dessous valent zéro faute de saisie, non faute de retard :
+                ils ne peuvent pas servir de bilan d'assiduité.
+              </div>
+            )}
+
             <div className="card" style={{padding:0, overflow:'hidden', borderRadius:16, border:'1px solid var(--border)'}}>
               <table className="table">
                 <thead>
@@ -531,20 +559,29 @@ export default function ConseillerApp({ user, onLogout }) {
                 </thead>
                 <tbody>
                   {retardStats.length === 0 ? (
-                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>Aucun retard enregistré. ✅</td></tr>
+                    <tr><td colSpan="3" style={{textAlign:'center', padding:40, color:'var(--muted)'}}>
+                      {couverture === 0
+                        ? "Registre non tenu : aucune présence enregistrée sur la période."
+                        : 'Aucun retard enregistré. ✅'}
+                    </td></tr>
                   ) : (
                     retardStats.map((s, idx) => {
                       let bClass = 'badge-green'
                       if (s.total > 120) bClass = 'badge-red'
                       else if (s.total > 60) bClass = 'badge-orange'
                       else if (s.total > 0) bClass = 'badge-amber'
-                      
+
                       return (
                         <tr key={idx}>
                           <td style={{fontWeight:700, color:'var(--muted)'}}>{idx + 1}</td>
                           <td style={{fontWeight:700}}>{s.name}</td>
                           <td style={{textAlign:'right'}}>
-                            <span className={`badge ${bClass}`}>{s.total} min</span>
+                            {/* Sans registre, pas de pastille verte : la couleur
+                                dirait « vérifié, rien à signaler » là où rien
+                                n'a été vérifié. */}
+                            {couverture === 0
+                              ? <span style={{fontSize:12, color:'var(--muted)', fontStyle:'italic'}}>non renseigné</span>
+                              : <span className={`badge ${bClass}`}>{s.total} min</span>}
                           </td>
                         </tr>
                       )
