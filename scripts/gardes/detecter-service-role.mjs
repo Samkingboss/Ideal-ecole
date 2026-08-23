@@ -10,12 +10,18 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const JWT = /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/g
+// Les clés secrètes du nouveau format ne sont pas des JWT : le décodage ne
+// les verrait pas. Elles se reconnaissent à leur préfixe.
+const SECRETE = /\bsb_secret_[A-Za-z0-9_-]{10,}/g
 const fichiers = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean)
 const fuites = []
 
 for (const f of fichiers) {
   let contenu
   try { contenu = readFileSync(f, 'utf8') } catch { continue }
+  for (const cle of contenu.match(SECRETE) || []) {
+    fuites.push(`${f} → clé secrète sb_secret_…`)
+  }
   for (const jeton of contenu.match(JWT) || []) {
     try {
       const charge = JSON.parse(Buffer.from(jeton.split('.')[1], 'base64url').toString('utf8'))

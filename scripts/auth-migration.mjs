@@ -47,12 +47,15 @@ if (!existsSync('.env.local')) {
 
   Crée-le à la racine du dépôt avec ces deux lignes :
 
-    SUPABASE_SERVICE_ROLE_KEY=<la clé service_role>
-    SUPABASE_ANON_KEY=<la clé anon>
+    SUPABASE_SECRET_KEY=sb_secret_...
+    SUPABASE_ANON_KEY=<la clé publique>
 
-  La clé service_role se trouve dans Supabase → Project Settings → API
-  → « service_role ». Elle contourne toute RLS : elle ne doit jamais
-  quitter cette machine.
+  La clé secrète se trouve dans Supabase → Project Settings → API Keys.
+  Si le projet n'expose encore que l'ancienne clé JWT, la variable
+  SUPABASE_SERVICE_ROLE_KEY est acceptée en repli.
+
+  L'une comme l'autre contourne toute RLS : elle ne doit jamais quitter
+  cette machine.
 `)
   process.exit(2)
 }
@@ -72,13 +75,26 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] })
 )
 
-const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_ROLE_KEY
-const ANON = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
+// Supabase recommande désormais une clé secrète `sb_secret_...` pour les
+// opérations serveur. L'ancienne clé JWT `service_role` reste acceptée en
+// repli, pour les projets qui ne l'exposent pas encore.
+const SECRETE = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY
+const LEGACY  = !env.SUPABASE_SECRET_KEY && !!env.SUPABASE_SERVICE_ROLE_KEY
+const ANON    = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
 
-if (!SERVICE) { console.error(`${R}✗ SUPABASE_SERVICE_ROLE_KEY absente de .env.local${N}`); process.exit(2) }
-if (!ANON)    { console.error(`${R}✗ SUPABASE_ANON_KEY absente de .env.local${N}`); process.exit(2) }
+if (!SECRETE) {
+  console.error(`${R}✗ Aucune clé d'administration dans .env.local.${N}
+  Attendu : SUPABASE_SECRET_KEY=sb_secret_...
+  Ou, en repli : SUPABASE_SERVICE_ROLE_KEY=<ancienne clé JWT>`)
+  process.exit(2)
+}
+if (!ANON) { console.error(`${R}✗ SUPABASE_ANON_KEY absente de .env.local${N}`); process.exit(2) }
 
-const admin = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } })
+// La clé n'est jamais affichée. On en dit seulement la nature, pour que
+// l'opérateur sache laquelle il utilise.
+console.log(`${G}  clé d'administration : ${LEGACY ? 'JWT service_role (repli historique)' : 'sb_secret (recommandée)'}${N}`)
+
+const admin = createClient(URL, SECRETE, { auth: { persistSession: false, autoRefreshToken: false } })
 
 // ── Génération des codes ───────────────────────────────────────────────
 //
