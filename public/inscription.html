@@ -1295,9 +1295,8 @@
                 .ilike('prenom', prenom);
             if (error) return true;
 
-            const inscrits = Array.isArray(data) ? data : [];
-            const memeClasse = inscrits.filter(i => i.classe_demandee === classe);
-            const autresClasses = inscrits.filter(i => i.classe_demandee !== classe);
+            const memeClasse = (data || []).filter(i => i.classe_demandee === classe);
+            const autresClasses = (data || []).filter(i => i.classe_demandee !== classe);
 
             if (memeClasse.length > 0) {
                 const d = memeClasse[0];

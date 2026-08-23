@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, identifiantVersEmail } from '../lib/supabase'
 
 // Événement d'installation PWA capté au plus tôt (avant le montage React)
 let _installEvt = null
@@ -26,6 +26,14 @@ const estPanneReseau = e => {
 
 export default function LoginPage({ onLogin }) {
   const [code, setCode] = useState('')
+  // L'identifiant n'est pas un secret : on peut le retenir sur un appareil
+  // de confiance. Le code, jamais.
+  const [identifiant, setIdentifiant] = useState(() => {
+    try { return localStorage.getItem('ideal_identifiant') || '' } catch { return '' }
+  })
+  const [seSouvenir, setSeSouvenir] = useState(() => {
+    try { return !!localStorage.getItem('ideal_identifiant') } catch { return false }
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [canInstall, setCanInstall] = useState(!!_installEvt)
@@ -51,29 +59,60 @@ export default function LoginPage({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const propre = normaliserCode(code)
-    if (!propre) { setError('Saisissez votre code d\'accès.'); return }
+    const ident = String(identifiant || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (!ident)   { setError('Saisissez votre identifiant.'); return }
+    if (!propre)  { setError('Saisissez votre code d\'accès.'); return }
     setLoading(true)
     setError('')
-    try {
-      // Le code d'accès ne vit plus dans `users` : il a été déplacé dans
-      // `users_secrets`, table à laquelle la clé anonyme n'a aucun droit.
-      // La comparaison se fait donc côté serveur, dans une fonction
-      // SECURITY DEFINER qui ne renvoie jamais de champ secret.
-      //
-      // Le contrat de retour est volontairement identique à celui de
-      // l'ancien `.maybeSingle()` : la ligne du compte, ou `null`. Rien
-      // d'autre dans ce fichier n'a eu à changer.
-      const { data, error } = await supabase
-        .rpc('authentifier_par_code', { p_code: propre })
 
-      // Ne pas confondre « mauvais code » et « serveur injoignable » : sur une
-      // connexion coupée, annoncer un code incorrect envoie chercher un
-      // problème là où il n'y en a pas.
+    // L'identifiant se retient, le code jamais.
+    try {
+      if (seSouvenir) localStorage.setItem('ideal_identifiant', ident)
+      else localStorage.removeItem('ideal_identifiant')
+    } catch { /* stockage indisponible : sans conséquence */ }
+    try {
+      // ── Supabase Auth fait autorité ────────────────────────────────
       //
-      // C'est aussi pourquoi la fonction SQL renvoie `null` sur code inconnu
-      // au lieu de lever une exception : une exception arriverait ici comme
-      // une `error` et ferait afficher « serveur injoignable » à quelqu'un
-      // qui s'est simplement trompé de code.
+      // L'adresse est déterministe : « bnabo » devient
+      // « bnabo@comptes.ideal-ecole.ml ». Aucune requête préalable, donc
+      // aucune dépendance réseau supplémentaire avant même de tenter la
+      // connexion — ce qui compte quand le réseau est mauvais.
+      const { data: sess, error: errAuth } = await supabase.auth.signInWithPassword({
+        email: identifiantVersEmail(ident),
+        password: propre,
+      })
+
+      if (!errAuth && sess?.user) {
+        // Le profil IDEAL est lu par `auth.uid()`, côté serveur. Le rôle
+        // ne vient plus du client : c'est toute la différence entre une
+        // permission et une convention d'affichage.
+        const { data: profil, error: errProfil } = await supabase.rpc('ideal_profil')
+        if (errProfil || !profil) {
+          setError("Votre compte existe mais aucun profil IDEAL n'y est rattaché. Signalez-le à la direction.")
+          await supabase.auth.signOut()
+          setLoading(false)
+          return
+        }
+        onLogin(Array.isArray(profil) ? profil[0] : profil)
+        return
+      }
+
+      // ── Repli de transition ────────────────────────────────────────
+      //
+      // Tant que la migration n'est pas achevée, un compte dont l'identité
+      // Auth n'existe pas encore doit pouvoir entrer. Ce repli disparaît à
+      // l'étape 4, avec `users_secrets`.
+      //
+      // Une panne réseau ne doit pas emprunter ce chemin : elle se traite
+      // comme une panne, pas comme un identifiant inconnu.
+      if (estPanneReseau(errAuth)) {
+        setError('Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase.rpc('authentifier_par_code', { p_code: propre })
+
       if (error) {
         setError(estPanneReseau(error)
           ? 'Impossible de joindre le serveur. Vérifiez la connexion internet, puis réessayez.'
@@ -82,7 +121,7 @@ export default function LoginPage({ onLogin }) {
         return
       }
       if (!data) {
-        setError('Code incorrect ou compte inactif.')
+        setError('Identifiant ou code incorrect, ou compte inactif.')
         setLoading(false)
         return
       }
@@ -107,6 +146,24 @@ export default function LoginPage({ onLogin }) {
         {error && <div className="error-msg" role="alert">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
+            <label className="form-label" htmlFor="identifiant">Identifiant</label>
+            <input
+              id="identifiant"
+              className="form-input"
+              value={identifiant}
+              onChange={e => setIdentifiant(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+              placeholder="ex. bnabo"
+              maxLength={20}
+              required
+              aria-label="Identifiant de connexion"
+              autoComplete="username"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              inputMode="text"
+            />
+          </div>
+          <div className="form-group">
             <label className="form-label" htmlFor="access-code">Code d'accès</label>
             {/* Correction et majuscules automatiques désactivées : sur
                 tablette elles transforment le code sans que rien ne le
@@ -127,6 +184,14 @@ export default function LoginPage({ onLogin }) {
               inputMode="text"
             />
           </div>
+          {/* L'identifiant n'est pas un secret : le retenir évite une
+              saisie quotidienne. Le code, lui, n'est jamais conservé. */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13,
+                          color: 'var(--muted)', margin: '2px 0 14px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={seSouvenir}
+                   onChange={e => setSeSouvenir(e.target.checked)} />
+            Retenir mon identifiant sur cet appareil
+          </label>
           <button className="btn btn-primary" type="submit" disabled={loading}>
             {loading ? 'Vérification...' : 'Se connecter'}
           </button>
