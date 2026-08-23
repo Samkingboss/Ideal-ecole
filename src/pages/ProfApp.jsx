@@ -15,6 +15,7 @@ import SommaireBoscherDocument from './SommaireBoscherDocument'
 import AccordionCard from '../components/ui/AccordionCard'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { messageLisible } from '../lib/chargement'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const RECREE_CHECKS = [
@@ -73,6 +74,8 @@ export default function ProfApp({ user, onLogout }) {
   const [msgPreview, setMsgPreview] = useState(false)
   const [msgDetails, setMsgDetails] = useState(MESSAGE_PARENT_INITIAL)
   const [schoolNum] = useState('22390190007')
+  // « Transmis à l'école » est le seul statut qu'IDEAL puisse affirmer.
+  const [msgTransmis, setMsgTransmis] = useState(false)
   const [selectedMatiere, setSelectedMatiere] = useState(null)
   const [myPerfs, setMyPerfs] = useState([])
   const [evenements, setEvenements] = useState([])
@@ -98,7 +101,14 @@ export default function ProfApp({ user, onLogout }) {
   const [showDevoirsModal, setShowDevoirsModal] = useState(false)
 
   // Discipline states
-  const [allEleves, setAllEleves] = useState([])
+  // `allEleves` chargeait les élèves de TOUTE l'école et n'était jamais lu :
+  // une requête inutile et une exposition sans usage. Retiré.
+  //
+  // LOADING ≠ EMPTY ≠ ERROR : sans ces trois états, un refus RLS sur `eleves`
+  // se lirait « aucun élève affecté ».
+  const [elevesEtat, setElevesEtat] = useState('chargement')
+  const [elevesErreur, setElevesErreur] = useState('')
+  const [msgRecherche, setMsgRecherche] = useState('')
   const [searchDisc, setSearchDisc] = useState('')
   const [foundDiscEleves, setFoundDiscEleves] = useState([])
   const [selectedDiscEleve, setSelectedDiscEleve] = useState(null)
@@ -187,9 +197,6 @@ export default function ProfApp({ user, onLogout }) {
         supabase.from('parametres_mois').select('*').eq('mois', currentMoisStr).maybeSingle()
       ])
       setJoursOuvresForce(paramMois?.jours_ouvres || null)
-      const { data: allEl } = await supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom')
-      setAllEleves(allEl || [])
-      
       const myClasses = (profClasses || []).map(pc => pc.classes).filter(Boolean)
       setClasses(myClasses)
       setAllClasses(cl || [])
@@ -200,9 +207,47 @@ export default function ProfApp({ user, onLogout }) {
       if (myClasses.length > 0) setSelectedClasse(myClasses[0])
       if (per && per.length > 0) setSelectedPeriode(per[0])
 
+      // ── Les élèves des classes affectées, tous en une fois ────────────
+      //
+      // Ce chargement ne portait que sur `myClasses[0]`, et n'était jamais
+      // rejoué au changement de classe. Le filtre `classe_id === selectedClasse.id`
+      // ne trouvait alors plus rien : le menu « Choisir l'élève » était vide
+      // pour toute classe autre que la première. Tous les enseignants ont
+      // entre deux et quatre classes — ils étaient donc tous concernés.
+      //
+      // Une seule requête pour l'ensemble des classes autorisées : c'est
+      // correct au changement de classe, et c'est une requête au lieu de N
+      // sur un réseau instable.
+      //
+      // Le responsable est résolu par la même requête, via le dossier
+      // d'inscription : eleves.inscription_id → inscriptions → responsables.
+      // Deux clés étrangères relient ces tables, d'où l'indication explicite
+      // de celle qu'on emprunte.
       if (myClasses.length > 0) {
-        const { data: el } = await supabase.from('eleves').select('*').eq('classe_id', myClasses[0].id).order('nom')
-        setEleves(el || [])
+        const { data: el, error: eEleves } = await supabase
+          .from('eleves')
+          .select(`*, classes(nom),
+                   dossier:inscriptions!eleves_inscription_id_fkey(
+                     matricule,
+                     r1:responsables!responsable1_id(prenom, nom, tel1, whatsapp, lien_parente),
+                     r2:responsables!responsable2_id(prenom, nom, tel1, whatsapp, lien_parente))`)
+          .in('classe_id', myClasses.map(c => c.id))
+          .eq('actif', true)
+          .order('nom')
+
+        if (eEleves) {
+          setElevesEtat('erreur')
+          setElevesErreur(messageLisible(eEleves))
+          setEleves([])
+        } else {
+          const liste = Array.isArray(el) ? el : []
+          setEleves(liste)
+          setElevesEtat(liste.length ? 'ok' : 'vide')
+        }
+      } else {
+        // Aucune classe affectée : ce n'est ni une panne ni un chargement.
+        setEleves([])
+        setElevesEtat('sans_classe')
       }
 
       // `planifications` n'a pas de colonne `prof_id` : l'auteur est `created_by`.
@@ -336,6 +381,16 @@ export default function ProfApp({ user, onLogout }) {
     return eleves.filter(e => e.classe_id === selectedClasse.id)
   }
 
+  // Les élèves proposés à la messagerie : ceux de la classe choisie, filtrés
+  // par la recherche. Jamais toute l'école — l'enseignant ne voit que les
+  // classes qui lui sont affectées, et `eleves` ne contient qu'elles.
+  const elevesMessagerie = () => {
+    const base = getClasseEleves()
+    const q = msgRecherche.trim().toLowerCase()
+    if (!q) return base
+    return base.filter(e => `${e.prenom} ${e.nom}`.toLowerCase().includes(q))
+  }
+
   const getCurrentPlan = () => {
     if (!selectedClasse || !selectedPeriode) return null
     return planifications.find(p => p.classe_id === selectedClasse.id && p.periode_id === selectedPeriode.id)
@@ -392,10 +447,36 @@ export default function ProfApp({ user, onLogout }) {
     return corps + signature
   }
 
+  // Les responsables d'un élève, tels que le dossier d'inscription les
+  // enregistre. Aucune ressaisie, aucune source parallèle : c'est la règle
+  // d'or du V2.1 — une information, une source, plusieurs usages.
+  const responsablesDe = (eleve) => {
+    const d = eleve?.dossier
+    if (!d) return []
+    return [d.r1, d.r2].filter(Boolean).map(r => ({
+      ...r,
+      telephone: r.whatsapp || r.tel1 || null,
+    }))
+  }
+
+  // Le message part vers le WhatsApp officiel de l'école, pas vers le
+  // parent : le V2.1 §8 interdit aux enseignants d'utiliser leur numéro
+  // personnel, et l'école reste l'émetteur officiel.
+  //
+  // IDEAL ne peut donc pas confirmer qu'un parent a reçu quoi que ce soit.
+  // Le statut le dit : préparé, puis transmis à l'école, et rien de plus.
   const sendWhatsApp = (eleve) => {
     if (!eleve) return
     const msg = msgBody || buildParentMessage(eleve)
-    window.open(`https://wa.me/${schoolNum}?text=${encodeURIComponent(msg)}`, '_blank')
+    const resp = responsablesDe(eleve)
+    const entete = resp.length
+      ? `[${eleve.prenom} ${eleve.nom} — ${eleve.classes?.nom || ''}]\n`
+        + `À transmettre à : ${resp.map(r => `${r.prenom} ${r.nom} (${r.lien_parente || 'responsable'})`
+            + (r.telephone ? ` — ${r.telephone}` : ' — numéro absent du dossier')).join(' · ')}\n\n`
+      : `[${eleve.prenom} ${eleve.nom} — ${eleve.classes?.nom || ''}]\n`
+        + `⚠️ Aucun responsable enregistré au dossier : destinataire à identifier par l'école.\n\n`
+    window.open(`https://wa.me/${schoolNum}?text=${encodeURIComponent(entete + msg)}`, '_blank')
+    setMsgTransmis(true)
   }
 
   const classEleves = getClasseEleves()
@@ -791,13 +872,108 @@ export default function ProfApp({ user, onLogout }) {
             <div style={{background:'var(--dark)', color:'#fff', borderRadius:14, padding:14, marginBottom:14, display:'flex', gap:10, alignItems:'center'}}>
               <span style={{fontSize:24}}>💬</span><div><b>Via le WhatsApp officiel de l’école</b><div style={{fontSize:11, opacity:.7}}>Le message arrive au +223 90 19 00 07, puis l’école le transmet aux parents.</div></div>
             </div>
-            <div className="card" style={{padding:14, marginBottom:12}}>
-              <div className="form-label">1. Choisir l’élève</div>
-              <select className="form-select" value={msgEleve?.id || ''} onChange={e => { setMsgEleve(classEleves.find(el => el.id === e.target.value)); setMsgBody('') }}>
-                <option value="">-- Sélectionnez un élève --</option>
-                {classEleves.map(el => <option key={el.id} value={el.id}>{el.prenom} {el.nom}</option>)}
-              </select>
-            </div>
+            {/* ── Quatre états, jamais confondus ─────────────────────────
+                Un refus RLS ou une coupure réseau se lisait « aucun élève ».
+                L'enseignant en concluait qu'il n'a pas de classe. */}
+            {elevesEtat === 'chargement' && (
+              <div className="card" style={{padding:14, marginBottom:12, color:'var(--muted)', fontSize:13}}>
+                Chargement de vos élèves…
+              </div>
+            )}
+
+            {elevesEtat === 'erreur' && (
+              <div className="card" style={{padding:14, marginBottom:12, background:'#fef2f2',
+                                            border:'1px solid #fca5a5', borderLeft:'5px solid #dc2626'}}>
+                <div style={{fontWeight:900, color:'#991b1b', fontSize:13.5}}>⛔ Vos élèves n'ont pas pu être chargés</div>
+                <div style={{fontSize:12.5, color:'#7f1d1d', marginTop:4}}>{elevesErreur}</div>
+                <div style={{fontSize:12, color:'#7f1d1d', marginTop:5}}>
+                  Cette liste est vide parce que la lecture a échoué, pas parce que vous n'avez pas d'élèves.
+                </div>
+                <button className="btn-sm" style={{marginTop:9}} onClick={loadData}>Réessayer</button>
+              </div>
+            )}
+
+            {elevesEtat === 'sans_classe' && (
+              <div className="card" style={{padding:14, marginBottom:12, background:'#fffbeb',
+                                            border:'1px solid #fcd34d'}}>
+                <div style={{fontWeight:800, color:'#92400e', fontSize:13}}>Aucune classe ne vous est affectée</div>
+                <div style={{fontSize:12, color:'#92400e', marginTop:4}}>
+                  Les affectations sont définies par la direction. Signalez-le si cela vous semble erroné.
+                </div>
+              </div>
+            )}
+
+            {(elevesEtat === 'ok' || elevesEtat === 'vide') && (
+              <div className="card" style={{padding:14, marginBottom:12}}>
+                {/* Une seule classe : on n'impose pas une étape pour rien. */}
+                {classes.length > 1 && (
+                  <>
+                    <div className="form-label">1. Choisir la classe</div>
+                    <select className="form-select" style={{marginBottom:12}}
+                            value={selectedClasse?.id || ''}
+                            onChange={e => { setSelectedClasse(classes.find(c => c.id === e.target.value)); setMsgEleve(null); setMsgBody(''); setMsgRecherche(''); setMsgTransmis(false) }}>
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                    </select>
+                  </>
+                )}
+
+                <div className="form-label">{classes.length > 1 ? '2.' : '1.'} Choisir l’élève</div>
+
+                {getClasseEleves().length > 8 && (
+                  <input className="form-input" style={{marginBottom:8}} value={msgRecherche}
+                         onChange={e => setMsgRecherche(e.target.value)}
+                         placeholder="🔍 Rechercher un élève…" />
+                )}
+
+                {elevesMessagerie().length === 0 ? (
+                  <div style={{fontSize:12.5, color:'var(--muted)', padding:'8px 0'}}>
+                    {msgRecherche
+                      ? `Aucun élève ne correspond à « ${msgRecherche} ».`
+                      : `Aucun élève inscrit dans ${selectedClasse?.nom || 'cette classe'}.`}
+                  </div>
+                ) : (
+                  <select className="form-select" value={msgEleve?.id || ''}
+                          onChange={e => { setMsgEleve(elevesMessagerie().find(el => el.id === e.target.value)); setMsgBody(''); setMsgTransmis(false) }}>
+                    <option value="">-- Sélectionnez un élève --</option>
+                    {elevesMessagerie().map(el => <option key={el.id} value={el.id}>{el.prenom} {el.nom}</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* ── Le contexte de l'élève choisi ────────────────────────── */}
+            {msgEleve && (
+              <div className="card" style={{padding:14, marginBottom:12, background:'var(--bg)'}}>
+                <div style={{fontSize:14, fontWeight:900, color:'var(--dark)'}}>
+                  {msgEleve.prenom} {(msgEleve.nom || '').toUpperCase()}
+                </div>
+                <div style={{fontSize:11.5, color:'var(--muted)', marginTop:2}}>
+                  Classe : {msgEleve.classes?.nom || selectedClasse?.nom || '—'}
+                  {msgEleve.dossier?.matricule ? ` · ${msgEleve.dossier.matricule}` : ''}
+                </div>
+                <div style={{marginTop:9, paddingTop:9, borderTop:'1px solid var(--border)'}}>
+                  <div className="form-label" style={{marginBottom:4}}>Responsable(s) au dossier</div>
+                  {responsablesDe(msgEleve).length === 0 ? (
+                    <div style={{fontSize:12, color:'#b45309', background:'#fffbeb',
+                                 border:'1px solid #fcd34d', borderRadius:6, padding:'7px 10px'}}>
+                      ⚠️ Aucun responsable rattaché à cet élève. Son dossier d'inscription n'est pas lié
+                      — l'école devra identifier le destinataire.
+                    </div>
+                  ) : responsablesDe(msgEleve).map((r, i) => (
+                    <div key={i} style={{fontSize:12.5, marginBottom:3}}>
+                      <b>{r.prenom} {r.nom}</b>
+                      <span style={{color:'var(--muted)'}}> · {r.lien_parente || 'responsable'}</span>
+                      {r.telephone
+                        ? <span style={{color:'var(--muted)'}}> · {r.telephone}</span>
+                        : <span style={{color:'#b45309'}}> · numéro absent du dossier</span>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{fontSize:11, color:'var(--muted)', marginTop:8}}>
+                  Canal : WhatsApp officiel de l’école
+                </div>
+              </div>
+            )}
             {msgEleve && (
               <>
                 <div className="card" style={{padding:14, marginBottom:12}}>
@@ -833,8 +1009,30 @@ export default function ProfApp({ user, onLogout }) {
                 <div className="card" style={{padding:14}}>
                   <div className="form-label">4. Aperçu et envoi</div>
                   <textarea className="form-input" rows={10} value={msgBody || buildParentMessage(msgEleve)} onChange={e=>setMsgBody(e.target.value)} style={{lineHeight:1.5, resize:'vertical'}}/>
-                  <button className="btn btn-primary" style={{width:'100%', marginTop:10, background:'#25D366'}} onClick={() => sendWhatsApp(msgEleve)}>📲 Envoyer via WhatsApp</button>
-                  <div style={{fontSize:10, color:'var(--muted)', textAlign:'center', marginTop:6}}>WhatsApp s’ouvrira sur le numéro officiel de l’école.</div>
+                  {/* « Envoyer » laissait croire que le parent recevait le
+                      message. IDEAL ne peut pas le savoir : le message part
+                      vers le WhatsApp de l'école, qui le transmet ensuite.
+                      Trois états, dont un seul est vérifiable par IDEAL. */}
+                  <button className="btn btn-primary" style={{width:'100%', marginTop:10, background:'#25D366'}}
+                          onClick={() => sendWhatsApp(msgEleve)}>
+                    📲 Transmettre au WhatsApp de l’école
+                  </button>
+
+                  {msgTransmis ? (
+                    <div style={{marginTop:10, padding:'9px 12px', borderRadius:8,
+                                 background:'#ecfdf5', border:'1px solid #6ee7b7', fontSize:12}}>
+                      <b style={{color:'#065f46'}}>✓ Transmis à l’école</b>
+                      <div style={{color:'#047857', marginTop:3}}>
+                        WhatsApp a été ouvert avec le message préparé. IDEAL ne peut pas confirmer
+                        que le parent l’a reçu : l’école reste l’émetteur officiel.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{fontSize:10.5, color:'var(--muted)', textAlign:'center', marginTop:6}}>
+                      Préparé — pas encore transmis. Le message partira vers le numéro officiel de
+                      l’école, jamais depuis votre numéro personnel.
+                    </div>
+                  )}
                 </div>
               </>
             )}
