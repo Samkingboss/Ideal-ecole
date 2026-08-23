@@ -11,8 +11,8 @@
 -- en a une. Un compteur qui exagère est aussi mauvais qu'un compteur qui
 -- minimise : il apprend à ne plus le croire.
 --
--- `distinct on (eleve, jour, plat, allergene)` : une ligne par conflit
--- réel, avec le premier motif trouvé à titre d'explication.
+-- Un `group by` sur (élève, jour, plat, allergène) : une ligne par conflit
+-- réel, avec un motif retenu à titre d'explication.
 --
 -- NON DESTRUCTIF : remplace une fonction, ne touche à aucune donnée.
 
@@ -43,30 +43,29 @@ begin
 
   return query
   -- ── conflits avérés, dédoublonnés ────────────────────────────────────
-  select distinct on (x.eleve_id, x.jour, x.plat, x.allergene)
-         x.niveau, x.eleve_id, x.nom, x.prenom, x.classe, x.jour, x.plat,
-         x.allergene, x.motif
-    from (
-      select 'conflit'::text as niveau,
-             e.id as eleve_id, e.nom, e.prenom, coalesce(c.nom,'—') as classe,
-             d.jour, d.plat, a.libelle as allergene, m.motif
-        from public.eleves e
-        left join public.classes c on c.id = e.classe_id
-        cross join lateral (
-          select p ->> 'jour' as jour, p ->> 'plat' as plat,
-                 lower(public.unaccent_simple(coalesce(p ->> 'texte', p ->> 'plat', ''))) as texte
-            from jsonb_array_elements(p_plats) p
-        ) d
-        join public.allergenes a
-          on a.actif
-         and (e.allergies_connues ? a.code or e.restrictions_alimentaires ? a.code)
-        cross join lateral unnest(a.motifs) as m(motif)
-       where e.actif
-         and e.cantine is not false
-         and e.fiche_alim_statut <> 'non_validee'
-         and d.texte like '%' || lower(public.unaccent_simple(m.motif)) || '%'
-    ) x
-   order by x.eleve_id, x.jour, x.plat, x.allergene, length(x.motif) desc
+  --
+  -- `group by` plutôt que `distinct on` : ce dernier impose un `order by`,
+  -- lequel se rattache à l'UNION entière et non à sa première branche —
+  -- d'où un 42601. `min(motif)` retient un motif à titre d'explication.
+  select 'conflit'::text,
+         e.id, e.nom, e.prenom, coalesce(c.nom,'—'),
+         d.jour, d.plat, a.libelle, min(m.motif)
+    from public.eleves e
+    left join public.classes c on c.id = e.classe_id
+    cross join lateral (
+      select p ->> 'jour' as jour, p ->> 'plat' as plat,
+             lower(public.unaccent_simple(coalesce(p ->> 'texte', p ->> 'plat', ''))) as texte
+        from jsonb_array_elements(p_plats) p
+    ) d
+    join public.allergenes a
+      on a.actif
+     and (e.allergies_connues ? a.code or e.restrictions_alimentaires ? a.code)
+    cross join lateral unnest(a.motifs) as m(motif)
+   where e.actif
+     and e.cantine is not false
+     and e.fiche_alim_statut <> 'non_validee'
+     and d.texte like '%' || lower(public.unaccent_simple(m.motif)) || '%'
+   group by e.id, e.nom, e.prenom, c.nom, d.jour, d.plat, a.libelle
 
   union all
   -- ── fiches non validées : on ne peut rien affirmer ───────────────────
