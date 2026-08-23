@@ -22,6 +22,20 @@ garde() {
   fi
 }
 
+# Un cliquet s'abaisse quand la dette baisse — mais supprimer du code fait
+# aussi baisser tous les compteurs. Quand `public/rapports.html` s'est
+# retrouvé vide, ses deux appels wa.me ont disparu et le plafond s'est
+# abaissé sur une régression prise pour un progrès. Un plafond faussé ainsi
+# rend ensuite le retour à la normale impossible sans intervention.
+#
+# On refuse donc d'abaisser un plafond tant que l'arbre de travail contient
+# un fichier suivi supprimé.
+etat_sain() {
+  local supprimes
+  supprimes=$(cd "$RACINE" && git diff --name-only --diff-filter=D 2>/dev/null | wc -l | tr -d ' ')
+  [ "${supprimes:-0}" -eq 0 ]
+}
+
 # Cliquet décroissant : la dette ne remonte jamais, et le plafond baisse seul.
 # C'est ce qui permet d'avancer sans exiger zéro, tout en interdisant le recul.
 cliquet() {
@@ -32,7 +46,7 @@ try: print(json.load(open('$ETAT'))['plafonds'].get('$cle','999999'))
 except Exception: print('999999')")
   printf "  %-54s " "$libelle"
   if [ "${actuel:-999999}" -le "${plafond:-999999}" ] 2>/dev/null; then
-    if [ "$actuel" -lt "$plafond" ] 2>/dev/null; then
+    if [ "$actuel" -lt "$plafond" ] 2>/dev/null && etat_sain; then
       python3 - "$ETAT" "$cle" "$actuel" <<'PY'
 import json,sys
 p,cle,val=sys.argv[1],sys.argv[2],int(sys.argv[3])

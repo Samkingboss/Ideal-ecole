@@ -395,9 +395,96 @@ function afficherCodes(codes) {
   console.log()
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// SYNCHRONISER L'ÉTAT ACTIF/INACTIF AVEC SUPABASE AUTH
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Constat qui a motivé ce mode : les quatre comptes dont `ideal_role()` ne
+// retournait aucun rôle sont EXACTEMENT les quatre comptes inactifs. La
+// fonction filtre `and u.actif = true` — elle refuse donc un rôle à un
+// employé désactivé, ce qui est le comportement voulu. Il n'y avait pas de
+// defaut dans la chaine auth.uid() → profil → rôle.
+//
+// Le vrai probleme est ailleurs : un compte désactivé **obtenait quand même
+// une session**. Le refus n'arrivait qu'à la résolution du profil, côté
+// applicatif. Une désactivation doit être opposable dès l'authentification.
+//
+// `ban_duration` est le mécanisme Supabase prévu pour cela. Il ne supprime
+// rien, ne recrée rien, ne touche ni au mot de passe ni à `auth_user_id` :
+// il rend simplement l'identité inutilisable tant qu'elle est bannie, et
+// réversible d'un appel.
+const BANNISSEMENT = '876000h'   // cent ans : une désactivation sans échéance
+
+async function synchroniserActifs() {
+  const { profils, comptes } = await etat()
+  console.log(`\n${G}── ÉTAT ACTIF/INACTIF → SUPABASE AUTH ──${N}`)
+  console.log(`${G}   aucune suppression, aucune création, aucun code modifié${N}\n`)
+
+  let ok = 0, ko = 0
+
+  for (const p of profils) {
+    const compte = comptes.find(c => c.id === p.auth_user_id)
+    if (!compte) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} identité introuvable`)
+      ko++; continue
+    }
+
+    const banniActuellement = !!compte.banned_until &&
+      new Date(compte.banned_until).getTime() > Date.now()
+    const devraitEtreBanni = !p.actif
+
+    if (banniActuellement === devraitEtreBanni) {
+      console.log(`  ${G}·${N} ${p.identifiant.padEnd(14)} déjà conforme (${p.actif ? 'actif' : 'banni'})`)
+      ok++; continue
+    }
+
+    const { error } = await admin.auth.admin.updateUserById(p.auth_user_id, {
+      ban_duration: devraitEtreBanni ? BANNISSEMENT : 'none',
+    })
+    if (error) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} ${error.message}`)
+      ko++; continue
+    }
+
+    // On relit l'identité : `updateUserById` peut réussir sans que l'effet
+    // soit celui qu'on croit. La vérification vaut mieux que la promesse.
+    const { data: detail } = await admin.auth.admin.getUserById(p.auth_user_id)
+    const banni = !!detail?.user?.banned_until &&
+      new Date(detail.user.banned_until).getTime() > Date.now()
+
+    if (banni !== devraitEtreBanni) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} état non appliqué (attendu ${devraitEtreBanni ? 'banni' : 'actif'})`)
+      ko++; continue
+    }
+
+    console.log(`  ${V}✓${N} ${p.identifiant.padEnd(14)} ${devraitEtreBanni ? 'banni — désactivation opposable dès la connexion' : 'débanni'}`)
+    ok++
+  }
+
+  console.log(`\n  ${ko ? R : V}${ok} compte(s) conforme(s), ${ko} en échec${N}`)
+
+  // Tableau final : l'état d'authentification face à l'état métier.
+  const { comptes: apres } = await etat()
+  console.log(`\n${G}── ÉTAT FINAL ──${N}`)
+  console.log(`  ${'IDENT'.padEnd(14)}${'MÉTIER'.padEnd(10)}${'AUTH'.padEnd(12)}RÔLE`)
+  for (const p of profils.sort((a, b) => Number(b.actif) - Number(a.actif))) {
+    const c = apres.find(x => x.id === p.auth_user_id)
+    const banni = !!c?.banned_until && new Date(c.banned_until).getTime() > Date.now()
+    const coherent = banni === !p.actif
+    console.log(`  ${coherent ? V + '✓' : R + '✗'}${N} ${p.identifiant.padEnd(12)}` +
+                `${(p.actif ? 'actif' : 'inactif').padEnd(10)}` +
+                `${(banni ? 'banni' : 'ouvert').padEnd(12)}${p.role}`)
+  }
+  console.log()
+  return ko === 0
+}
+
 const mode = process.argv[2]
 try {
-  if (mode === '--reparer-codes') {
+  if (mode === '--synchroniser-actifs') {
+    const bon = await synchroniserActifs()
+    process.exit(bon ? 0 : 1)
+  } else if (mode === '--reparer-codes') {
     const bon = await reparerCodes()
     console.log(`${G}── vérification finale ──${N}`)
     await verifier()
