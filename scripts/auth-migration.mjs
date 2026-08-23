@@ -219,6 +219,33 @@ async function migrer() {
 
   console.log(`\n  ${ko ? R : V}${ok} identité(s) opérationnelle(s), ${ko} en échec${N}`)
 
+  // ── Les codes ne s'affichent que dans un vrai terminal ──────────────
+  //
+  // Sans ce garde-fou, un agent qui lance le script fait atterrir les treize
+  // codes dans sa sortie, donc dans une conversation et son historique.
+  // C'est arrivé deux fois lors de la rotation de la phase 0 : le mécanisme
+  // était en cause, pas la vigilance. Une sortie redirigée, capturée ou
+  // encapsulée n'est pas un terminal — le script s'en aperçoit et se tait.
+  if (codes.length && !process.stdout.isTTY) {
+    console.log(`\n${R}══════════════════════════════════════════════════════════════`)
+    console.log(`  ${codes.length} identités recréées, mais LES CODES NE SERONT PAS AFFICHÉS.`)
+    console.log(`══════════════════════════════════════════════════════════════${N}`)
+    console.log(`
+  La sortie n'est pas un terminal interactif : l'afficher ici reviendrait
+  à écrire treize secrets dans un journal.
+
+  ${J}Les comptes sont créés et vérifiés, mais personne ne connaît les codes.${N}
+
+  Relance depuis ton propre terminal pour les obtenir :
+
+      node scripts/auth-migration.mjs --migrer
+
+  Les identités seront recréées une nouvelle fois, avec de nouveaux codes,
+  et ceux-là s'afficheront.
+`)
+    return ko === 0
+  }
+
   if (codes.length) {
     console.log(`\n${J}══════════════════════════════════════════════════════════════`)
     console.log(`  LES CODES CI-DESSOUS N'APPARAÎTRONT QU'UNE FOIS`)
