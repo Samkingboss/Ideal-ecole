@@ -80,7 +80,12 @@ const env = Object.fromEntries(
 // repli, pour les projets qui ne l'exposent pas encore.
 const SECRETE = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY
 const LEGACY  = !env.SUPABASE_SECRET_KEY && !!env.SUPABASE_SERVICE_ROLE_KEY
+// La clé publique a changé de format. On prend la nouvelle en priorité, et
+// l'on se méfie d'un JWT de longueur inhabituelle : c'est exactement ce qui
+// a produit « Invalid API key » et fait conclure a tort que treize comptes
+// étaient defectueux.
 const ANON    = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
+const ANON_SUSPECT = ANON && ANON.startsWith('eyJ') && ANON.length < 215
 
 if (!SECRETE) {
   console.error(`${R}✗ Aucune clé d'administration dans .env.local.${N}
@@ -89,6 +94,13 @@ if (!SECRETE) {
   process.exit(2)
 }
 if (!ANON) { console.error(`${R}✗ SUPABASE_ANON_KEY absente de .env.local${N}`); process.exit(2) }
+if (ANON_SUSPECT) {
+  console.error(`${R}✗ SUPABASE_ANON_KEY ressemble à un JWT tronqué (${ANON.length} caractères).${N}
+  Utilise la clé publiable actuelle : SUPABASE_ANON_KEY=sb_publishable_...
+  Une clé tronquée produit « Invalid API key » et fait passer des comptes
+  parfaitement valides pour défectueux.`)
+  process.exit(2)
+}
 
 // La clé n'est jamais affichée. On en dit seulement la nature, pour que
 // l'opérateur sache laquelle il utilise.
@@ -138,13 +150,35 @@ async function verifier() {
   console.log(`  ${sansIdentite.length ? R + '✗' : V + '✓'}${N} profils sans identité        : ${sansIdentite.length}`)
   console.log(`  ${nonConfirmees.length ? R + '✗' : V + '✓'}${N} identités non confirmées     : ${nonConfirmees.length}`)
 
-  // Une identité créée par INSERT direct n'a pas de ligne `identities`
-  // exploitable sur toutes les versions. L'Admin API la remonte toujours.
-  const sansProvider = comptes.filter(c => !(c.identities || []).some(i => i.provider === 'email'))
-  console.log(`  ${sansProvider.length ? R + '✗' : V + '✓'}${N} sans fournisseur « email »   : ${sansProvider.length}`)
+  // ── Les fournisseurs d'identité, lus correctement ────────────────────
+  //
+  // `listUsers()` ne remplit PAS la relation `identities` : le tableau y est
+  // vide quelle que soit la santé du compte. Ma version précédente en
+  // concluait « sans fournisseur email » pour treize comptes parfaitement
+  // formés — un faux positif qui a motivé une suppression inutile.
+  //
+  // `getUserById()` la remplit. On interroge donc compte par compte, et l'on
+  // affiche les deux lectures pour que l'écart soit visible plutôt que
+  // interprété.
+  let vusParListe = 0, vusParDetail = 0
+  const sansProvider = []
+  for (const c of comptes) {
+    if ((c.identities || []).some(i => i.provider === 'email')) vusParListe++
+    const { data: detail } = await admin.auth.admin.getUserById(c.id)
+    const fournisseurs = (detail?.user?.identities || []).map(i => i.provider)
+    if (fournisseurs.includes('email')) vusParDetail++
+    else sansProvider.push({ email: c.email, fournisseurs })
+  }
+
+  console.log(`\n${G}── FOURNISSEURS D'IDENTITÉ ──${N}`)
+  console.log(`  vus par listUsers()   : ${vusParListe} / ${comptes.length}   ${G}(cette lecture n'est pas fiable)${N}`)
+  console.log(`  ${sansProvider.length ? R + '✗' : V + '✓'}${N} vus par getUserById() : ${vusParDetail} / ${comptes.length}   ${G}(lecture faisant foi)${N}`)
+  if (vusParListe === 0 && vusParDetail === comptes.length) {
+    console.log(`  ${G}L'écart confirme l'artefact : listUsers() ne remonte pas cette relation.${N}`)
+  }
   if (sansProvider.length) {
-    console.log(`\n  ${J}Ces identités ne sont pas exploitables par GoTrue. Elles ont été`)
-    console.log(`  fabriquées par insertion directe. Relance avec --migrer.${N}`)
+    console.log(`\n  ${J}Comptes réellement sans fournisseur « email » :${N}`)
+    for (const x of sansProvider) console.log(`    ${x.email}  [${x.fournisseurs.join(',') || 'aucun'}]`)
   }
   console.log()
   return { orphelines, sansIdentite, nonConfirmees, sansProvider }
@@ -267,9 +301,108 @@ async function migrer() {
   return ko === 0
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// RÉPARATION NON DESTRUCTIVE
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Les treize comptes existent, sont confirmés et correctement liés. Ce qui
+// manque, ce sont leurs codes : la vérification de connexion ayant échoué
+// sur une clé publique tronquée, le script avait sauté l'enregistrement du
+// code avant de l'afficher. Les mots de passe sont donc inconnus.
+//
+// `updateUserById()` pose un nouveau mot de passe sans supprimer ni créer
+// quoi que ce soit. L'identité, son identifiant, son adresse et son lien au
+// profil IDEAL restent strictement les mêmes.
+async function reparerCodes() {
+  const { profils, comptes } = await etat()
+  console.log(`\n${G}── RÉPARATION DES CODES — aucune suppression, aucune création ──${N}\n`)
+
+  const codes = []
+  let ok = 0, ko = 0
+
+  for (const p of profils) {
+    if (!p.auth_user_id) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} aucun auth_user_id — hors périmètre de ce mode`)
+      ko++; continue
+    }
+    const compte = comptes.find(c => c.id === p.auth_user_id)
+    if (!compte) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} identité introuvable — hors périmètre de ce mode`)
+      ko++; continue
+    }
+
+    const code = genererCode()
+    const { error } = await admin.auth.admin.updateUserById(p.auth_user_id, { password: code })
+    if (error) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} ${error.message}`)
+      ko++; continue
+    }
+
+    // La preuve : une vraie connexion avec la clé publique, puis auth.uid()
+    // via `ideal_role()`. C'est la chaîne complète que le personnel
+    // empruntera — identifiant, code, session, profil, rôle.
+    const client = createClient(URL, ANON, { auth: { persistSession: false } })
+    const { data: sess, error: eConn } = await client.auth.signInWithPassword({
+      email: compte.email, password: code,
+    })
+
+    if (eConn || !sess?.user) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} connexion refusée : ${eConn?.message}`)
+      ko++; continue
+    }
+
+    const fournisseurs = (sess.user.identities || []).map(i => i.provider)
+    const { data: role, error: eRole } = await client.rpc('ideal_role')
+    await client.auth.signOut()
+
+    if (eRole || role !== p.role) {
+      console.log(`  ${R}✗${N} ${p.identifiant.padEnd(14)} auth.uid() ne retrouve pas le rôle : ` +
+                  `attendu « ${p.role} », obtenu « ${role ?? eRole?.message} »`)
+      ko++; continue
+    }
+
+    codes.push({ identifiant: p.identifiant, nom: `${p.prenom} ${p.nom}`, role: p.role, actif: p.actif, code })
+    console.log(`  ${V}✓${N} ${p.identifiant.padEnd(14)} code posé · connexion vérifiée · ` +
+                `auth.uid() → ${role}  [${fournisseurs.join(',') || 'aucun fournisseur'}]`)
+    ok++
+  }
+
+  console.log(`\n  ${ko ? R : V}${ok} compte(s) opérationnel(s), ${ko} en échec${N}`)
+  afficherCodes(codes)
+  return ko === 0
+}
+
+// Les codes ne s'affichent que dans un vrai terminal — voir le garde-fou
+// détaillé plus bas, appliqué ici aussi.
+function afficherCodes(codes) {
+  if (!codes.length) return
+  if (!process.stdout.isTTY) {
+    console.log(`\n${R}  ${codes.length} code(s) posé(s), MAIS NON AFFICHÉS : la sortie n'est pas`)
+    console.log(`  un terminal interactif. Relance depuis ton propre terminal.${N}\n`)
+    return
+  }
+  console.log(`\n${J}══════════════════════════════════════════════════════════════`)
+  console.log(`  CES CODES N'APPARAÎTRONT QU'UNE FOIS`)
+  console.log(`  Écrits nulle part : ni fichier, ni base, ni journal.`)
+  console.log(`══════════════════════════════════════════════════════════════${N}\n`)
+  for (const c of codes.filter(c => c.actif))
+    console.log(`  ${c.identifiant.padEnd(14)} ${c.code}   ${c.nom} · ${c.role}`)
+  const inactifs = codes.filter(c => !c.actif)
+  if (inactifs.length) {
+    console.log(`\n  ${G}— comptes inactifs, à ne pas distribuer —${N}`)
+    for (const c of inactifs) console.log(`  ${G}${c.identifiant.padEnd(14)} ${c.code}   ${c.nom}${N}`)
+  }
+  console.log()
+}
+
 const mode = process.argv[2]
 try {
-  if (mode === '--migrer') {
+  if (mode === '--reparer-codes') {
+    const bon = await reparerCodes()
+    console.log(`${G}── vérification finale ──${N}`)
+    await verifier()
+    process.exit(bon ? 0 : 1)
+  } else if (mode === '--migrer') {
     const bon = await migrer()
     console.log(`${G}── vérification finale ──${N}`)
     await verifier()
