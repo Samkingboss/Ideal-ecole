@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS, evenementDepot } from '../lib/preparations'
-import { pushNotification } from '../lib/notifications'
+import { notifierPreparation } from '../lib/notifications'
 import { signature } from '../lib/identiteProfessionnelle'
 import { messageEchecLisible } from '../lib/notifications'
 import FrisePreparation from '../components/FrisePreparation'
@@ -493,22 +493,26 @@ export default function FichePreparation({
     // La soumission et l'enregistrement forment une seule action. Une fois les
     // lignes confirmées en base, la direction est prévenue et la notification
     // pointe vers la première séquence de cette préparation.
+    //
+    // Le libellé n'est plus décidé ici. « Mise à jour » ne distinguait pas une
+    // simple retouche d'un retour après correction : la direction lisait le
+    // même titre dans les deux cas. Le serveur tranche à partir de
+    // l'historique — c'est lui qui sait combien de corrections ont été
+    // demandées, et c'est la seule version que le client ne peut pas fausser.
     const premiere = (apres || []).find(e => e.sequence >= creneau.sequence && e.sequence < creneau.sequence + nb)
-    const transmise = await pushNotification('directeur', {
-      titre: estDejaPreparee ? '📚 Préparation mise à jour' : '📚 Nouvelle préparation soumise',
-      message: `${user?.prenom || ''} ${user?.nom || ''} · ${creneau.matiere} · ${creneau.groupe} · cours du ${dateCours}`.trim(),
-      type: 'preparation',
-      tabTarget: 'pedagogie',
-      ref: premiere?.id,
-    })
+    const envoi = await notifierPreparation(premiere?.id)
+    const transmise = !!envoi
 
     setEnCours(false)
     // Le message disait « la notification a échoué » sans dire pourquoi, et la
     // raison n'existait que dans une console que personne n'ouvre. Elle est
     // désormais affichée : c'est elle qui permet de corriger.
     const pourquoi = messageEchecLisible()
+    const quoi = envoi && envoi.evenement === 'resoumission'
+      ? 'Préparation corrigée et resoumise à la direction ✓'
+      : (nb > 1 ? `${nb} séquences soumises à la direction ✓` : 'Préparation soumise à la direction ✓')
     setMessage(transmise
-      ? { type: 'ok', texte: nb > 1 ? `${nb} séquences soumises à la direction ✓` : 'Préparation soumise à la direction ✓' }
+      ? { type: 'ok', texte: quoi }
       : { type: 'err', texte: 'Votre préparation est enregistrée. En revanche la direction n\'a pas été prévenue : '
           + (pourquoi || 'cause inconnue')
           + '. Signalez-le à la direction en citant ce message.' })

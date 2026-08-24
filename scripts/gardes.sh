@@ -20,14 +20,15 @@ case "${1:-}" in
               lanceJS test-chargement.mjs; lanceJS test-programmes.mjs
               lanceJS test-identite.mjs; lanceJS test-responsive.mjs
               lanceJS test-reseau-client.mjs; lanceJS test-documents.mjs
-              lanceJS test-confidentialite.mjs; lanceJS test-remarques.mjs; lanceJS test-devoirs.mjs ;;
+              lanceJS test-confidentialite.mjs; lanceJS test-remarques.mjs; lanceJS test-devoirs.mjs
+              lanceJS test-notification-preparation.mjs ;;
   --metier)   lance invariants.sh ;;
   *)          lance statiques.sh; lance ecrans.sh; lance cliquets.sh
               lanceJS test-chargement.mjs; lanceJS test-programmes.mjs
               lanceJS test-identite.mjs; lanceJS test-responsive.mjs
               lanceJS test-reseau-client.mjs; lanceJS test-documents.mjs
               lanceJS test-confidentialite.mjs; lanceJS test-remarques.mjs
-              lanceJS test-devoirs.mjs
+              lanceJS test-devoirs.mjs; lanceJS test-notification-preparation.mjs
               lance invariants.sh; lance reseau.sh ;;
 esac
 

@@ -148,6 +148,48 @@ export async function pushNotification(target, notifData) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// PRÉVENIR LA DIRECTION D'UNE PRÉPARATION — SURFACE ÉTROITE
+// ═══════════════════════════════════════════════════════════════════════
+//
+// `pushNotification` écrit directement dans `app_state`. Une session
+// authentifiée n'a pas ce droit : la resoumission d'une préparation corrigée
+// échouait en 42501, la direction n'était jamais prévenue.
+//
+// La réponse n'est pas d'ouvrir `app_state` en écriture aux enseignantes —
+// l'écriture y REMPLACE la liste entière, ce qui reviendrait à donner le droit
+// d'effacer la boîte du directeur. On passe par une surface qui ne laisse
+// choisir qu'une chose : de quelle préparation on parle.
+//
+// Le serveur décide seul de l'auteur, du destinataire, du type, du libellé et
+// de la référence. Il distingue lui-même le premier dépôt de la resoumission
+// après correction, et refuse une préparation qui n'appartient pas à
+// l'appelante.
+export async function notifierPreparation(preparationId) {
+  if (!preparationId) {
+    derniereErreur = { etape: 'enregistrement', message: 'preparation_sans_identifiant' }
+    return false
+  }
+  const { data, error } = await supabase.rpc('notifier_preparation', {
+    p_preparation_id: preparationId,
+  })
+  if (error) {
+    console.error('Notification de préparation refusée :', error.message)
+    derniereErreur = {
+      etape: 'enregistrement',
+      message: error.message,
+      code: error.code,
+      details: error.details,
+    }
+    return false
+  }
+  // `cree: false` n'est pas un échec : la direction a déjà été prévenue pour
+  // ce cycle. C'est l'idempotence qui joue — double clic, ou renvoi après une
+  // réponse perdue.
+  derniereErreur = null
+  return data || { cree: false }
+}
+
 // ── Pourquoi la dernière notification a échoué ────────────────────────────
 //
 // Le message « la notification a échoué » ne disait pas pourquoi, et la raison
@@ -162,7 +204,15 @@ export const messageEchecLisible = () => {
   const e = derniereErreur
   if (!e) return null
   if (e.etape === 'web-push') return null   // la cloche a bien reçu : rien à signaler
-  const cause = /row-level security|not authorized|permission/i.test(e.message || '')
+  const cause = /preparation_sans_identifiant/i.test(e.message || '')
+      ? 'la séquence enregistrée n\'a pas été retrouvée pour être signalée'
+    : /preparation_d_un_autre_enseignant/i.test(e.message || '')
+      ? 'cette préparation n\'est pas la vôtre'
+    : /session_non_authentifiee/i.test(e.message || '')
+      ? 'vous n\'êtes pas connectée à une session IDEAL'
+    : /preparation_introuvable/i.test(e.message || '')
+      ? 'la préparation n\'a pas été retrouvée en base'
+    : /row-level security|not authorized|permission/i.test(e.message || '')
       ? "votre session n'a pas le droit d'écrire cette notification"
     : /JWT|expired|401/i.test(e.message || '')
       ? 'votre session a expiré'
