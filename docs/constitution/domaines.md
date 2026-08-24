@@ -108,6 +108,49 @@ effectif cantine calculé, aucune visibilité enseignant, aucun indicateur direc
 
 ---
 
+## 5 bis · Exposition des données familiales — constat du 24/08/2026
+
+**VÉRIFIÉ en production.** Aucune politique RLS n'est active. Avec la seule clé
+publiable — qui est, par construction, dans le navigateur de tout visiteur :
+
+| table | lignes lisibles sans authentification |
+|---|---|
+| `responsables` | **12** |
+| `eleves` | 12 |
+| `inscriptions` | 7 |
+| `users` | 13 |
+| `preparations` | 19 |
+| `affectations_matieres` | 41 |
+
+`responsables` porte : nom, prénom, date de naissance, nationalité, **deux
+numéros de téléphone, WhatsApp, courriel, adresse**, situation matrimoniale,
+**profession et employeur**.
+
+### Le vecteur le plus direct : le QR des cartes scolaires
+
+`public/fiche.html` est la cible du QR imprimé sur chaque carte scolaire. Il
+affiche, à qui possède le matricule : allergies de l'enfant, adresse, date et
+lieu de naissance, ancienne école, puis nom, téléphone, WhatsApp, courriel et
+profession du responsable légal.
+
+**Une carte perdue donne l'adresse du domicile et les contacts des parents.**
+
+### Décision métier requise
+
+> Que doit montrer `fiche.html` à qui scanne une carte ?
+
+Une page de *vérification* peut se contenter de confirmer qu'un matricule est
+authentique, l'identité de l'élève et sa classe. Tout le reste relève du dossier,
+donc de l'authentification. Mais le choix appartient au promoteur : il conditionne
+la fermeture de `responsables`, qui casserait la page en l'état.
+
+**Tant que la décision n'est pas rendue, la RLS ne peut pas être posée sur
+`responsables` sans supprimer une fonction en service.**
+
+**Invariants concernés :** `INV-SEC-02`.
+
+---
+
 ## 6 · Communication parents — V2.1 §8
 
 > §8 — « Le canal opérationnel officiel est le compte WhatsApp de l'école. **Les
