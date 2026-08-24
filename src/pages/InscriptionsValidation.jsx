@@ -107,9 +107,22 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
       await onValidated?.()
     } catch (error) {
       if (chemin) await supabase.storage.from('inscriptions').remove([chemin])
-      setMessage(error.message?.includes('valider_inscription_direction')
-        ? 'La migration SQL de validation doit être exécutée dans Supabase avant cette action.'
-        : `Validation impossible : ${error.message}`)
+      // Trois pannes distinctes, trois conduites différentes. « Validation
+      // impossible : new row violates row-level security policy » est exact et
+      // n'apprend rien à personne : le directeur ne peut pas savoir que c'est
+      // sa session qui a expiré, ni quoi faire.
+      const brut = String(error?.message || '')
+      const sansSession = /row-level security|violates row|not authorized|JWT|401/i.test(brut)
+      const sansFonction = /valider_inscription_direction|does not exist|PGRST202/i.test(brut)
+      setMessage(
+        sansFonction
+          ? 'La migration SQL de validation doit être exécutée dans Supabase avant cette action.'
+        : sansSession
+          ? "Votre session n'autorise pas le dépôt de la signature. Reconnectez-vous, puis "
+            + 'recommencez. Si le problème persiste, la signature de direction n\'est pas '
+            + 'ouverte à votre compte : signalez-le.'
+          : `Validation impossible : ${brut}`
+      )
     } finally { setEnCours(false) }
   }
 
