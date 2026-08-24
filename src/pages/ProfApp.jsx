@@ -21,6 +21,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } f
 import FrisePreparation from '../components/FrisePreparation'
 import { statutDe as statutDePrep, libelleStatut as libelleStatutPrep } from '../lib/preparations'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
+import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir } from '../lib/devoirs'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -95,7 +96,17 @@ export default function ProfApp({ user, onLogout }) {
   // devoir d'exemple codé en dur, qui s'affichait dans toutes les classes et
   // faisait croire que le cahier fonctionnait.
   const [devoirs, setDevoirs] = useState([])
-  const [newDevoir, setNewDevoir] = useState({ matiere: '', objectif: '', aRendrePour: '', fichiers: [], destinataire_mode: 'classe', eleve_ids: [] })
+  // Les champs viennent de l'ancien module, qui était le plus riche : type,
+  // période, énoncé et barème n'existaient pas ici. `devoirEdite` porte
+  // l'identifiant quand on modifie — modifier n'est pas recréer.
+  const DEVOIR_VIDE = {
+    matiere: '', objectif: '', enonce: '', bareme: '',
+    type: TYPE_PAR_DEFAUT, periode: '', aRendrePour: '',
+    fichiers: [], destinataire_mode: 'classe', eleve_ids: [],
+  }
+  const [newDevoir, setNewDevoir] = useState(DEVOIR_VIDE)
+  const [devoirEdite, setDevoirEdite] = useState(null)
+  const [rechercheEleve, setRechercheEleve] = useState('')
   // Les matières que l'enseignant assure réellement. Il n'a pas à les
   // retaper : elles sont déjà dans ses affectations, et une matière saisie à
   // la main finit toujours par diverger de celle de l'emploi du temps
@@ -131,7 +142,7 @@ export default function ProfApp({ user, onLogout }) {
     let annule = false
     ;(async () => {
       const { data } = await supabase
-        .from('devoirs').select('*')
+        .from('devoirs').select(CHAMPS_DEVOIR)
         .eq('classe_id', selectedClasse.id)
         .order('date_rendu', { ascending: false })
       if (!annule) setDevoirs(Array.isArray(data) ? data : [])
@@ -287,11 +298,19 @@ export default function ProfApp({ user, onLogout }) {
         .eq('user_id', user.id).order('heure_depot', { ascending: false })
       setPreparations(preps || [])
 
-      // Chargés sans filtre, les devoirs de toutes les classes de l'école
-      // s'affichaient dans le cahier de chacune. On ne garde que ceux de la
-      // classe ouverte — voir l'effet ci-dessous, qui recharge à chaque
-      // changement de classe.
-      setDevoirs([])
+      // Les devoirs ne sont PAS vidés ici.
+      //
+      // `setDevoirs([])` s'y trouvait, et il courait contre l'effet qui charge
+      // les devoirs de la classe ouverte : celui-ci partait dès que
+      // `selectedClasse` était posée, quelques lignes plus haut, tandis que
+      // `loadData` continuait sa douzaine de requêtes. Le vidage arrivait
+      // APRÈS le chargement et effaçait les douze devoirs.
+      //
+      // Le défaut était masqué : `loadData` restait bloquée sur les 1,7 Mo de
+      // `eleves.photo_url` et n'atteignait jamais cette ligne. Le corriger l'a
+      // fait apparaître.
+      //
+      // Cet état appartient à l'effet de classe, et à lui seul.
     } catch (e) {
       console.error(e)
     } finally {
@@ -318,18 +337,57 @@ export default function ProfApp({ user, onLogout }) {
   // Les exercices photographiés partent dans le bucket `devoirs`, séparé de
   // celui des préparations. Plusieurs images sont acceptées : un devoir tient
   // rarement sur une seule page de cahier.
+  // Ouvrir un devoir existant dans le formulaire. Les champs sont relus par la
+  // couche de compatibilité : un devoir historique s'édite comme un autre, et
+  // sa richesse — type, période, énoncé, barème — remonte intacte.
+  const ouvrirEnModification = (ligne) => {
+    const d = lireDevoir(ligne)
+    setDevoirEdite(ligne)
+    setNewDevoir({
+      matiere: d.matiere || '',
+      objectif: d.objectif || '',
+      enonce: d.enonce || '',
+      bareme: d.bareme || '',
+      type: d.type || TYPE_PAR_DEFAUT,
+      periode: d.periode || '',
+      aRendrePour: d.dateRendu || '',
+      fichiers: [],
+      destinataire_mode: d.destinataireMode,
+      eleve_ids: d.eleveIds,
+    })
+    setDevoirErreur('')
+    setRechercheEleve('')
+    document.getElementById('saisie-devoir')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const annulerModification = () => {
+    setDevoirEdite(null)
+    setNewDevoir(DEVOIR_VIDE)
+    setDevoirErreur('')
+  }
+
+  const supprimerDevoir = async (ligne) => {
+    const d = lireDevoir(ligne)
+    if (!confirm(`Supprimer le devoir de ${d.matiere || 'cette matière'} du ${d.dateRendu || '—'} ?\n\nCette action est définitive.`)) return
+    const { error } = await supabase.from('devoirs').delete().eq('id', ligne.id)
+    if (error) { setDevoirErreur('Suppression refusée : ' + error.message); return }
+    setDevoirs(devoirs.filter(x => x.id !== ligne.id))
+    if (devoirEdite?.id === ligne.id) annulerModification()
+  }
+
   const handleAddDevoir = async () => {
     setDevoirErreur('')
-    if (!newDevoir.matiere)          { setDevoirErreur('Choisissez la matière.'); return }
-    if (!newDevoir.objectif.trim())  { setDevoirErreur("Indiquez l'objectif du devoir."); return }
-    // `date_rendu` est obligatoire en base. Sans ce contrôle, l'enregistrement
-    // partait quand même et revenait avec « null value violates not-null
-    // constraint », que l'enseignant n'a aucun moyen d'interpréter.
-    if (!newDevoir.aRendrePour)      { setDevoirErreur('Indiquez la date de remise.'); return }
-    if (!selectedClasse)             { setDevoirErreur('Sélectionnez d’abord une classe.'); return }
-    if (newDevoir.destinataire_mode === 'choix' && newDevoir.eleve_ids.length === 0) {
-      setDevoirErreur('Sélectionnez au moins un élève, ou choisissez toute la classe.'); return
-    }
+    // Les règles de saisie vivent dans `lib/devoirs` : l'écran et les tests
+    // jugent avec la même, et un refus ne peut pas diverger de l'autre côté.
+    const refus = refusDeSaisie({
+      matiere: newDevoir.matiere,
+      objectif: newDevoir.objectif,
+      dateRendu: newDevoir.aRendrePour,
+      classeId: selectedClasse?.id,
+      destinataireMode: newDevoir.destinataire_mode,
+      eleveIds: newDevoir.eleve_ids,
+    })
+    if (refus) { setDevoirErreur(refus); return }
 
     setDevoirEnCours(true)
     try {
@@ -344,30 +402,59 @@ export default function ProfApp({ user, onLogout }) {
         })
       }
 
-      const { data, error } = await supabase.from('devoirs').insert({
+      // Les pièces jointes déjà déposées sont conservées à la modification :
+      // rouvrir un devoir pour corriger une date ne doit pas effacer ses
+      // images.
+      const dejaLa = devoirEdite
+        ? (Array.isArray(devoirEdite.fichiers) ? devoirEdite.fichiers : [])
+        : []
+      const toutesPieces = [...dejaLa, ...fichiers]
+
+      const ligne = {
         user_id: user.id,
         classe_id: selectedClasse.id,
         groupe: selectedClasse.nom,
         matiere: newDevoir.matiere,
         description: newDevoir.objectif.trim(),
-        date_donne: new Date().toISOString().slice(0, 10),
         date_rendu: newDevoir.aRendrePour,
-        // La table porte déjà `contenu` (jsonb), utilisé par la plateforme
-        // historique. On y conserve le ciblage sans ajouter une seconde table.
-        contenu: {
-          destinataire_mode: newDevoir.destinataire_mode,
-          eleve_ids: newDevoir.destinataire_mode === 'classe' ? [] : newDevoir.eleve_ids,
-        },
-        // `fichiers` porte la liste complète ; `fichier_url` et `fichier_nom`
-        // gardent la première image, pour les écrans qui ne lisent qu'elle.
-        fichiers,
-        fichier_url: fichiers[0]?.url || null,
-        fichier_nom: fichiers[0]?.nom || null,
-      }).select().single()
-      if (error) throw new Error("Enregistrement refusé : " + error.message)
+        // Forme canonique — voir `lib/devoirs`. Rien de ce qui vit en colonne
+        // n'y est recopié.
+        contenu: contenuCanonique({
+          type: newDevoir.type,
+          periode: newDevoir.periode,
+          enonce: newDevoir.enonce,
+          bareme: newDevoir.bareme,
+          destinataireMode: newDevoir.destinataire_mode,
+          eleveIds: newDevoir.eleve_ids,
+        }),
+        fichiers: toutesPieces,
+        fichier_url: toutesPieces[0]?.url || null,
+        fichier_nom: toutesPieces[0]?.nom || null,
+      }
 
-      setDevoirs([data, ...devoirs])
-      setNewDevoir({ matiere: '', objectif: '', aRendrePour: '', fichiers: [], destinataire_mode: 'classe', eleve_ids: [] })
+      // ── Modifier, et non recréer ────────────────────────────────────────
+      //
+      // L'ancien module n'avait aucun PATCH : son bouton « modifier »
+      // rechargeait le formulaire, et réenregistrer créait une SECONDE ligne.
+      // Deux devoirs identiques apparaissaient, l'ancien restait, et personne
+      // ne savait lequel faisait foi.
+      //
+      // `date_donne` n'est pas réécrite : c'est la date à laquelle le devoir a
+      // été donné, pas celle de sa dernière retouche.
+      const { data, error } = devoirEdite
+        ? await supabase.from('devoirs').update(ligne).eq('id', devoirEdite.id)
+            .select(CHAMPS_DEVOIR).single()
+        : await supabase.from('devoirs')
+            .insert({ ...ligne, date_donne: new Date().toISOString().slice(0, 10) })
+            .select(CHAMPS_DEVOIR).single()
+      if (error) throw new Error((devoirEdite ? 'Modification refusée : ' : 'Enregistrement refusé : ') + error.message)
+
+      setDevoirs(devoirEdite
+        ? devoirs.map(d => (d.id === devoirEdite.id ? data : d))
+        : [data, ...devoirs])
+      setDevoirEdite(null)
+      setNewDevoir(DEVOIR_VIDE)
+      setRechercheEleve('')
       const champ = document.getElementById('devoir-fichier')
       if (champ) champ.value = ''
     } catch (e) {
@@ -832,10 +919,13 @@ export default function ProfApp({ user, onLogout }) {
             </div>
 
             {/* Saisie d'un Devoir */}
+            <div id="saisie-devoir" />
             <AccordionCard
-              title="Ajouter un devoir de maison"
-              subtitle="Matière, objectif, date de remise, élèves et pièces jointes"
-              icon="➕"
+              title={devoirEdite ? 'Modifier ce devoir de maison' : 'Ajouter un devoir de maison'}
+              subtitle={devoirEdite
+                ? 'Vos changements remplacent le devoir existant — aucun doublon n’est créé.'
+                : 'Type, matière, objectif, énoncé, barème, date de remise, élèves et pièces jointes'}
+              icon={devoirEdite ? '✏️' : '➕'}
               defaultOpen
             >
 
@@ -843,6 +933,27 @@ export default function ProfApp({ user, onLogout }) {
                 {/* La matière se choisit, elle ne se tape pas : l'enseignant
                     n'assure qu'un petit nombre de matières et elles sont déjà
                     connues de la plateforme. */}
+                {/* Type et période viennent de l'ancien module : l'écran
+                    intégré ne les connaissait pas, et un devoir y perdait sa
+                    nature et son trimestre. */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                  <div>
+                    <label className="form-label">Type de devoir</label>
+                    <select className="form-select" value={newDevoir.type}
+                      onChange={e => setNewDevoir({ ...newDevoir, type: e.target.value })}>
+                      {TYPES_DEVOIR.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Période <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(facultatif)</span></label>
+                    <select className="form-select" value={newDevoir.periode}
+                      onChange={e => setNewDevoir({ ...newDevoir, periode: e.target.value })}>
+                      <option value="">— non précisée —</option>
+                      {['1', '2', '3', '4', '5'].map(p => <option key={p} value={p}>Période {p}</option>)}
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="form-label">Matière</label>
                   {mesMatieres.length === 0 ? (
@@ -864,6 +975,26 @@ export default function ProfApp({ user, onLogout }) {
                     placeholder="Ce que l’élève doit savoir faire après ce devoir…"
                     value={newDevoir.objectif}
                     onChange={e => setNewDevoir({ ...newDevoir, objectif: e.target.value })} />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Énoncé du devoir <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(ce que l’élève doit faire)</span>
+                  </label>
+                  <textarea className="form-input" rows={4}
+                    placeholder="Les exercices, les consignes, les questions…"
+                    value={newDevoir.enonce}
+                    onChange={e => setNewDevoir({ ...newDevoir, enonce: e.target.value })} />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Barème <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(facultatif)</span>
+                  </label>
+                  <textarea className="form-input" rows={2}
+                    placeholder="Exercice 1 : 10 · Propreté : 5…"
+                    value={newDevoir.bareme}
+                    onChange={e => setNewDevoir({ ...newDevoir, bareme: e.target.value })} />
                 </div>
 
                 <div>
@@ -917,17 +1048,53 @@ export default function ProfApp({ user, onLogout }) {
                       Certains élèves
                     </button>
                   </div>
-                  {newDevoir.destinataire_mode === 'choix' && (
+                  {newDevoir.destinataire_mode === 'choix' && (() => {
+                    const visibles = classEleves.filter(el =>
+                      !rechercheEleve.trim() ||
+                      `${el.prenom} ${el.nom}`.toLowerCase().includes(rechercheEleve.trim().toLowerCase()))
+                    const tousCoches = visibles.length > 0 &&
+                      visibles.every(el => newDevoir.eleve_ids.includes(el.id))
+                    return (
+                    <div style={{ marginBottom: 8 }}>
+                      {/* Recherche et cases groupées : l'ancien module les avait,
+                          l'intégré non. Au-delà d'une dizaine d'élèves, une liste
+                          sans recherche devient inutilisable au doigt. */}
+                      {classEleves.length > 8 && (
+                        <input className="form-input" type="search"
+                          placeholder="Rechercher un élève…"
+                          value={rechercheEleve}
+                          onChange={e => setRechercheEleve(e.target.value)}
+                          style={{ marginBottom: 8 }} />
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                        <button type="button" className="btn-sm" style={{ flex: '1 1 130px' }}
+                          onClick={() => setNewDevoir({ ...newDevoir, eleve_ids: tousCoches
+                            ? newDevoir.eleve_ids.filter(id => !visibles.some(el => el.id === id))
+                            : [...new Set([...newDevoir.eleve_ids, ...visibles.map(el => el.id)])] })}>
+                          {tousCoches ? 'Tout décocher' : 'Tout cocher'}
+                        </button>
+                        <span style={{ flex: '1 1 130px', fontSize: 12, fontWeight: 700,
+                                       color: 'var(--muted)', alignSelf: 'center' }}>
+                          {newDevoir.eleve_ids.length} sélectionné{newDevoir.eleve_ids.length > 1 ? 's' : ''} sur {classEleves.length}
+                        </span>
+                      </div>
+                      {visibles.length === 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', padding: '10px 0' }}>
+                          {classEleves.length ? 'Aucun élève ne correspond à cette recherche.' : 'Aucun élève dans cette classe.'}
+                        </div>
+                      )}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 7, background: 'var(--bg)', padding: 10, borderRadius: 10, maxHeight: 190, overflowY: 'auto' }}>
-                      {classEleves.map(el => {
+                      {visibles.map(el => {
                         const actif = newDevoir.eleve_ids.includes(el.id)
-                        return <label key={el.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700 }}>
+                        return <label key={el.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, minHeight: 32 }}>
                           <input type="checkbox" checked={actif} onChange={() => setNewDevoir({ ...newDevoir, eleve_ids: actif ? newDevoir.eleve_ids.filter(id => id !== el.id) : [...newDevoir.eleve_ids, el.id] })} />
                           {el.prenom} {el.nom}
                         </label>
                       })}
                     </div>
-                  )}
+                    </div>
+                    )
+                  })()}
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
                     Les fiches porteront automatiquement le nom de chaque élève concerné.
                   </div>
@@ -955,10 +1122,18 @@ export default function ProfApp({ user, onLogout }) {
                   background: 'rgba(237,28,36,.1)', color: 'var(--red)' }}>{devoirErreur}</div>
               )}
 
-              <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }}
-                disabled={devoirEnCours} onClick={handleAddDevoir}>
-                {devoirEnCours ? 'Enregistrement…' : 'Enregistrer le devoir'}
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" style={{ flex: '1 1 100%', minHeight: 42 }}
+                  disabled={devoirEnCours} onClick={handleAddDevoir}>
+                  {devoirEnCours
+                    ? 'Enregistrement…'
+                    : devoirEdite ? 'Enregistrer les modifications' : 'Enregistrer le devoir'}
+                </button>
+                {devoirEdite && (
+                  <button className="btn-sm" style={{ flex: '1 1 100%', minHeight: 38 }}
+                    onClick={annulerModification}>Annuler la modification</button>
+                )}
+              </div>
             </AccordionCard>
 
             {/* Liste des Devoirs Enregistrés */}
@@ -983,11 +1158,45 @@ export default function ProfApp({ user, onLogout }) {
                       <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>OBJECTIF · </span>{d.description}
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 7, fontWeight: 700 }}>
-                    👥 {d.contenu?.destinataire_mode === 'choix'
-                      ? `${d.contenu?.eleve_ids?.length || 0} élève(s) sélectionné(s)`
-                      : `Toute la classe (${classEleves.length} élèves)`}
-                  </div>
+                  {(() => {
+                    const v = lireDevoir(d)
+                    const cibles = v.eleveIds.length + v.candidatMatricules.length
+                    return (
+                      <>
+                        {v.enonce && (
+                          <div style={{ fontSize: 13, color: '#334155', marginTop: 6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                            <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>ÉNONCÉ · </span>{v.enonce}
+                          </div>
+                        )}
+                        {v.bareme && (
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 5, whiteSpace: 'pre-wrap' }}>
+                            <span style={{ fontWeight: 800, fontSize: 11 }}>BARÈME · </span>{v.bareme}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 800, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 9px' }}>{v.type}</span>
+                          {v.periode && <span style={{ fontSize: 10.5, fontWeight: 800, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 9px' }}>Période {v.periode}</span>}
+                          <span style={{ fontSize: 10.5, fontWeight: 800, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 9px' }}>
+                            👥 {v.destinataireMode === 'choix'
+                              ? `${cibles} élève${cibles > 1 ? 's' : ''} ciblé${cibles > 1 ? 's' : ''}`
+                              : 'Toute la classe'}
+                          </span>
+                          {/* L'auteur historique n'est pas un compte : on le dit. */}
+                          {!v.auteurId && v.auteurNomHistorique && (
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', background: 'var(--bg)', border: '1px dashed var(--border)', borderRadius: 20, padding: '2px 9px' }}>
+                              {v.auteurNomHistorique} · attribution historique
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          <button className="btn-sm" style={{ flex: '1 1 130px', minHeight: 36 }}
+                            onClick={() => ouvrirEnModification(d)}>✏️ Modifier</button>
+                          <button className="btn-sm" style={{ flex: '1 1 130px', minHeight: 36, color: 'var(--red)' }}
+                            onClick={() => supprimerDevoir(d)}>🗑 Supprimer</button>
+                        </div>
+                      </>
+                    )
+                  })()}
                   {(d.fichiers?.length ? d.fichiers : (d.fichier_url ? [{ url: d.fichier_url, nom: d.fichier_nom }] : [])).map((f, k) => (
                     <a key={k} href={f.url} target="_blank" rel="noreferrer"
                       style={{ display: 'inline-block', marginTop: 8, marginRight: 12, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
