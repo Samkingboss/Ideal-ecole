@@ -54,6 +54,27 @@ notifications, messagerie, dossiers élèves, RH, finances, vie scolaire, pédag
 cantine ou stocks — **lire la fiche du domaine** dans `docs/constitution/domaines.md`
 et appliquer le skill `impact-metier`.
 
+## Exigences produit durables — à ne pas oublier hors phase
+
+`docs/constitution/exigences-produit.md` (24/08/2026) porte 24 exigences du
+promoteur qui **restent dues même quand le chantier actif porte sur autre
+chose**. Les lire avant de planifier quoi que ce soit.
+
+La question qui tranche toute évolution :
+
+> **Est-ce que cela fait gagner du temps et réduit les erreurs du personnel ?**
+> Si non : repenser la fonctionnalité.
+
+Ordre imposé, à ne pas court-circuiter :
+
+```
+1. terminer les critères ouverts de sécurité / Auth
+2. prouver une inscription test complète
+3. débloquer les workflows dépendants
+4. traiter les fractures par dépendance
+5. intégrer progressivement les fonctionnalités
+```
+
 ## Invariants durs
 
 1. Aucun secret dans une table lisible par `anon`. Jamais de RPC qui révèle un code.

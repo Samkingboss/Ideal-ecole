@@ -84,6 +84,26 @@ Les 7 inscriptions, 12 responsables, 18 pièces, 12 élèves, 4 incidents, 2 ret
 
 ---
 
+### C1–C5 — Identité, civilité, correctifs clos · 24/08/2026 · ✅
+
+> - conserver `DOSSIER D'INSCRIPTION` comme libellé du PDF d'inscription ;
+> - **ne jamais déduire la civilité à partir du prénom** ;
+> - conserver une formulation professionnelle épicène tant qu'une donnée
+>   explicite de civilité n'existe pas ;
+> - inscrire `civilite` dans les évolutions du profil personnel à traiter au
+>   moment approprié ;
+> - ne pas rouvrir les correctifs déjà prouvés sauf régression détectée.
+
+**Appliqué.** `src/lib/identiteProfessionnelle.js` — `genreDe()` ne lit que des
+données déclarées : la colonne `civilite` le jour où elle existera, et le préfixe
+de `users.fonction` en attendant (`maitresse-`, `assistante-`). Il ne regarde
+jamais le prénom. Garde `test-identite.mjs` P4 et P5.
+
+**Correctifs déclarés clos :** Programme / Boscher · Devoirs mobile · Identité
+professionnelle · moteur documentaire.
+
+---
+
 ## Déjà tranchées par le V2.1 — ne pas rouvrir
 
 | Question | Réponse du V2.1 |
@@ -122,6 +142,7 @@ Le V2.1 les déclare explicitement non tranchées. **R13 interdit de les combler
 
 | # | Question | Contexte |
 |---|---|---|
+| T5 | Colonne `civilite` sur `users` | **Décidée** (C4) : à ajouter au profil personnel, au moment approprié. Sans elle, la forme épicène s'applique — jamais une supposition. |
 | T1 | Mécanisme d'authentification — mot de passe, ou code haché hors de portée de lecture ? | Conditionne la phase 3, donc la phase 4 |
 | T2 | Sort des 7 dossiers et 12 élèves de test | Gelé par la règle QA jusqu'aux tests de non-régression |
 | T3 | Ouverture d'un accès parent | §3 et §19 le prévoient ; dimensionne l'authentification |

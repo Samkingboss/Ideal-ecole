@@ -9,6 +9,7 @@ est ; ces fichiers disent ce qui doit être.
 |---|---|---|---|
 | **1** | `IDEAL_Cahier_des_charges_V2.1.pdf` | ✅ fourni le 23/08/2026 | Le cahier des charges du promoteur. Prime sur tout. |
 | **2** | `decisions.md` | 3 tranchées, 9 ouvertes | Décisions du promoteur là où le V2.1 laisse ouvert. |
+- [`exigences-produit.md`](exigences-produit.md) — exigences produit durables du 24/08/2026. **Dues même hors de la phase en cours.**
 | **3** | `../audits/` | dérivé | Audits. Indice, jamais preuve. |
 | **4** | code et base | constat | Ce qui est, jamais ce qui doit être. |
 
