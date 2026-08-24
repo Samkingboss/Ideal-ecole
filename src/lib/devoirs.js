@@ -105,10 +105,19 @@ export const lireDevoir = (ligne) => {
   const fichiers = Array.isArray(ligne?.fichiers) && ligne.fichiers.length
     ? ligne.fichiers
     : (ligne?.fichier_url ? [{ url: ligne.fichier_url, nom: ligne.fichier_nom }] : [])
-  const piecesJointes = [
-    ...fichiers,
-    ...images.map(u => ({ url: u, nom: null })),
-  ].filter(p => p && p.url)
+  //
+  // Les deux listes se recouvrent : la plateforme historique écrivait le même
+  // fichier dans `fichiers` ET dans `contenu.images`. Mesuré sur les quatorze
+  // devoirs, chaque pièce jointe était comptée deux fois — un devoir de deux
+  // pages en annonçait quatre au parent. On dédoublonne sur l'URL, la seule
+  // valeur identique dans les deux écritures.
+  const piecesJointes = []
+  const vues = new Set()
+  for (const p of [...fichiers, ...images.map(u => ({ url: u, nom: null }))]) {
+    if (!p || !p.url || vues.has(p.url)) continue
+    vues.add(p.url)
+    piecesJointes.push(p)
+  }
 
   return {
     id: ligne?.id,
@@ -141,6 +150,90 @@ export const lireDevoir = (ligne) => {
     origine: ligne?.user_id ? 'portail' : (c.teacher ? 'historique' : 'inconnue'),
     brut: ligne,
   }
+}
+
+// ── L'auteur d'un nouveau devoir ───────────────────────────────────────────
+//
+// Treize devoirs sur quatorze n'ont pas d'auteur identifié : seulement un nom
+// en clair dans `contenu.teacher`. Ces attributions restent telles quelles.
+// On ne fabrique AUCUNE relation rétroactive à partir d'un nom — deux
+// personnes peuvent porter le même, un nom se saisit à la main, et une
+// attribution fausse est pire qu'une attribution absente.
+//
+// Pour les devoirs créés désormais, l'auteur ne vient ni d'un champ de
+// formulaire ni du `localStorage` : il est demandé au serveur. `ideal_profil()`
+// lit `auth.uid()` dans le jeton et renvoie le profil correspondant. Une
+// valeur transmise par le client n'y change rien.
+export async function auteurAuthentifie(client) {
+  const { data, error } = await client.rpc('ideal_profil')
+  const profil = Array.isArray(data) ? data[0] : data
+  if (error) return { id: null, refus: `le serveur n'a pas confirmé votre identité (${error.message})` }
+  if (!profil || !profil.id) {
+    return { id: null, refus: "aucune session IDEAL active : reconnectez-vous avant d'enregistrer un devoir" }
+  }
+  return { id: profil.id, profil, refus: null }
+}
+
+// ── Regrouper à la RESTITUTION, jamais en base ─────────────────────────────
+//
+// L'ancienne plateforme créait une ligne PAR PHOTO : trois pages d'un même
+// devoir de Mathematics font trois lignes. Les fusionner en base serait
+// destructif et reposerait sur des présomptions. Les quatorze lignes restent
+// donc intactes ; c'est l'AFFICHAGE qui les présente comme un seul devoir.
+//
+// Le regroupement n'a lieu que si tous les critères sûrs, déjà présents dans
+// les données, coïncident — et uniquement entre devoirs HISTORIQUES. Deux
+// devoirs créés par le portail ne sont jamais regroupés : le format canonique
+// range déjà N pages dans une seule ligne.
+//
+// Dans le doute, on affiche séparément. Un devoir montré deux fois est une
+// gêne ; deux devoirs différents présentés comme un seul est une erreur.
+const cleRegroupement = (d) => {
+  if (d.origine !== 'historique') return null
+  // Un objectif vide ne dit rien : sans lui, deux devoirs de la même matière
+  // le même jour seraient regroupés à tort.
+  const objectif = String(d.objectif || '').trim().toLowerCase()
+  if (!objectif) return null
+  if (!d.matiere || !d.dateDonne) return null
+  return [
+    d.matiere, objectif, d.dateDonne, d.dateRendu || '',
+    d.type || '', d.destinataireMode,
+    [...d.eleveIds].sort().join('|'),
+    [...d.candidatMatricules].sort().join('|'),
+  ].join('§')
+}
+
+/**
+ * Regroupe les lignes qui décrivent le même devoir physique multi-pages.
+ * N'écrit rien, ne fusionne aucun identifiant, ne supprime rien : chaque
+ * groupe garde la liste de ses lignes d'origine.
+ */
+export const regrouperPages = (devoirs) => {
+  const groupes = []
+  const parCle = new Map()
+  for (const d of devoirs) {
+    const cle = cleRegroupement(d)
+    if (!cle) { groupes.push({ tete: d, lignes: [d], pages: 1, regroupe: false }); continue }
+    const deja = parCle.get(cle)
+    if (deja) {
+      deja.lignes.push(d)
+      deja.regroupe = true
+      // Les pièces des lignes réunies, dédoublonnées : une même photo pourrait
+      // figurer dans deux lignes du groupe.
+      const vues = new Set()
+      deja.tete = { ...deja.tete, piecesJointes: deja.lignes
+        .flatMap(x => x.piecesJointes)
+        .filter(p => p && p.url && !vues.has(p.url) && vues.add(p.url)) }
+      deja.pages = deja.tete.piecesJointes.length
+      continue
+    }
+    // `pages` est le nombre réel de feuilles, pas le nombre de lignes : un
+    // devoir sans pièce jointe en compte zéro et n'en annonce aucune.
+    const g = { tete: d, lignes: [d], pages: d.piecesJointes.length, regroupe: false }
+    parCle.set(cle, g)
+    groupes.push(g)
+  }
+  return groupes
 }
 
 // ── Écriture ───────────────────────────────────────────────────────────────

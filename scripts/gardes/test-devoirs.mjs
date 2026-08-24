@@ -14,8 +14,14 @@
 // C'est pour cela que la lecture teste `mode` AVANT `eleve_ids`, jamais
 // l'inverse, et que ces gardes couvrent les six cas du cahier des charges.
 
-import { lireDevoir, viseEleve, contenuCanonique, refusDeSaisie, CHAMPS_DEVOIR }
+import { lireDevoir, viseEleve, contenuCanonique, refusDeSaisie, CHAMPS_DEVOIR, regrouperPages }
   from '../../src/lib/devoirs.js'
+import { readFileSync, existsSync } from 'node:fs'
+
+const lire = f => (existsSync(f) ? readFileSync(f, 'utf8') : '')
+const sansCommentaires = src => src
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n')
 
 let echecs = 0
 const V = '\x1b[0;32m', R = '\x1b[0;31m', G = '\x1b[0;90m', F = '\x1b[0m'
@@ -167,6 +173,129 @@ console.log(`\n${G}── DEVOIRS · un ciblage ne s'élargit jamais ──${F}`
   verifier('D11 · aucune colonne chargée par `*`',
     !CHAMPS_DEVOIR.includes('*') && CHAMPS_DEVOIR.split(',').length >= 10,
     `— ${CHAMPS_DEVOIR.split(',').length} colonnes`)
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PORTE 7 · L'IDENTITÉ DE L'AUTEUR
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Treize devoirs sur quatorze n'ont pas de `user_id` : seulement un nom en
+// clair. Ces attributions restent telles quelles. Ce qui doit changer, c'est
+// l'avenir : tout devoir créé désormais porte un auteur vérifié par le
+// serveur.
+
+// ── D12 · l'auteur d'un nouveau devoir vient du serveur ───────────────────
+{
+  const prof = sansCommentaires(lire('src/pages/ProfApp.jsx'))
+  const dem = /auteurAuthentifie\(\s*supabase\s*\)/.test(prof)
+  // Le refus doit être bloquant. Un `if` sans `throw` laisserait passer un
+  // devoir sans auteur — exactement la dette qu'on refuse de reconduire.
+  const bloque = /if\s*\(!auteur\.id\)\s*throw/.test(prof)
+  const pasDuStockageLocal = !/user_id:\s*user\.id/.test(prof)
+  verifier('D12 · l’auteur d’un nouveau devoir est confirmé par le serveur',
+    dem && bloque && pasDuStockageLocal,
+    `— demandé:${dem ? 'oui' : 'NON'} bloquant:${bloque ? 'oui' : 'NON'}`
+    + ` hors localStorage:${pasDuStockageLocal ? 'oui' : 'NON'}`)
+}
+
+// ── D13 · la modification ne réécrit jamais l'auteur ──────────────────────
+//
+// Corriger la date d'un devoir ne fait pas de vous son auteur. Sans cette
+// règle, retoucher un devoir historique lui inventerait un compte.
+{
+  const prof = sansCommentaires(lire('src/pages/ProfApp.jsx'))
+  const ligne = prof.match(/const ligne = \{([\s\S]*?)\n      \}/)?.[1] || ''
+  const auteurHorsLigne = !/user_id/.test(ligne)
+  const auteurSurInsertSeul = /\.insert\(\{\s*\.\.\.ligne,\s*user_id:\s*auteurId/.test(prof)
+  verifier('D13 · la modification ne réécrit pas l’auteur',
+    auteurHorsLigne && auteurSurInsertSeul,
+    `— hors du corps commun:${auteurHorsLigne ? 'oui' : 'NON'}`
+    + ` posé à la création seule:${auteurSurInsertSeul ? 'oui' : 'NON'}`)
+}
+
+// ── D14 · aucune attribution rétroactive à partir d'un nom ────────────────
+//
+// Deux personnes peuvent porter le même nom, et un nom se saisit à la main.
+// Rapprocher `contenu.teacher` d'un compte serait une présomption écrite en
+// base — bien pire qu'une attribution absente.
+//
+// La règle est exacte plutôt qu'approchée : `auteurId` ne peut venir QUE de
+// la colonne. Un premier motif, qui cherchait un nom suivi d'une recherche de
+// compte, laissait passer la forme inverse — `COMPTES.find(u => u.nom ===
+// c.teacher)` — et ne savait donc pas échouer.
+{
+  const lib = lire('src/lib/devoirs.js')
+  const ligneAuteur = (lib.match(/^\s*auteurId:\s*(.+?),\s*$/m) || [])[1] || ''
+  const ligneOrigine = (lib.match(/^\s*origine:\s*(.+?),\s*$/m) || [])[1] || ''
+  const seulementLaColonne = /^ligne\?\.user_id \|\| null$/.test(ligneAuteur.trim())
+  const origineSurLaColonne = /ligne\?\.user_id\s*\?/.test(ligneOrigine)
+  const nomConserve = /auteurNomHistorique:\s*c\.teacher/.test(lib)
+  verifier('D14 · aucun compte déduit d’un nom historique',
+    seulementLaColonne && origineSurLaColonne && nomConserve,
+    `— auteurId:(${ligneAuteur.trim() || 'ABSENT'})`
+    + ` nom conservé:${nomConserve ? 'oui' : 'NON'}`)
+}
+
+// ── D15 · le regroupement multi-pages ne touche jamais la base ────────────
+{
+  const lib = lire('src/lib/devoirs.js')
+  const bloc = lib.match(/export const regrouperPages[\s\S]*?\n}/)?.[0] || ''
+  const sansEcriture = bloc.length > 0
+    && !/(update|delete|insert|upsert|from\('devoirs'\)|supabase)/i.test(bloc)
+  const gardeLesLignes = /lignes:\s*\[d\]/.test(bloc) && /lignes\.push\(d\)/.test(bloc)
+  verifier('D15 · le regroupement est de restitution, pas de migration',
+    sansEcriture && gardeLesLignes,
+    `— sans écriture:${sansEcriture ? 'oui' : 'NON'} lignes conservées:${gardeLesLignes ? 'oui' : 'NON'}`)
+}
+
+// ── D16 · le regroupement exige des critères sûrs ─────────────────────────
+//
+// Dans le doute, on affiche séparément : un devoir montré deux fois est une
+// gêne, deux devoirs présentés comme un seul est une erreur.
+{
+  const lib = lire('src/lib/devoirs.js')
+  const cle = lib.match(/const cleRegroupement[\s\S]*?\n}/)?.[0] || ''
+  const historiqueSeul = /origine\s*!==\s*'historique'/.test(cle)
+  const refuseObjectifVide = /if\s*\(!objectif\)\s*return null/.test(cle)
+  const refuseSansDate = /if\s*\(!d\.matiere\s*\|\|\s*!d\.dateDonne\)\s*return null/.test(cle)
+  const ciblageDansLaCle = /eleveIds/.test(cle) && /candidatMatricules/.test(cle)
+  verifier('D16 · regroupement uniquement sur des critères sûrs',
+    historiqueSeul && refuseObjectifVide && refuseSansDate && ciblageDansLaCle,
+    `— historique seul:${historiqueSeul ? 'oui' : 'NON'}`
+    + ` objectif exigé:${refuseObjectifVide ? 'oui' : 'NON'}`
+    + ` date exigée:${refuseSansDate ? 'oui' : 'NON'}`
+    + ` ciblage:${ciblageDansLaCle ? 'oui' : 'NON'}`)
+}
+
+// ── D17 · une pièce jointe n'est jamais comptée deux fois ─────────────────
+//
+// Mesuré : la plateforme historique écrivait le même fichier dans `fichiers`
+// ET dans `contenu.images`. Un devoir de deux pages en annonçait quatre au
+// parent.
+{
+  const lib = lire('src/lib/devoirs.js')
+  const bloc = lib.match(/const piecesJointes[\s\S]*?\n  \}/)?.[0] || ''
+  const dedoublonne = /vues\.has\(p\.url\)/.test(bloc) && /vues\.add\(p\.url\)/.test(bloc)
+  verifier('D17 · les pièces jointes sont dédoublonnées sur l’URL',
+    dedoublonne, dedoublonne ? '' : '— comptage double')
+}
+
+// ── D18 · la bascule tient, et le retour arrière reste disponible ─────────
+//
+// Deux conditions opposées, et les deux comptent : plus aucun compte ne doit
+// être conduit vers l'ancienne plateforme, ET celle-ci doit rester en ligne.
+// Supprimer le dossier en même temps que le lien retirerait le filet le jour
+// où un défaut apparaîtrait en production.
+{
+  const ecrans = ['src/pages/ProfApp.jsx', 'src/pages/DirecteurApp.jsx',
+                  'src/pages/MaternelleApp.jsx', 'src/pages/SurveillantApp.jsx']
+  const liens = ecrans.filter(f => /href\s*=\s*["'`][^"'`]*pedago-archive/.test(lire(f)))
+  const filetEnPlace = existsSync('public/pedago-archive/index.html')
+                    && existsSync('public/pedago-archive/app.js')
+  verifier('D18 · bascule faite, retour arrière conservé',
+    liens.length === 0 && filetEnPlace,
+    `— liens restants:${liens.length ? liens.join(', ') : 'aucun'}`
+    + ` ancien module:${filetEnPlace ? 'en ligne' : 'SUPPRIMÉ'}`)
 }
 
 console.log(echecs === 0

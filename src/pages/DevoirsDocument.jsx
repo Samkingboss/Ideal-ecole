@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
-import { lireDevoir } from '../lib/devoirs'
+import { lireDevoir, regrouperPages } from '../lib/devoirs'
 
 // Le cahier de devoirs imprimable.
 //
@@ -187,14 +187,17 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
   // en direct. Il annonce le type et le nombre de feuilles, comme le faisait
   // le sommaire visuel de l'ancien module : le parent sait ce qu'il doit
   // recevoir avant que l'enfant rentre.
+  //
+  // L'ancienne plateforme créait une ligne par photo : le parent recevait le
+  // même devoir annoncé trois fois. Les lignes restent intactes en base — on
+  // les REGROUPE à l'affichage, et seulement quand tous les critères sûrs
+  // coïncident. Dans le doute, elles s'affichent séparément.
   const messagePour = e => {
-    const sesDevoirs = list.filter(d => vise(d, e))
-    const lignes = sesDevoirs.map(ligne => {
-      const d = lireDevoir(ligne)
-      const pj = d.piecesJointes.length
+    const sesDevoirs = list.filter(d => vise(d, e)).map(lireDevoir)
+    const lignes = regrouperPages(sesDevoirs).map(({ tete: d, pages }) => {
       return `• ${d.type} · ${d.matiere || 'Devoir'} : ${d.objectif || 'voir la fiche'}`
            + ` — à rendre le ${dateLisible(d.dateRendu) || 'date indiquée'}`
-           + (pj ? ` (${pj} feuille${pj > 1 ? 's' : ''} jointe${pj > 1 ? 's' : ''})` : '')
+           + (pages ? ` (${pages} page${pages > 1 ? 's' : ''} jointe${pages > 1 ? 's' : ''})` : '')
     })
     return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n\n${signatureLigne(user, contexteSignature)}\n${NOM_ECOLE}`
   }

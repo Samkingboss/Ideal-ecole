@@ -260,3 +260,94 @@ du même devoir. Le parent reçoit donc aujourd'hui le même travail annoncé tr
 fois. Le module intégré ne reproduit pas ce comportement — il range N feuilles
 dans un seul devoir. **Fusionner l'historique est destructif : la décision
 revient à la direction, elle n'a pas été prise ici.**
+
+---
+
+## Porte 7 — l'identité de l'auteur
+
+### Historique : conservé, jamais reconstitué
+
+13 devoirs sur 14 n'ont pas de `user_id` : seulement `contenu.teacher`, un nom
+en clair. Ces attributions restent telles quelles. `lireDevoir()` les expose
+sous `auteurNomHistorique`, et la carte du devoir les affiche avec la mention
+**« attribution historique »** — 11 mentions visibles sur l'écran CP1.
+
+Aucune relation n'est fabriquée à partir d'un nom. La garde D14 l'exige de
+façon exacte : `auteurId` ne peut venir que de `ligne.user_id`. Un premier
+motif, plus vague, laissait passer `COMPTES.find(u => u.nom === c.teacher)` —
+il ne savait pas échouer et a été remplacé.
+
+### Nouveaux devoirs : auteur confirmé par le serveur
+
+`auteurAuthentifie()` appelle `ideal_profil()`, qui lit `auth.uid()` dans le
+jeton. Le `localStorage` n'intervient plus. Sans identité confirmée, rien n'est
+enregistré.
+
+| Test | Résultat |
+|---|---|
+| A · nouveau devoir | `user_id` présent, `origine = portail` |
+| B · modification | même `user_id`, jamais réécrit — `user_id` est hors du corps commun et n'est posé qu'à l'`insert` |
+| C · duplication | **non applicable** : le module n'offre pas de duplication. Si elle est ajoutée, l'auteur devra être celui qui duplique |
+| D · devoir historique | lisible sans `user_id`, attribution textuelle affichée |
+| E · aucune attribution arbitraire | garde D14, auto-testée sur deux défauts |
+
+Vérifié à l'écran : sans session Auth confirmée, l'enregistrement est refusé et
+la raison est dite — « Enregistrement refusé : aucune session IDEAL active :
+reconnectez-vous avant d'enregistrer un devoir ». La base est restée à 14
+lignes.
+
+**Ce qui reste à vérifier en production** : le cas positif — une enseignante
+réellement connectée obtient son `user_id`. Le mécanisme est celui que la page
+de connexion emploie déjà (`ideal_profil()` juste après `signInWithPassword`),
+mais je ne l'ai pas exercé de bout en bout faute de session réelle.
+
+## Historique multi-pages — restitution, pas migration
+
+L'ancienne plateforme créait une ligne par photo. Les 14 lignes restent
+intactes : aucune fusion, aucun identifiant réuni, aucune suppression.
+
+`regrouperPages()` ne regroupe qu'à l'affichage, et seulement si **tous** les
+critères sûrs coïncident : origine historique, matière, objectif non vide,
+date donnée, date de remise, type, mode de destinataire, liste d'élèves ciblés,
+liste de matricules candidats. Dans le doute, affichage séparé.
+
+Résultat sur les données réelles : **14 lignes → 9 cartes**, 14 identifiants
+conservés, 0 ligne perdue. Les trois ensembles connus se regroupent en 3, 3 et
+2 pages. Le message au parent passe de 11 annonces à 6.
+
+Défaut trouvé et corrigé au passage : chaque pièce jointe historique vit à la
+fois dans `fichiers` et dans `contenu.images`. Elle était comptée deux fois —
+un devoir de deux pages en annonçait quatre. Dédoublonnage sur l'URL (D17).
+
+## Grille de bascule — 15 critères
+
+| # | Critère | Résultat | Preuve |
+|---|---|---|---|
+| 1 | 14 devoirs historiques relus sans perte | **PASS** | 14 lignes, 17 pièces distinctes, 0 perte sur id/matière/objectif/remise/barème/énoncé/auteur/pièces |
+| 2 | Ciblages réels préservés | **PASS** | 11 désignations d'élèves relues, 0 écart de mode ni de liste |
+| 3 | Candidats `ins:` préservés | **PASS** | 4/4 matricules candidats |
+| 4 | Nouveaux devoirs au format canonique | **PASS** | fixture `71131f73` : type/période/énoncé/barème canoniques, aucune clé historique, `origine = portail` |
+| 5 | Auteur Auth obligatoire | **PASS** | refus live sans session, base inchangée à 14 ; gardes D12/D13. Cas positif à confirmer en production |
+| 6 | Modification = UPDATE du même id | **PASS** | même id, total inchangé, auteur et `date_donne` intacts, 3 pièces conservées, 3 champs mis à jour |
+| 7 | Aucune duplication silencieuse | **PASS** | 14 lignes, 14 identifiants distincts |
+| 8 | Suppression sûre | **PASS** | 204, retour à 14 lignes, empreinte des voisins `02d7f54a9f666515` identique avant/après |
+| 9 | Plusieurs pièces sur un seul devoir | **PASS** | 1 ligne créée, 3 feuilles sur le même id |
+| 10 | Documents / aperçu | **PASS** | feuille 351 / 366 / 406 / 794 px, aucun débordement |
+| 11 | Carte parents | **PASS** | 3 destinataires, 6 lignes groupées, WhatsApp de l'école |
+| 12 | Mobile 375 / 390 / 430 | **PASS** | aucun débordement, aucun contrôle hors écran aux trois largeurs |
+| 13 | Desktop | **PASS** | 1280 px, A4 pleine taille |
+| 14 | Performance | **PASS** | arrivée 12 stable, CP2 → 0 annoncé, retour 12 stable |
+| 15 | Gardes complètes vertes | **PASS sur le périmètre devoirs · FAIL sur la suite** | D1–D18 vertes, toutes auto-testées. C1/C8 restent rouges sur `fiche.html` — antérieures, sans lien avec les devoirs, et non fermables sans une nouvelle surface SQL |
+
+**Bascule effectuée** sur ce constat : les quatorze critères propres au module
+sont PASS, et le quinzième n'échoue que sur deux gardes antérieures qui ne sont
+pas une dépendance de ce basculement.
+
+## Retour arrière
+
+`public/pedago-archive/` **reste en ligne et intacte** — 4 entrées, `index.html`
+et `app.js` compris. Seul le lien de navigation a été retiré. Rétablir la
+bascule tient au rétablissement d'un bloc dans `src/pages/ProfApp.jsx`. La
+garde D18 vérifie les deux faces : plus aucun lien, et le filet toujours là.
+
+Le retrait physique n'aura lieu qu'après une période de preuve en production.

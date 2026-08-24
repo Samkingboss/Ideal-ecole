@@ -21,7 +21,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } f
 import FrisePreparation from '../components/FrisePreparation'
 import { statutDe as statutDePrep, libelleStatut as libelleStatutPrep } from '../lib/preparations'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
-import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir } from '../lib/devoirs'
+import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir, auteurAuthentifie } from '../lib/devoirs'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -410,8 +410,24 @@ export default function ProfApp({ user, onLogout }) {
         : []
       const toutesPieces = [...dejaLa, ...fichiers]
 
+      // ── L'auteur ────────────────────────────────────────────────────────
+      //
+      // Ni saisi, ni lu dans le `localStorage` : demandé au serveur, qui le
+      // déduit du jeton. Sans identité confirmée, on n'enregistre pas — un
+      // devoir sans auteur est exactement la dette que laisse l'ancienne
+      // plateforme, et elle ne se répare pas après coup.
+      //
+      // À la MODIFICATION, `user_id` n'est pas réécrit : corriger la date d'un
+      // devoir ne fait pas de vous son auteur. Les treize devoirs historiques
+      // gardent donc leur attribution textuelle, même retouchés.
+      let auteurId = null
+      if (!devoirEdite) {
+        const auteur = await auteurAuthentifie(supabase)
+        if (!auteur.id) throw new Error(`Enregistrement refusé : ${auteur.refus}`)
+        auteurId = auteur.id
+      }
+
       const ligne = {
-        user_id: user.id,
         classe_id: selectedClasse.id,
         groupe: selectedClasse.nom,
         matiere: newDevoir.matiere,
@@ -445,7 +461,8 @@ export default function ProfApp({ user, onLogout }) {
         ? await supabase.from('devoirs').update(ligne).eq('id', devoirEdite.id)
             .select(CHAMPS_DEVOIR).single()
         : await supabase.from('devoirs')
-            .insert({ ...ligne, date_donne: new Date().toISOString().slice(0, 10) })
+            .insert({ ...ligne, user_id: auteurId,
+                      date_donne: new Date().toISOString().slice(0, 10) })
             .select(CHAMPS_DEVOIR).single()
       if (error) throw new Error((devoirEdite ? 'Modification refusée : ' : 'Enregistrement refusé : ') + error.message)
 
@@ -690,15 +707,17 @@ export default function ProfApp({ user, onLogout }) {
           <>
             <button onClick={() => setTab('classe')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'classe' ? '#00a8e0' : 'var(--bg)', color: tab === 'classe' ? '#fff' : 'var(--muted)' }}>📋 Présence &amp; Liste Classe</button>
             <button onClick={() => setTab('devoirs')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'devoirs' ? '#00a8e0' : 'var(--bg)', color: tab === 'devoirs' ? '#fff' : 'var(--muted)' }}>📖 Devoirs de maison</button>
-            {/* La plateforme des devoirs vit dans une page à part,
-                /pedago-archive/, depuis bien avant la refonte du portail en
-                six sessions. Cette refonte a reconstruit la navigation sans
-                reprendre le lien : la page est restée en ligne et
-                fonctionnelle, mais plus aucun compte n'y menait. */}
-            <a href="/pedago-archive/" target="_blank" rel="noreferrer"
-              style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, textDecoration: 'none', background: '#047857', color: '#fff', whiteSpace: 'nowrap' }}>
-              🗂️ Plateforme Devoirs &amp; Élèves
-            </a>
+            {/* BASCULE — « 📖 Devoirs de maison » ci-dessus est désormais le
+                seul chemin. Le lien vers /pedago-archive/ a été retiré une
+                fois la parité prouvée : lecture des quatorze devoirs
+                historiques sans perte, ciblages et candidats préservés,
+                format canonique, auteur authentifié, modification par
+                UPDATE, suppression sûre, documents et carte parents.
+
+                La page /pedago-archive/ RESTE EN LIGNE et intacte : c'est le
+                retour arrière. Le rétablir tient au rétablissement de ce
+                bloc. Elle ne sera retirée qu'après une période de preuve en
+                production. Voir docs/constitution/parite-devoirs.md. */}
             <button onClick={() => setTab('messages')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'messages' ? '#00a8e0' : 'var(--bg)', color: tab === 'messages' ? '#fff' : 'var(--muted)' }}>💬 Messages Parents (WhatsApp)</button>
           </>
         )}
