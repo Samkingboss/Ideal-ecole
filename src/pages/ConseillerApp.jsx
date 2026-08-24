@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { messageLisible } from '../lib/chargement'
 import AgendaCalendrier from './AgendaCalendrier'
 import NotificationCenter from './NotificationCenter'
+import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 
 const dateLocale = () => new Intl.DateTimeFormat('fr-CA', {
   timeZone: 'Africa/Bamako', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -118,7 +119,7 @@ export default function ConseillerApp({ user, onLogout }) {
       { data: pres, error: ePres },
       { data: dev, error: eDev }
     ] = await Promise.all([
-      supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('nom'),
+      supabase.from('eleves').select(CHAMPS_ELEVE_AVEC_CLASSE).eq('actif', true).order('nom'),
       supabase.from('classes').select('*').order('ordre'),
       supabase.from('disciplines').select('*, users!prof_id(prenom, nom)').eq('date_incident', today),
       supabase.from('checkpoints').select('*, planification:planifications(classe_id), progressions(eleve_id, pourcentage, objectifs(nom))').eq('date_checkpoint', today),

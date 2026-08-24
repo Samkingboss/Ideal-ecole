@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { signature } from '../lib/identiteProfessionnelle'
+import { CHAMPS_ELEVE_LISTE } from '../lib/eleves'
 
 export default function CertificatScolarite({ user = null }) {
   // Le signataire n'est pas « le Directeur » écrit en dur : c'est la personne
@@ -22,7 +23,7 @@ export default function CertificatScolarite({ user = null }) {
     setLoading(true)
     try {
       const [resEleves, resInsc] = await Promise.all([
-        supabase.from('eleves').select('*').order('nom', { ascending: true }),
+        supabase.from('eleves').select(CHAMPS_ELEVE_LISTE).order('nom', { ascending: true }),
         supabase.from('inscriptions').select('*')
       ])
 

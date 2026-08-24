@@ -5,6 +5,7 @@ import { journaliser } from '../lib/audit'
 import NotificationCenter from './NotificationCenter'
 import { pushNotification } from '../lib/notifications'
 import { MaternelleSurveillance } from './MaternelleApp'
+import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 
 const RECREES = [
   { id:'r1', label:'9h40 - Recreation matin' },
@@ -77,7 +78,7 @@ export default function SurveillantApp({ user, onLogout }) {
     // Load discipline data
     const [{ data: disc }, { data: el }] = await Promise.all([
       supabase.from('disciplines').select('*, eleves(prenom, nom, points_discipline, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false }),
-      supabase.from('eleves').select('*, classes(nom)').eq('actif', true).order('points_discipline', { ascending: true })
+      supabase.from('eleves').select(CHAMPS_ELEVE_AVEC_CLASSE).eq('actif', true).order('points_discipline', { ascending: true })
     ])
     setDisciplines(disc || [])
     setEleves(el || [])

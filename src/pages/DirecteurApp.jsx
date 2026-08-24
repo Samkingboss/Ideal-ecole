@@ -18,8 +18,9 @@ import InscriptionsValidation from './InscriptionsValidation'
 import { FicheAlimentaire } from './CuisiniereApp'
 import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
-import { statutDe, libelleStatut, ponctualiteAuDepot, raconter, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser } from '../lib/preparations'
+import { statutDe, libelleStatut, ponctualiteAuDepot, raconter, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
+import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -124,6 +125,9 @@ export default function DirecteurApp({ user, onLogout }) {
   // Carte de préparation dépliée pour montrer sa frise d'historique.
   const [prepOuverte, setPrepOuverte] = useState(null)
   const [prepDetail, setPrepDetail] = useState(null)
+  // La direction ouvre cet écran pour savoir ce qu'elle doit traiter, pas pour
+  // parcourir un historique. On montre d'abord ce qui attend une décision.
+  const [prepFiltre, setPrepFiltre] = useState('a_controler')
   const [prepAvis, setPrepAvis] = useState({ appreciations: {}, commentaire: '' })
   const [checkpoints, setCheckpoints] = useState([])
   const [syntheseData, setSyntheseData] = useState([])
@@ -300,7 +304,7 @@ export default function DirecteurApp({ user, onLogout }) {
       const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       const results = await Promise.all([
         supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
-        supabase.from('eleves').select('*, classes(nom)').eq('actif',true),
+        supabase.from('eleves').select(CHAMPS_ELEVE_AVEC_CLASSE).eq('actif',true),
         supabase.from('classes').select('*').order('ordre'),
         supabase.from('periodes').select('*').order('ordre'),
         supabase.from('evenements').select('*').order('date_event', { ascending: true }),
@@ -1771,12 +1775,46 @@ export default function DirecteurApp({ user, onLogout }) {
             </div>
 
             <div className="card" style={{ padding: '1.2rem' }}>
-              <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800 }}>📚 Fiches de Préparation Déposées ({preparations.length})</h3>
-              {preparations.length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>Aucune préparation de cours enregistrée.</div>
+              <div className="entete-ecran" style={{ marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>
+                  📚 Fiches de préparation
+                  {' '}
+                  <span style={{ fontWeight: 600, color: 'var(--muted)' }}>
+                    · {preparations.filter(p => A_CONTROLER.includes(p.status)).length} à contrôler sur {preparations.length}
+                  </span>
+                </h3>
+                {/* Une notification perdue ne doit pas arrêter le travail : la
+                    file existe et se trouve sans qu'on ait cliqué sur une
+                    cloche. C'est la file qui fait foi, la notification n'est
+                    qu'un raccourci. */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[['a_controler', `À contrôler (${preparations.filter(p => A_CONTROLER.includes(p.status)).length})`],
+                    ['toutes', `Toutes (${preparations.length})`]].map(([id, libelle]) => (
+                    <button key={id} onClick={() => setPrepFiltre(id)} style={{
+                      padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      border: '2px solid ' + (prepFiltre === id ? 'var(--accent)' : 'var(--border)'),
+                      background: prepFiltre === id ? 'var(--accent)' : 'var(--bg)',
+                      color: prepFiltre === id ? '#fff' : 'var(--muted)',
+                    }}>{libelle}</button>
+                  ))}
+                </div>
+              </div>
+              {(() => {
+                const visibles = prepFiltre === 'a_controler'
+                  ? preparations.filter(p => A_CONTROLER.includes(p.status))
+                  : preparations
+                return visibles.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>
+                  {prepFiltre === 'a_controler'
+                    ? (preparations.length
+                        ? 'Aucune préparation n’attend votre décision. ✓'
+                        : 'Aucune préparation de cours enregistrée.')
+                    : 'Aucune préparation de cours enregistrée.'}
+                </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                  {preparations.map((prep, i) => {
+                  {visibles.map((prep, i) => {
                     // `prep.titre` et `prep.classe_nom` n'ont jamais existé dans
                     // la table : les dix-sept cartes affichaient « Préparation
                     // sans titre » et « Classe : — ». Les données étaient là,
@@ -1875,7 +1913,7 @@ export default function DirecteurApp({ user, onLogout }) {
                     )
                   })}
                 </div>
-              )}
+                )})()}
             </div>
           </div>
         )}

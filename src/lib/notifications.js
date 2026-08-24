@@ -4,6 +4,10 @@ import { supabase } from './supabase'
 // notifications vivent sous ce même `app`.
 export const APP_NOTIFS = 'notifications'
 
+// Raison du dernier échec d'envoi. Conservée jusqu'au prochain appel, pour que
+// l'écran qui a déclenché l'envoi puisse dire ce qui s'est passé.
+let derniereErreur = null
+
 /**
  * Envoie une notification ciblée à un rôle ou un utilisateur spécifique
  * @param {string|string[]} target - Rôle ('directeur', 'responsable_administratif', 'prof') ou ID utilisateur
@@ -82,10 +86,16 @@ export async function pushNotification(target, notifData) {
       // l'expéditeur croit avoir prévenu.
       if (error) {
         console.error('Notification non transmise à', tgt, ':', error.message)
-        echec = error
+        echec = { cible: tgt, message: error.message, code: error.code, details: error.details }
       }
     }
-    if (echec) return false
+
+    // L'écriture en base a échoué : la cloche du destinataire ne montrera
+    // rien. C'est le seul cas où l'on peut dire que la notification a échoué.
+    if (echec) {
+      derniereErreur = { etape: 'enregistrement', ...echec }
+      return false
+    }
 
     const params = new URLSearchParams()
     if (newNotif.tabTarget) params.set('notificationTab', newNotif.tabTarget)
@@ -101,9 +111,17 @@ export async function pushNotification(target, notifData) {
       p_url: pushUrl,
       p_tag: `ideal-${newNotif.type}-${newNotif.ref || newNotif.id}`,
     })
+    // Le Web Push a échoué, mais la notification EST enregistrée : la cloche
+    // du destinataire l'affichera dès qu'il ouvrira l'application.
+    //
+    // L'ancien code renvoyait `false` ici, ce qui faisait dire à l'expéditeur
+    // « la notification a échoué » alors qu'elle était bien partie. Deux
+    // pannes très différentes portaient le même message, et celui-ci était
+    // faux dans un cas sur deux.
     if (pushError) {
       console.error('Notification Web Push non mise en file :', pushError.message)
-      return false
+      derniereErreur = { etape: 'web-push', message: pushError.message, code: pushError.code }
+      return true
     }
 
     // Si le compte courant fait partie des destinataires, déclencher la notification système
@@ -121,9 +139,35 @@ export async function pushNotification(target, notifData) {
       }
     }
 
+    derniereErreur = null
     return true
   } catch (err) {
     console.error('Erreur pushNotification:', err)
+    derniereErreur = { etape: 'exception', message: String(err?.message || err) }
     return false
   }
+}
+
+// ── Pourquoi la dernière notification a échoué ────────────────────────────
+//
+// Le message « la notification a échoué » ne disait pas pourquoi, et la raison
+// n'existait que dans une console que personne n'ouvre. Un enseignant à Bamako
+// ne peut pas la lire, et la direction non plus.
+//
+// La raison est désormais conservée jusqu'au prochain envoi, et l'appelant
+// peut la montrer.
+export const raisonDernierEchec = () => derniereErreur
+
+export const messageEchecLisible = () => {
+  const e = derniereErreur
+  if (!e) return null
+  if (e.etape === 'web-push') return null   // la cloche a bien reçu : rien à signaler
+  const cause = /row-level security|not authorized|permission/i.test(e.message || '')
+      ? "votre session n'a pas le droit d'écrire cette notification"
+    : /JWT|expired|401/i.test(e.message || '')
+      ? 'votre session a expiré'
+    : /fetch|network|timeout|réseau/i.test(e.message || '')
+      ? 'le serveur n\'a pas répondu'
+      : e.message || 'cause inconnue'
+  return `${cause} (${e.etape}${e.code ? ' · ' + e.code : ''})`
 }

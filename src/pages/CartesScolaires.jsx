@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 import { WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
+import { CHAMPS_ELEVE_AVEC_PHOTO } from '../lib/eleves'
 
 // ─────────────────────────────────────────────────────────────────────
 // GABARIT
@@ -230,7 +231,12 @@ export default function CartesScolaires() {
     setLoading(true)
     try {
       const [resEleves, resClasses, resInsc] = await Promise.all([
-        supabase.from('eleves').select('*').order('nom', { ascending: true }),
+        // Le seul écran qui a besoin de la photo : il l'imprime sur la carte.
+        // Elle reste stockée en base64 dans la table — 1,7 Mo pour un seul
+        // élève — au lieu d'une référence au Storage. La migration reste à
+        // faire ; en attendant, cet écran la charge en connaissance de cause,
+        // et il est le seul.
+        supabase.from('eleves').select(CHAMPS_ELEVE_AVEC_PHOTO).order('nom', { ascending: true }),
         supabase.from('classes').select('*').order('nom', { ascending: true }),
         supabase.from('inscriptions').select('*')
       ])

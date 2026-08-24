@@ -5,6 +5,7 @@ import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe,
 import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS } from '../lib/preparations'
 import { pushNotification } from '../lib/notifications'
 import { signature } from '../lib/identiteProfessionnelle'
+import { messageEchecLisible } from '../lib/notifications'
 
 // Fiche de préparation d'une notion.
 //
@@ -430,9 +431,15 @@ export default function FichePreparation({
     })
 
     setEnCours(false)
+    // Le message disait « la notification a échoué » sans dire pourquoi, et la
+    // raison n'existait que dans une console que personne n'ouvre. Elle est
+    // désormais affichée : c'est elle qui permet de corriger.
+    const pourquoi = messageEchecLisible()
     setMessage(transmise
       ? { type: 'ok', texte: nb > 1 ? `${nb} séquences soumises à la direction ✓` : 'Préparation soumise à la direction ✓' }
-      : { type: 'err', texte: 'La préparation est bien enregistrée, mais la notification à la direction a échoué. Réessayez ou prévenez la direction.' })
+      : { type: 'err', texte: 'Votre préparation est enregistrée. En revanche la direction n\'a pas été prévenue : '
+          + (pourquoi || 'cause inconnue')
+          + '. Signalez-le à la direction en citant ce message.' })
     onEnregistre && onEnregistre()
   }
 
