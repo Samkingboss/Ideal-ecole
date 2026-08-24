@@ -22,6 +22,10 @@ import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, n
 import { MaternelleDirection } from './MaternelleApp'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
+import BlocCommentable from '../components/BlocCommentable'
+import { remarquesParSection, remarquesGenerales, nbCorrectionsOuvertes, entreeRemarque, cleEtape, SECTION_PROGRAMME } from '../lib/remarques'
+import { RUBRIQUES as RUBRIQUES_PREPA } from './FichePreparation'
+import { fonctionProfessionnelle } from '../lib/identiteProfessionnelle'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -207,6 +211,26 @@ export default function DirecteurApp({ user, onLogout }) {
     }
   }
 
+  // Ajouter une remarque à une rubrique. Elle rejoint l'historique de la
+  // préparation — pas une table à part, pas un état local : une remarque est
+  // une donnée institutionnelle, elle doit survivre à la fermeture de l'écran.
+  const ajouterRemarque = async (section, texte) => {
+    if (!prepDetail) return
+    const entree = entreeRemarque({
+      section, texte, utilisateur: user,
+      fonction: fonctionProfessionnelle(user, { role: user.role }),
+    })
+    const historique = [...(Array.isArray(prepDetail.historique_statuts) ? prepDetail.historique_statuts : []), entree]
+    const { error } = await supabase.from('preparations')
+      .update({ historique_statuts: historique })
+      .eq('id', prepDetail.id)
+    if (error) { alert(`Remarque non enregistrée : ${error.message}`); return }
+    // L'écran reflète immédiatement ce que la base porte désormais.
+    setPrepDetail({ ...prepDetail, historique_statuts: historique })
+    setPreparations(prev => prev.map(p =>
+      p.id === prepDetail.id ? { ...p, historique_statuts: historique } : p))
+  }
+
   const traiterPreparation = async (decision) => {
     if (!prepDetail) return
     const statutActuel = prepDetail.status === 'en_attente' ? 'deposee' : prepDetail.status === 'retard' ? 'en_retard' : prepDetail.status
@@ -215,8 +239,12 @@ export default function DirecteurApp({ user, onLogout }) {
       alert(`Cette préparation ne peut pas passer de « ${libelleStatut(statutActuel)} » à « ${libelleStatut(statutSuivant)} ».`)
       return
     }
-    if (decision === 'corriger' && !prepAvis.commentaire.trim()) {
-      alert('Précisez les corrections demandées au professeur.')
+    // Une remarque générale n'est exigée que si AUCUNE remarque de rubrique
+    // n'a été posée : dans ce cas seulement, l'enseignante n'aurait rien pour
+    // savoir quoi corriger.
+    const nbRubriquesCommentees = nbCorrectionsOuvertes(prepDetail.historique_statuts)
+    if (decision === 'corriger' && !prepAvis.commentaire.trim() && nbRubriquesCommentees === 0) {
+      alert('Indiquez ce qui doit être corrigé : ajoutez une remarque sous la rubrique concernée, ou une remarque générale.')
       return
     }
     const note = noteDeduite(prepAvis.appreciations)
@@ -2294,14 +2322,15 @@ export default function DirecteurApp({ user, onLogout }) {
         const note = noteDeduite(prepAvis.appreciations)
         const statutNormalise = prepDetail.status === 'en_attente' ? 'deposee' : prepDetail.status === 'retard' ? 'en_retard' : prepDetail.status
         const peutDecider = ['deposee', 'en_retard'].includes(statutNormalise)
-        const rubriques = [
-          ['Objectif pédagogique', contenu.objectif],
-          ['Prérequis', contenu.prerequis],
-          ['Matériel nécessaire', contenu.materiel],
-          ['Différenciation', contenu.differenciation],
-          ['Évaluation prévue', contenu.evaluation],
-          ['Trace / synthèse', contenu.trace],
-        ].filter(([, valeur]) => valeur)
+        // Les rubriques viennent du formulaire lui-même, avec leur clé métier.
+        // L'ancien tableau de libellés écrits ici aurait fait dériver les
+        // remarques dès qu'un intitulé changeait.
+        const rubriques = RUBRIQUES_PREPA
+          .map(r => ({ cle: r.id, label: r.label, valeur: contenu[r.id] }))
+          .filter(r => r.valeur)
+        const parSection = remarquesParSection(prepDetail.historique_statuts)
+        const generales = remarquesGenerales(prepDetail.historique_statuts)
+        const nbOuvertes = nbCorrectionsOuvertes(prepDetail.historique_statuts)
         return (
           <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setPrepDetail(null)} style={{ zIndex: 999999 }}>
             <div style={{ background: '#fff', borderRadius: 24, width: 'min(94%, 920px)', maxHeight: '92vh', overflowY: 'auto', padding: 24, margin: '20px auto' }}>
@@ -2327,11 +2356,12 @@ export default function DirecteurApp({ user, onLogout }) {
               )}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10, marginBottom: 16 }}>
-                {rubriques.map(([titre, valeur]) => (
-                  <div key={titre} style={{ border: '1px solid var(--border)', borderRadius: 13, padding: 13, background: 'var(--bg)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 5 }}>{titre}</div>
-                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45, fontSize: 13 }}>{valeur}</div>
-                  </div>
+                {rubriques.map(r => (
+                  <BlocCommentable key={r.cle} label={r.label}
+                    remarques={parSection.get(r.cle) || []}
+                    onAjouter={peutDecider ? (t => ajouterRemarque(r.cle, t)) : null}>
+                    {r.valeur}
+                  </BlocCommentable>
                 ))}
               </div>
 
@@ -2339,9 +2369,16 @@ export default function DirecteurApp({ user, onLogout }) {
                 <div key={index} style={{ border: '1px solid var(--border)', borderRadius: 15, padding: 14, marginBottom: 12 }}>
                   <h4 style={{ margin: '0 0 10px', color: 'var(--dark)' }}>Séquence {index + 1}{sequence.titre ? ` — ${sequence.titre}` : ''}</h4>
                   {Object.entries(sequence.etapes || {}).map(([nom, etape]) => etape?.texte ? (
-                    <div key={nom} style={{ borderTop: '1px solid var(--border)', padding: '9px 0' }}>
-                      <b style={{ textTransform: 'capitalize' }}>{nom.replaceAll('_', ' ')}</b>{etape.minutes ? ` · ${etape.minutes} min` : ''}
-                      <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>{etape.texte}</div>
+                    <div key={nom} style={{ marginTop: 9 }}>
+                      {/* La clé porte la séquence : une remarque sur la
+                          découverte de la séquence 1 ne doit pas s'afficher
+                          sous celle de la séquence 2. */}
+                      <BlocCommentable compact
+                        label={`${nom.replaceAll('_', ' ')}${etape.minutes ? ` · ${etape.minutes} min` : ''}`}
+                        remarques={parSection.get(cleEtape(index + 1, nom)) || []}
+                        onAjouter={peutDecider ? (t => ajouterRemarque(cleEtape(index + 1, nom), t)) : null}>
+                        {etape.texte}
+                      </BlocCommentable>
                     </div>
                   ) : null)}
                 </div>
@@ -2377,8 +2414,42 @@ export default function DirecteurApp({ user, onLogout }) {
               <div style={{ fontWeight: 900, color: note === null ? 'var(--amber)' : 'var(--dark)', marginBottom: 12 }}>
                 Note : {note === null ? 'complétez les 5 critères' : `${note}/20`}
               </div>
+              {/* Les remarques déjà posées sous les rubriques, récapitulées :
+                  la direction doit voir ce qu'elle a demandé avant de décider. */}
+              {nbOuvertes > 0 && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a',
+                              borderRadius: 12, padding: '11px 13px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#92400e' }}>
+                    {nbOuvertes} remarque{nbOuvertes > 1 ? 's' : ''} posée{nbOuvertes > 1 ? 's' : ''} sous les rubriques
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#92400e', marginTop: 3 }}>
+                    Elles constituent les corrections demandées. La remarque générale
+                    ci-dessous ne sert qu'aux observations d'ensemble.
+                  </div>
+                </div>
+              )}
+
+              {generales.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--muted)',
+                                textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+                    Remarques générales déjà émises
+                  </div>
+                  {generales.map((r, k) => (
+                    <div key={k} style={{ background: 'var(--bg)', border: '1px solid var(--border)',
+                                          borderRadius: 9, padding: '9px 11px', marginBottom: 6 }}>
+                      <div style={{ fontSize: 10.5, color: 'var(--muted)', fontWeight: 700 }}>
+                        {r.parNom || 'Direction'}{r.parFonction ? ` (${r.parFonction})` : ''}
+                        {r.heritee ? ' · remarque générale' : ''}
+                      </div>
+                      <div style={{ fontSize: 12.5, marginTop: 3, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.texte}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="form-group">
-                <label className="form-label">Corrections, observations et conseils au professeur</label>
+                <label className="form-label">Remarque générale — observation d’ensemble (facultative)</label>
                 <textarea className="form-input" rows={5} value={prepAvis.commentaire} onChange={e => setPrepAvis(v => ({ ...v, commentaire: e.target.value }))} placeholder="Indiquez précisément les améliorations attendues ou votre appréciation..." />
               </div>
               {peutDecider ? (

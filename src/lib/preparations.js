@@ -484,7 +484,11 @@ export function raconter(entree) {
     statut:              `${qui} a changé le statut pour « ${libelleStatut(entree.statut)} »`,
     correction_demandee: `${qui}${titre} a demandé une correction`,
     validation:          `${qui}${titre} a validé la préparation`,
-    commentaire:         `${qui} a laissé un commentaire`,
+    // Une remarque contextualisée dit sous quelle rubrique elle a été posée :
+    // dans la chronologie, « a laissé un commentaire » n'apprend rien.
+    commentaire: entree.section
+      ? `${qui}${titre} a commenté « ${entree.section} »`
+      : `${qui}${titre} a laissé une remarque générale`,
     reouverture:         `${qui} a rouvert une préparation déjà validée`,
     migration:           ancien
       ? `Statut normalisé automatiquement depuis « ${ancien} »`

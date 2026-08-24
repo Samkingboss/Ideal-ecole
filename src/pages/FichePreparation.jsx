@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
-import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS } from '../lib/preparations'
+import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS, evenementDepot } from '../lib/preparations'
 import { pushNotification } from '../lib/notifications'
 import { signature } from '../lib/identiteProfessionnelle'
 import { messageEchecLisible } from '../lib/notifications'
 import FrisePreparation from '../components/FrisePreparation'
+import { remarquesParSection, remarquesGenerales, nbCorrectionsOuvertes, cleEtape } from '../lib/remarques'
 
 // Fiche de préparation d'une notion.
 //
@@ -120,6 +121,33 @@ const commentaireDepot = (dateCours, heureCours, moment) => {
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
+// Les remarques de la direction qui visent cette rubrique. Rien si aucune :
+// une rubrique sans remarque doit rester une rubrique ordinaire.
+function RemarquesDeSection({ remarques }) {
+  if (!remarques || !remarques.length) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+      {remarques.map((r, k) => (
+        <div key={k} style={{
+          background: r.traitee ? 'var(--card)' : '#fffbeb',
+          border: '1px solid ' + (r.traitee ? 'var(--border)' : '#f59e0b'),
+          borderLeft: '3px solid ' + (r.traitee ? 'var(--border)' : '#b45309'),
+          borderRadius: 8, padding: '8px 10px',
+        }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: r.traitee ? 'var(--muted)' : '#92400e' }}>
+            {r.traitee ? '✓ Traitée' : '⚠ Correction demandée'}
+            {' · '}{r.parNom || 'Direction'}{r.parFonction ? ` (${r.parFonction})` : ''}
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 400, color: 'var(--text)', lineHeight: 1.45,
+                        marginTop: 3, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+            {r.texte}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function FichePreparation({
   user, creneau, dateCours,
   objectifsOfficiels = [],
@@ -179,7 +207,7 @@ export default function FichePreparation({
         const numeros = Array.from({ length: nb }, (_, i) => creneau.sequence + i)
         const { data: all } = await supabase
           .from('preparations')
-          .select('id, sequence')
+          .select('id, sequence, status, historique_statuts')
           .eq('user_id', user.id)
           .eq('date_cours', dateCours)
           .in('sequence', numeros)
@@ -355,6 +383,36 @@ export default function FichePreparation({
 
       const ex = existantes.find(e => e.sequence === seqNum)
 
+      // ── Resoumission après une demande de correction ────────────────────
+      //
+      // Sans cela, l'enseignante corrigeait et rien ne bougeait : la
+      // préparation restait « à corriger » indéfiniment et la direction ne
+      // savait pas que le travail avait été repris. La transition
+      // `a_corriger → deposee | en_retard` existait déjà dans la nomenclature,
+      // elle n'était simplement jouée par personne.
+      //
+      // Le statut retrouvé est celui du dépôt d'origine, pas un statut neuf :
+      // une préparation déposée en retard le reste après correction — le
+      // retard est un fait, pas une punition qu'on efface en corrigeant.
+      // `evenementDepot` rend l'entrée du dépôt d'origine : c'est elle qui
+      // porte le statut à retrouver.
+      const statutDOrigine = evenementDepot(ex)?.statut || 'deposee'
+      // `ex.status` et non l'état du composant : `statut` est masqué ici par
+      // la constante locale du dépôt, et surtout la ligne en base fait
+      // autorité sur ce que l'écran croit savoir.
+      const majResoumission = (ex?.status === 'a_corriger')
+        ? {
+            status: statutDOrigine,
+            historique_statuts: ajouterHistorique(ex.historique_statuts, {
+              statut: statutDOrigine,
+              action: ACTIONS.modification,
+              commentaire: 'Préparation corrigée et resoumise à la direction.',
+              utilisateur: user,
+              contexte: { role: 'professeur', matiere: creneau.matiere },
+            }),
+          }
+        : {}
+
       // Le dépôt est un événement, pas un état : il n'a lieu qu'une fois, à la
       // création. Une modification ultérieure ne le rejoue pas — elle ne
       // touche donc ni au statut, ni à l'instant du dépôt, ni à l'historique.
@@ -364,7 +422,7 @@ export default function FichePreparation({
       // basculerait en retard, et `heure_depot` cesserait de correspondre au
       // `le` de l'entrée de dépôt, seule trace de la ponctualité réelle.
       const req = ex
-        ? supabase.from('preparations').update(ligne).eq('id', ex.id)
+        ? supabase.from('preparations').update({ ...ligne, ...majResoumission }).eq('id', ex.id)
         : supabase.from('preparations').insert({
             ...ligne,
             heure_depot: maintenant,
@@ -415,7 +473,7 @@ export default function FichePreparation({
     // voir une ligne qui aurait dû disparaître et qui est toujours là.
     const { data: apres } = await supabase
       .from('preparations')
-      .select('id, sequence')
+      .select('id, sequence, status, historique_statuts')
       .eq('user_id', user.id)
       .eq('date_cours', dateCours)
       .gte('sequence', creneau.sequence)
@@ -585,6 +643,10 @@ export default function FichePreparation({
     </option>
   )
 
+  const parSection = remarquesParSection(historique)
+  const generales = remarquesGenerales(historique)
+  const nbOuvertes = nbCorrectionsOuvertes(historique)
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(6,16,24,.94)',
@@ -617,7 +679,9 @@ export default function FichePreparation({
               ↩️ La direction demande une correction
             </div>
             <div style={{ fontSize: 12, color: '#92400e', marginTop: 3 }}>
-              Corrigez les points ci-dessous, puis soumettez de nouveau.
+              {nbOuvertes > 0
+                ? `${nbOuvertes} correction${nbOuvertes > 1 ? 's' : ''} demandée${nbOuvertes > 1 ? 's' : ''} — chacune est signalée sous la rubrique concernée.`
+                : 'Corrigez les points ci-dessous, puis soumettez de nouveau.'}
             </div>
           </div>
         )}
@@ -632,12 +696,37 @@ export default function FichePreparation({
           </div>
         )}
 
+        {generales.length > 0 && (
+          <div style={{
+            marginTop: 12, background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '12px 14px',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)',
+                          textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 7 }}>
+              Remarque générale de la direction
+            </div>
+            {/* Distincte des remarques de rubrique : elle porte sur l'ensemble
+                de la préparation, pas sur un champ. Les retours antérieurs à
+                ce système s'affichent ici — leur rubrique n'est jamais
+                devinée depuis leur texte. */}
+            {generales.map((r, k) => (
+              <div key={k} style={{ marginTop: k ? 8 : 0 }}>
+                <div style={{ fontSize: 10.5, color: 'var(--muted)', fontWeight: 700 }}>
+                  {r.parNom || 'Direction'}{r.parFonction ? ` (${r.parFonction})` : ''}
+                </div>
+                <div style={{ fontSize: 12.5, marginTop: 3, lineHeight: 1.45,
+                              whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.texte}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {historique.length > 0 && (
           <div style={{
             marginTop: 12, background: 'var(--card)', border: '1px solid var(--border)',
             borderRadius: 12, padding: '12px 14px',
           }}>
-            <FrisePreparation historique={historique} titre="Suivi de cette préparation" />
+            <FrisePreparation historique={historique} titre="Suivi de cette préparation" contenu={fiche} />
           </div>
         )}
 
@@ -817,6 +906,8 @@ export default function FichePreparation({
               readOnly={lectureSeule}
               style={champ}
             />
+            {/* La remarque de la direction, sous le champ qu'elle vise. */}
+            <RemarquesDeSection remarques={parSection.get(r.id) || []} />
           </label>
         ))}
 
@@ -889,6 +980,9 @@ export default function FichePreparation({
                     readOnly={lectureSeule}
                     style={{ ...champ, marginTop: 6 }}
                   />
+                  {/* La clé porte la séquence : `seqNum` est le numéro réel du
+                      créneau, celui-là même qu'emploie la direction. */}
+                  <RemarquesDeSection remarques={parSection.get(cleEtape(idx + 1, e.id)) || []} />
                 </div>
               ))}
             </div>
@@ -908,6 +1002,8 @@ export default function FichePreparation({
               readOnly={lectureSeule}
               style={champ}
             />
+            {/* La remarque de la direction, sous le champ qu'elle vise. */}
+            <RemarquesDeSection remarques={parSection.get(r.id) || []} />
           </label>
         ))}
 

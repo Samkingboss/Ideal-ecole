@@ -1,4 +1,5 @@
 import { raconter, ACTIONS } from '../lib/preparations'
+import { libelleSection } from '../lib/remarques'
 
 // La chronologie d'une préparation, rendue à l'identique des deux côtés.
 //
@@ -25,7 +26,7 @@ const COULEURS = {
 }
 const NEUTRE = { trait: '#64748b', fond: 'var(--bg)', bord: 'var(--border)' }
 
-export default function FrisePreparation({ historique, titre = 'Historique', compact = false }) {
+export default function FrisePreparation({ historique, titre = 'Historique', compact = false, contenu = null }) {
   const entrees = Array.isArray(historique) ? historique : []
   if (!entrees.length) return null
 
@@ -41,7 +42,10 @@ export default function FrisePreparation({ historique, titre = 'Historique', com
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 6 : 9 }}>
         {ordonnees.map((e, k) => {
-          const r = raconter(e)
+          // La chronologie nomme la rubrique en clair, pas par sa clé.
+          const r = raconter(e.section
+            ? { ...e, section: libelleSection(e.section, contenu) }
+            : e)
           const c = COULEURS[e.action] || NEUTRE
           return (
             <div key={k} style={{
