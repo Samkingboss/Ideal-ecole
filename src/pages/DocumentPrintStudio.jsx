@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 
 // Moteur documentaire commun d'IDEAL.
@@ -323,6 +323,44 @@ function repartir(hauteurs, hauteurUtilePx, espacementPx) {
 // remonte tout son sous-arbre — les mesures repartiraient de zéro à chaque
 // passe.
 
+// ─── Adaptation à l'écran ────────────────────────────────────────────────────
+//
+// La feuille mesure 210 mm de large. Sur un téléphone de 375 px, cela fait
+// deux fois la largeur de l'écran : le document débordait horizontalement et
+// poussait la page entière avec lui.
+//
+// On ne réduit pas le document : on le met à l'échelle. Le papier reste du A4
+// — c'est ce qui sortira de l'imprimante — mais son aperçu tient dans l'écran.
+// `zoom` serait plus court ; `transform` est le seul des deux que Firefox et
+// Safari traitent pareil, et le tirage annule la transformation de toute façon.
+
+const A4_PX = A4.largeur * 96 / 25.4   // 210 mm à 96 dpi ≈ 794 px
+
+const useEchelleFeuille = () => {
+  const cadre  = useRef(null)   // largeur disponible
+  const docRef = useRef(null)   // le document à sa taille réelle
+  const [echelle, setEchelle] = useState(1)
+  const [hauteurDoc, setHauteurDoc] = useState(0)
+
+  useEffect(() => {
+    const zone = cadre.current
+    if (!zone) return
+    const mesurer = () => {
+      const dispo = zone.clientWidth
+      if (dispo) setEchelle(Math.min(1, dispo / A4_PX))   // jamais d'agrandissement
+      if (docRef.current) setHauteurDoc(docRef.current.scrollHeight)
+    }
+    mesurer()
+    const ro = new ResizeObserver(mesurer)
+    ro.observe(zone)
+    if (docRef.current) ro.observe(docRef.current)
+    window.addEventListener('orientationchange', mesurer)
+    return () => { ro.disconnect(); window.removeEventListener('orientationchange', mesurer) }
+  })
+
+  return { cadre, docRef, echelle, hauteurDoc }
+}
+
 function Feuille({ prov, titre, bandeau, page, total, etabliLe, children }) {
   return (
     <div className="feuille" style={{
@@ -530,10 +568,26 @@ export default function DocumentPrintStudio({
     prov, titre: documentTitle, bandeau: subTitlePill || prov.bandeau, etabliLe,
   }
 
+  const { cadre, docRef, echelle, hauteurDoc } = useEchelleFeuille()
+  const reduit = echelle < 1 && !enExport
+
   return (
     <ProvenanceContext.Provider value={prov}>
-      <div className="print-modal-container"
-           style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
+      {/* Une surcouche, et non un bloc inséré dans la page.
+          `print-modal-container` n'avait aucun style : le document A4 était
+          poussé dans le flux de l'écran qui l'appelait, sous le contenu
+          existant, et débordait de la largeur du téléphone. */}
+      <div className="print-modal-container" role="dialog" aria-modal="true"
+           aria-label={documentTitle}
+           style={{
+             fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+             position: 'fixed', inset: 0, zIndex: 1200,
+             background: 'rgba(13,42,59,.55)',
+             overflowY: 'auto', overflowX: 'hidden',
+             WebkitOverflowScrolling: 'touch',
+             padding: 'max(12px, env(safe-area-inset-top)) 12px calc(24px + env(safe-area-inset-bottom))',
+             overscrollBehavior: 'contain',
+           }}>
 
         {/* Barre de contrôle — jamais imprimée */}
         <div className="no-print" style={{
@@ -597,8 +651,23 @@ export default function DocumentPrintStudio({
           </div>
         )}
 
-        <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px 0' }}>
-          <div id="ideal-document">
+        {/* Cadre de mesure : il occupe la largeur disponible et fixe l'échelle.
+            Sa hauteur suit celle du document réduit, sinon la surcouche
+            garderait la hauteur d'un A4 pleine taille sous le contenu. */}
+        <div ref={cadre} style={{ width: '100%' }}>
+          <div style={{
+            height: reduit ? `${hauteurDoc * echelle}px` : undefined,
+            overflow: 'hidden',
+          }}>
+            {/* html2canvas capture mal un élément dont un ancêtre porte une
+                transformation : l'image sortirait à la taille réduite de
+                l'écran. Le temps de l'export, le document reprend sa taille
+                réelle — l'aperçu saute une seconde, l'image reste en A4. */}
+            <div id="ideal-document" ref={docRef} style={{
+              transform: reduit ? `scale(${echelle})` : undefined,
+              transformOrigin: 'top left',
+              width: reduit ? `${A4_PX}px` : undefined,
+            }}>
             {!pagine ? (
               // Documents historiques : un seul tenant, en-tête et pied
               // compris. La feuille de style d'impression empêche désormais la
@@ -623,6 +692,7 @@ export default function DocumentPrintStudio({
                 </Feuille>
               ))
             )}
+            </div>
           </div>
         </div>
       </div>

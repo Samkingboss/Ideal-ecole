@@ -280,6 +280,13 @@ input[type=range] { accent-color:var(--accent); width:80px; }
   .printable-bilan { width: 100% !important; }
   .table th { background: #eee !important; color: #000 !important; border: 1px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .table td { border: 1px solid #eee !important; }
+  /* Le moteur documentaire est une surcouche fixe à l'écran. Un Ctrl+P
+     direct doit imprimer la feuille, pas le voile ni la barre d'outils. */
+  .print-modal-container { position: static !important; inset: auto !important;
+    background: #fff !important; overflow: visible !important; padding: 0 !important;
+    z-index: auto !important; }
+  .print-modal-container #ideal-document { transform: none !important; width: auto !important; }
+  .print-modal-container #ideal-document > * { height: auto !important; overflow: visible !important; }
 }
 
 /* ═══════ RESSENTI APPLICATION NATIVE (PWA) ═══════ */

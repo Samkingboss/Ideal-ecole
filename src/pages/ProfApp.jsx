@@ -1,4 +1,4 @@
-import ProgrammeManuel from './ProgrammeManuel'
+import ProgrammePedagogique from './ProgrammePedagogique'
 import CheckpointModal from './CheckpointModal'
 import AgendaCalendrier from './AgendaCalendrier'
 import PreparationIA from './PreparationIA'
@@ -11,7 +11,6 @@ import SignalementIncident from './SignalementIncident'
 import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
-import SommaireManuelDocument from './SommaireManuelDocument'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import AccordionCard from '../components/ui/AccordionCard'
 import { useState, useEffect } from 'react'
@@ -52,7 +51,6 @@ const PROF_SESSIONS = [
 export default function ProfApp({ user, onLogout }) {
   const [activeProfSession, setActiveProfSession] = useState('emploi')
   const [tab, setTab] = useState('edt')
-  const [sommaireManuel, setSommaireManuel] = useState(null)  // clé du manuel, ou null
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState([])
   const [allClasses, setAllClasses] = useState([])
@@ -561,8 +559,7 @@ export default function ProfApp({ user, onLogout }) {
 
         {activeProfSession === 'pedagogie' && (
           <>
-            <button onClick={() => setTab('programme')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'programme' ? '#00a8e0' : 'var(--bg)', color: tab === 'programme' ? '#fff' : 'var(--muted)' }}>📘 Programme du manuel</button>
-            <button onClick={() => setSommaireManuel('lecture-cp2')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: '#047857', color: '#fff', boxShadow: '0 2px 8px rgba(4,120,87,0.3)' }}>📖 Sommaire du manuel de lecture</button>
+            <button onClick={() => setTab('programme')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'programme' ? '#00a8e0' : 'var(--bg)', color: tab === 'programme' ? '#fff' : 'var(--muted)' }}>📘 Programme &amp; Matières</button>
             <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions &amp; Checkpoints</button>
             <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>🎯 Fin de cours &amp; Clés</button>
           </>
@@ -632,7 +629,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         )}
 
-        {tab === 'programme' && <ProgrammeManuel user={user} />}
+        {tab === 'programme' && <ProgrammePedagogique user={user} />}
 
         {tab === 'progression' && (
           <div>
@@ -1074,10 +1071,6 @@ export default function ProfApp({ user, onLogout }) {
         </div>
       )}
 
-      {/* MODAL APERÇU ET TÉLÉCHARGEMENT SOMMAIRE BOSCHER */}
-      {sommaireManuel && (
-        <SommaireManuelDocument cle={sommaireManuel} onClose={() => setSommaireManuel(null)} />
-      )}
     </div>
   )
 }
