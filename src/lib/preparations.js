@@ -15,6 +15,7 @@
 // alimentait la prime.
 
 import { supabase } from './supabase'
+import { fonctionProfessionnelle } from './identiteProfessionnelle'
 
 // ─── Statuts ────────────────────────────────────────────────────────────────
 //
@@ -409,7 +410,7 @@ export const detailNote = appreciations =>
  * qu'une colonne — le dépôt inscrit ainsi le `heure_depot` de la ligne, à la
  * milliseconde près, plutôt qu'un instant recalculé qui en différerait.
  */
-export function ajouterHistorique(historique, { statut, action, commentaire, utilisateur, le }) {
+export function ajouterHistorique(historique, { statut, action, commentaire, utilisateur, contexte, le }) {
   return [
     ...(Array.isArray(historique) ? historique : []),
     {
@@ -419,6 +420,15 @@ export function ajouterHistorique(historique, { statut, action, commentaire, uti
       le: le || new Date().toISOString(),
       par: utilisateur?.id || null,
       par_nom: utilisateur ? `${utilisateur.prenom || ''} ${utilisateur.nom || ''}`.trim() : null,
+      // La fonction au moment de l'acte, figée avec lui.
+      //
+      // La recalculer à l'affichage donnerait la fonction d'aujourd'hui pour
+      // une décision d'hier : une enseignante devenue directrice aurait l'air
+      // d'avoir validé ses propres préparations. Les entrées antérieures n'en
+      // portent pas — elles s'affichent alors avec le seul nom.
+      par_fonction: utilisateur
+        ? fonctionProfessionnelle(utilisateur, contexte || {}) || null
+        : null,
     },
   ]
 }
@@ -457,6 +467,9 @@ const ancienStatutDe = commentaire => {
 /** Phrase lisible pour l'écran, à partir d'une entrée d'historique. */
 export function raconter(entree) {
   const qui = entree.par_nom || 'Quelqu’un'
+  // La fonction du signataire, quand l'entrée la porte. « Directeur IDEAL a
+  // demandé une correction » ne dit pas à quel titre ; la fonction le dit.
+  const titre = entree.par_fonction ? ` (${entree.par_fonction})` : ''
   const quand = entree.le
     ? new Date(entree.le).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
     : ''
@@ -466,11 +479,11 @@ export function raconter(entree) {
     : null
 
   const phrases = {
-    depot:               `${qui} a déposé la préparation`,
-    modification:        `${qui} a modifié la préparation`,
+    depot:               `${qui}${titre} a déposé la préparation`,
+    modification:        `${qui}${titre} a modifié la préparation`,
     statut:              `${qui} a changé le statut pour « ${libelleStatut(entree.statut)} »`,
-    correction_demandee: `${qui} a demandé une correction`,
-    validation:          `${qui} a validé la préparation`,
+    correction_demandee: `${qui}${titre} a demandé une correction`,
+    validation:          `${qui}${titre} a validé la préparation`,
     commentaire:         `${qui} a laissé un commentaire`,
     reouverture:         `${qui} a rouvert une préparation déjà validée`,
     migration:           ancien

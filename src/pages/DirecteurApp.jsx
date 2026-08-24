@@ -18,9 +18,10 @@ import InscriptionsValidation from './InscriptionsValidation'
 import { FicheAlimentaire } from './CuisiniereApp'
 import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
-import { statutDe, libelleStatut, ponctualiteAuDepot, raconter, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER } from '../lib/preparations'
+import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
+import FrisePreparation from '../components/FrisePreparation'
 
 const BOTTOM_TABS = [
   { id:'dashboard', icon:'📊', label:'Bord' },
@@ -229,6 +230,9 @@ export default function DirecteurApp({ user, onLogout }) {
       action: decision === 'valider' ? ACTIONS.validation : ACTIONS.correction_demandee,
       commentaire: prepAvis.commentaire.trim() || `Contrôle pédagogique : ${note}/20`,
       utilisateur: user,
+      // La direction signe au titre de la direction, même si elle enseigne
+      // par ailleurs : c'est un acte de contrôle, pas un acte pédagogique.
+      contexte: { role: user.role },
     })
     const { error } = await supabase.from('preparations').update({
       status: statutSuivant,
@@ -1889,22 +1893,12 @@ export default function DirecteurApp({ user, onLogout }) {
                                            fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>
                             {ouverte ? '▾' : '▸'} Historique ({frise.length})
                           </button>
+                          {/* Le même composant que la fiche de l'enseignante.
+                              Deux rendus séparés auraient fini par diverger ;
+                              celui-ci lit la même source par la même fonction. */}
                           {ouverte && (
-                            <div style={{ marginTop: 6, borderLeft: '2px solid var(--border)', paddingLeft: 10 }}>
-                              {frise.map((e, k) => {
-                                const r = raconter(e)
-                                return (
-                                  <div key={k} style={{ marginBottom: 6 }}>
-                                    <div style={{ fontSize: 11, color: 'var(--text)' }}>{r.texte}</div>
-                                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{r.quand}</div>
-                                    {r.commentaire && (
-                                      <div style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', marginTop: 2 }}>
-                                        « {r.commentaire} »
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
+                            <div style={{ marginTop: 8 }}>
+                              <FrisePreparation historique={frise} titre="Suivi" compact />
                             </div>
                           )}
                         </div>

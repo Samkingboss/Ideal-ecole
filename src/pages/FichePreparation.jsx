@@ -6,6 +6,7 @@ import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS
 import { pushNotification } from '../lib/notifications'
 import { signature } from '../lib/identiteProfessionnelle'
 import { messageEchecLisible } from '../lib/notifications'
+import FrisePreparation from '../components/FrisePreparation'
 
 // Fiche de préparation d'une notion.
 //
@@ -143,13 +144,22 @@ export default function FichePreparation({
   const [cleManuel, setCleManuel] = useState(null)
   const manuel = manuels.find(m => m.cle === cleManuel) || manuels[0] || null
 
+  // Le retour de la direction. Il vit dans `preparations.historique_statuts`,
+  // seule source : aucune copie n'est faite pour l'affichage.
+  const [statut, setStatut] = useState(null)
+  const [historique, setHistorique] = useState([])
+
   // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
     let annule = false
     ;(async () => {
       const { data, error } = await supabase
         .from('preparations')
-        .select('id, contenu, heure_depot, sequence')
+        // `status` et `historique_statuts` manquaient à cette liste. La
+        // direction écrivait sa remarque dans l'historique, l'écran ne la
+        // demandait jamais, et l'enseignante lisait « à corriger » sans savoir
+        // quoi corriger. Le texte partait du serveur et personne ne l'appelait.
+        .select('id, contenu, heure_depot, sequence, status, historique_statuts')
         .eq('user_id', user.id)
         .eq('date_cours', dateCours)
         .eq('sequence', creneau.sequence)
@@ -160,6 +170,8 @@ export default function FichePreparation({
 
       const contenu = migrer(data.contenu)
       setFiche(contenu)
+      setStatut(data.status || null)
+      setHistorique(Array.isArray(data.historique_statuts) ? data.historique_statuts : [])
       if (contenu.programme?.cle) setCleManuel(contenu.programme.cle)
 
       const nb = contenu.nb_sequences || 1
@@ -362,6 +374,8 @@ export default function FichePreparation({
             // lue dans le fuseau de l'école, pas dans celui de l'appareil.
             status: statut,
             historique_statuts: ajouterHistorique([], {
+              // Elle dépose au titre de la matière du créneau.
+              contexte: { role: 'professeur', matiere: creneau.matiere },
               statut,
               action: ACTIONS.depot,
               commentaire: commentaireDepot(dateCours, h, maintenant),
@@ -589,6 +603,43 @@ export default function FichePreparation({
           </div>
           <button className="btn-sm" onClick={onFerme}>Fermer</button>
         </div>
+
+        {/* ── Retour de la direction ──────────────────────────────────────
+            En tête, avant le formulaire : on lit ce qu'il faut corriger
+            AVANT de corriger. Une remarque reléguée en bas de page serait lue
+            après coup, ou pas du tout. */}
+        {statut === 'a_corriger' && (
+          <div style={{
+            marginTop: 14, background: '#fffbeb', border: '1px solid #f59e0b',
+            borderLeft: '4px solid #b45309', borderRadius: 12, padding: '12px 14px',
+          }} role="status">
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#92400e' }}>
+              ↩️ La direction demande une correction
+            </div>
+            <div style={{ fontSize: 12, color: '#92400e', marginTop: 3 }}>
+              Corrigez les points ci-dessous, puis soumettez de nouveau.
+            </div>
+          </div>
+        )}
+        {statut === 'validee' && (
+          <div style={{
+            marginTop: 14, background: '#f0fdf4', border: '1px solid #16a34a',
+            borderLeft: '4px solid #15803d', borderRadius: 12, padding: '12px 14px',
+          }} role="status">
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#166534' }}>
+              ✅ Préparation validée par la direction
+            </div>
+          </div>
+        )}
+
+        {historique.length > 0 && (
+          <div style={{
+            marginTop: 12, background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '12px 14px',
+          }}>
+            <FrisePreparation historique={historique} titre="Suivi de cette préparation" />
+          </div>
+        )}
 
         {/* ── Leçon du manuel ── */}
         {manuel && (
