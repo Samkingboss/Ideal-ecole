@@ -19,12 +19,14 @@ case "${1:-}" in
   --statique) lance statiques.sh; lance ecrans.sh; lance cliquets.sh
               lanceJS test-chargement.mjs; lanceJS test-programmes.mjs
               lanceJS test-identite.mjs; lanceJS test-responsive.mjs
-              lanceJS test-reseau-client.mjs; lanceJS test-documents.mjs ;;
+              lanceJS test-reseau-client.mjs; lanceJS test-documents.mjs
+              lanceJS test-confidentialite.mjs ;;
   --metier)   lance invariants.sh ;;
   *)          lance statiques.sh; lance ecrans.sh; lance cliquets.sh
               lanceJS test-chargement.mjs; lanceJS test-programmes.mjs
               lanceJS test-identite.mjs; lanceJS test-responsive.mjs
               lanceJS test-reseau-client.mjs; lanceJS test-documents.mjs
+              lanceJS test-confidentialite.mjs
               lance invariants.sh; lance reseau.sh ;;
 esac
 

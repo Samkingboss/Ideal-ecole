@@ -1221,109 +1221,56 @@
         }
     }
 
-    async function chercherEtPreremplir() {
-        const nom = (document.getElementById('el-nom')?.value || document.getElementById('r1-nom')?.value || '').trim();
-        const prenom = (document.getElementById('el-prenoms')?.value || document.getElementById('r1-prenoms')?.value || '').trim();
-        const tel = (document.getElementById('r1-tel1')?.value || '').trim();
+    // ── Pré-remplissage d'une réinscription — RETIRÉ le 24/08/2026 ──────
+    //
+    // Cette fonction lisait l'inscription ENTIÈRE et le responsable ENTIER à
+    // partir d'un simple nom, avec la clé publiable — celle qui se trouve, par
+    // construction, dans le navigateur de tout visiteur. Connaître le nom d'un
+    // enfant suffisait pour obtenir l'adresse du domicile, les deux téléphones,
+    // le WhatsApp, le courriel, la profession et l'employeur de ses parents.
+    //
+    // Elle se déclenchait sur le simple `blur` d'un champ nom.
+    //
+    // Le remplacer par une recherche sur le MATRICULE ne corrigeait rien : le
+    // matricule est imprimé sur la carte de l'élève. Il identifie un dossier ;
+    // il ne prouve rien et n'autorise rien.
+    //
+    //   MATRICULE ≠ SECRET ≠ PREUVE D'IDENTITÉ ≠ AUTORISATION D'ACCÈS
+    //
+    // Le pré-remplissage reviendra quand il disposera d'une vraie preuve
+    // d'autorisation : un jeton non prédictible, émis par l'école et transmis à
+    // la famille par le canal officiel. Tant qu'il n'existe pas, la famille
+    // ressaisit — c'est le prix à payer, et il est moins élevé que celui de
+    // l'autre option.
+    //
+    // La bannière `afficherBanniereAutofill()` reste en place : elle servira au
+    // pré-remplissage par jeton.
 
-        if (!nom && !tel) return;
 
-        try {
-            let query = _supa.from('inscriptions').select('*, responsable1:responsable1_id(*)');
-            if (nom && prenom) {
-                query = query.ilike('nom', nom).ilike('prenom', prenom);
-            } else if (tel) {
-                query = query.ilike('adresse', `%${tel}%`);
-            } else return;
+    // Les écouteurs qui déclenchaient le pré-remplissage sur le `blur` d'un
+    // champ nom sont retirés avec lui.
 
-            const { data, error } = await query.limit(1);
-
-            if (!error && data && data.length > 0) {
-                const ins = data[0];
-                const r1 = ins.responsable1 || {};
-
-                window._isEleveRenouvele = true;
-                afficherBanniereAutofill();
-
-                // Responsable 1
-                if (r1.nom && !document.getElementById('r1-nom').value) document.getElementById('r1-nom').value = r1.nom;
-                if (r1.prenom && !document.getElementById('r1-prenoms').value) document.getElementById('r1-prenoms').value = r1.prenom;
-                if (r1.lien_parente) document.getElementById('r1-lien').value = r1.lien_parente;
-                if (r1.tel1) document.getElementById('r1-tel1').value = r1.tel1;
-                if (r1.whatsapp) document.getElementById('r1-whatsapp').value = r1.whatsapp;
-                if (r1.email) document.getElementById('r1-email').value = r1.email;
-                if (r1.adresse) document.getElementById('r1-adresse').value = r1.adresse;
-                if (r1.profession) document.getElementById('r1-profession').value = r1.profession;
-                if (r1.situation_matrimoniale) document.getElementById('r1-situation').value = r1.situation_matrimoniale;
-
-                // Élève
-                if (ins.nom && !document.getElementById('el-nom').value) document.getElementById('el-nom').value = ins.nom;
-                if (ins.prenom && !document.getElementById('el-prenoms').value) document.getElementById('el-prenoms').value = ins.prenom;
-                if (ins.sexe) document.getElementById('el-sexe').value = ins.sexe;
-                if (ins.date_naissance) document.getElementById('el-date-naissance').value = ins.date_naissance;
-                if (ins.lieu_naissance) document.getElementById('el-lieu-naissance').value = ins.lieu_naissance;
-                if (ins.nationalite) document.getElementById('el-nationalite').value = ins.nationalite;
-                if (ins.langue_maison) document.getElementById('el-langue').value = ins.langue_maison;
-                if (ins.adresse) document.getElementById('el-adresse').value = ins.adresse;
-                if (ins.ancienne_ecole) document.getElementById('el-ancienne-ecole').value = ins.ancienne_ecole;
-                if (ins.classe_demandee) document.getElementById('el-classe-prec').value = ins.classe_demandee;
-            }
-        } catch (e) {
-            // Ignorer silencieusement si pas de résultat
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            ['el-nom', 'el-prenoms', 'r1-nom', 'r1-prenoms', 'r1-tel1'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('blur', chercherEtPreremplir);
-            });
-        }, 500);
-    });
-
+    // ── Contrôle de doublon — RETIRÉ le 24/08/2026 ──────────────────────
+    //
+    // Il interrogeait `inscriptions` par NOM et PRÉNOM, avec la clé publiable,
+    // puis affichait à l'écran le matricule du dossier trouvé, sa classe et sa
+    // date d'inscription.
+    //
+    // C'était un oracle d'appartenance : n'importe qui pouvait demander « cet
+    // enfant est-il scolarisé à IDEAL ? » sur n'importe quel nom, et obtenir
+    // en prime son matricule et sa classe. Sur une école, cette information
+    // permet de cibler un enfant.
+    //
+    // Le refus d'un doublon appartient au moment de la SOUMISSION, dans
+    // `creer_inscription`, où le demandeur n'apprend rien sur les autres
+    // familles — c'est l'objet de l'étape SQL suivante.
+    //
+    // Dans l'intervalle, le contrôle humain existe et suffit : chaque dossier
+    // est examiné et signé par la direction avant de devenir un élève. Un
+    // doublon est une gêne administrative rattrapable ; une adresse de famille
+    // divulguée ne se rattrape pas.
     async function verifierDoublon() {
-        const nom = document.getElementById('el-nom').value.trim();
-        const prenom = document.getElementById('el-prenoms').value.trim();
-        const classe = document.getElementById('el-classe-demandee').value;
-        if (!nom || !prenom) return true;
-
-        try {
-            const { data, error } = await _supa.from('inscriptions')
-                .select('matricule, nom, prenom, classe_demandee, created_at')
-                .ilike('nom', nom)
-                .ilike('prenom', prenom);
-            if (error) return true;
-
-            const memeClasse = (data || []).filter(i => i.classe_demandee === classe);
-            const autresClasses = (data || []).filter(i => i.classe_demandee !== classe);
-
-            if (memeClasse.length > 0) {
-                const d = memeClasse[0];
-                window._isEleveRenouvele = true;
-                const quand = d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : 'date inconnue';
-                return confirm(
-                    `⚠️ Un dossier existe déjà pour cet élève.\n\n` +
-                    `${d.nom.toUpperCase()} ${d.prenom} — ${d.classe_demandee}\n` +
-                    `Matricule ${d.matricule}, inscrit le ${quand}.\n\n` +
-                    `S'il s'agit du même enfant, le dossier sera mis à jour avec la confiance renouvelée.\n` +
-                    `Continuer ?`
-                );
-            }
-
-            if (autresClasses.length > 0) {
-                window._isEleveRenouvele = true;
-                const d = autresClasses[0];
-                return confirm(
-                    `ℹ️ Un élève du même nom est déjà inscrit (${d.matricule}).\n\n` +
-                    `${d.nom.toUpperCase()} ${d.prenom} — ${d.classe_demandee}\n\n` +
-                    `Continuer l'inscription en ${classe} avec la confiance renouvelée ?`
-                );
-            }
-            return true;
-        } catch (e) {
-            return true;
-        }
+        return true;
     }
 
     async function submitInscription() {
@@ -1653,7 +1600,10 @@
         const qrBox = document.createElement('div');
         qrBox.style.cssText = 'background:white; padding:.85rem; border-radius:14px; box-shadow:0 0 30px rgba(134,59,255,.3);';
         qrWrapper.appendChild(qrBox);
-        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`;
+        // `showSuccessScreen` ne reçoit que le matricule : le nom se lit sur le
+        // dossier qui vient d'être enregistré.
+        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`
+                       + `&nom=${encodeURIComponent((lastSavedData && lastSavedData.nom) || '')}`;
         new QRCode(qrBox, {
             text: ficheUrl,
             width: 160,
@@ -1683,7 +1633,7 @@
 
         const r1 = data.responsable1 || {};
         const num = normalizeWhatsApp(r1.whatsapp || r1.tel1);
-        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`;
+        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}&nom=${encodeURIComponent(data.nom || '')}`;
         const eleve = `${data.prenom || ''} ${(data.nom || '').toUpperCase()}`.trim();
         const parent = `${r1.prenom || ''} ${r1.nom || ''}`.trim();
 
@@ -2062,7 +2012,7 @@ Merci de votre confiance.
         qrTmpDiv.style.cssText = 'position:absolute;left:-9999px;top:0;';
         document.body.appendChild(qrTmpDiv);
         await new Promise(resolve => {
-            const qrUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`;
+            const qrUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}&nom=${encodeURIComponent(data.nom || '')}`;
             new QRCode(qrTmpDiv, { text: qrUrl, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.M });
             setTimeout(resolve, 400);
         });

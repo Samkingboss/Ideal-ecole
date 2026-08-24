@@ -123,7 +123,15 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
 export function CarteVerso({ eleve, echelle = ECHELLE }) {
   const mm = v => v * echelle
   // Même URL de vérification que le QR de la fiche d'inscription.
+  // Le QR porte le matricule ET le nom, tous deux imprimés sur la carte.
+  //
+  // Le matricule seul ne suffit plus à vérifier : les matricules sont
+  // séquentiels, et une boucle aurait extrait le nom et la classe de tous les
+  // élèves de l'école. Exiger les deux transforme la vérification : on ne
+  // DÉCOUVRE plus une identité, on CONFIRME celle qui est sur la carte qu'on
+  // tient. Celui qui scanne a la carte ; il a donc les deux.
   const lien = `${ORIGINE}/fiche.html?matricule=${encodeURIComponent(eleve.matricule || '')}`
+              + `&nom=${encodeURIComponent(eleve.nom || '')}`
 
   return (
     <div className="carte" style={{
