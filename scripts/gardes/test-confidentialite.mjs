@@ -94,8 +94,16 @@ console.log(`\n${G}── CONFIDENTIALITÉ · l'observable identifie, il n'autor
     new RegExp(`'${c}'\\s*,`, 'i').test(sql))
   verifier('C3 · aucune fonction publique ne rend de donnée familiale',
     rendChampsInterdits.length === 0,
-    rendChampsInterdits.length ? `— ${rendChampsInterdits.join(', ')}` : `— ${accordees.length} fonctions à anon`)
-  verifier('C4 · la vérification de carte exige deux facteurs',
+    rendChampsInterdits.length ? `— ${rendChampsInterdits.join(', ')}` : `— ${accordees.length} fonction(s) à anon`)
+  // Toute fonction accordée à `anon` doit être indispensable à un workflow
+  // public réel. `compteurs_inscriptions` ne l'était pas : elle affichait les
+  // effectifs de l'école sur une page de vitrine.
+  const superflues = accordees.map(f => f.nom)
+    .filter(n => n !== 'verifier_carte_scolaire')
+  verifier('C9 · la surface publique se limite à la vérification de carte',
+    superflues.length === 0,
+    superflues.length ? `— aussi exposée(s) : ${superflues.join(', ')}` : '')
+  verifier('C4 · la vérification exige matricule ET nom',
     unSeulArgument.every(f => f.nom !== 'verifier_carte_scolaire')
       && /verifier_carte_scolaire\(text,\s*text\)/.test(sql),
     unSeulArgument.length ? `— à un argument : ${unSeulArgument.map(f => f.nom).join(', ')}` : '')
@@ -110,7 +118,11 @@ console.log(`\n${G}── CONFIDENTIALITÉ · l'observable identifie, il n'autor
     recreees.length === 0, recreees.length ? `— ${recreees.join(', ')}` : '')
 }
 
-// ── C6 · le QR porte deux facteurs ─────────────────────────────────────────
+// ── C6 · le QR porte matricule ET nom ──────────────────────────────────────
+//
+// Ce ne sont pas deux facteurs d'authentification : les deux sont imprimés sur
+// la même carte, et qui tient la carte tient les deux. Ils empêchent seulement
+// l'énumération de matricules séquentiels.
 //
 // Les matricules sont séquentiels. Un QR qui ne porterait que le matricule
 // laisserait extraire le nom et la classe de tous les élèves de l'école.

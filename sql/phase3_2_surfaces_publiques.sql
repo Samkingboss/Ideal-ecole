@@ -42,9 +42,20 @@
 --     les élèves de l'école. Un trombinoscope complet, servi par une
 --     fonction destinée à vérifier une carte.
 --
---     Elle exige désormais le matricule ET le nom. On ne DÉCOUVRE plus une
---     identité : on CONFIRME celle qui est imprimée sur la carte qu'on a
---     en main. C'est exactement ce que « vérifier une carte » veut dire.
+--     Elle exige désormais le matricule ET le nom.
+--
+--     ATTENTION AU VOCABULAIRE : ce ne sont PAS deux facteurs
+--     d'authentification. Les deux sont imprimés sur la même carte ; qui
+--     tient la carte tient les deux. Ils n'authentifient personne.
+--
+--     Ils servent à une chose et une seule : empêcher l'énumération
+--     triviale de matricules séquentiels. Sans le nom, une boucle de
+--     quelques lignes extrayait le trombinoscope de l'école. Avec lui, il
+--     faut déjà tenir la carte — et alors on ne DÉCOUVRE plus rien, on
+--     CONFIRME ce qui y est écrit.
+--
+--       matricule + nom  →  vérification minimale d'une carte
+--       matricule + nom  ↛  autorisation d'accès au dossier
 --
 -- ── Le principe ────────────────────────────────────────────────────────
 --
@@ -119,33 +130,18 @@ comment on function public.verifier_carte_scolaire(text, text) is
   'donnee familiale, medicale, ni de date de naissance.';
 
 -- ═══════════════════════════════════════════════════════════════════════
--- 2 · COMPTEURS PUBLICS
+-- 2 · DROITS
 -- ═══════════════════════════════════════════════════════════════════════
 --
--- La page d'accueil affiche deux nombres. Un agrégat ne désigne personne ;
--- le rendre par une fonction évite de laisser une table lisible pour deux
--- entiers.
-
-create or replace function public.compteurs_inscriptions()
-returns table (total bigint, cantine bigint)
-language sql
-stable
-security definer
-set search_path to 'public', 'pg_temp'
-as $function$
-  select count(*), count(*) filter (where i.cantine is true)
-    from public.inscriptions i;
-$function$;
-
-comment on function public.compteurs_inscriptions() is
-  'Deux agregats pour la page d''accueil. Ne designe aucune personne.';
-
--- ═══════════════════════════════════════════════════════════════════════
--- 3 · DROITS
--- ═══════════════════════════════════════════════════════════════════════
+-- `anon` n'obtient QU'UNE fonction. C'est toute la surface publique de
+-- lecture dont IDEAL a besoin.
 --
--- `anon` n'obtient que ces deux fonctions. C'est toute la surface publique
--- de lecture dont IDEAL a besoin aujourd'hui.
+-- `compteurs_inscriptions` a été retirée de ce fichier. Elle ne servait
+-- qu'à afficher « X élèves inscrits » sur la page d'accueil : de la
+-- vitrine, pas un workflow. Le public n'a pas besoin de connaître les
+-- effectifs de l'école pour vérifier une carte, et une fonction publique
+-- qui n'est indispensable à rien ne doit pas exister. Le compte se lit
+-- directement en SQL, côté administration.
 --
 -- L'ancienne signature à un seul argument est retirée si elle existe : la
 -- laisser en place annulerait le durcissement, PostgreSQL choisissant la
@@ -154,9 +150,9 @@ comment on function public.compteurs_inscriptions() is
 drop function if exists public.verifier_carte_scolaire(text);
 drop function if exists public.verifier_doublon_inscription(text, text);
 drop function if exists public.prefill_reinscription(text);
+drop function if exists public.compteurs_inscriptions();
 
 grant execute on function public.verifier_carte_scolaire(text, text) to anon, authenticated;
-grant execute on function public.compteurs_inscriptions()            to anon, authenticated;
 
 commit;
 
@@ -169,9 +165,10 @@ commit;
 select * from public.verifier_carte_scolaire('26-27 A001', 'TEST-INTEGRATION');
 -- attendu : reconnue = true, prenom/nom/classe/annee renseignes
 
--- Les compteurs.
-select * from public.compteurs_inscriptions();
--- attendu : total = 7
+-- Le volume, lu directement : c'est une requête d'administration, pas une
+-- API publique.
+select count(*) as total_inscriptions from public.inscriptions;
+-- attendu : 7
 
 
 -- ═══════════════════════════════════════════════════════════════════════
@@ -196,7 +193,7 @@ select reconnue from public.verifier_carte_scolaire('26-27 B001', 'TEST-INTEGRAT
 
 -- CAS E · arguments vides ou nuls.
 select reconnue from public.verifier_carte_scolaire('', '');
-select reconnue from public.verifier_carte_scolaire(null, null);
+select reconnue from public.verifier_carte_scolaire(null::text, null::text);
 -- attendu : false, false  — jamais d'erreur, jamais de ligne surprise
 
 -- CAS F · aucune donnee privee ne peut sortir de cette fonction.
@@ -209,7 +206,8 @@ select reconnue from public.verifier_carte_scolaire(null, null);
 select count(*) as fonctions_retirees
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
  where n.nspname = 'public'
-   and p.proname in ('prefill_reinscription', 'verifier_doublon_inscription');
+   and p.proname in ('prefill_reinscription', 'verifier_doublon_inscription',
+                     'compteurs_inscriptions');
 -- attendu : 0
 
 -- CAS H · la surcharge a un seul argument n'a pas survecu.
@@ -219,3 +217,14 @@ select count(*) as surcharges_matricule_seul
    and p.proname = 'verifier_carte_scolaire'
    and p.pronargs = 1;
 -- attendu : 0
+
+-- CAS I · la surface publique de lecture se limite a une seule fonction.
+select p.proname, p.pronargs
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public'
+   and has_function_privilege('anon', p.oid, 'execute')
+   and p.proname in ('verifier_carte_scolaire', 'compteurs_inscriptions',
+                     'prefill_reinscription', 'verifier_doublon_inscription')
+ order by p.proname;
+-- attendu : une seule ligne — verifier_carte_scolaire | 2

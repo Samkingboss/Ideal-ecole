@@ -260,14 +260,6 @@
         }
         .hero p { opacity:.88; font-size:1rem; max-width:500px; line-height:1.7; margin-bottom:1.75rem; }
 
-        .hero-stats {
-            display:flex; gap:2.5rem; flex-wrap:wrap;
-            padding-top:1.5rem;
-            border-top:1px solid rgba(255,255,255,.2);
-            position:relative; z-index:1;
-        }
-        .hero-stat-value { font-size:1.8rem; font-weight:900; }
-        .hero-stat-label { font-size:.72rem; opacity:.75; text-transform:uppercase; letter-spacing:.08em; margin-top:.2rem; }
 
         /* Carrés colorés décoratifs (rappel logo) */
         .hero-squares {
@@ -556,16 +548,6 @@
             <button class="btn btn-primary" onclick="startWizard('nouvelle')" style="font-size:1rem; padding:.9rem 2.2rem; background:#fff; color:var(--blue); font-weight:800; box-shadow:0 4px 16px rgba(0,0,0,.15);">
                 ✦ Commencer une inscription
             </button>
-            <div class="hero-stats" id="hero-stats">
-                <div>
-                    <div class="hero-stat-value" id="stat-total">—</div>
-                    <div class="hero-stat-label">Élèves inscrits</div>
-                </div>
-                <div>
-                    <div class="hero-stat-value" id="stat-cantine">—</div>
-                    <div class="hero-stat-label">À la cantine</div>
-                </div>
-            </div>
         </div>
 
         <div class="home-actions">
@@ -901,9 +883,8 @@
     const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // =============================================
-    // ÉTAT GLOBAL — charger les stats dès le démarrage
+    // ÉTAT GLOBAL
     // =============================================
-    window.addEventListener('DOMContentLoaded', () => loadHomeStats());
     let currentStep = 1;
     const totalSteps = 8;
     let cropper = null;
@@ -940,17 +921,17 @@
         if (target) target.classList.remove('hidden');
 
         if (screenId === 'dashboard-screen') loadDashboard();
-        if (screenId === 'home-screen') loadHomeStats();
     }
 
-    async function loadHomeStats() {
-        try {
-            const { count: total } = await _supa.from('inscriptions').select('*', { count:'exact', head:true });
-            const { count: cantine } = await _supa.from('inscriptions').select('*', { count:'exact', head:true }).eq('cantine', true);
-            document.getElementById('stat-total').textContent   = total   ?? 0;
-            document.getElementById('stat-cantine').textContent = cantine ?? 0;
-        } catch(e) { /* silencieux si pas connecté */ }
-    }
+    // ── Compteurs de la page d'accueil — RETIRÉS le 24/08/2026 ──────────
+    //
+    // « X élèves inscrits · Y à la cantine » sur la page publique était de la
+    // vitrine, pas un workflow. Les afficher supposait de laisser `inscriptions`
+    // lisible à `anon` — une table ouverte pour deux nombres décoratifs.
+    //
+    // Le public n'a pas besoin de connaître les effectifs de l'école pour
+    // déposer un dossier ou vérifier une carte. Les effectifs se lisent dans
+    // l'espace direction, par un compte authentifié.
 
     function startWizard(type, prefillData) {
         currentStep = 1;
