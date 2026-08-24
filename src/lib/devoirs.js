@@ -49,8 +49,29 @@ export const TYPE_PAR_DEFAUT = TYPES_DEVOIR[0]
 
 // ── Lecture ────────────────────────────────────────────────────────────────
 
-// La plateforme historique préfixait ses identifiants d'élève par « el: ».
-const sansPrefixe = c => String(c || '').replace(/^el:/, '')
+// ── Deux espaces de clés, à ne pas confondre ───────────────────────────────
+//
+// La plateforme historique préfixait ses destinataires :
+//
+//   el:<uuid>        un élève inscrit, ligne de `eleves`
+//   ins:<matricule>  un CANDIDAT, ligne de `inscriptions` — pas encore élève
+//
+// En début d'année, `inscriptions` est la seule source des nouveaux : un
+// devoir pouvait légitimement viser un enfant qui n'avait pas encore de ligne
+// dans `eleves`.
+//
+// Retirer les deux préfixes ferait cohabiter des UUID et des matricules dans
+// la même liste. Un matricule ne correspondra JAMAIS à un `eleves.id` : le
+// destinataire disparaîtrait silencieusement du ciblage. On les garde donc
+// séparés — l'un ne peut pas se faire passer pour l'autre.
+const idEleve = c => {
+  const t = String(c || '')
+  return t.startsWith('el:') ? t.slice(3) : (t.startsWith('ins:') ? null : t)
+}
+const matriculeCandidat = c => {
+  const t = String(c || '')
+  return t.startsWith('ins:') ? t.slice(4) : null
+}
 
 /**
  * Rend un devoir sous une forme unique, quelle que soit son origine.
@@ -71,9 +92,12 @@ export const lireDevoir = (ligne) => {
     || (dHist && dHist.mode)
     || 'classe'
   const elevesHist = (dHist && Array.isArray(dHist.eleves)) ? dHist.eleves : []
+  const clesHist = elevesHist.map(e => e && e.cle)
   const eleveIds = Array.isArray(c.eleve_ids) && c.eleve_ids.length
-    ? c.eleve_ids.map(sansPrefixe)
-    : elevesHist.map(e => sansPrefixe(e && e.cle))
+    ? c.eleve_ids.map(idEleve).filter(Boolean)
+    : clesHist.map(idEleve).filter(Boolean)
+  // Les candidats visés, gardés à part : ils n'ont pas d'identifiant d'élève.
+  const candidatMatricules = clesHist.map(matriculeCandidat).filter(Boolean)
 
   // Les pièces jointes vivent à deux endroits : la colonne `fichiers` pour
   // l'écran intégré, `contenu.images` pour la plateforme historique.
@@ -103,6 +127,7 @@ export const lireDevoir = (ligne) => {
     dateRendu: ligne?.date_rendu || c.dueDate || null,
     destinataireMode: mode === 'choix' ? 'choix' : 'classe',
     eleveIds: mode === 'choix' ? eleveIds : [],
+    candidatMatricules: mode === 'choix' ? candidatMatricules : [],
     // Noms figés au moment de l'envoi, quand la plateforme historique les
     // avait enregistrés.
     eleveNoms: elevesHist.map(e => e && e.nom).filter(Boolean),
@@ -155,7 +180,11 @@ export const refusDeSaisie = (saisie) => {
 }
 
 /** Un devoir concerne-t-il cet élève ? */
-export const viseEleve = (devoir, eleveId) => {
+export const viseEleve = (devoir, eleveId, matricule = null) => {
   const d = devoir.destinataireMode ? devoir : lireDevoir(devoir)
-  return d.destinataireMode === 'classe' || d.eleveIds.includes(String(eleveId))
+  if (d.destinataireMode === 'classe') return true
+  if (d.eleveIds.includes(String(eleveId))) return true
+  // Un devoir posé sur un candidat le vise encore une fois qu'il est devenu
+  // élève : c'est son matricule qui fait le lien, pas son identifiant.
+  return Boolean(matricule && d.candidatMatricules.includes(String(matricule)))
 }
