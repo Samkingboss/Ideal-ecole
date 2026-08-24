@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
+import { WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 
 // ─────────────────────────────────────────────────────────────────────
 // GABARIT
@@ -167,12 +168,30 @@ export function CarteVerso({ eleve, echelle = ECHELLE }) {
             <span style={{ fontSize: mm(2.15), color: label === 'GROUPE SANGUIN' ? '#C62828' : '#16384F', fontWeight: 850 }}>{valeur}</span>
           </div>
         ))}
-        <div style={{ marginTop: mm(2.4), fontSize: mm(1.65), color: '#6F7D88', lineHeight: 1.35, textAlign: 'center' }}>
-          Carte strictement personnelle. En cas de perte, la rapporter à l'établissement ou prévenir la Direction.
+        {/* Contact en cas de perte, en toutes lettres.
+            Le QR ne peut pas porter cette fonction : il faut savoir qu'un
+            carré noir se scanne, et disposer d'un téléphone qui le fasse.
+            Une personne qui ramasse une carte dans la rue à Bamako doit
+            pouvoir lire un numéro et appeler. Le numéro vient de la source
+            institutionnelle unique — jamais recopié ici. */}
+        <div style={{ marginTop: mm(2.2), fontSize: mm(1.6), color: '#6F7D88', lineHeight: 1.3, textAlign: 'center' }}>
+          Carte strictement personnelle.
         </div>
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.35), color: '#8A969F', fontWeight: 700 }}>
-          <span>Faladié Sema · Bamako</span><span>IDEAL</span>
+        <div style={{
+          marginTop: mm(1.2), padding: `${mm(1.5)}px ${mm(1.2)}px`, borderRadius: mm(1.2),
+          background: '#FDF1E4', border: `${mm(.25)}px solid #F28C28`, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: mm(1.4), color: '#8A5A22', fontWeight: 800, letterSpacing: mm(.05) }}>
+            EN CAS DE PERTE, APPELER L'ÉCOLE
+          </div>
+          <div style={{ fontSize: mm(2.3), color: '#16384F', fontWeight: 900, marginTop: mm(.5), letterSpacing: mm(.06) }}>
+            {WHATSAPP_ECOLE_LISIBLE}
+          </div>
         </div>
+        {/* La ligne « Faladié Sema · Bamako | IDEAL » qui occupait le bas a
+            été retirée : la zone de contact la recouvrait, et l'en-tête du
+            verso dit déjà « IDEAL ÉCOLE · BAMAKO ». Deux fois la même chose
+            sur une carte de 54 mm, c'est une fois de trop. */}
       </div>
     </div>
   )

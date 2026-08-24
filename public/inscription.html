@@ -1969,7 +1969,14 @@ Merci de votre confiance.
         doc.setFont('helvetica', 'bold');
         doc.text(`MATRICULE : ${matricule}`, ML + 16, 59.6);
 
-        const typeLabel = 'DOSSIER D\'INSCRIPTION';
+        // Le titre du document dit deja « FICHE D'INSCRIPTION OFFICIELLE ».
+        // Repeter « DOSSIER D'INSCRIPTION » juste dessous n'apprenait rien.
+        // Le badge porte desormais le statut reel du dossier, lu en base —
+        // jamais un statut invente : sans valeur connue, il annonce l'attente,
+        // qui est l'etat par defaut d'une inscription deposee.
+        const typeLabel = data.statut === 'validee'
+            ? 'DOSSIER VALID\u00c9'
+            : 'EN ATTENTE DE VALIDATION';
         doc.setFillColor(...BLEU_F);
         doc.setDrawColor(...BLEU_C);
         doc.setLineWidth(0.5);
@@ -2141,27 +2148,33 @@ Merci de votre confiance.
             });
         };
 
-        doc.setFillColor(...NAVY);
-        doc.roundedRect(ML, PIED_Y, 52, PIED_H, 3, 3, 'F');
-        blocPied('DOSSIER D\u2019INSCRIPTION \u2022 ANN\u00c9E SCOLAIRE 2026-2027', ML + 4, 44, 7, BLANC, 'center');
+        // ── PIED INSTITUTIONNEL ────────────────────────────────────────
+        //
+        // Trois bandeaux occupaient cette place : « PROGRAMME PÉDAGOGIQUE ·
+        // TRAVAUX AUTONOMES DU SOIR », « SUIVI PÉDAGOGIQUE & SUCCÈS SCOLAIRE »
+        // et « SERVICE PÉDAGOGIQUE & ENSEIGNEMENT ». Ils venaient du cahier de
+        // devoirs et n'avaient rien à faire sur un dossier administratif : une
+        // fiche d'inscription n'est ni une fiche pédagogique, ni un support
+        // promotionnel.
+        //
+        // À leur place, un filet et une ligne — ce qu'un pied de document
+        // officiel doit porter, et rien de plus. L'espace libéré profite aux
+        // signatures, qui en manquaient.
+        doc.setDrawColor(...GRIS_L);
+        doc.setLineWidth(0.4);
+        doc.line(ML, PIED_Y + 4, W - MR, PIED_Y + 4);
 
-        doc.setFillColor(...BLEU_F);
-        doc.setDrawColor(...BLEU_C);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(ML + 56, PIED_Y, 64, PIED_H, 3, 3, 'FD');
-        blocPied('SUIVI PÉDAGOGIQUE & SUCCÈS SCOLAIRE', ML + 60, 56, 9.5, BLEU, 'center');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(...NAVY);
+        doc.text('DOCUMENT OFFICIEL', ML, PIED_Y + 9);
 
-        blocPied('SERVICE PÉDAGOGIQUE & ENSEIGNEMENT \u2014 ÉCOLE INTERNATIONALE BILINGUE IDEAL', ML + 124, 58, 7.5, NAVY, 'left');
-
-        // Repères documentaires, sous la bande et à l'intérieur du filet
-        // intérieur (290,4 mm). Volontairement secondaires : le matricule
-        // reste porté par la pastille du haut, ce rappel ne sert qu'à
-        // l'archivage. Même variable `matricule` que partout ailleurs.
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
+        doc.setFontSize(6.5);
         doc.setTextColor(...GRIS_T);
-        doc.text('DOCUMENT OFFICIEL CERTIFIÉ', ML, PIED_Y + PIED_H + 4);
-        doc.text(`Matricule : ${matricule}`, W - MR, PIED_Y + PIED_H + 4, { align: 'right' });
+        doc.text('\u00c9cole Internationale Bilingue IDEAL  \u2022  Faladi\u00e9 Sema, Bamako, Mali',
+                 ML + 33, PIED_Y + 9);
+        doc.text(`Matricule : ${matricule}`, W - MR, PIED_Y + 9, { align: 'right' });
 
         doc.save(`Fiche_Inscription_${matricule}.pdf`);
     }
