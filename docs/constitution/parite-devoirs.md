@@ -185,3 +185,78 @@ Les clés historiques — `subject`, `grade`, `content`, `objectives`, `period`,
 
 Les étapes 1 à 10 sont réversibles et ne demandent aucune décision.
 L'étape 13 seule est irréversible.
+
+---
+
+## Portes 1, 2, 5 et 6 — preuves
+
+### 1 · Documents — fonctions absorbées
+
+`DevoirsDocument.jsx` lit désormais chaque ligne par `lireDevoir()` et non plus
+par accès direct aux colonnes. Conséquence : un devoir historique dont
+l'objectif dort dans `contenu.objectives` s'imprime comme un devoir récent.
+
+Absorbé de l'ancien module, vérifié à l'écran (390 px, aperçu ouvert à froid) :
+
+| Élément | État |
+|---|---|
+| Type et période en pastille | ✓ |
+| Bloc énoncé | ✓ |
+| Barème **toujours** imprimé, à défaut « Barème communiqué lors de la correction. » | ✓ |
+| Cadre NOTE …… / 20 | ✓ |
+| APPRÉCIATION DE L'ENSEIGNANT, deux lignes pointillées | ✓ |
+
+Un seul moteur documentaire : `DocumentPrintStudio`, quatre appelants.
+`html2pdf.js` n'a jamais été introduit dans le portail — il n'y a donc rien à
+retirer, et rien n'a été gardé par inertie.
+
+### 2 · Carte parents — audit de sa fonction réelle
+
+| Question | Réponse mesurée |
+|---|---|
+| Quel contenu | La liste des devoirs qui visent *cet* élève : type · matière : objectif — date de remise, et le nombre de feuilles jointes |
+| Pour quel destinataire | Le parent de l'élève, nommément |
+| Quel canal | WhatsApp de **l'école** (`wa.me/22390190007`), jamais le numéro personnel de l'enseignante |
+| Quelle donnée source | Les devoirs déjà chargés, filtrés par `viseEleve()` — aucune relecture, aucun élargissement |
+| Coordonnées parents dupliquées ? | **Non.** Le lien passe par `lienWhatsAppEcole()` de `src/lib/ecole.js`. La carte ne détient ni ne réaffiche le numéro du parent. |
+| Identité de l'autrice | `signatureLigne()` — « Ornella MOGADZI — Enseignant », forme épicène par défaut, jamais déduite du prénom |
+
+### 5 · Responsive — quatre largeurs
+
+L'aperçu est **ouvert à froid à chaque largeur** : mesuré, `resize_window`
+change les métriques du navigateur de test sans émettre ni `resize` ni rappel
+`ResizeObserver` (0 sur des compteurs bruts, passage 390 → 430 px). Une échelle
+figée observée après redimensionnement est donc un artefact du harnais, pas un
+défaut produit — redimensionner puis mesurer ne prouverait rien.
+
+| Largeur | Feuille A4 rendue | Débordement | Contrôles hors écran |
+|---|---|---|---|
+| 375 px | — (liste, ciblage, modification) | non | aucun |
+| 390 px | 366 px (échelle 0,461) | non | aucun |
+| 430 px | 406 px (échelle 0,511) | non | aucun |
+| 1280 px | 794 px (pleine taille, sans transformation) | non | aucun |
+
+### 6 · Performance — aucun effet n'efface une liste fraîchement chargée
+
+| Scénario | Résultat |
+|---|---|
+| Arrivée sur le module (CP1) | 12 devoirs, stables sur 4,2 s |
+| Changement de classe CP1 → CP2 | 0 devoir, **et l'absence est annoncée** — CP2 n'en a réellement aucun |
+| Retour CP2 → CP1 | 12 devoirs, stables sur 4,8 s |
+| Aller-retour d'onglet puis retour | liste stable, aucun effacement tardif |
+| Rechargement à froid | 12 devoirs |
+
+### Constat de données à arbitrer par la direction
+
+L'ancien module créait **un devoir par photo**, non un devoir portant plusieurs
+feuilles. Sur les 14 lignes de production, 8 sont des pages d'un même travail :
+
+- Mathematics, donné le 13/08/2026 — 3 lignes créées à 1 s d'intervalle, 1 photo chacune
+- Sciences « Reconnaître les fruits des légumes », donné le 04/07/2026 — 3 lignes
+- Sciences « Les compétences de comptage de 0 à 50 », donné le 04/07/2026 — 2 lignes
+
+Les fichiers diffèrent d'une ligne à l'autre : ce sont bien les pages 1, 2, 3
+du même devoir. Le parent reçoit donc aujourd'hui le même travail annoncé trois
+fois. Le module intégré ne reproduit pas ce comportement — il range N feuilles
+dans un seul devoir. **Fusionner l'historique est destructif : la décision
+revient à la direction, elle n'a pas été prise ici.**

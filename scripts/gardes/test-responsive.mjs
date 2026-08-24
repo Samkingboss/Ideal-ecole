@@ -199,7 +199,32 @@ console.log(`\n${G}── RESPONSIVE · l'écran le plus étroit fait ${LARGEUR_
     `— surcouche:${surcouche ? 'oui' : 'NON'} échelle:${echelle ? 'oui' : 'NON'} export:${exportSain ? 'protégé' : 'NON'}`)
 }
 
+// ── R7 · l’échelle du papier reste branchée sur la largeur ────────────────
+//
+// R6 vérifie que la mise à l’échelle EXISTE ; R7 vérifie qu’elle reste
+// RELIÉE aux changements de largeur. Sans observateur, l’échelle serait
+// calculée une seule fois au montage et un pivotement d’écran laisserait la
+// feuille à la taille d’avant.
+//
+// Note de méthode : ce point ne peut pas être prouvé par le navigateur de
+// test — mesuré, `resize_window` change les métriques sans émettre ni
+// `resize` ni rappel ResizeObserver (0 sur des compteurs bruts, passage
+// 390 → 430 px). La garde lit donc le branchement dans la source.
+{
+  const src = existsSync('src/pages/DocumentPrintStudio.jsx')
+    ? readFileSync('src/pages/DocumentPrintStudio.jsx', 'utf8') : ''
+  const bloc = src.match(/const useEchelleFeuille[\s\S]*?\n}/)?.[0] || ''
+  const observateur = /new ResizeObserver/.test(bloc) && /\.observe\(\s*zone\s*\)/.test(bloc)
+  const pivot  = /addEventListener\(\s*'orientationchange'/.test(bloc)
+  const propre = /\.disconnect\(\)/.test(bloc)
+             && /removeEventListener\(\s*'orientationchange'/.test(bloc)
+  verifier('R7 · l’échelle reste reliée aux changements de largeur',
+    observateur && pivot && propre,
+    `— observateur:${observateur ? 'oui' : 'NON'} pivot:${pivot ? 'oui' : 'NON'}`
+    + ` démontage:${propre ? 'propre' : 'FUITE'}`)
+}
+
 console.log(echecs === 0
-  ? `\n  ${V}6 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}7 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)

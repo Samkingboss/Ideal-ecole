@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
+import { lireDevoir } from '../lib/devoirs'
 
 // Le cahier de devoirs imprimable.
 //
@@ -27,26 +28,70 @@ const dateLisible = iso => {
 
 // Un devoir, rendu à l'identique dans les deux modes.
 function CarteDevoir({ item }) {
-  const pieces = item.fichiers?.length
-    ? item.fichiers
-    : (item.fichier_url ? [{ url: item.fichier_url, nom: item.fichier_nom }] : [])
+  // La lecture passe par la couche unique : un devoir historique porte son
+  // type, sa période, son énoncé et son barème, et le papier doit les montrer.
+  const d = lireDevoir(item)
+  const pieces = d.piecesJointes
 
   return (
     <div style={{ background: '#e0f2fe', borderRadius: 24, padding: '22px 24px', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ background: '#0284c7', color: '#ffffff', padding: '8px 16px', borderRadius: 12, fontWeight: 900, fontSize: 14, textTransform: 'uppercase', letterSpacing: '1px' }}>
-          📖 {item.matiere}
+          📖 {d.matiere}
         </div>
-        {item.date_rendu && (
+        {/* Type et période, imprimés par l'ancien module et perdus par
+            l'intégré. Ils situent le devoir dans l'année. */}
+        <div style={{ background: '#ffffff', border: '1.5px solid #0284c7', color: '#0284c7',
+                      padding: '6px 12px', borderRadius: 20, fontWeight: 800, fontSize: 11.5 }}>
+          {d.type}{d.periode ? ` · Période ${d.periode}` : ''}
+        </div>
+        {d.dateRendu && (
           <div style={{ background: '#ffffff', border: '1.5px solid #0284c7', color: '#0284c7', padding: '6px 14px', borderRadius: 10, fontWeight: 800, fontSize: 12 }}>
-            ⏰ À rendre pour le <b>{dateLisible(item.date_rendu)}</b>
+            ⏰ À rendre pour le <b>{dateLisible(d.dateRendu)}</b>
           </div>
         )}
       </div>
 
       <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: 16, fontSize: 13.5, lineHeight: 1.7, color: '#334155', fontWeight: 600 }}>
         <span style={{ color: '#0284c7', fontWeight: 900 }}>✦ Objectif du devoir : </span>
-        {item.description || '—'}
+        {d.objectif || '—'}
+      </div>
+
+      {/* L'énoncé — ce que l'élève doit faire. Absent de l'écran intégré. */}
+      {d.enonce && (
+        <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: 16, fontSize: 13.5,
+                      lineHeight: 1.7, color: '#334155', marginTop: 10, whiteSpace: 'pre-wrap' }}>
+          <span style={{ color: '#0284c7', fontWeight: 900 }}>✦ Ce qu’il faut faire : </span>
+          {d.enonce}
+        </div>
+      )}
+
+      {/* Le barème est TOUJOURS imprimé, avec un repli quand il est vide.
+          C'est la règle de l'ancien module : l'élève doit savoir sur quoi il
+          sera noté, et l'absence de barème est elle-même une information. */}
+      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 16px',
+                    borderRadius: 14, fontSize: 12.5, lineHeight: 1.6, color: '#78350f', marginTop: 10,
+                    whiteSpace: 'pre-wrap' }}>
+        <span style={{ fontWeight: 900 }}>✦ Barème : </span>
+        {d.bareme || 'Barème communiqué lors de la correction.'}
+      </div>
+
+      {/* Le cadre de notation, rempli à la main. Le module n'a aucun circuit
+          de note numérique : la feuille est faite pour être corrigée au stylo. */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <div style={{ background: '#ffffff', border: '2px solid #0284c7', borderRadius: 14,
+                      padding: '12px 18px', minWidth: 120, textAlign: 'center' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7', letterSpacing: '.06em' }}>NOTE</div>
+          <div style={{ fontSize: 17, fontWeight: 900, color: '#94a3b8', marginTop: 4 }}>…… / 20</div>
+        </div>
+        <div style={{ background: '#ffffff', border: '1px solid #bae6fd', borderRadius: 14,
+                      padding: '12px 16px', flex: '1 1 220px' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7', letterSpacing: '.06em' }}>
+            APPRÉCIATION DE L’ENSEIGNANT
+          </div>
+          <div style={{ borderBottom: '1px dotted #94a3b8', height: 17, marginTop: 9 }} />
+          <div style={{ borderBottom: '1px dotted #94a3b8', height: 17, marginTop: 7 }} />
+        </div>
       </div>
 
       {/* Les exercices photographiés. Sur le papier une adresse ne sert à
@@ -138,9 +183,19 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
   // contenant que les devoirs qui le concernent.
   const destinataires = eleves.filter(e => list.some(d => vise(d, e)))
   const nomComplet = e => [e.prenom, e.nom].filter(Boolean).join(' ')
+  // Le message au parent — relayé par le WhatsApp de l'école, jamais envoyé
+  // en direct. Il annonce le type et le nombre de feuilles, comme le faisait
+  // le sommaire visuel de l'ancien module : le parent sait ce qu'il doit
+  // recevoir avant que l'enfant rentre.
   const messagePour = e => {
     const sesDevoirs = list.filter(d => vise(d, e))
-    const lignes = sesDevoirs.map(d => `• ${d.matiere || 'Devoir'} : ${d.description || 'voir la fiche'} — à rendre le ${dateLisible(d.date_rendu) || 'date indiquée'}`)
+    const lignes = sesDevoirs.map(ligne => {
+      const d = lireDevoir(ligne)
+      const pj = d.piecesJointes.length
+      return `• ${d.type} · ${d.matiere || 'Devoir'} : ${d.objectif || 'voir la fiche'}`
+           + ` — à rendre le ${dateLisible(d.dateRendu) || 'date indiquée'}`
+           + (pj ? ` (${pj} feuille${pj > 1 ? 's' : ''} jointe${pj > 1 ? 's' : ''})` : '')
+    })
     return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n\n${signatureLigne(user, contexteSignature)}\n${NOM_ECOLE}`
   }
 
