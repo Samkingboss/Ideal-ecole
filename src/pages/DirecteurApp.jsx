@@ -1330,6 +1330,14 @@ export default function DirecteurApp({ user, onLogout }) {
   // INTERFACE DIRECTEUR (Organisée en 6 sessions distinctes et structurées)
   // ═══════════════════════════════════════════════════════════════════
   const DIRECTOR_SESSIONS = [
+    // `eleves` manquait ici, et manquait aussi à la liste blanche ci-dessous.
+    // Conséquence : la validation des dossiers d'inscription était
+    // INATTEIGNABLE depuis le compte directeur — `setTab('eleves')` retombait
+    // sans un mot sur « Synthèse ». Les sept dossiers déposés sont restés
+    // « en attente » faute d'un écran pour les signer, et toute la chaîne qui
+    // en dépend — élève, responsables, date de naissance, messagerie,
+    // anniversaires — n'a jamais pu démarrer.
+    { id: 'eleves',     icon: '🎒', label: 'Élèves & Inscriptions' },
     { id: 'agenda',     icon: '🗓️', label: 'Emploi du temps & Agenda' },
     { id: 'rh',         icon: '💼', label: 'RH' },
     { id: 'personnel',  icon: '👥', label: 'Gestion du Personnel' },
@@ -1339,7 +1347,11 @@ export default function DirecteurApp({ user, onLogout }) {
     { id: 'synthese',   icon: '📊', label: 'Synthèse' },
   ]
 
-  const activeDirectorTab = ['agenda', 'rh', 'personnel', 'profs', 'points', 'pedagogie', 'discipline', 'synthese', 'dashboard', 'emploi', 'maternelle'].includes(tab)
+  // Combien de dossiers attendent la signature de la direction. Affiché sur
+  // l'onglet : un dossier en attente n'a aucune raison d'être invisible.
+  const enAttenteSignature = (inscriptions || []).filter(i => i.statut !== 'validee').length
+
+  const activeDirectorTab = ['eleves', 'agenda', 'rh', 'personnel', 'profs', 'points', 'pedagogie', 'discipline', 'synthese', 'dashboard', 'emploi', 'maternelle'].includes(tab)
     ? tab
     : 'synthese'
 
@@ -1444,6 +1456,39 @@ export default function DirecteurApp({ user, onLogout }) {
         {msg && <div className="error-msg" style={{background:'rgba(141,198,63,.1)',borderColor:'var(--green)',color:'var(--green)',marginBottom:'1rem'}} onClick={()=>setMsg('')}>{msg}</div>}
 
         {/* ════════════════ 1. EMPLOI DU TEMPS & AGENDA ════════════════ */}
+        {activeDirectorTab === 'eleves' && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🎒 Élèves &amp; Inscriptions</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+                Dossiers à signer, effectifs, cartes scolaires et certificats.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 6, marginBottom: 14 }}>
+              {[
+                ['dossiers',   `📝 Dossiers à signer${enAttenteSignature ? ` · ${enAttenteSignature}` : ''}`],
+                ['liste',      '📋 Effectifs'],
+                ['cartes',     '💳 Cartes scolaires'],
+                ['certificat', '📜 Certificats'],
+              ].map(([id, libelle]) => (
+                <button key={id} onClick={() => setSubTabEleve(id)} style={{
+                  padding: '8px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800,
+                  cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none',
+                  border: '2px solid ' + (subTabEleve === id ? 'var(--accent)' : 'var(--border)'),
+                  background: subTabEleve === id ? 'var(--accent)' : 'var(--bg)',
+                  color: subTabEleve === id ? '#fff' : 'var(--muted)',
+                }}>{libelle}</button>
+              ))}
+            </div>
+
+            {subTabEleve === 'dossiers' && <InscriptionsValidation inscriptions={inscriptions} directeur={user} onValidated={loadData} inscriptionCiblee={inscriptionCiblee} />}
+            {subTabEleve === 'liste' && <FichesEffectifs eleves={eleves} classes={classes} onCertificat={() => setSubTabEleve('certificat')} onCarte={() => setSubTabEleve('cartes')} />}
+            {subTabEleve === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
+            {subTabEleve === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} user={user} />}
+          </div>
+        )}
+
         {(activeDirectorTab === 'agenda' || activeDirectorTab === 'emploi') && (
           <div>
             <div style={{ marginBottom: 20 }}>
