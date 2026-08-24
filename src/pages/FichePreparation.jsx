@@ -4,6 +4,7 @@ import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS } from '../lib/preparations'
 import { pushNotification } from '../lib/notifications'
+import { signature } from '../lib/identiteProfessionnelle'
 
 // Fiche de préparation d'une notion.
 //
@@ -487,7 +488,8 @@ export default function FichePreparation({
         <div><b>Matière :</b> ${creneau.matiere}</div><div><b>Classe :</b> ${creneau.groupe}</div>
         <div><b>Date :</b> ${dateLisible(dateCours)}</div>
         <div><b>Durée :</b> ${nb} séquence${nb > 1 ? 's' : ''} × ${DUREE_SEQUENCE} min = ${nb * DUREE_SEQUENCE} min</div>
-        <div><b>Enseignant :</b> ${[user.prenom, user.nom].filter(Boolean).join(' ')}</div>
+        <div><b>Enseignant :</b> ${esc(signature(user, { role: 'professeur', matiere: creneau.matiere }).nom)}</div>
+        <div><b>Fonction :</b> ${esc(signature(user, { role: 'professeur', matiere: creneau.matiere }).fonction)}</div>
         ${fiche.programme ? `<div style="grid-column:1/-1"><b>Manuel :</b> ${esc(manuel?.titre || '')} — ${esc(fiche.programme.titre)} · ${situationDe(manuel, fiche.programme)}</div>` : ''}
         ${fiche.programme?.domaines?.length ? `<div style="grid-column:1/-1"><b>Cette leçon doit couvrir :</b><br>${fiche.programme.domaines.map(d => `${esc(d.nom)} : ${esc(d.contenu)}`).join('<br>')}</div>` : ''}
       </div>
@@ -498,7 +500,7 @@ export default function FichePreparation({
       ${bloc('Différenciation', fiche.differenciation)}
       ${bloc("Comment je vérifie que c'est acquis", fiche.evaluation)}
       ${bloc('Trace écrite et devoir', fiche.trace)}
-      <div class="sig"><div>Signature de l'enseignant</div><div>Visa de la direction</div></div>
+      <div class="sig"><div>${esc(signature(user, { role: 'professeur', matiere: creneau.matiere }).fonction)}<br><small>${esc(signature(user, { role: 'professeur', matiere: creneau.matiere }).nom)}</small></div><div>Visa de la direction</div></div>
       </body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 300)

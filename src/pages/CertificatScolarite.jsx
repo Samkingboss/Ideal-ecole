@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { signature } from '../lib/identiteProfessionnelle'
 
-export default function CertificatScolarite() {
+export default function CertificatScolarite({ user = null }) {
+  // Le signataire n'est pas « le Directeur » écrit en dur : c'est la personne
+  // qui délivre le certificat, avec la fonction que lui donne son rôle. Un
+  // responsable administratif habilité signera de son propre titre.
+  const signataire = signature(user, { role: user?.role || 'directeur' })
   const [eleves, setEleves] = useState([])
   const [, setLoading] = useState(true)
   const [selectedEleve, setSelectedEleve] = useState(null)
@@ -230,7 +235,7 @@ export default function CertificatScolarite() {
             </section>
 
             <section style={{ marginTop: 26, fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 16.5, lineHeight: 1.55, color: '#263B4B' }}>
-              <p style={{ margin: 0 }}>Je soussigné, Directeur de l'École Internationale Bilingue IDEAL, certifie que :</p>
+              <p style={{ margin: 0 }}>Je soussigné, {signataire.fonction} de l'École Internationale Bilingue IDEAL, certifie que :</p>
 
               <div style={{ margin: '16px 0', padding: '15px 24px', background: '#F3F6F8', borderLeft: '5px solid #174E72' }}>
                 <div style={{ fontFamily: 'system-ui, sans-serif', fontSize: 12, fontWeight: 850, color: '#7B8792', letterSpacing: 1.4 }}>ÉLÈVE</div>
@@ -265,7 +270,8 @@ export default function CertificatScolarite() {
                 Fait à Bamako,<br />le <strong style={{ color: '#17364D' }}>{dateFormatee}</strong>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12, fontWeight: 850, color: '#17364D', letterSpacing: 1 }}>LE DIRECTEUR</div>
+                <div style={{ fontSize: 12, fontWeight: 850, color: '#17364D', letterSpacing: 1, textTransform: 'uppercase' }}>{signataire.fonction}</div>
+                {signataire.nom && <div style={{ fontSize: 11, fontWeight: 700, color: '#4A5C6B', marginTop: 2 }}>{signataire.nom}</div>}
                 <div style={{ height: 68, marginTop: 6, borderBottom: '1px solid #A7B4BE' }} />
                 <div style={{ marginTop: 8, fontSize: 11, color: '#7B8792' }}>Signature et cachet officiels</div>
               </div>

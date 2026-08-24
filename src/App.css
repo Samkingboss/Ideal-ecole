@@ -269,6 +269,29 @@ input[type=range] { accent-color:var(--accent); width:80px; }
 .accordion-content { padding:0 var(--space-5) var(--space-5); border-top:1px solid var(--border); }
 .accordion-content[hidden] { display:none; }
 
+/* ── EN-TÊTES ET BARRES D'ACTIONS ──────────────────────────────────────────
+   Les écrans de l'application sont écrits en styles en ligne, où une media
+   query ne peut pas s'exprimer. Ces deux classes existent pour ça : le titre
+   et son action se tiennent côte à côte tant qu'il y a la place, et s'empilent
+   sur un téléphone au lieu de déborder.
+   `min-width: 0` sur l'enfant : sans lui, un titre long refuse de se réduire
+   dans un conteneur flex et pousse toute la ligne hors de l'écran. */
+.entete-ecran { display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.entete-ecran > * { min-width: 0; }
+
+.actions-doc { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+@media (max-width: 560px) {
+  .entete-ecran { flex-direction: column; align-items: stretch; }
+  .entete-ecran > * { width: 100%; }
+  .entete-ecran button { width: 100%; }
+  .actions-doc { width: 100%; }
+  /* Une action par ligne, pleine largeur : trois boutons serrés sur une
+     ligne de 375 px deviennent trois cibles trop petites pour le pouce. */
+  .actions-doc > button { flex: 1 1 100%; }
+}
+
 /* ── PRINT ── */
 @media print {
   .topbar, .bottom-nav, .no-print, .btn, .btn-sm, .btn-logout { display: none !important; }

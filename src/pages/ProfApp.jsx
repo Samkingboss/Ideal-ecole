@@ -12,6 +12,7 @@ import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
+import { signatureLigne } from '../lib/identiteProfessionnelle'
 import AccordionCard from '../components/ui/AccordionCard'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
@@ -473,7 +474,11 @@ export default function ProfApp({ user, onLogout }) {
             + (r.telephone ? ` — ${r.telephone}` : ' — numéro absent du dossier')).join(' · ')}\n\n`
       : `[${eleve.prenom} ${eleve.nom} — ${eleve.classes?.nom || ''}]\n`
         + `⚠️ Aucun responsable enregistré au dossier : destinataire à identifier par l'école.\n\n`
-    window.open(lienWhatsAppEcole(entete + msg), '_blank')
+    // Le parent doit savoir qui lui écrit, et à quel titre. La fonction vient
+    // du profil : elle suit la personne si elle change de poste, alors qu'une
+    // signature tapée dans le message resterait celle d'hier.
+    const pied = `\n\n${signatureLigne(user, { role: 'professeur' })}`
+    window.open(lienWhatsAppEcole(entete + msg + pied), '_blank')
     setMsgTransmis(true)
   }
 
@@ -568,7 +573,7 @@ export default function ProfApp({ user, onLogout }) {
         {activeProfSession === 'classe' && (
           <>
             <button onClick={() => setTab('classe')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'classe' ? '#00a8e0' : 'var(--bg)', color: tab === 'classe' ? '#fff' : 'var(--muted)' }}>📋 Présence &amp; Liste Classe</button>
-            <button onClick={() => setTab('devoirs')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'devoirs' ? '#00a8e0' : 'var(--bg)', color: tab === 'devoirs' ? '#fff' : 'var(--muted)' }}>📖 Cahier de Devoirs du Soir</button>
+            <button onClick={() => setTab('devoirs')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'devoirs' ? '#00a8e0' : 'var(--bg)', color: tab === 'devoirs' ? '#fff' : 'var(--muted)' }}>📖 Devoirs de maison</button>
             {/* La plateforme des devoirs vit dans une page à part,
                 /pedago-archive/, depuis bien avant la refonte du portail en
                 six sessions. Cette refonte a reconstruit la navigation sans
@@ -683,17 +688,28 @@ export default function ProfApp({ user, onLogout }) {
         {/* CAHIER DE DEVOIRS DE MAISON (BLEU OCÉAN STUDIO) */}
         {tab === 'devoirs' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div className="entete-ecran">
               <div>
-                <h2 style={{ fontSize: 20, fontWeight: 900, color: '#0d2a3b', margin: 0 }}>📖 Cahier de Devoirs de Maison (Classe : {selectedClasse?.nom})</h2>
-                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>Planifiez et imprimez les devoirs du soir aux standards de l'École IDEAL.</p>
+                <h2 style={{ fontSize: 19, fontWeight: 900, color: '#0d2a3b', margin: 0, lineHeight: 1.25 }}>
+                  Devoirs de maison
+                </h2>
+                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+                  Classe {selectedClasse?.nom} · {devoirs.length} devoir{devoirs.length > 1 ? 's' : ''} enregistré{devoirs.length > 1 ? 's' : ''}
+                </p>
               </div>
 
+              {/* Action secondaire : l'action principale de cet écran est
+                  d'enregistrer un devoir, pas d'en imprimer le cahier. */}
               <button
                 onClick={() => setShowDevoirsModal(true)}
-                style={{ background: 'linear-gradient(135deg, #0284c7, #0078b4)', color: '#fff', border: 'none', padding: '12px 22px', borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(2,132,199,0.3)' }}
+                disabled={devoirs.length === 0}
+                style={{ background: devoirs.length === 0 ? 'var(--bg)' : 'linear-gradient(135deg, #0284c7, #0078b4)',
+                         color: devoirs.length === 0 ? 'var(--muted)' : '#fff',
+                         border: devoirs.length === 0 ? '1px solid var(--border)' : 'none',
+                         padding: '11px 18px', borderRadius: 12, fontWeight: 800, fontSize: 13,
+                         cursor: devoirs.length === 0 ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
               >
-                🖨️ Aperçu &amp; Imprimer Fiche (Code Bleu Océan)
+                🖨️ Aperçu &amp; impression
               </button>
             </div>
 
@@ -770,18 +786,21 @@ export default function ProfApp({ user, onLogout }) {
 
                 <div>
                   <label className="form-label">Élèves concernés *</label>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
+                  {/* Deux choix exclusifs : une grille à colonnes fluides
+                      plutôt que deux boutons côte à côte, qui se chevauchaient
+                      dès que le nom de la classe s'allongeait. */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 9 }}>
                     <button type="button" className="btn-sm" onClick={() => setNewDevoir({ ...newDevoir, destinataire_mode: 'classe', eleve_ids: [] })}
-                      style={{ background: newDevoir.destinataire_mode === 'classe' ? '#0284c7' : 'var(--bg)', color: newDevoir.destinataire_mode === 'classe' ? '#fff' : 'var(--text)' }}>
+                      style={{ width: '100%', background: newDevoir.destinataire_mode === 'classe' ? '#0284c7' : 'var(--bg)', color: newDevoir.destinataire_mode === 'classe' ? '#fff' : 'var(--text)' }}>
                       Toute la classe ({classEleves.length})
                     </button>
                     <button type="button" className="btn-sm" onClick={() => setNewDevoir({ ...newDevoir, destinataire_mode: 'choix' })}
-                      style={{ background: newDevoir.destinataire_mode === 'choix' ? '#0284c7' : 'var(--bg)', color: newDevoir.destinataire_mode === 'choix' ? '#fff' : 'var(--text)' }}>
-                      Choisir certains élèves
+                      style={{ width: '100%', background: newDevoir.destinataire_mode === 'choix' ? '#0284c7' : 'var(--bg)', color: newDevoir.destinataire_mode === 'choix' ? '#fff' : 'var(--text)' }}>
+                      Certains élèves
                     </button>
                   </div>
                   {newDevoir.destinataire_mode === 'choix' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 7, background: 'var(--bg)', padding: 10, borderRadius: 10, maxHeight: 190, overflowY: 'auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 7, background: 'var(--bg)', padding: 10, borderRadius: 10, maxHeight: 190, overflowY: 'auto' }}>
                       {classEleves.map(el => {
                         const actif = newDevoir.eleve_ids.includes(el.id)
                         return <label key={el.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700 }}>
@@ -820,7 +839,7 @@ export default function ProfApp({ user, onLogout }) {
 
               <button className="btn btn-primary" style={{ marginTop: 12, width: '100%' }}
                 disabled={devoirEnCours} onClick={handleAddDevoir}>
-                {devoirEnCours ? 'Enregistrement…' : 'Ajouter au Cahier de Devoirs'}
+                {devoirEnCours ? 'Enregistrement…' : 'Enregistrer le devoir'}
               </button>
             </AccordionCard>
 
@@ -833,7 +852,7 @@ export default function ProfApp({ user, onLogout }) {
               )}
               {devoirs.map((d, i) => (
                 <div key={d.id || i} className="card" style={{ padding: 16, borderLeft: '4px solid #0284c7' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 900, color: '#0284c7', fontSize: 14 }}>📖 {d.matiere}</span>
                     {d.date_rendu && (
                       <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b' }}>
@@ -1059,16 +1078,16 @@ export default function ProfApp({ user, onLogout }) {
 
       {/* MODAL APERÇU ET IMPRESSION CAHIER DE DEVOIRS (CODE COULEUR BLEU OCÉAN) */}
       {showDevoirsModal && (
-        <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setShowDevoirsModal(false)} style={{ zIndex: 999999 }}>
-          <div style={{ background: '#fff', borderRadius: 24, maxWidth: 880, width: '95%', maxHeight: '92vh', overflowY: 'auto', padding: 24, margin: '20px auto', position: 'relative' }}>
-            <DevoirsDocument
-              devoirsList={devoirs}
-              classeNom={selectedClasse?.nom || 'CP1 Bilingue'}
-              eleves={getClasseEleves()}
-              onClose={() => setShowDevoirsModal(false)}
-            />
-          </div>
-        </div>
+        /* Le moteur documentaire porte lui-même sa surcouche depuis qu'il en
+           a une : l'enveloppe qui existait ici faisait doublon et imposait au
+           document une largeur fixe de 880 px sur un téléphone. */
+        <DevoirsDocument
+          devoirsList={devoirs}
+          classeNom={selectedClasse?.nom || 'CP1 Bilingue'}
+          eleves={getClasseEleves()}
+          user={user}
+          onClose={() => setShowDevoirsModal(false)}
+        />
       )}
 
     </div>

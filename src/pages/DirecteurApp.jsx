@@ -872,7 +872,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
               {/* Contenu dynamique du module actif dans Gestion Élèves */}
               {subTabEleve === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
-              {subTabEleve === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} />}
+              {subTabEleve === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} user={user} />}
 
               {subTabEleve === 'cantine' && (
                 <div>

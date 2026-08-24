@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
+import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
 
 // Le cahier de devoirs imprimable.
 //
@@ -62,7 +63,7 @@ function CarteDevoir({ item }) {
   )
 }
 
-function PiedDePage({ nominatif }) {
+function PiedDePage({ nominatif, signataire }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28, paddingTop: 10, gap: 20 }}>
       <div style={{ background: '#ffffff', borderRadius: 16, padding: '14px 20px', border: '1px solid #bae6fd', flex: 1 }}>
@@ -72,9 +73,24 @@ function PiedDePage({ nominatif }) {
         </div>
       </div>
 
-      <div style={{ textAlign: 'center', width: 220 }}>
+      {/* Deux signataires, deux rôles distincts : celui qui donne le devoir,
+          et celui qui atteste l'avoir vu. Le premier est nommé — un document
+          n'est jamais signé d'un nom seul, ni d'une fonction seule. */}
+      {signataire?.nom && (
+        <div style={{ textAlign: 'center', width: 190 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 6 }}>
+            Devoir donné par
+          </div>
+          <div style={{ height: 75, background: '#ffffff', border: '2px solid #0284c7', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px 10px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{signataire.nom}</div>
+            <div style={{ fontSize: 10.5, color: '#64748b', lineHeight: 1.3, marginTop: 2 }}>{signataire.fonction}</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ textAlign: 'center', width: 190 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: '#0284c7', textTransform: 'uppercase', marginBottom: 6 }}>
-          {nominatif ? 'Visa du parent' : "L'enseignant titulaire"}
+          {nominatif ? 'Visa du parent' : 'Visa de la direction'}
         </div>
         <div style={{ height: 75, background: '#ffffff', border: '2px solid #0284c7', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 11, fontStyle: 'italic' }}>
           (Visa &amp; Signature)
@@ -84,17 +100,29 @@ function PiedDePage({ nominatif }) {
   )
 }
 
-export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], onClose }) {
+export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], user = null, onClose }) {
   const [messagesOuverts, setMessagesOuverts] = useState(false)
 
   const list = devoirsList || []
+
+  // La fonction du signataire dépend de ce que porte le document. Un cahier
+  // qui ne traite qu'une matière fait signer « Enseignant de Mathématiques » ;
+  // un cahier qui en mêle plusieurs s'en tient au rôle. C'est ce qui permet à
+  // un directeur qui enseigne de signer ici son titre d'enseignant, et ailleurs
+  // son titre de direction.
+  const matieresDuCahier = [...new Set(list.map(d => d.matiere).filter(Boolean))]
+  const contexteSignature = {
+    role: 'professeur',
+    matiere: matieresDuCahier.length === 1 ? matieresDuCahier[0] : null,
+  }
+  const signataire = signature(user, contexteSignature)
   const laClasse = classeNom || 'la classe'
   const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   if (list.length === 0) {
     return (
       <DocumentPrintStudio type="pedagogie" documentTitle="CAHIER DE DEVOIRS DE MAISON" onClose={onClose}
-        subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • TRAVAUX AUTONOMES DU SOIR">
+        subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • DEVOIRS DE MAISON">
         <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: 14 }}>
           Aucun devoir enregistré pour {laClasse}. Ajoutez-en un avant d’imprimer.
         </div>
@@ -113,14 +141,14 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], o
   const messagePour = e => {
     const sesDevoirs = list.filter(d => vise(d, e))
     const lignes = sesDevoirs.map(d => `• ${d.matiere || 'Devoir'} : ${d.description || 'voir la fiche'} — à rendre le ${dateLisible(d.date_rendu) || 'date indiquée'}`)
-    return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n— ${NOM_ECOLE}`
+    return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n\n${signatureLigne(user, contexteSignature)}\n${NOM_ECOLE}`
   }
 
   return (
     <DocumentPrintStudio
       type="pedagogie"
       documentTitle="CAHIER DE DEVOIRS DE MAISON"
-      subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • TRAVAUX AUTONOMES DU SOIR"
+      subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • DEVOIRS DE MAISON"
       eleveInfo={{
         nom: `PUBLIPOSTAGE · ${destinataires.length} ÉLÈVES`,
         classe: laClasse,
@@ -157,7 +185,7 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], o
             {devoirsEleve.map((item, idx) => <CarteDevoir key={item.id || idx} item={item} />)}
           </div>
 
-          <PiedDePage nominatif />
+          <PiedDePage nominatif signataire={signataire} />
         </div>
       })}
     </DocumentPrintStudio>

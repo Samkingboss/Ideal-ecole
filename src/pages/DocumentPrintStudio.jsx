@@ -592,8 +592,8 @@ export default function DocumentPrintStudio({
         {/* Barre de contrôle — jamais imprimée */}
         <div className="no-print" style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          flexWrap: 'wrap', gap: 12, background: '#fff', padding: '14px 20px',
-          borderRadius: 16, border: `2px solid ${prov.accent}`, marginBottom: 20,
+          flexWrap: 'wrap', gap: 12, background: '#fff', padding: '14px 16px',
+          borderRadius: 16, border: `2px solid ${prov.accent}`, marginBottom: 16,
           boxShadow: '0 4px 16px rgba(0,0,0,.06)',
         }}>
           <div style={{ minWidth: 0 }}>
@@ -601,7 +601,8 @@ export default function DocumentPrintStudio({
               fontSize: 11, fontWeight: 900, color: prov.accent,
               textTransform: 'uppercase', letterSpacing: '.08em',
             }}>{prov.service}</div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a' }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a',
+                          lineHeight: 1.3, overflowWrap: 'anywhere' }}>
               {documentTitle}
             </div>
             {pages && pages.length > 1 && (
@@ -611,7 +612,7 @@ export default function DocumentPrintStudio({
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="actions-doc">
             {motExport && (
               <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>
                 {motExport}
@@ -622,7 +623,7 @@ export default function DocumentPrintStudio({
               color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 10,
               fontWeight: 900, fontSize: 13, cursor: 'pointer',
               boxShadow: `0 4px 14px ${prov.accent}55`,
-            }}>Imprimer / PDF A4</button>
+            }}>Imprimer / PDF</button>
             <button onClick={exporterJpeg} disabled={enExport} style={{
               background: enExport ? '#cbd5e1' : '#0f172a', color: '#fff',
               border: 'none', padding: '10px 18px', borderRadius: 10,
