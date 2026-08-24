@@ -18,6 +18,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { messageLisible } from '../lib/chargement'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import FrisePreparation from '../components/FrisePreparation'
+import { statutDe as statutDePrep, libelleStatut as libelleStatutPrep } from '../lib/preparations'
+import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -81,6 +84,9 @@ export default function ProfApp({ user, onLogout }) {
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [joursOuvresForce, setJoursOuvresForce] = useState(null)
   const [preparations, setPreparations] = useState([])
+  // Une correction demandée doit se retrouver sans dépendre d'une
+  // notification ni de la bonne semaine de l'emploi du temps.
+  const [prepFiltre, setPrepFiltre] = useState('a_corriger')
   const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
   
   // Devoirs states
@@ -225,7 +231,19 @@ export default function ProfApp({ user, onLogout }) {
       if (myClasses.length > 0) {
         const { data: el, error: eEleves } = await supabase
           .from('eleves')
-          .select(`*, classes(nom),
+          // Colonnes explicites, jamais `*`.
+          //
+          // Cette requête chargeait toute la table, donc `photo_url` — 1,7 Mo
+          // de base64 sur un seul élève. Elle mettait plus de deux minutes, et
+          // comme `loadData` l'attend, TOUT ce qui la suit ne partait jamais :
+          // planifications, checkpoints, performances, préparations. L'écran
+          // « Mes préparations » restait à zéro alors que la base en portait
+          // dix-huit.
+          //
+          // La même correction a été faite sur les cinq autres écrans ; celui-ci
+          // avait échappé au relevé parce qu'il écrit son `select` entre accents
+          // graves et non entre apostrophes.
+          .select(`${CHAMPS_ELEVE_AVEC_CLASSE},
                    dossier:inscriptions!eleves_inscription_id_fkey(
                      matricule,
                      r1:responsables!responsable1_id(prenom, nom, tel1, whatsapp, lien_parente),
@@ -261,7 +279,12 @@ export default function ProfApp({ user, onLogout }) {
 
       // La colonne est `user_id`, pas `prof_id` : filtrer sur `prof_id`
       // renvoyait un 400 et la liste des préparations restait vide.
-      const { data: preps } = await supabase.from('preparations').select('*').eq('user_id', user.id).order('heure_depot', { ascending: false })
+      // Colonnes explicites : `contenu` porte toute la fiche et n'est pas
+      // nécessaire pour lister. `historique_statuts` l'est — c'est là que vit
+      // la remarque de la direction.
+      const { data: preps } = await supabase.from('preparations')
+        .select('id, date_cours, sequence, matiere, groupe, status, historique_statuts, heure_depot')
+        .eq('user_id', user.id).order('heure_depot', { ascending: false })
       setPreparations(preps || [])
 
       // Chargés sans filtre, les devoirs de toutes les classes de l'école
@@ -482,6 +505,9 @@ export default function ProfApp({ user, onLogout }) {
     setMsgTransmis(true)
   }
 
+  // Combien de ses préparations attendent une correction de sa part.
+  const prepsACorriger = preparations.filter(p => p.status === 'a_corriger').length
+
   const classEleves = getClasseEleves()
 
   return (
@@ -565,6 +591,9 @@ export default function ProfApp({ user, onLogout }) {
         {activeProfSession === 'pedagogie' && (
           <>
             <button onClick={() => setTab('programme')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'programme' ? '#00a8e0' : 'var(--bg)', color: tab === 'programme' ? '#fff' : 'var(--muted)' }}>📘 Programme &amp; Matières</button>
+            <button onClick={() => setTab('mespreps')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'mespreps' ? '#00a8e0' : 'var(--bg)', color: tab === 'mespreps' ? '#fff' : 'var(--muted)' }}>
+              📝 Mes préparations{prepsACorriger > 0 ? ` · ${prepsACorriger}` : ''}
+            </button>
             <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions &amp; Checkpoints</button>
             <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>🎯 Fin de cours &amp; Clés</button>
           </>
@@ -631,6 +660,95 @@ export default function ProfApp({ user, onLogout }) {
             <select className="form-select" style={{ flex: 1, minWidth: 140 }} value={selectedPeriode?.id || ''} onChange={e => setSelectedPeriode(periodes.find(p => p.id === e.target.value))}>
               {periodes.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
             </select>
+          </div>
+        )}
+
+        {tab === 'mespreps' && (
+          <div>
+            <div className="entete-ecran">
+              <div>
+                <h2 style={{ fontSize: 19, fontWeight: 900, color: '#0d2a3b', margin: 0, lineHeight: 1.25 }}>
+                  Mes préparations
+                </h2>
+                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+                  {prepsACorriger > 0
+                    ? `${prepsACorriger} préparation${prepsACorriger > 1 ? 's' : ''} à corriger`
+                    : 'Aucune correction demandée.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Retrouver une correction demandée ne doit dépendre ni d'une
+                notification, ni de la bonne semaine de l'emploi du temps. */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 6, marginBottom: 14 }}>
+              {[['a_corriger', `À corriger (${prepsACorriger})`],
+                ['toutes', `Toutes (${preparations.length})`]].map(([id, libelle]) => (
+                <button key={id} onClick={() => setPrepFiltre(id)} style={{
+                  padding: '8px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800,
+                  cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none',
+                  border: '2px solid ' + (prepFiltre === id ? 'var(--accent)' : 'var(--border)'),
+                  background: prepFiltre === id ? 'var(--accent)' : 'var(--bg)',
+                  color: prepFiltre === id ? '#fff' : 'var(--muted)',
+                }}>{libelle}</button>
+              ))}
+            </div>
+
+            {(() => {
+              const visibles = prepFiltre === 'a_corriger'
+                ? preparations.filter(p => p.status === 'a_corriger')
+                : preparations
+              if (!visibles.length) return (
+                <div className="empty-state" style={{ padding: '1.5rem' }}>
+                  <p style={{ fontSize: 13 }}>
+                    {prepFiltre === 'a_corriger'
+                      ? (preparations.length ? 'Aucune de vos préparations n’attend de correction. ✓'
+                                             : 'Aucune préparation déposée pour le moment.')
+                      : 'Aucune préparation déposée pour le moment.'}
+                  </p>
+                </div>
+              )
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {visibles.map(p => {
+                    const st = statutDePrep(p.status)
+                    const aCorriger = p.status === 'a_corriger'
+                    return (
+                      <div key={p.id} className="card" style={{
+                        padding: 15,
+                        borderLeft: `4px solid ${aCorriger ? '#b45309' : st.couleur}`,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 900, fontSize: 14, color: '#0d2a3b' }}>
+                            {p.matiere || 'Préparation'}{p.sequence ? ` · séquence ${p.sequence}` : ''}
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20,
+                                         color: st.couleur, border: `1px solid ${st.couleur}` }}>
+                            {st.icone} {libelleStatutPrep(p.status)}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
+                          {p.groupe || ''}{p.groupe && p.date_cours ? ' · ' : ''}
+                          {p.date_cours ? `cours du ${new Date(p.date_cours + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` : ''}
+                        </div>
+
+                        {/* La remarque, lisible sans ouvrir quoi que ce soit. */}
+                        {Array.isArray(p.historique_statuts) && p.historique_statuts.length > 0 && (
+                          <div style={{ marginTop: 12 }}>
+                            <FrisePreparation historique={p.historique_statuts} titre="Suivi" compact />
+                          </div>
+                        )}
+
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
+                          Pour corriger : ouvrez la séance du {p.date_cours
+                            ? new Date(p.date_cours + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+                            : 'cours'} dans <b>Mon Emploi du Temps</b>.
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         )}
 
