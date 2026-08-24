@@ -17,6 +17,26 @@
 // Le plus étroit des trois est 375 px : iPhone SE et 12 mini. C'est la mesure
 // de référence.
 
+// ── Mesures relevées dans le navigateur, 24 août 2026 ──────────────────────
+//
+// Ces gardes sont statiques ; voici ce que la vérification visuelle a donné
+// le jour où elles ont été écrites, sur le compte d'une enseignante réelle
+// (sept matières affectées, dont Lecture CP2 — la Méthode Boscher).
+//
+//   écran                       375 px      390 px      430 px
+//   tableau de bord             0 débord.   —           —
+//   Programme & Matières        0           0           0
+//   Ressources · Lecture CP2    0           —           —
+//   fiche ressource A4          0           —           0
+//   Devoirs de maison           0           0           0
+//   Messages parents            —           0           —
+//   Emploi du temps             —           0           —
+//
+// La feuille A4 mesure 794 px. Affichée : 351 px à 375 (échelle 0,442) et
+// 406 px à 430 (échelle 0,512). Aucun bouton hors champ sur aucun écran.
+//
+// Refaire ce relevé après toute modification structurelle de mise en page.
+
 import { readFileSync, existsSync } from 'node:fs'
 
 const LARGEUR_MIN = 375          // le plus étroit des appareils visés
