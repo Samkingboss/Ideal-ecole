@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { APP_NOTIFS } from '../lib/notifications'
 import { abonnementPushActif, activerNotificationsPush } from '../lib/push'
@@ -20,7 +20,24 @@ const marquerLue = (user, ids) => {
   localStorage.setItem(cleLues(user), JSON.stringify([...s]))
 }
 
+// Cadence du sondage.
+//
+// Six secondes conviennent sur une connexion correcte. Sur un réseau lent,
+// elles étaient une faute : rien n'empêchait un sondage de partir alors que le
+// précédent n'était pas revenu. Un navigateur ouvre six connexions par origine ;
+// une fois ces six places prises par des sondages en attente, les requêtes de
+// la page elle-même font la queue derrière. L'écran restait vide, non parce que
+// le serveur était lent, mais parce que l'application se bloquait elle-même.
+//
+// Deux règles suffisent : jamais deux sondages en vol, et un intervalle qui
+// s'allonge quand le réseau peine — jusqu'à une minute — puis revient à six
+// secondes dès qu'une réponse arrive vite.
+const CADENCE_MIN = 6000
+const CADENCE_MAX = 60000
+
 export default function NotificationCenter({ user, role, onNavigateTab }) {
+  const enVol = useRef(false)
+  const cadence = useRef(CADENCE_MIN)
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -40,13 +57,52 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     // téléphone rangé : 600 requêtes par heure sur un forfait de données que
     // l'enseignant paie lui-même, pour rien. Le retour sur l'application
     // relit aussitôt, donc rien n'est perdu en réactivité.
-    const relire = () => { if (document.visibilityState === 'visible') loadNotifications() }
-    const timer = setInterval(relire, 6000)
-    document.addEventListener('visibilitychange', relire)
+    let timer = null
+    let arrete = false
+
+    const relire = async () => {
+      if (arrete) return
+      // Écran éteint ou application en arrière-plan : ne rien demander.
+      if (document.visibilityState !== 'visible') return
+      // Un sondage est déjà parti : le suivant attendra son retour. C'est
+      // cette règle, et elle seule, qui empêche la file de grossir.
+      if (enVol.current) return
+      enVol.current = true
+      const debut = Date.now()
+      try {
+        await loadNotifications()
+        const duree = Date.now() - debut
+        // Le réseau répond vite : on revient à la cadence nominale. Il peine :
+        // on double, jusqu'au plafond. La cloche reste utile sans occuper la
+        // place des données de la page.
+        cadence.current = duree < 1500
+          ? CADENCE_MIN
+          : Math.min(CADENCE_MAX, Math.max(CADENCE_MIN, cadence.current * 2))
+      } catch {
+        cadence.current = Math.min(CADENCE_MAX, cadence.current * 2)
+      } finally {
+        enVol.current = false
+      }
+    }
+
+    // `setTimeout` réarmé plutôt que `setInterval` : l'intervalle doit pouvoir
+    // changer entre deux tours, ce qu'un `setInterval` ne permet pas.
+    const programmer = () => {
+      timer = setTimeout(async () => { await relire(); if (!arrete) programmer() }, cadence.current)
+    }
+    programmer()
+
+    // Le retour sur l'application relit tout de suite : rien n'est perdu en
+    // réactivité, et la cadence repart de son plancher.
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') { cadence.current = CADENCE_MIN; relire() }
+    }
+    document.addEventListener('visibilitychange', auRetour)
 
     return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', relire)
+      arrete = true
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', auRetour)
     }
   }, [user?.id, role])
 

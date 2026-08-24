@@ -1,7 +1,28 @@
 // Service Worker IDEAL ÉcoleApp
-// Stratégie : réseau d'abord (toujours la dernière version),
-// cache en secours quand la connexion coupe.
-const CACHE = 'ideal-v3';
+//
+// ── Deux stratégies, parce qu'il y a deux sortes de fichiers ───────────────
+//
+// L'ancienne version appliquait « réseau d'abord » à tout, sans délai maximal.
+// Sur une connexion qui ne répond pas, chaque fichier de l'application
+// attendait le temps d'attente par défaut du navigateur avant de se rabattre
+// sur le cache. Le cache existait et ne servait pas : l'application mettait
+// des minutes à s'afficher alors que tout était déjà sur l'appareil.
+//
+//   /assets/index-A1b2C3.js   empreinte dans le nom → CACHE D'ABORD.
+//                             Le contenu ne peut pas changer sans que le nom
+//                             change. Servir depuis le cache est toujours juste,
+//                             et instantané.
+//
+//   index.html, /, le reste   RÉSEAU D'ABORD, mais BORNÉ à 4 secondes.
+//                             Passé ce délai, le cache répond et la mise à jour
+//                             continue en arrière-plan. C'est ce qui permet
+//                             d'ouvrir l'application hors couverture sans
+//                             attendre un échec.
+//
+// La version du cache change à chaque évolution de ce fichier : `activate`
+// supprime les anciennes, sans jamais toucher aux données de l'application.
+const CACHE = 'ideal-v4';
+const DELAI_RESEAU = 4000;
 
 // Fichiers de base mis en cache dès l'installation
 const CORE = [
@@ -26,6 +47,18 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Un fichier dont le nom porte une empreinte de contenu ne change jamais de
+// contenu. Vite les émet sous `/assets/nom-EMPREINTE.ext`.
+const aUneEmpreinte = (url) => /\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/.test(url.pathname);
+
+const mettreEnCache = (req, res) => {
+  if (res && res.ok) {
+    const copie = res.clone();
+    caches.open(CACHE).then((c) => c.put(req, copie));
+  }
+  return res;
+};
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
@@ -33,21 +66,38 @@ self.addEventListener('fetch', (e) => {
   // Ne jamais intercepter : autres origines (Supabase, CDN, WhatsApp) et non-GET
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  e.respondWith(
-    fetch(req)
-      .then((res) => {
-        // Réponse fraîche : on la sert et on met à jour le cache
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
-        return res;
-      })
-      .catch(() =>
-        // Hors-ligne : version en cache, ou la page d'accueil pour les navigations
-        caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('/') : undefined))
-      )
-  );
+  // ── Fichiers à empreinte : cache d'abord ────────────────────────────────
+  if (aUneEmpreinte(url)) {
+    e.respondWith(
+      caches.match(req).then((hit) => hit || fetch(req).then((res) => mettreEnCache(req, res)))
+    );
+    return;
+  }
+
+  // ── Tout le reste : réseau d'abord, mais borné ──────────────────────────
+  //
+  // `Promise.race` plutôt qu'un `AbortController` : on ne veut pas ANNULER la
+  // requête réseau, seulement cesser de l'attendre. Elle continue et met le
+  // cache à jour pour la prochaine ouverture.
+  e.respondWith((async () => {
+    const depuisReseau = fetch(req).then((res) => mettreEnCache(req, res));
+
+    const secours = caches.match(req).then(
+      (hit) => hit || (req.mode === 'navigate' ? caches.match('/') : undefined)
+    );
+
+    const enCache = await secours;
+    if (!enCache) {
+      // Rien en cache : il faut bien attendre le réseau.
+      try { return await depuisReseau; }
+      catch { return Response.error(); }
+    }
+
+    // Quelque chose en cache : le réseau a quatre secondes pour faire mieux.
+    const limite = new Promise((r) => setTimeout(() => r(null), DELAI_RESEAU));
+    const gagnant = await Promise.race([depuisReseau.catch(() => null), limite]);
+    return gagnant || enCache;
+  })());
 });
 
 self.addEventListener('push', event => {
