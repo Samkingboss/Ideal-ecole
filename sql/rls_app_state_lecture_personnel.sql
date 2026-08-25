@@ -58,6 +58,7 @@
 begin;
 
 drop policy if exists app_state_lecture_personnel on public.app_state;
+-- SUPERSÉDÉ PAR rls_correctif_predicat_personnel.sql — prédicat composite corrigé.
 create policy app_state_lecture_personnel
   on public.app_state
   for select

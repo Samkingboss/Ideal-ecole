@@ -183,7 +183,44 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
     manquent.length === 0,
     manquent.length ? `— ${manquent.join(' · ')}` : '— toutes conformes')
 }
+// ── A7 · aucune politique ne teste un composite pour « existe » ──────────
+//
+// `ideal_profil()` rend une LIGNE de `users`. En SQL, `composite IS NOT NULL`
+// n'est vrai que si AUCUN champ n'est nul — une personne dont le téléphone
+// est vide fait donc échouer le prédicat, et la politique refuse alors qu'elle
+// existe et qu'elle est active.
+//
+// J'ai écrit cinq politiques sur cette base, dont celle qui devait rendre la
+// cloche lisible à la direction. `ideal_role()` rend un `text` : `IS NOT NULL`
+// y a son sens ordinaire.
+{
+  const sql = []
+  const parcourir = d => { if (!existsSync(d)) return
+    for (const e of readdirSync(d)) { const p = join(d, e)
+      if (statSync(p).isDirectory()) parcourir(p)
+      else if (e.endsWith('.sql')) sql.push(p) } }
+  parcourir('sql')
+  const fautifs = []
+  for (const f of sql) {
+    const src = lire(f)
+    for (const inst of src.split(';')) {
+      // Le bloc de retour arrière est commenté : on l'ignore.
+      const actif = inst.split('\n').filter(l => !/^\s*--/.test(l)).join('\n')
+      if (!/create policy|alter policy/i.test(actif)) continue
+      // Une définition remplacée par un script ultérieur est de l'histoire,
+      // pas l'état courant. Elle porte la marque, et on ne la compte pas.
+      if (/SUPERSÉDÉ PAR/.test(inst)) continue
+      if (/ideal_profil\(\)\s*is\s+not\s+null/i.test(actif)) {
+        fautifs.push(`${f} · ${(actif.match(/(create|alter) policy\s+(\w+)/i) || [])[2] || '?'}`)
+      }
+    }
+  }
+  verifier('A7 · aucune politique ne teste un composite pour « existe »',
+    fautifs.length === 0,
+    fautifs.length ? `\n      ${fautifs.join('\n      ')}` : '— prédicats scalaires')
+}
+
 console.log(echecs === 0
-  ? `\n  ${V}6 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}7 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)

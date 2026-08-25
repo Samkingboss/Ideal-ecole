@@ -108,6 +108,7 @@ drop policy if exists inscriptions_lecture_publique on public.inscriptions;
 drop policy if exists inscriptions_anon             on public.inscriptions;
 drop policy if exists inscriptions_personnel        on public.inscriptions;
 
+-- SUPERSÉDÉ PAR rls_restreindre_donnees_familiales.sql — prédicat composite corrigé.
 create policy inscriptions_personnel
   on public.inscriptions
   for select
@@ -118,6 +119,7 @@ drop policy if exists responsables_lecture_publique on public.responsables;
 drop policy if exists responsables_anon             on public.responsables;
 drop policy if exists responsables_personnel        on public.responsables;
 
+-- SUPERSÉDÉ PAR rls_restreindre_donnees_familiales.sql — prédicat composite corrigé.
 create policy responsables_personnel
   on public.responsables
   for select

@@ -85,18 +85,21 @@ end
 $$;
 
 drop policy if exists documents_inscription_personnel on public.documents_inscription;
+-- SUPERSÉDÉ PAR rls_restreindre_donnees_familiales.sql — prédicat composite corrigé.
 create policy documents_inscription_personnel
   on public.documents_inscription
   for select to authenticated
   using (public.ideal_profil() is not null);
 
 drop policy if exists users_personnel on public.users;
+-- SUPERSÉDÉ PAR rls_correctif_predicat_personnel.sql — prédicat composite corrigé.
 create policy users_personnel
   on public.users
   for select to authenticated
   using (public.ideal_profil() is not null);
 
 drop policy if exists disciplines_personnel on public.disciplines;
+-- SUPERSÉDÉ PAR rls_correctif_predicat_personnel.sql — prédicat composite corrigé.
 create policy disciplines_personnel
   on public.disciplines
   for select to authenticated
@@ -106,12 +109,14 @@ create policy disciplines_personnel
 -- déjà dans ProfApp et SignalementIncident, et la fermer romprait le
 -- signalement.
 drop policy if exists disciplines_ecriture_personnel on public.disciplines;
+-- SUPERSÉDÉ PAR rls_correctif_predicat_personnel.sql — prédicat composite corrigé.
 create policy disciplines_ecriture_personnel
   on public.disciplines
   for insert to authenticated
   with check (public.ideal_profil() is not null);
 
 drop policy if exists disciplines_maj_personnel on public.disciplines;
+-- SUPERSÉDÉ PAR rls_correctif_predicat_personnel.sql — prédicat composite corrigé.
 create policy disciplines_maj_personnel
   on public.disciplines
   for update to authenticated
