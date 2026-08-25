@@ -41,8 +41,17 @@ connexion() {   # $1 = etiquette, $2 = exemple d identifiant
   local id mdp t essai
   for essai in 1 2 3; do
     read -r  -p "  Identifiant $1 (ex. $2) : " id
-    read -rs -p "  Code d acces $1 : " mdp; echo
-    t=$(jeton "$id" "$mdp"); mdp=''
+    # Le saut de ligne qui suit la saisie masquée va sur STDERR.
+    #
+    # Il partait sur stdout, donc il était capturé par `$(connexion …)` et
+    # se retrouvait EN TÊTE DU JETON. Un en-tête HTTP contenant un saut de
+    # ligne fait échouer curl avec « (43) A libcurl function was given a bad
+    # argument », code http 000 — reproduit puis vérifié : le même appel
+    # répond 200 une fois le jeton nettoyé.
+    read -rs -p "  Code d acces $1 : " mdp; echo >&2
+    # Ceinture et bretelles : un jeton ne contient jamais d'espace ni de
+    # saut de ligne. On l'assainit quelle qu'en soit la provenance.
+    t=$(jeton "$id" "$mdp" | tr -d '\n\r '); mdp=''
     if [ -n "$t" ]; then
       echo "  session $1 ouverte pour « $id »" >&2
       printf '%s' "$t"
