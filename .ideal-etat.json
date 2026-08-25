@@ -10,12 +10,14 @@
     "allergies_repli_aucune": 1,
     "demo_en_etat_initial": 0,
     "app_state_ecritures": 17,
-    "fichiers_vides": 1
+    "fichiers_vides": 1,
+    "tables_ouvertes_anon": 26
   },
   "planchers": {
     "journal_audit": 79,
     "gardes_au_vert": 0
   },
   "orphelins_assumes": [],
-  "_app_state_ecritures": "Corrige de 13 a 17 le 24/08/2026 : l'ancienne mesure ne lisait qu'une ligne et manquait quatre ecritures multi-lignes. La dette n'a pas augmente, la mesure a cesse d'etre aveugle. Le plafond ne doit plus jamais remonter."
+  "_app_state_ecritures": "Corrige de 13 a 17 le 24/08/2026 : l'ancienne mesure ne lisait qu'une ligne et manquait quatre ecritures multi-lignes. La dette n'a pas augmente, la mesure a cesse d'etre aveugle. Le plafond ne doit plus jamais remonter.",
+  "_tables_ouvertes_anon": "Nombre de tables du schéma public encore lisibles par la cle publique. Mesure comportementale, pas declarative. Ne doit jamais remonter."
 }
