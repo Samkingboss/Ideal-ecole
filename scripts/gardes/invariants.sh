@@ -30,7 +30,12 @@ garde "M4 · signature non activée avant la phase 3" \
 titre "MÉTIER · source unique — R1, R2"
 
 # INV-FLUX-02 — app_state est le principal ecart structurel au V2.1.
-N=$(grep -rn "from('app_state')" src/ public/ 2>/dev/null | grep -cE 'insert|upsert' | tr -d ' ')
+#
+# La mesure precedente lisait une seule ligne : elle voyait 13 ecritures sur
+# 17. Une chaine dont le `.upsert(` tombait a la ligne suivante lui etait
+# invisible, et un simple retour a la ligne suffisait a passer sous le cliquet.
+# Le plafond n'a pas ete relache : c'est la mesure qui etait aveugle.
+N=$(node "$(dirname "${BASH_SOURCE[0]}")/compter-ecritures-app-state.mjs" | tr -d ' ')
 cliquet "app_state_ecritures" "M5 · écritures dans app_state  → 0 en phase 5" "$N"
 
 titre "MÉTIER · authentification — D5"

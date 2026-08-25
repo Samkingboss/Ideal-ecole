@@ -1,0 +1,113 @@
+# Fermeture de `app_state`
+
+## L'état constaté
+
+Mesuré depuis la clé publique — celle qui est dans le navigateur de tout
+visiteur :
+
+```
+GET  /rest/v1/app_state?app=eq.notifications   → 200
+POST /rest/v1/app_state                        → 201
+```
+
+`anon` lit et écrit `app_state`. L'écriture y est un **remplacement de liste**,
+pas un ajout. Quiconque détient la clé peut donc forger une notification,
+remplacer une boîte entière, ou la vider.
+
+La RPC `notifier_preparation` corrige un workflow. Elle ne ferme pas cette
+porte.
+
+## Pourquoi la fermeture ne peut pas être brutale
+
+Dix-sept écritures directes en dépendent encore. Les fermer d'un coup casserait
+la cantine, les demandes RH, la grille des postes, les dossiers du personnel et
+le formulaire public d'inscription.
+
+Une contrainte est structurante : **`public/inscription.html` écrit sans que
+personne soit connecté**. Le parent d'un candidat est anonyme par construction.
+Cette écriture ne peut pas devenir « réservée à `authenticated` » — elle doit
+devenir une intention métier étroite, exécutable par `anon`, sans autre pouvoir
+que celui de signaler une inscription précise.
+
+## Le principe de remplacement
+
+```
+AVANT   ecrire_app_state('notifications', <ce que je veux>)
+APRÈS   notifier_preparation(<de quoi je parle>)
+```
+
+Le navigateur n'écrit pas l'état. Il exprime une intention. Le serveur lit
+`auth.uid()`, vérifie le droit, construit la donnée et l'écrit lui-même.
+
+## Inventaire des 17 écritures restantes
+
+| Écriture | Espace | Workflow métier | Qui a le droit | Ce qu'il peut réellement modifier | Surface de remplacement |
+|---|---|---|---|---|---|
+| `src/lib/notifications.js:77` | APP_NOTIFS | Toute notification du portail (10 appelants) | personnel connecte | la boite du destinataire, en ajout | `une RPC par intention metier ; `notifier_preparation` est la premiere` |
+| `src/pages/ActivitePersonnel.jsx:251` | rh | Fiche d'activite du personnel | direction | les points et l'activite d'un agent | `enregistrer_activite_personnel` |
+| `src/pages/CuisiniereApp.jsx:405` | (non précisé) | Pointage des repas du jour | cuisiniere | le pointage du jour, sa cantine | `pointer_repas — ECRITURE DEJA MORTE : `app` manque, la cle primaire la refuse` |
+| `src/pages/CuisiniereApp.jsx:542` | cantine | Menu de la semaine | cuisiniere | le menu de sa cantine | `enregistrer_menu_semaine` |
+| `src/pages/CuisiniereApp.jsx:564` | cantine | Menu de la semaine (validation) | cuisiniere | le menu de sa cantine | `enregistrer_menu_semaine` |
+| `src/pages/CuisiniereApp.jsx:576` | cantine | Fiche de marche | cuisiniere | la fiche de marche courante | `enregistrer_fiche_marche` |
+| `src/pages/CuisiniereApp.jsx:690` | cantine | Historique des justificatifs | cuisiniere | ses propres justificatifs, en ajout | `deposer_justificatif_cantine` |
+| `src/pages/DemandesEnseignant.jsx:271` | (non précisé) | Depot d'une demande RH | enseignant | sa propre demande, en ajout a la file | `deposer_demande_rh` |
+| `src/pages/DirecteurApp.jsx:190` | rh | Reponse de la direction a une demande RH | direction | le statut et la reponse d'une demande | `repondre_demande_rh` |
+| `src/pages/DirecteurApp.jsx:491` | rh | Creation / modification d'un poste | direction | la grille des postes | `enregistrer_poste` |
+| `src/pages/DirecteurApp.jsx:551` | rh | Suppression d'un poste | direction | la grille des postes | `supprimer_poste` |
+| `src/pages/DirecteurApp.jsx:564` | rh | Parametres RH (points, saisie manuelle) | direction | la configuration RH | `enregistrer_parametres_rh` |
+| `src/pages/DirecteurApp.jsx:940` | cantine | Fiche de marche cantine cote direction | direction | la fiche de marche courante | `enregistrer_fiche_marche` |
+| `src/pages/DossierPersonnel.jsx:160` | (non précisé) | Dossier RH personnel | l'agent lui-meme | SON dossier, et lui seul | `enregistrer_mon_dossier_rh` |
+| `public/comptabilite.html:7544` | rh | Grille des postes, page comptabilite | direction | la grille des postes | `enregistrer_poste` |
+| `public/inscription.html:1535` | (non précisé) | Notification d'une nouvelle inscription | PERSONNE — page publique | rien : elle signale un fait | `notifier_inscription(p_inscription_id) — executable par anon, sans autre pouvoir` |
+| `public/inscription.html:1538` | APP_NOTIFS | Notification d'une nouvelle inscription (2e cible) | PERSONNE — page publique | rien : elle signale un fait | `notifier_inscription(p_inscription_id)` |
+## Ordre de migration
+
+Par risque décroissant, et par indépendance.
+
+**1 · Notifications** — `notifier_preparation` est faite. Restent la surface
+générique de `notifications.js` (10 appelants) et les deux écritures publiques
+d'`inscription.html`. C'est le namespace le plus exposé : une notification
+forgée porte la parole de la direction.
+
+**2 · `rh`** — dossiers du personnel, demandes, postes, paramètres. Contient
+des données nominatives d'employés. `dossier_rh_<id>` est le cas le plus net :
+chacun ne doit écrire que le sien.
+
+**3 · `cantine`** — menus, fiche de marché, justificatifs. Moins sensible, mais
+`CuisiniereApp.jsx:405` est **déjà morte** : l'`upsert` omet `app`, colonne de
+la clé primaire. Elle part en 400 et le pointage ne quitte jamais l'appareil.
+À traiter comme un bug, pas comme une migration.
+
+## Porte de fermeture
+
+Aucune révocation avant que les trois conditions soient réunies :
+
+- aucun frontend ne fait INSERT/UPDATE/DELETE direct sur `app_state` ;
+- aucune fonctionnalité légitime ne dépend du rôle `anon` pour écrire ;
+- chaque RPC de remplacement a été testée, en cas autorisé **et** en cas
+  interdit.
+
+Alors seulement : révocation de l'écriture directe d'`anon`, puis reprise de
+tous les workflows concernés.
+
+## Gardes qui tiennent la ligne d'ici là
+
+| Garde | Ce qu'elle empêche |
+|---|---|
+| A1 | Une dix-huitième écriture directe. Le plafond ne remonte jamais. |
+| A2 | Un script SQL qui élargirait l'écriture d'`anon`. |
+| A3 | Une surface métier qui retomberait sur l'écriture générique. |
+| A4 | Un échec de notification qui annulerait une sauvegarde ou ouvrirait un droit. |
+| A5 | Une écriture qui disparaîtrait de ce plan sans avoir été migrée. |
+
+### Note sur la mesure
+
+Le cliquet `app_state_ecritures` était à 13. Il comptait
+`grep "from('app_state')" | grep -E 'insert|upsert'` **sur une seule ligne** :
+quatre écritures dont le `.upsert(` tombait à la ligne suivante lui étaient
+invisibles, et un simple retour à la ligne suffisait à passer dessous sans le
+déclencher. Le compteur est désormais
+`scripts/gardes/compter-ecritures-app-state.mjs`, qui lit la chaîne complète.
+
+Le plafond est passé de 13 à 17. **La dette n'a pas augmenté — la mesure a
+cessé d'être aveugle.** Il ne doit plus jamais remonter.
