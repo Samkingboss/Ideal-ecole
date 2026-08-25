@@ -16,7 +16,7 @@
 
 import { lireDevoir, viseEleve, contenuCanonique, refusDeSaisie, CHAMPS_DEVOIR, regrouperPages }
   from '../../src/lib/devoirs.js'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 
 const lire = f => (existsSync(f) ? readFileSync(f, 'utf8') : '')
 const sansCommentaires = src => src
@@ -45,6 +45,23 @@ const portail = (mode, ids, extra = {}) => ({
   fichiers: [{ url: 'https://x/1.png', nom: 'ex.png' }],
   contenu: { destinataire_mode: mode, eleve_ids: ids, ...extra },
 })
+
+// ── D0 · les sources existent et ne sont pas vides ───────────────────────
+//
+// `lire()` rend '' quand le fichier manque, et un motif absent d'une chaîne
+// vide est un motif satisfait. Renommer un écran suffisait donc à faire
+// passer les gardes qui le surveillent. On refuse de commencer sur du vide.
+{
+  const SOURCES = [
+    'src/lib/devoirs.js', 'src/lib/devoirsSelection.js',
+    'src/pages/ProfApp.jsx', 'src/pages/DevoirsDocument.jsx',
+  ]
+  const absentes = SOURCES.filter(f => { try { return statSync(f).size < 200 } catch { return true } })
+  if (absentes.length) {
+    console.log(`\n  ${R}ABANDON · source introuvable ou vide : ${absentes.join(', ')}${F}\n`)
+    process.exit(1)
+  }
+}
 
 console.log(`\n${G}── DEVOIRS · un ciblage ne s'élargit jamais ──${F}`)
 
@@ -169,10 +186,25 @@ console.log(`\n${G}── DEVOIRS · un ciblage ne s'élargit jamais ──${F}`
 }
 
 // ── D11 · les colonnes chargées sont explicites ───────────────────────────
+//
+// « pas d'étoile et au moins dix colonnes » se satisfaisait de
+// 'a,b,c,d,e,f,g,h,i,j,k,l,m,n'. La garde ne connaissait aucun nom réel : on
+// pouvait charger n'importe quoi. La liste est donc nominative, et un ajout
+// délibéré se déclare ici en même temps que dans la bibliothèque.
 {
-  verifier('D11 · aucune colonne chargée par `*`',
-    !CHAMPS_DEVOIR.includes('*') && CHAMPS_DEVOIR.split(',').length >= 10,
-    `— ${CHAMPS_DEVOIR.split(',').length} colonnes`)
+  const ATTENDUES = [
+    'id', 'user_id', 'classe_id', 'groupe', 'matiere', 'titre',
+    'description', 'date_donne', 'date_rendu', 'contenu',
+    'fichiers', 'fichier_url', 'fichier_nom', 'created_at',
+  ]
+  const obtenues = CHAMPS_DEVOIR.split(',').map(c => c.trim())
+  const manquantes = ATTENDUES.filter(c => !obtenues.includes(c))
+  const enTrop = obtenues.filter(c => !ATTENDUES.includes(c))
+  verifier('D11 · les colonnes chargées sont exactement celles attendues',
+    !CHAMPS_DEVOIR.includes('*') && manquantes.length === 0 && enTrop.length === 0,
+    manquantes.length || enTrop.length
+      ? `— manquantes:${manquantes.join('|') || 'aucune'} en trop:${enTrop.join('|') || 'aucune'}`
+      : `— ${obtenues.length} colonnes`)
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -219,52 +251,125 @@ console.log(`\n${G}── DEVOIRS · un ciblage ne s'élargit jamais ──${F}`
 // Rapprocher `contenu.teacher` d'un compte serait une présomption écrite en
 // base — bien pire qu'une attribution absente.
 //
-// La règle est exacte plutôt qu'approchée : `auteurId` ne peut venir QUE de
-// la colonne. Un premier motif, qui cherchait un nom suivi d'une recherche de
-// compte, laissait passer la forme inverse — `COMPTES.find(u => u.nom ===
-// c.teacher)` — et ne savait donc pas échouer.
+// Les deux versions précédentes de cette garde lisaient UNE ligne du source.
+// Toutes deux se laissaient contourner en ajoutant, juste à côté, une clé
+// dérivée du nom. On n'inspecte donc plus le texte : on fait tourner la
+// fonction et on regarde TOUT ce qu'elle rend.
 {
-  const lib = lire('src/lib/devoirs.js')
-  const ligneAuteur = (lib.match(/^\s*auteurId:\s*(.+?),\s*$/m) || [])[1] || ''
-  const ligneOrigine = (lib.match(/^\s*origine:\s*(.+?),\s*$/m) || [])[1] || ''
-  const seulementLaColonne = /^ligne\?\.user_id \|\| null$/.test(ligneAuteur.trim())
-  const origineSurLaColonne = /ligne\?\.user_id\s*\?/.test(ligneOrigine)
-  const nomConserve = /auteurNomHistorique:\s*c\.teacher/.test(lib)
+  const NOM = 'Ornella Dembélé'
+  const sortie = lireDevoir({ id: 'x', user_id: null, contenu: { teacher: NOM } })
+  const auteurNul = sortie.auteurId === null
+  const nomConserve = sortie.auteurNomHistorique === NOM
+  const origineDite = sortie.origine === 'historique'
+
+  // Le point qui manquait : AUCUNE autre clé ne doit porter un identifiant
+  // fabriqué à partir du nom. On balaie la sortie entière.
+  const suspectes = Object.entries(sortie)
+    .filter(([cle, v]) => cle !== 'auteurNomHistorique' && cle !== 'brut'
+      && typeof v === 'string' && v.length > 0
+      && (v === NOM || /^compte|deduit|devine/i.test(v)))
+    .map(([cle]) => cle)
+
+  // Et l'attribution doit rester nulle même quand un compte du même nom
+  // existe : c'est exactement la tentation.
+  const avecCompte = lireDevoir({ id: 'y', user_id: null,
+    contenu: { teacher: NOM, teacher_id: 'compte-du-meme-nom' } })
+
   verifier('D14 · aucun compte déduit d’un nom historique',
-    seulementLaColonne && origineSurLaColonne && nomConserve,
-    `— auteurId:(${ligneAuteur.trim() || 'ABSENT'})`
-    + ` nom conservé:${nomConserve ? 'oui' : 'NON'}`)
+    auteurNul && nomConserve && origineDite && suspectes.length === 0
+    && avecCompte.auteurId === null,
+    `— auteurId:${String(sortie.auteurId)} origine:${sortie.origine}`
+    + (suspectes.length ? ` CLÉS SUSPECTES:${suspectes.join('|')}` : '')
+    + ` malgré un compte homonyme:${avecCompte.auteurId === null ? 'toujours nul' : 'ATTRIBUÉ'}`)
 }
 
 // ── D15 · le regroupement multi-pages ne touche jamais la base ────────────
+//
+// L'ancienne garde cherchait la chaîne `lignes: [d]` — présente DEUX fois
+// dans la fonction. La retirer d'un des deux endroits laissait le grep
+// satisfait par l'autre, et les lignes d'origine n'étaient plus conservées.
+// On fait donc tourner la fonction et on compte.
 {
-  const lib = lire('src/lib/devoirs.js')
-  const bloc = lib.match(/export const regrouperPages[\s\S]*?\n}/)?.[0] || ''
-  const sansEcriture = bloc.length > 0
-    && !/(update|delete|insert|upsert|from\('devoirs'\)|supabase)/i.test(bloc)
-  const gardeLesLignes = /lignes:\s*\[d\]/.test(bloc) && /lignes\.push\(d\)/.test(bloc)
+  const hist = (id, url) => ({
+    id, matiere: 'Lecture', objectif: 'Lire la page 12', dateDonne: '2026-08-20',
+    dateRendu: '2026-08-26', type: 'Devoir de Maison', destinataireMode: 'classe',
+    eleveIds: [], candidatMatricules: [], origine: 'historique',
+    piecesJointes: [{ url, nom: null }],
+  })
+  // DEUX chemins existent dans la fonction, et le premier essai de cette
+  // garde n'en exerçait qu'un : la branche « regroupé ». `lignes: [d]` est
+  // écrit à deux endroits — celui du groupe neuf, et celui du devoir qu'on
+  // n'a pas su regrouper. Vider le second passait inaperçu.
+  const groupes = regrouperPages([hist('a', 'p1.jpg'), hist('b', 'p2.jpg')])
+  const g = groupes[0]
+
+  // Chemin 2 : un devoir non regroupable — objectif vide — doit lui aussi
+  // garder sa ligne d'origine.
+  const seul = regrouperPages([{ ...hist('c', 'p3.jpg'), objectif: '' }])
+  const cheminNonRegroupe = seul.length === 1
+    && Array.isArray(seul[0].lignes) && seul[0].lignes.length === 1
+    && seul[0].lignes[0].id === 'c'
+
+  const lignesConservees = groupes.every(x => Array.isArray(x.lignes) && x.lignes.length > 0)
+    && cheminNonRegroupe
+  const toutesLesLignes = groupes.reduce((n, x) => n + x.lignes.length, 0) === 2
+  const identifiantsIntacts = g && g.lignes.map(l => l.id).sort().join(',') === 'a,b'
+
+  // Aucune écriture : on ne cherche pas le mot « supabase », on vérifie que
+  // la fonction est pure — mêmes entrées, mêmes sorties, entrées non mutées.
+  const entree = [hist('c', 'p3.jpg')]
+  const avant = JSON.stringify(entree)
+  regrouperPages(entree); regrouperPages(entree)
+  const nonMutant = JSON.stringify(entree) === avant
+
   verifier('D15 · le regroupement est de restitution, pas de migration',
-    sansEcriture && gardeLesLignes,
-    `— sans écriture:${sansEcriture ? 'oui' : 'NON'} lignes conservées:${gardeLesLignes ? 'oui' : 'NON'}`)
+    lignesConservees && toutesLesLignes && identifiantsIntacts && nonMutant,
+    `— lignes conservées:${lignesConservees ? 'oui' : 'NON'}`
+    + ` chemin non regroupé:${cheminNonRegroupe ? 'oui' : 'NON'}`
+    + ` identifiants:${identifiantsIntacts ? 'intacts' : 'PERDUS'}`
+    + ` entrée non mutée:${nonMutant ? 'oui' : 'NON'}`)
 }
 
 // ── D16 · le regroupement exige des critères sûrs ─────────────────────────
 //
 // Dans le doute, on affiche séparément : un devoir montré deux fois est une
 // gêne, deux devoirs présentés comme un seul est une erreur.
+//
+// L'ancienne garde vérifiait que quatre motifs figuraient dans le texte de la
+// clé. Les laisser en place et poser `return 'MEME-CLE'` juste avant la
+// laissait verte — et deux devoirs sans rapport devenaient un seul.
 {
-  const lib = lire('src/lib/devoirs.js')
-  const cle = lib.match(/const cleRegroupement[\s\S]*?\n}/)?.[0] || ''
-  const historiqueSeul = /origine\s*!==\s*'historique'/.test(cle)
-  const refuseObjectifVide = /if\s*\(!objectif\)\s*return null/.test(cle)
-  const refuseSansDate = /if\s*\(!d\.matiere\s*\|\|\s*!d\.dateDonne\)\s*return null/.test(cle)
-  const ciblageDansLaCle = /eleveIds/.test(cle) && /candidatMatricules/.test(cle)
+  const base = {
+    matiere: 'Lecture', objectif: 'Lire la page 12', dateDonne: '2026-08-20',
+    dateRendu: '2026-08-26', type: 'Devoir de Maison', destinataireMode: 'classe',
+    eleveIds: [], candidatMatricules: [], origine: 'historique', piecesJointes: [],
+  }
+  const un = n => regrouperPages(n).length
+
+  const identiques = un([{ ...base, id: 'a' }, { ...base, id: 'b' }]) === 1
+  // Chaque critère, isolément, doit suffire à séparer.
+  const separe = {
+    matiere:  un([{ ...base, id: 'a' }, { ...base, id: 'b', matiere: 'Calcul' }]) === 2,
+    objectif: un([{ ...base, id: 'a' }, { ...base, id: 'b', objectif: 'Autre chose' }]) === 2,
+    dateDonne: un([{ ...base, id: 'a' }, { ...base, id: 'b', dateDonne: '2026-08-21' }]) === 2,
+    dateRendu: un([{ ...base, id: 'a' }, { ...base, id: 'b', dateRendu: '2026-08-27' }]) === 2,
+    type:     un([{ ...base, id: 'a' }, { ...base, id: 'b', type: 'Révision' }]) === 2,
+    ciblage:  un([{ ...base, id: 'a' }, { ...base, id: 'b', destinataireMode: 'choix', eleveIds: ['e1'] }]) === 2,
+  }
+  // Un objectif vide ne dit rien : deux devoirs de la même matière le même
+  // jour seraient regroupés à tort.
+  const objectifVide = un([{ ...base, id: 'a', objectif: '' }, { ...base, id: 'b', objectif: '' }]) === 2
+  // Deux devoirs du portail ne sont jamais regroupés : leur format range déjà
+  // N pages dans une seule ligne.
+  const portail = un([{ ...base, id: 'a', origine: 'portail' }, { ...base, id: 'b', origine: 'portail' }]) === 2
+
+  const rates = Object.entries(separe).filter(([, ok]) => !ok).map(([k]) => k)
   verifier('D16 · regroupement uniquement sur des critères sûrs',
-    historiqueSeul && refuseObjectifVide && refuseSansDate && ciblageDansLaCle,
-    `— historique seul:${historiqueSeul ? 'oui' : 'NON'}`
-    + ` objectif exigé:${refuseObjectifVide ? 'oui' : 'NON'}`
-    + ` date exigée:${refuseSansDate ? 'oui' : 'NON'}`
-    + ` ciblage:${ciblageDansLaCle ? 'oui' : 'NON'}`)
+    identiques && rates.length === 0 && objectifVide && portail,
+    rates.length ? `— critères ignorés: ${rates.join(', ')}`
+      : `— identiques regroupés:${identiques ? 'oui' : 'NON'}`
+        + ` objectif vide séparé:${objectifVide ? 'oui' : 'NON'}`
+        + ` portail jamais regroupé:${portail ? 'oui' : 'NON'}`)
 }
 
 // ── D17 · une pièce jointe n'est jamais comptée deux fois ─────────────────
@@ -272,12 +377,23 @@ console.log(`\n${G}── DEVOIRS · un ciblage ne s'élargit jamais ──${F}`
 // Mesuré : la plateforme historique écrivait le même fichier dans `fichiers`
 // ET dans `contenu.images`. Un devoir de deux pages en annonçait quatre au
 // parent.
+//
+// L'ancienne garde cherchait `vues.has(p.url)`. Laisser la chaîne dans du
+// code mort suffisait à la satisfaire — et le comptage double revenait.
 {
-  const lib = lire('src/lib/devoirs.js')
-  const bloc = lib.match(/const piecesJointes[\s\S]*?\n  \}/)?.[0] || ''
-  const dedoublonne = /vues\.has\(p\.url\)/.test(bloc) && /vues\.add\(p\.url\)/.test(bloc)
+  const url = 'https://x/exercice.jpg'
+  const doubleEcriture = lireDevoir({
+    id: 'z', fichiers: [{ url, nom: 'exercice.jpg' }], contenu: { images: [url] },
+  })
+  const deuxPages = lireDevoir({
+    id: 'z2',
+    fichiers: [{ url: 'https://x/p1.jpg' }, { url: 'https://x/p2.jpg' }],
+    contenu: { images: ['https://x/p1.jpg', 'https://x/p2.jpg'] },
+  })
   verifier('D17 · les pièces jointes sont dédoublonnées sur l’URL',
-    dedoublonne, dedoublonne ? '' : '— comptage double')
+    doubleEcriture.piecesJointes.length === 1 && deuxPages.piecesJointes.length === 2,
+    `— une pièce écrite deux fois → ${doubleEcriture.piecesJointes.length}`
+    + ` · deux pages → ${deuxPages.piecesJointes.length}`)
 }
 
 // ── D18 · la bascule tient, et le retour arrière reste disponible ─────────
@@ -287,15 +403,25 @@ console.log(`\n${G}── DEVOIRS · un ciblage ne s'élargit jamais ──${F}`
 // Supprimer le dossier en même temps que le lien retirerait le filet le jour
 // où un défaut apparaîtrait en production.
 {
-  const ecrans = ['src/pages/ProfApp.jsx', 'src/pages/DirecteurApp.jsx',
-                  'src/pages/MaternelleApp.jsx', 'src/pages/SurveillantApp.jsx']
-  const liens = ecrans.filter(f => /href\s*=\s*["'`][^"'`]*pedago-archive/.test(lire(f)))
-  const filetEnPlace = existsSync('public/pedago-archive/index.html')
-                    && existsSync('public/pedago-archive/app.js')
+  // Trois évasions ont fait tomber la version précédente :
+  //   — un lien posé dans un CINQUIÈME écran, hors de la liste en dur ;
+  //   — les quatre écrans renommés, `lire()` rendant '' en silence ;
+  //   — le filet présent mais VIDE, `existsSync` s'en contentant.
+  // On balaie donc tout le dossier, et on pèse les fichiers.
+  const tousLesEcrans = readdirSync('src/pages').filter(f => f.endsWith('.jsx'))
+  const liens = tousLesEcrans.filter(f =>
+    /href\s*=\s*["'`][^"'`]*pedago-archive/.test(lire(`src/pages/${f}`)))
+
+  const pese = f => { try { return statSync(f).size } catch { return 0 } }
+  const tailles = { index: pese('public/pedago-archive/index.html'),
+                    app:   pese('public/pedago-archive/app.js') }
+  const filetEnPlace = tailles.index > 500 && tailles.app > 500
+
   verifier('D18 · bascule faite, retour arrière conservé',
-    liens.length === 0 && filetEnPlace,
-    `— liens restants:${liens.length ? liens.join(', ') : 'aucun'}`
-    + ` ancien module:${filetEnPlace ? 'en ligne' : 'SUPPRIMÉ'}`)
+    liens.length === 0 && filetEnPlace && tousLesEcrans.length >= 4,
+    `— ${tousLesEcrans.length} écrans balayés`
+    + ` · liens restants:${liens.length ? liens.join(', ') : 'aucun'}`
+    + ` · ancien module:${filetEnPlace ? `${tailles.index}+${tailles.app} o` : 'ABSENT OU VIDE'}`)
 }
 
 console.log(echecs === 0
