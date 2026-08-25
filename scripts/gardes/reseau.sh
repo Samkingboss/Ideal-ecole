@@ -92,17 +92,23 @@ garde    "L9 · users_secrets existe" \
 # formalités et la preuve devra migrer vers le script authentifié.
 garde "L13 · L1 et L2 discriminent encore" \
   "python3 - <<'PY'
-import urllib.request, os
-K = os.environ.get('KEY', '')
+import re, urllib.request
+# La cle est lue dans le fichier, pas dans l environnement : une premiere
+# version s appuyait sur \$KEY, que le lanceur n exporte pas. Elle
+# interrogeait donc l API SANS cle, obtenait 401 partout, et concluait
+# « vacues » — un faux echec sur du code correct.
+CLE = re.search(r\"SUPABASE_KEY = '([^']+)'\", open('public/inscription.html').read()).group(1)
 U = 'https://jircuneixzwsmtktxrkh.supabase.co/rest/v1'
 def st(q):
     try:
         urllib.request.urlopen(urllib.request.Request(
-            U + q, headers={'apikey': K, 'Authorization': 'Bearer ' + K}))
+            U + q, headers={'apikey': CLE, 'Authorization': 'Bearer ' + CLE}))
         return 200
     except Exception as e:
         return getattr(e, 'code', 0)
-print('discriminantes' if st('/users?select=prenom&limit=1') != st('/users?select=colonne_qui_nexiste_pas&limit=1') else 'vacues')
+existante = st('/users?select=prenom&limit=1')
+absente   = st('/users?select=colonne_qui_nexiste_pas&limit=1')
+print('discriminantes' if existante != absente else 'vacues')
 PY" \
   "discriminantes"
 
