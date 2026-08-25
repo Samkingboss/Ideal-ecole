@@ -2,7 +2,26 @@
 -- BUCKET `inscriptions` — RETIRER LA LECTURE ANONYME
 -- ═══════════════════════════════════════════════════════════════════════
 --
--- ── La politique en cause, relevée au catalogue ────────────────────────
+-- ⚠ CE FICHIER NE CONTIENT AUCUNE MODIFICATION EXÉCUTABLE.
+--   Les deux gestes se font au tableau de bord. Seuls les CONTRÔLES
+--   ci-dessous se collent dans le SQL Editor : ils sont en lecture seule.
+--
+-- ── Pourquoi pas de SQL ────────────────────────────────────────────────
+--
+-- `drop policy` et `create policy` sur `storage.objects` exigent d'être
+-- propriétaire de la table. Le propriétaire est `supabase_storage_admin`,
+-- et le rôle du SQL Editor n'en est pas membre. Mesuré, deux fois :
+--
+--   alter table storage.objects enable row level security
+--     → 42501 : must be owner of table objects
+--   set local role supabase_storage_admin
+--     → 42501 : permission denied to set role "supabase_storage_admin"
+--
+-- Il ne s'agit donc pas d'une syntaxe à corriger : la table n'est pas
+-- administrable depuis l'éditeur SQL de ce projet. L'interface Storage →
+-- Policies, elle, passe par le rôle propriétaire.
+--
+-- ── La politique en cause ──────────────────────────────────────────────
 --
 --   lecture_inscriptions_storage · SELECT · {anon}
 --   qual : bucket_id = 'inscriptions'
@@ -12,23 +31,17 @@
 --   GET /object/inscriptions/photos/26-27 A002.jpg          → 200 ·  34 241 o
 --   GET /object/inscriptions/documents/…/acte_naissance.png → 200 · 420 881 o
 --
--- ── Pourquoi ce script fait DEUX choses, et non une ────────────────────
+-- ── Pourquoi DEUX gestes, et non un ────────────────────────────────────
 --
--- Les quatre politiques du bucket sont : cette lecture anonyme, deux
+-- Les quatre politiques du bucket sont cette lecture anonyme, deux
 -- `INSERT {anon}` et un `UPDATE {anon}`. AUCUNE ne donne la lecture à
--- `authenticated`.
+-- `authenticated` : la lecture anonyme est la SEULE lecture du bucket,
+-- celle par laquelle passe aussi la direction.
 --
--- Retirer la seule lecture existante fermerait donc le bucket À TOUT LE
--- MONDE, direction comprise. `InscriptionsValidation` appelle
--- `createSignedUrl()` sur la signature du parent : sans droit de lecture,
--- l'appel échoue et l'écran de validation perd la signature.
---
--- Le contrôle 8 de la recette — « accès authenticated Direction/RA aux
--- documents → PASS » — serait alors rouge, et il aurait raison.
---
--- On retire donc la lecture anonyme ET on ouvre la lecture à la direction.
--- C'est le minimum qui laisse le système fonctionnel ; en faire moins
--- casserait un écran.
+-- `InscriptionsValidation` appelle `createSignedUrl()` sur la signature du
+-- parent ; un lien signé exige le droit de lecture sous-jacent. Retirer la
+-- lecture anonyme sans rien mettre à la place ferme le bucket à tout le
+-- monde et fait tomber l'écran de validation.
 --
 -- ── Ce qui n'est PAS touché ────────────────────────────────────────────
 --
@@ -41,84 +54,69 @@
 --                                         `getPublicUrl()` vers des URL
 --                                         signées.
 --
--- ⚠ DROIT REQUIS. `drop policy` sur `storage.objects` demande d'être
---   propriétaire de la table — c'est ce qui a fait échouer
---   `alter table … enable row level security`. Le `set local role`
---   ci-dessous essaie d'emprunter le rôle propriétaire. S'il échoue, la
---   suppression se fait sans SQL, par le tableau de bord :
---   Storage → Policies → `lecture_inscriptions_storage` → Delete.
+-- ═══════════════════════════════════════════════════════════════════════
+-- GESTE 1 — CRÉER LA LECTURE DIRECTION   (à faire EN PREMIER)
+-- ═══════════════════════════════════════════════════════════════════════
 --
--- IDEMPOTENT : rejouable. RÉVERSIBLE : bloc séparé en fin de fichier.
--- Aucune donnée, aucun fichier touché.
-
-begin;
-
--- Emprunt du rôle propriétaire du stockage. Sans lui, `drop policy` est
--- refusé avec « must be owner of table objects ».
-set local role supabase_storage_admin;
-
-drop policy if exists lecture_inscriptions_storage on storage.objects;
-
--- La lecture revient à la direction — même périmètre que le dossier
--- d'inscription lui-même, déjà réservé à `ideal_est_direction()`.
-drop policy if exists lecture_inscriptions_direction on storage.objects;
-create policy lecture_inscriptions_direction
-  on storage.objects
-  for select
-  to authenticated
-  using (bucket_id = 'inscriptions' and public.ideal_est_direction());
-
-reset role;
-
--- ── Contrôle DANS la transaction ──────────────────────────────────────
-do $$
-declare n integer;
-begin
-  select count(*) into n
-    from pg_policies
-   where schemaname = 'storage' and tablename = 'objects'
-     and cmd in ('SELECT', 'ALL')
-     and roles::text like '%anon%'
-     and coalesce(qual, '') like '%inscriptions%';
-  if n > 0 then
-    raise exception 'FERMETURE INCOMPLÈTE : % politique(s) laissent anon lire ce bucket', n;
-  end if;
-
-  select count(*) into n
-    from pg_policies
-   where schemaname = 'storage' and tablename = 'objects'
-     and policyname = 'lecture_inscriptions_direction';
-  if n <> 1 then
-    raise exception 'LECTURE DIRECTION ABSENTE : la direction ne pourrait plus ouvrir un document';
-  end if;
-end
-$$;
-
-commit;
+-- On ouvre avant de fermer : à aucun instant le bucket n'est illisible
+-- pour la direction, et si le geste 2 devait attendre, rien n'est cassé.
+--
+--   Storage → Policies → bucket `inscriptions` → New policy
+--                      → For full customization
+--
+--     Policy name        lecture_inscriptions_direction
+--     Allowed operation  SELECT   (cette case seule)
+--     Target roles       authenticated   (cette seule ; pas `anon`,
+--                                         et surtout pas le champ vide,
+--                                         qui vaudrait « tous les rôles »)
+--     USING expression   bucket_id = 'inscriptions' and public.ideal_est_direction()
+--
+-- `public.ideal_est_direction()` est SECURITY DEFINER, lit `auth.uid()`
+-- et jamais une valeur du client ; `execute` est déjà accordé à
+-- `authenticated` (sql/rls_finances_et_dossiers.sql).
+--
+-- ═══════════════════════════════════════════════════════════════════════
+-- GESTE 2 — SUPPRIMER LA LECTURE ANONYME
+-- ═══════════════════════════════════════════════════════════════════════
+--
+--   Storage → Policies → bucket `inscriptions`
+--                      → lecture_inscriptions_storage → ⋯ → Delete
+--
+-- Ne supprimer QUE celle-là. Les trois politiques d'écriture restent.
 
 
 -- ═══════════════════════════════════════════════════════════════════════
--- VÉRIFICATIONS
+-- CONTRÔLES — lecture seule, à coller dans le SQL Editor
 -- ═══════════════════════════════════════════════════════════════════════
 
--- S1 — les politiques du bucket, après correction.
+-- S1 — les politiques du bucket, après les deux gestes.
 --      ATTENDU : quatre lignes
 --        lecture_inscriptions_direction  SELECT  {authenticated}
 --        upload_inscriptions             INSERT  {anon}
 --        upload_justificatifs            INSERT  {anon}
 --        maj_justificatifs               UPDATE  {anon}
---      et AUCUNE ligne SELECT visant anon.
-select policyname, cmd, roles::text, qual::text
+--      et AUCUNE ligne SELECT ou ALL visant anon.
+select policyname, cmd, roles::text, qual::text, with_check::text
   from pg_policies
  where schemaname = 'storage' and tablename = 'objects'
  order by cmd, policyname;
 
--- S2 — `lecture_inscriptions_storage` a bien disparu.
---      ATTENDU : 0
-select count(*) as ancienne_lecture_anon
+-- S2 — verdict chiffré, pour ne pas juger à l'œil sur S1.
+--      ATTENDU : lecture_anon_restante = 0  et  lecture_direction = 1
+select
+  count(*) filter (
+    where cmd in ('SELECT', 'ALL')
+      and roles::text like '%anon%'
+      and coalesce(qual, '') like '%inscriptions%'
+  ) as lecture_anon_restante,
+  count(*) filter (
+    where policyname = 'lecture_inscriptions_direction'
+  ) as lecture_direction,
+  count(*) filter (
+    where policyname in ('upload_inscriptions', 'upload_justificatifs', 'maj_justificatifs')
+  ) as ecritures_conservees   -- ATTENDU : 3
   from pg_policies
- where schemaname = 'storage' and tablename = 'objects'
-   and policyname = 'lecture_inscriptions_storage';
+ where schemaname = 'storage' and tablename = 'objects';
 
 -- S3 — le bucket n'est pas devenu public au passage.
 --      ATTENDU : public = false
