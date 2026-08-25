@@ -1,39 +1,45 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════
-# BUCKET `inscriptions` — LES ACCÈS QUI EXIGENT UNE SESSION
+# RECETTE DE CLOTURE — DOSSIERS ENFANTS, bucket prive `inscriptions`
 # ═══════════════════════════════════════════════════════════════════════
 #
-# Les refus `anon` se testent sans compte : je les ai exécutés moi-même.
-# Ces quatre-là exigent une session, donc cette commande.
+# Prouve le workflow complet, de bout en bout :
 #
-# LES CODES D ACCÈS NE SORTENT PAS DE CETTE MACHINE : saisie masquée,
-# jamais affichée, jamais dans l historique, jamais dans un fichier,
-# effacée sitôt le jeton obtenu. La sortie ne contient que des verdicts.
+#   DEPOT PUBLIC -> STOCKAGE PRIVE -> LECTURE DIRECTION/RA
+#                -> SIGNATURE DIRECTION -> VALIDATION -> AUCUNE LECTURE ANON
 #
-# Deux comptes sont demandés : la direction, puis le responsable
-# administratif. Répondre « - » à un identifiant saute ce compte.
+# Ce qui se teste sans compte est ailleurs et tourne seul :
+#   node scripts/gardes/test-storage-anon-live.mjs
+#   node scripts/gardes/test-storage-inscriptions.mjs
 #
-# ÉCRITURE : le test D3 dépose un fichier témoin dans
-# `signatures-direction/`. Il est nommé FIXTURE-STORAGE et listé en fin
-# de sortie pour le ménage. Aucune donnée réelle n est touchée.
+# LES CODES D ACCES NE SORTENT PAS DE CETTE MACHINE : saisie masquee,
+# jamais affichee, jamais dans l historique, jamais dans un fichier,
+# effacee sitot le jeton obtenu. La sortie ne contient que des verdicts.
+#
+# AUCUN DOSSIER REEL N EST TOUCHE. La validation de bout en bout travaille
+# sur une inscription FIXTURE-CLOTURE, creee par le script s il le faut.
+# Les objets deposes sont listes en fin de sortie pour le menage.
 #
 # Usage :  bash ~/Desktop/ideal-ecole/scripts/verif-storage-direction.sh
 
 set -u
 URL='https://jircuneixzwsmtktxrkh.supabase.co'
 KEY=$(grep -oE "SUPABASE_KEY = '[^']+'" "$(dirname "$0")/../public/inscription.html" | sed "s/.*'\(.*\)'/\1/")
-[ -z "$KEY" ] && { echo "ABANDON : cle introuvable dans public/inscription.html"; exit 1; }
+[ -z "$KEY" ] && { echo 'ABANDON : cle introuvable dans public/inscription.html'; exit 1; }
 DOMAINE='@comptes.ideal-ecole.ml'
-OK=0; KO=0
+OK=0; KO=0; ORPHELINS=()
 
-# Objets réels, mesurés à 200 avant la fermeture. Si un GET authentifié
-# les rend, la direction lit ; sinon elle est enfermée dehors.
+# Objets reels du bucket. Leur existence est prouvee par D1/D2 eux-memes :
+# s ils rendent des octets, ils existent ; s ils n en rendent pas, le test
+# echoue et dit pourquoi. Aucun autre chemin n est ecrit en dur — les pieces
+# du dossier sont DECOUVERTES par listing avec la session ouverte, parce que
+# Storage rend « Object not found » aussi bien pour cache que pour inexistant
+# et qu un chemin recopie de memoire produirait un faux PASS.
 PHOTO='photos/26-27%20A002.jpg'
 SIGNA='signatures/26-27%20A002.png'
-# Aucun chemin de piece en dur. Un chemin recopie de memoire qui rend
-# « Object not found » ne prouve rien : ni un refus, ni une absence. La
-# piece est DECOUVERTE par listing, avec la session qui vient de s ouvrir.
-ACTE=''
+
+vert()  { echo "PASS  $1"; OK=$((OK+1)); }
+rouge() { echo "FAIL  $1"; KO=$((KO+1)); }
 
 jeton() {
   curl -sS -X POST "$URL/auth/v1/token?grant_type=password" \
@@ -48,22 +54,41 @@ connexion() {
     [ "$id" = '-' ] && { echo "  compte saute" >&2; return 2; }
     read -rs -p "  Code d acces $1 : " mdp; echo >&2
     t=$(jeton "$id" "$mdp" | tr -d '\n\r '); mdp=''
-    if [ -n "$t" ]; then echo "  session $1 ouverte" >&2; printf '%s' "$t"; return 0; fi
+    if [ -n "$t" ]; then echo "  session ouverte" >&2; printf '%s' "$t"; return 0; fi
     echo "  refuse (essai $essai sur 3)" >&2
   done
   return 1
 }
 
-# Un GET est jugé sur le CORPS, jamais sur le statut : sous RLS, un refus
-# de lecture Storage se présente en « Object not found », pas en 403.
-lire() {  # $1 libellé  $2 chemin  $3 jeton
+# Un GET se juge sur le CORPS, jamais sur le statut : sous RLS un refus de
+# lecture Storage se presente en 400 { Object not found }, pas en 403.
+lire() {  # $1 libelle  $2 chemin  $3 jeton  $4 attendu: lit|refuse
   local code taille
-  read -r code taille <<< "$(curl -sS -o /tmp/ideal-lecture.bin -w '%{http_code} %{size_download}' \
+  read -r code taille <<< "$(curl -sS -o /tmp/ideal-l.bin -w '%{http_code} %{size_download}' \
     -H "apikey: $KEY" -H "Authorization: Bearer $3" "$URL/storage/v1/object/inscriptions/$2")"
-  if [ "$code" = '200' ] && [ "$taille" -gt 1000 ]; then
-    echo "PASS  $1 — $taille o recus"; OK=$((OK+1))
+  if [ "$4" = 'lit' ]; then
+    if [ "$code" = '200' ] && [ "$taille" -gt 500 ]; then vert "$1 — $taille o recus"
+    else rouge "$1 — http $code, $taille o : $(head -c 80 /tmp/ideal-l.bin | tr -d '\n')"; fi
   else
-    echo "FAIL  $1 — http $code, $taille o : $(head -c 90 /tmp/ideal-lecture.bin | tr -d '\n')"; KO=$((KO+1))
+    if [ "$code" = '200' ] && [ "$taille" -gt 500 ]; then rouge "$1 — $taille o RECUS : FUITE"
+    else vert "$1 — aucun octet"; fi
+  fi
+}
+
+deposer() {  # $1 libelle  $2 chemin  $3 jeton  $4 attendu: accepte|refuse
+  local code
+  echo 'FIXTURE-CLOTURE' > /tmp/ideal-fx.txt
+  code=$(curl -sS -o /tmp/ideal-d.json -w '%{http_code}' -X POST \
+    -H "apikey: $KEY" -H "Authorization: Bearer $3" -H 'Content-Type: text/plain' \
+    --data-binary @/tmp/ideal-fx.txt "$URL/storage/v1/object/inscriptions/$2")
+  local refus_rls=0
+  grep -q 'row-level security' /tmp/ideal-d.json && refus_rls=1
+  if [ "$4" = 'accepte' ]; then
+    if [ "$code" = '200' ]; then vert "$1 — depot accepte"; ORPHELINS+=("inscriptions/$2")
+    else rouge "$1 — refuse (http $code) : $(head -c 90 /tmp/ideal-d.json)"; fi
+  else
+    if [ "$refus_rls" = '1' ]; then vert "$1 — depot refuse par la RLS"
+    else rouge "$1 — NON refuse (http $code) : $(head -c 90 /tmp/ideal-d.json)"; fi
   fi
 }
 
@@ -84,101 +109,84 @@ print(o[0] if o else "")' 2>/dev/null)
 o=[x["name"] for x in json.load(sys.stdin) if x.get("id")]
 print(o[0] if o else "")' 2>/dev/null)
   [ -z "$piece" ] && return 1
-  printf 'documents/%s/%s' "$dossier" "$piece"
+  printf 'documents/%s/%s' "$dossier" "$piece" | sed 's/ /%20/g'
 }
 
 echo
-echo '════════ COMPTE DIRECTION ════════'
+echo '════════ SESSION DIRECTION ════════'
 T_DIR=$(connexion 'direction') || { echo 'ABANDON : session direction non ouverte'; exit 1; }
-echo
-echo '--- Lecture des pieces (ce que l ecran Dossiers affiche) ---'
-lire 'D1 photo eleve'         "$PHOTO" "$T_DIR"
-lire 'D2 signature parent'    "$SIGNA" "$T_DIR"
-ACTE=$(decouvrir_piece "$T_DIR")
-if [ -z "$ACTE" ]; then
-  echo 'FAIL  D3 aucune piece listee sous documents/ — la direction ne voit rien'; KO=$((KO+1))
-else
-  echo "      piece trouvee par listing : $ACTE"
-  lire 'D3 piece du dossier'  "$(printf '%s' "$ACTE" | sed 's/ /%20/g')"  "$T_DIR"
-fi
 
 echo
-echo '--- D4 lien signe (ce qu appelle reellement InscriptionsValidation) ---'
+echo '--- G5 · la direction lit les pieces ---'
+lire 'D1 photo eleve'      "$PHOTO" "$T_DIR" lit
+lire 'D2 signature parent' "$SIGNA" "$T_DIR" lit
+PIECE=$(decouvrir_piece "$T_DIR")
+if [ -z "$PIECE" ]; then rouge 'D3 aucune piece listee sous documents/ — la direction ne voit rien'
+else echo "      piece trouvee par listing : $PIECE"; lire 'D3 piece du dossier' "$PIECE" "$T_DIR" lit; fi
+
+echo
+echo '--- D4 · lien signe (ce qu appelle InscriptionsValidation) ---'
 rep=$(curl -sS -X POST -H "apikey: $KEY" -H "Authorization: Bearer $T_DIR" \
       -H 'Content-Type: application/json' -d '{"expiresIn":900}' \
       "$URL/storage/v1/object/sign/inscriptions/$SIGNA")
-if printf '%s' "$rep" | grep -q 'signedURL'; then
-  echo 'PASS  D4 lien signe delivre'; OK=$((OK+1))
-else
-  echo "FAIL  D4 lien signe refuse : $(printf '%s' "$rep" | head -c 110)"; KO=$((KO+1))
-fi
+printf '%s' "$rep" | grep -q 'signedURL' && vert 'D4 lien signe delivre' \
+  || rouge "D4 lien signe refuse : $(printf '%s' "$rep" | head -c 100)"
 
 echo
-echo '--- D5 depot de la signature du directeur (validation d un dossier) ---'
-# InscriptionsValidation.jsx:123 ecrit dans `signatures-direction/`.
-# Aucune policy INSERT ne vise `authenticated` : ce test doit dire la verite,
-# quelle qu elle soit.
-echo 'FIXTURE-STORAGE' > /tmp/ideal-fixture.txt
-rep=$(curl -sS -o /tmp/ideal-depot.json -w '%{http_code}' -X POST \
-      -H "apikey: $KEY" -H "Authorization: Bearer $T_DIR" -H 'Content-Type: text/plain' \
-      --data-binary @/tmp/ideal-fixture.txt \
-      "$URL/storage/v1/object/inscriptions/signatures-direction/FIXTURE-STORAGE.txt")
-if [ "$rep" = '200' ]; then
-  echo 'PASS  D5 depot accepte — la validation d un dossier peut aboutir'; OK=$((OK+1))
-else
-  echo "FAIL  D5 depot refuse (http $rep) : $(head -c 110 /tmp/ideal-depot.json)"
-  echo '      => la direction ne peut PAS signer un dossier. A corriger avant la rentree.'
-  KO=$((KO+1))
-fi
+echo '--- G6 · depot de la signature de validation ---'
+deposer 'D5 signatures-direction/' "signatures-direction/FIXTURE-CLOTURE-$(date +%s).txt" "$T_DIR" accepte
+deposer 'D6 ailleurs dans le bucket (doit etre refuse)' "interdit/FIXTURE-CLOTURE.txt" "$T_DIR" refuse
 
 echo
-echo '════════ COMPTE RESPONSABLE ADMINISTRATIF ════════'
+echo '════════ VALIDATION D UN DOSSIER, DE BOUT EN BOUT ════════'
+bash "$(dirname "$0")/cloture-validation-dossier.sh" "$URL" "$KEY" "$T_DIR"
+etat_e2e=$?
+if [ $etat_e2e -eq 0 ]; then vert 'E2E validation du dossier fixture'
+else rouge 'E2E validation du dossier fixture (voir ci-dessus)'; fi
+
+echo
+echo '--- JUSTIFICATIFS · l ecrivain reel est authentifie, pas anon ---'
+# comptabilite.html:7357 depose ici, en session. Les policies du dossier
+# visent `anon`. Ce test dit si la fonction marche, il ne la repare pas.
+deposer 'J1 justificatifs/ en session' "justificatifs/FIXTURE-CLOTURE-$(date +%s).txt" "$T_DIR" accepte
+
+echo
+echo '════════ SESSION RESPONSABLE ADMINISTRATIF ════════'
 echo '  (DirecteurApp.jsx:765-1152 : le RA atteint l onglet Dossiers,'
-echo '   donc il doit lire les pieces. Verifie, pas suppose.)'
+echo '   donc il doit lire les pieces. Constate dans le code, pas suppose.)'
 T_RA=$(connexion 'responsable administratif'); etat=$?
 if [ $etat -eq 0 ]; then
   echo
-  lire 'R1 photo eleve'       "$PHOTO" "$T_RA"
-  lire 'R2 signature parent'  "$SIGNA" "$T_RA"
-  R_ACTE=$(decouvrir_piece "$T_RA")
-  if [ -z "$R_ACTE" ]; then
-    echo 'FAIL  R3 aucune piece listee sous documents/ — le RA ne voit rien'; KO=$((KO+1))
-  else
-    lire 'R3 piece du dossier' "$(printf '%s' "$R_ACTE" | sed 's/ /%20/g')" "$T_RA"
-  fi
-elif [ $etat -eq 2 ]; then
-  echo '  R1-R3 non executes'
-else
-  echo '  FAIL  session RA non ouverte'; KO=$((KO+1))
-fi
+  lire 'R1 photo eleve'      "$PHOTO" "$T_RA" lit
+  lire 'R2 signature parent' "$SIGNA" "$T_RA" lit
+  R_PIECE=$(decouvrir_piece "$T_RA")
+  if [ -z "$R_PIECE" ]; then rouge 'R3 aucune piece listee — le RA ne voit rien'
+  else lire 'R3 piece du dossier' "$R_PIECE" "$T_RA" lit; fi
+elif [ $etat -eq 2 ]; then echo '  R1-R3 non executes'
+else rouge 'session RA non ouverte'; fi
 
 echo
-echo '════════ TEMOIN NEGATIF ════════'
-# Une garde qui ne sait pas echouer ne prouve rien. Un compte enseignant
-# ne doit RIEN lire de ce bucket. Repondre « - » saute ce controle, mais
-# alors les PASS ci-dessus ne prouvent que l acces, pas la restriction.
+echo '════════ TEMOIN NEGATIF · G7 ════════'
+# Une garde qui ne sait pas echouer ne prouve rien. Un enseignant ne doit
+# RIEN lire de ce bucket, et ne doit RIEN pouvoir y deposer.
 T_PROF=$(connexion 'enseignant'); etat=$?
 if [ $etat -eq 0 ]; then
-  code=$(curl -sS -o /tmp/ideal-prof.bin -w '%{http_code}' \
-         -H "apikey: $KEY" -H "Authorization: Bearer $T_PROF" \
-         "$URL/storage/v1/object/inscriptions/$(printf '%s' "${ACTE:-$PHOTO}" | sed 's/ /%20/g')")
-  taille=$(wc -c < /tmp/ideal-prof.bin | tr -d ' ')
-  if [ "$code" = '200' ] && [ "$taille" -gt 1000 ]; then
-    echo "FAIL  N1 un enseignant lit un acte de naissance ($taille o) — FUITE"; KO=$((KO+1))
-  else
-    echo 'PASS  N1 enseignant : aucun octet'; OK=$((OK+1))
-  fi
-else
-  echo '  N1 non execute — la restriction reste non prouvee'
-fi
+  lire 'N1 enseignant lit une piece' "${PIECE:-$PHOTO}" "$T_PROF" refuse
+  lire 'N2 enseignant lit la photo'  "$PHOTO"           "$T_PROF" refuse
+  deposer 'N3 enseignant depose une signature' 'signatures-direction/FIXTURE-INTRUS.txt' "$T_PROF" refuse
+elif [ $etat -eq 2 ]; then
+  echo '  N1-N3 non executes — la restriction reste NON PROUVEE'
+  KO=$((KO+1))
+else rouge 'session enseignant non ouverte'; fi
 
 echo
 echo '═══════════════════════════════════════'
 echo "  $OK PASS · $KO FAIL"
-[ $KO -eq 0 ] && echo '  LECTURE DIRECTION/RA CONFORME' || echo '  A CORRIGER'
-echo
-if [ "${rep:-}" = '200' ]; then
-  echo '  Menage a prevoir :'
-  echo '    inscriptions/signatures-direction/FIXTURE-STORAGE.txt'
+[ $KO -eq 0 ] && echo '  DOSSIERS ENFANTS : WORKFLOW PROUVE' || echo '  A CORRIGER'
+if [ ${#ORPHELINS[@]} -gt 0 ]; then
+  echo
+  echo '  Objets deposes par cette recette — a supprimer au tableau de bord'
+  echo '  (Storage > inscriptions > selectionner > Delete) :'
+  for o in "${ORPHELINS[@]}"; do echo "    $o"; done
 fi
-rm -f /tmp/ideal-lecture.bin /tmp/ideal-depot.json /tmp/ideal-prof.bin /tmp/ideal-fixture.txt
+rm -f /tmp/ideal-l.bin /tmp/ideal-d.json /tmp/ideal-fx.txt

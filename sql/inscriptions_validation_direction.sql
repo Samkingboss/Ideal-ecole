@@ -37,6 +37,24 @@ declare
   v_classe_id public.classes.id%type;
   v_parent_phone text;
 begin
+  -- ── AUTORISATION ──────────────────────────────────────────────────────
+  --
+  -- Mesuré le 25/08/2026 : `anon` atteignait cette fonction et recevait
+  -- `inscription_introuvable` — donc la logique metier, pas un refus.
+  -- Et `creer_inscription` rend `inscription_id` au parent qui vient de
+  -- deposer : ce parent tenait l identifiant exact de son propre dossier.
+  -- Il pouvait le valider lui-meme, creer l eleve, obtenir un matricule et
+  -- declencher le WhatsApp, en passant `p_signature_chemin` = n importe quoi
+  -- puisque ce chemin n est jamais verifie.
+  --
+  -- SECURITY DEFINER retire toute protection par RLS : sans ce controle, le
+  -- `grant ... to anon` suffisait. La garde est ici ET le grant est retire :
+  -- l un rattrape l oubli de l autre.
+  if not public.ideal_est_direction() then
+    raise exception 'validation_reservee_direction'
+      using hint = 'Seules la direction et le responsable administratif valident un dossier.';
+  end if;
+
   if nullif(btrim(coalesce(p_signature_chemin, '')), '') is null then
     raise exception 'signature_direction_requise';
   end if;
@@ -84,6 +102,9 @@ begin
 end;
 $function$;
 
-grant execute on function public.valider_inscription_direction(uuid,text,text) to anon, authenticated;
+-- `anon` n a jamais eu a valider un dossier : le seul appelant est
+-- `InscriptionsValidation.jsx`, ecran de la direction authentifiee.
+revoke execute on function public.valider_inscription_direction(uuid,text,text) from anon;
+grant  execute on function public.valider_inscription_direction(uuid,text,text) to authenticated;
 
 commit;

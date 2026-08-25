@@ -7314,8 +7314,12 @@ async function chargerAbsences() {
       const etat = a.justifiee
         ? '<span style="color:#059669; font-weight:700;">Neutralisée</span>'
         : '<span style="color:#b45309; font-weight:700;">0 point</span>';
+      // Les lignes d'avant portent une URL complète, celles d'après un
+      // chemin. On ne réécrit pas l'historique : on distingue les deux.
       const piece = a.justificatif_url
-        ? `<a href="${a.justificatif_url}" target="_blank" rel="noopener">${a.justificatif_nom || 'voir la pièce'}</a>`
+        ? (/^https?:/i.test(a.justificatif_url)
+            ? `<a href="${a.justificatif_url}" target="_blank" rel="noopener">${a.justificatif_nom || 'voir la pièce'}</a>`
+            : `<a href="#" onclick="ouvrirJustificatif(event, '${a.justificatif_url}')">${a.justificatif_nom || 'voir la pièce'}</a>`)
         : `<button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="joindreJustificatif('${a.id}')">Joindre</button>`;
       return `<tr><td>${rqDateFr ? rqDateFr(a.date_absence) : a.date_absence}</td><td>${nom}</td>
               <td>${a.motif || '—'}</td><td>${etat}</td><td>${piece}</td></tr>`;
@@ -7343,6 +7347,18 @@ async function declarerAbsence() {
 
 // Joindre la pièce et neutraliser. Les deux vont ensemble : la contrainte
 // en base refuse une absence déclarée justifiée sans pièce ni validation.
+// Un bucket privé ne se lit pas par URL publique : on demande un lien signé,
+// valable un quart d'heure, jamais persisté.
+async function ouvrirJustificatif(ev, chemin) {
+  ev.preventDefault();
+  const { data, error } = await _supa.storage.from('inscriptions').createSignedUrl(chemin, 900);
+  if (error || !data || !data.signedUrl) {
+    alert("La pièce n'a pas pu être ouverte : " + ((error && error.message) || 'lien refusé'));
+    return;
+  }
+  window.open(data.signedUrl, '_blank', 'noopener');
+}
+
 function joindreJustificatif(id) {
   const input = document.getElementById('abs-fichier');
   input.value = '';
@@ -7356,11 +7372,13 @@ function joindreJustificatif(id) {
     const chemin = `justificatifs/${id}.${ext}`;
     const { error: upErr } = await _supa.storage.from('inscriptions').upload(chemin, file, { upsert: true });
     if (upErr) { msg.textContent = "Envoi du fichier refusé : " + upErr.message; msg.style.color = '#dc2626'; return; }
-    const { data: pub } = _supa.storage.from('inscriptions').getPublicUrl(chemin);
 
+    // `getPublicUrl` sur un bucket PRIVÉ rendait une adresse qui répond 400 :
+    // la pièce paraissait jointe et n'était jamais lisible. On enregistre le
+    // CHEMIN ; la lecture passe par un lien signé, à l'affichage.
     const u = absUtilisateur();
     const { error } = await _supa.from('absences_enseignants').update({
-      justificatif_url: pub.publicUrl, justificatif_nom: file.name,
+      justificatif_url: chemin, justificatif_nom: file.name,
       justifiee: true, valide_par: u && u.id ? u.id : null, valide_le: new Date().toISOString(),
     }).eq('id', id);
 

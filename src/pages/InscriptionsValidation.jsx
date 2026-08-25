@@ -133,7 +133,12 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
       setSelection(null)
       await onValidated?.()
     } catch (error) {
-      if (chemin) await supabase.storage.from('inscriptions').remove([chemin])
+      // Le retrait du fichier deposé exigerait un DELETE Storage que
+      // personne n'a — et qu'on ne veut pas : un droit de suppression sur
+      // tout le bucket pour rattraper une panne rare est un mauvais
+      // échange. On laisse donc l'orphelin et on le NOMME, sinon il
+      // devient introuvable.
+      if (chemin) console.warn(`[IDEAL] signature déposée sans validation : inscriptions/${chemin}`)
       // Trois pannes distinctes, trois conduites différentes. « Validation
       // impossible : new row violates row-level security policy » est exact et
       // n'apprend rien à personne : le directeur ne peut pas savoir que c'est
