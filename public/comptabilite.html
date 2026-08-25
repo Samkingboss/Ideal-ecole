@@ -5321,6 +5321,54 @@ function closePaymentModal() {
 // paiements pour un seul billet reçu.
 let _encaissementEnCours = false;
 
+// ── Encaisser côté serveur ────────────────────────────────────────────────
+//
+// Reproduit trois fois avant cette correction : deux appareils encaissent
+// 30 000 et 50 000, la base n'en garde que 30 000. Sans erreur, sans message.
+//
+// Le numéro de reçu sert de clé d'idempotence : renvoyer le même paiement
+// après une réponse perdue ne l'encaisse pas deux fois.
+async function encaisserAuServeur(eleve, paiement) {
+  if (!eleve.matricule) {
+    return { ok: false, code: 'sans_matricule', message:
+      "cet élève n'a pas de matricule : il n'a pas été importé depuis les "
+      + "inscriptions, et son paiement ne peut pas être rattaché de façon sûre" };
+  }
+  const { data, error } = await _supa.rpc('enregistrer_paiement', {
+    p_matricule: eleve.matricule,
+    p_montant: paiement.amount,
+    p_mode: paiement.mode,
+    p_motif: paiement.motif,
+    p_recu: paiement.receiptId,
+    p_date_lisible: paiement.date,
+  });
+
+  if (error) {
+    // La surface n'existe pas encore : on ne retombe PAS sur la réécriture
+    // globale. Un repli silencieux rouvrirait exactement la course qu'on
+    // vient de fermer, et personne ne saurait qu'elle est rouverte.
+    if (error.code === 'PGRST202') {
+      return { ok: false, code: 'surface_absente', message:
+        "la fonction d'encaissement n'est pas installée sur le serveur. "
+        + "Aucun paiement ne peut être enregistré tant qu'elle manque." };
+    }
+    return { ok: false, code: error.code, message: error.message };
+  }
+
+  const rep = Array.isArray(data) ? data[0] : data;
+  if (!rep || rep.ok !== true) {
+    return { ok: false, code: 'refus', message: 'le serveur a refusé sans motif lisible' };
+  }
+
+  // Le serveur fait foi : on reprend son total et son auteur.
+  eleve.paye = Number(rep.paye);
+  const local = (eleve.history || []).find(h => h.receiptId === paiement.receiptId);
+  if (local && rep.par) local.par_nom = rep.par;
+
+  // `cree: false` n'est pas un échec : ce reçu était déjà enregistré.
+  return { ok: true, deja: rep.cree === false, operations: rep.operations };
+}
+
 async function submitPayment() {
   if (_encaissementEnCours) return;
 
@@ -5374,22 +5422,17 @@ async function submitPayment() {
     createEcritureFromPayment(s, __payment);
   }
 
-  // Si un autre appareil a écrit entre-temps, `ecrireSousCondition` recharge
-  // l'état frais du serveur — nos objets en mémoire sont alors remplacés. On
-  // lui donne de quoi rejouer CE paiement sur l'état frais, plutôt que
-  // d'écraser le sien avec le nôtre.
-  const r = await enregistrerMaintenant(() => {
-    const frais = studentsData.find(x =>
-      (s.matricule && x.matricule === s.matricule) || x.id === s.id);
-    if (!frais) return;
-    if (!frais.history) frais.history = [];
-    // Ce paiement est-il déjà présent ? Ce serait le cas si l'autre appareil
-    // était en réalité le nôtre, renvoyé après une réponse perdue.
-    if (frais.history.some(h => h.receiptId === __payment.receiptId)) return;
-    frais.history.push(__payment);
-    frais.paye = (frais.paye || 0) + amt;
-    if (typeof createEcritureFromPayment === 'function') createEcritureFromPayment(frais, __payment);
-  });
+  // ── L'encaissement passe par le serveur, pas par une réécriture ───────
+  //
+  // Le client n'envoie plus l'état entier : il envoie UN paiement.
+  // `enregistrer_paiement` l'ajoute sous verrou de ligne, donc deux
+  // encaissements simultanés ne peuvent plus s'écraser. C'est la seule
+  // manière d'être sûr entre deux appareils : un verrou dans la page ne
+  // ferme pas une course entre deux téléphones.
+  //
+  // Le serveur relit aussi l'auteur dans le jeton et recalcule le total
+  // depuis l'historique : ni l'un ni l'autre n'est plus à notre main.
+  const r = await encaisserAuServeur(s, __payment);
 
   if (bouton) { bouton.disabled = false; if (libelleBouton !== null) bouton.textContent = libelleBouton; }
   _encaissementEnCours = false;
@@ -6315,7 +6358,22 @@ async function submitFamillePayment() {
     generatedPayments.push({ student: s, payment: __payment });
   });
 
-  const r = await enregistrerMaintenant();
+  // Chaque enfant est encaissé séparément côté serveur : trois enfants d'une
+  // fratrie font trois opérations atomiques. Si l'une échoue, on défait TOUT
+  // — un encaissement famille dont un seul reçu serait enregistré vaut moins
+  // que zéro.
+  let r = { ok: true };
+  const reussis = [];
+  for (const g of generatedPayments) {
+    const res = await encaisserAuServeur(g.student, g.payment);
+    if (!res.ok) { r = res; break; }
+    reussis.push(g);
+  }
+  if (!r.ok && reussis.length > 0) {
+    r.message = (r.message || '') + ` — ${reussis.length} règlement(s) déjà enregistré(s) `
+      + `pour cette famille : ${reussis.map(g => g.payment.receiptId).join(', ')}. `
+      + `Signalez-les à la direction avant de recommencer.`;
+  }
   _encaissementEnCours = false;
 
   if (!r.ok) {

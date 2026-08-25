@@ -48,8 +48,11 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
 // base en avait 200 000, et rien ne le disait.
 {
   const p = bloc('submitPayment')
-  const attend = /await\s+enregistrerMaintenant\(/.test(p)
-  const iRetour = p.indexOf('enregistrerMaintenant')
+  // L'encaissement passe désormais par `encaisserAuServeur`, qui appelle la
+  // RPC atomique. Le point vérifié reste le même : on ATTEND la confirmation
+  // du serveur, et le reçu ne sort qu'après.
+  const attend = /await\s+encaisserAuServeur\(/.test(p)
+  const iRetour = p.indexOf('encaisserAuServeur')
   const iRecu = Math.min(...['printReceipt', 'waSendImage'].map(m => {
     const i = p.indexOf(m); return i === -1 ? Number.MAX_SAFE_INTEGER : i
   }))
@@ -175,7 +178,25 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
     inventions.length ? `— inventés: ${inventions.join(', ')}` : '')
 }
 
+// ── Q10 · aucun repli sur la réécriture globale ──────────────────────────
+//
+// Si la surface serveur manque, la tentation est de retomber sur l'ancienne
+// écriture — celle qui renvoie tout le document. Ce repli rouvrirait
+// exactement la course qu'on vient de fermer, et personne ne saurait qu'elle
+// est rouverte. L'encaissement doit s'arrêter et le dire.
+{
+  const e = bloc('encaisserAuServeur')
+  const passeParLaRpc = /rpc\('enregistrer_paiement'/.test(e)
+  const refuseSiAbsente = /PGRST202/.test(e) && /surface_absente/.test(e)
+  const sansRepli = !/enregistrerMaintenant|ecrireSousCondition|construireEtat/.test(e)
+  const serveurFaitFoi = /eleve\.paye = Number\(rep\.paye\)/.test(e)
+  verifier('Q10 · aucun repli sur la réécriture globale',
+    e.length > 0 && passeParLaRpc && refuseSiAbsente && sansRepli && serveurFaitFoi,
+    `— rpc:${passeParLaRpc ? 'oui' : 'NON'} refus si absente:${refuseSiAbsente ? 'oui' : 'NON'}`
+    + ` repli:${sansRepli ? 'aucun' : 'PRÉSENT'} total serveur:${serveurFaitFoi ? 'oui' : 'NON'}`)
+}
+
 console.log(echecs === 0
-  ? `\n  ${V}9 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}10 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)
