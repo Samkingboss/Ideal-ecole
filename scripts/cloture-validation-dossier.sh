@@ -29,27 +29,14 @@ if [ -z "$FIX" ]; then
   echo 'FIXTURE' > /tmp/ideal-sig.txt
   api -o /dev/null -X POST -H 'Content-Type: text/plain' --data-binary @/tmp/ideal-sig.txt \
       "$URL/storage/v1/object/inscriptions/$SIG"
-  REP_CREATION=$(api -X POST "$URL/rest/v1/rpc/creer_inscription" -H 'Content-Type: application/json' \
-  --data-binary @/tmp/ideal-sig.txt)
-
-echo "REPONSE_BRUTE creer_inscription : $REP_CREATION"
-
-FIX=$(printf '%s' "$REP_CREATION" | python3 -c '
-import sys,json
-try:
-    d=json.load(sys.stdin)
-    print(d.get("inscription_id") or "")
-except Exception:
-    print("")
-')
-
-if [ -z "$FIX" ]; then
-  echo "ECHEC — creer_inscription n'a pas retourné inscription_id"
-  exit 1
+  FIX=$(api -X POST "$URL/rest/v1/rpc/creer_inscription" -H 'Content-Type: application/json' \
+    -d "{\"p_dossier\":{\"eleve\":{\"nom\":\"FIXTURE-CLOTURE\",\"prenom\":\"Recette\",\"date_naissance\":\"2018-01-01\",\"sexe\":\"M\",\"classe_demandee\":\"$CLASSE\"},\"responsable1\":{\"nom\":\"FIXTURE-CLOTURE\",\"prenom\":\"Parent\",\"tel1\":\"+22300000000\"},\"fichiers\":{\"signature_chemin\":\"$SIG\"}}}" \
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("inscription_id") or "")' 2>/dev/null)
+  [ -z "$FIX" ] && { echo 'ECHEC — fixture non creee'; exit 1; }
+  echo "creee ($FIX)"
+else
+  echo "reutilisee ($FIX)"
 fi
-
-echo "FIXTURE créée : $FIX"
-
 
 # ── 2 · les pieces du dossier se lisent ───────────────────────────────
 etape '2 pieces du dossier lisibles'

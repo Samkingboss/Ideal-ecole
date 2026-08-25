@@ -3,7 +3,8 @@ import DocumentPrintStudio, { Bloc } from './DocumentPrintStudio'
 import { HAUTEUR_UTILE_MM } from '../lib/pageA4'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
-import { lireDevoir, regrouperPages, viseEleve } from '../lib/devoirs'
+import { lireDevoir, viseEleve } from '../lib/devoirs'
+import { texteWhatsApp } from '../lib/messageParent'
 
 // Le cahier de devoirs imprimable.
 //
@@ -245,15 +246,21 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
   // même devoir annoncé trois fois. Les lignes restent intactes en base — on
   // les REGROUPE à l'affichage, et seulement quand tous les critères sûrs
   // coïncident. Dans le doute, elles s'affichent séparément.
-  const messagePour = e => {
-    const sesDevoirs = list.filter(d => vise(d, e)).map(lireDevoir)
-    const lignes = regrouperPages(sesDevoirs).map(({ tete: d, pages }) => {
-      return `• ${d.type} · ${d.matiere || 'Devoir'} : ${d.objectif || 'voir la fiche'}`
-           + ` — à rendre le ${dateLisible(d.dateRendu) || 'date indiquée'}`
-           + (pages ? ` (${pages} page${pages > 1 ? 's' : ''} jointe${pages > 1 ? 's' : ''})` : '')
-    })
-    return `📚 À transmettre au parent de *${nomComplet(e)}* (${laClasse})\n\nChers parents, voici les devoirs de votre enfant :\n${lignes.join('\n')}\n\nMerci de l’accompagner et de veiller au respect des échéances.\n\n${signatureLigne(user, contexteSignature)}\n${NOM_ECOLE}`
-  }
+  // Le message au parent n'est PAS le cahier de l'élève. Il répond à trois
+  // questions et s'arrête : quoi, pour quand, combien de feuilles. L'objectif
+  // pédagogique, l'énoncé et le barème sont sur la fiche que l'enfant
+  // rapporte — les répéter ici allonge sans informer, et le parent lit sur un
+  // téléphone.
+  //
+  // Il ne peut plus contenir d'archives : `list` est la sélection de
+  // l'enseignant, et rien d'autre n'y entre.
+  const messagePour = e => texteWhatsApp({
+    devoirs: list.filter(d => vise(d, e)),
+    nomEleve: nomComplet(e),
+    classe: laClasse,
+    signature: signatureLigne(user, contexteSignature),
+    ecole: NOM_ECOLE,
+  })
 
   return (
     <DocumentPrintStudio

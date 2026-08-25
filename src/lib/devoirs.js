@@ -217,7 +217,15 @@ export const regrouperPages = (devoirs) => {
   const parCle = new Map()
   for (const d of devoirs) {
     const cle = cleRegroupement(d)
-    if (!cle) { groupes.push({ tete: d, lignes: [d], pages: 1, regroupe: false }); continue }
+    if (!cle) {
+      // `pages: 1` était écrit en dur ici. Un devoir non regroupable — ce
+      // qu'est TOUT devoir créé par le portail, dont le format range déjà N
+      // pages dans une seule ligne — annonçait donc « 1 page jointe » au
+      // parent, qu'il en porte une ou cinq. `pages` est le nombre réel de
+      // feuilles, ici comme dans l'autre branche.
+      groupes.push({ tete: d, lignes: [d], pages: d.piecesJointes.length, regroupe: false })
+      continue
+    }
     const deja = parCle.get(cle)
     if (deja) {
       deja.lignes.push(d)
