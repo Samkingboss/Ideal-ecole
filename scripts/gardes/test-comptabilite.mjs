@@ -48,7 +48,7 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
 // base en avait 200 000, et rien ne le disait.
 {
   const p = bloc('submitPayment')
-  const attend = /await\s+enregistrerMaintenant\(\)/.test(p)
+  const attend = /await\s+enregistrerMaintenant\(/.test(p)
   const iRetour = p.indexOf('enregistrerMaintenant')
   const iRecu = Math.min(...['printReceipt', 'waSendImage'].map(m => {
     const i = p.indexOf(m); return i === -1 ? Number.MAX_SAFE_INTEGER : i
@@ -66,10 +66,17 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
 // pas reçu, et le total encaissé de la journée serait faux.
 {
   const p = bloc('submitPayment')
-  const defait = /s\.paye\s*-=\s*amt/.test(p) && /s\.history\.pop\(\)/.test(p)
-                && /ecritures\.length\s*=\s*ecrituresAvant/.test(p)
+  // Le retrait est CIBLÉ sur le numéro de reçu, et non positionnel : après un
+  // conflit, `studentsData` a pu être remplacé par l'état frais du serveur, et
+  // un `history.pop()` aurait alors retiré le paiement de QUELQU'UN D'AUTRE.
+  const retireLeBon = /findIndex\(h => h\.receiptId === __payment\.receiptId\)/.test(p)
+                   && /history\.splice\(i, 1\)/.test(p)
+  const remetLeTotal = /paye = Math\.max\(0, \(cible\.paye \|\| 0\) - amt\)/.test(p)
+  const retireLEcriture = /ecritures\.findIndex\(e => e\.piece === __payment\.receiptId\)/.test(p)
   verifier('Q3 · un refus serveur défait le paiement en mémoire',
-    defait, defait ? '' : '— l’écran garderait un encaissement fantôme')
+    retireLeBon && remetLeTotal && retireLEcriture,
+    `— paiement:${retireLeBon ? 'ciblé' : 'NON'} total:${remetLeTotal ? 'repris' : 'NON'}`
+    + ` écriture:${retireLEcriture ? 'retirée' : 'NON'}`)
 }
 
 // ── Q4 · un seul encaissement à la fois ──────────────────────────────────
@@ -112,14 +119,16 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
 
 // ── Q7 · l'écriture immédiate rend son résultat ──────────────────────────
 {
-  const e = bloc('enregistrerMaintenant')
-  const litLErreur = /const \{ error \} = await/.test(e)
+  // La lecture du résultat a migré dans `ecrireSousCondition`, qui porte
+  // aussi l'écriture conditionnelle. `enregistrerMaintenant` l'enveloppe.
+  const e = bloc('ecrireSousCondition') + '\n' + bloc('enregistrerMaintenant')
+  const litLErreur = /const \{ data, error \} = await/.test(e)
   // Le chemin d'ERREUR lui-même doit rendre l'échec. Un premier motif se
   // contentait de voir `return { ok: false` quelque part dans la fonction —
   // le `catch` réseau suffisait à le satisfaire, et remplacer le retour
   // d'erreur par un `console.error` ne le faisait pas rougir.
   const rendLeResultat = /if\s*\(error\)\s*return \{ ok: false/.test(e)
-                      && /return \{ ok: true \}/.test(e)
+                      && /return \{ ok: true, essais/.test(e)
   const annuleLeDifferé = /clearTimeout\(_supaDebounce\)/.test(e)
   verifier('Q7 · l’écriture immédiate rend un résultat exploitable',
     e.length > 0 && litLErreur && rendLeResultat && annuleLeDifferé,
