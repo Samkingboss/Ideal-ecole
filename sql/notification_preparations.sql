@@ -25,10 +25,34 @@
 -- 3.1, elle est `authenticated`. 42501 est `insufficient_privilege` : le
 -- rôle qui écrit n'a pas de politique permissive pour cette écriture.
 --
--- ⚠ L'ÉTAPE 1 ÉTABLIT LA CAUSE EXACTE. Ne pas la sauter : elle distingue
---   « aucune politique pour `authenticated` » de « privilège de table
---   absent ». La correction fonctionne dans les deux cas, mais la cause
---   doit être écrite noir sur blanc, pas déduite.
+-- ── CAUSE CONFIRMÉE PAR L'ÉTAPE 1 ─────────────────────────────────────
+--
+-- Le diagnostic a tranché, et il a corrigé l'hypothèse de départ.
+--
+-- 1.c — LES PRIVILÈGES NE SONT PAS EN CAUSE. Les trois rôles portent
+--       exactement les mêmes :
+--         anon           DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+--         authenticated  DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+--         service_role   DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+--
+-- 1.b — RLS est ACTIVE sur la table (rls_active = true, forcée = false).
+--
+-- 1.a — Les trois politiques existantes s'appliquent AU SEUL RÔLE `anon` :
+--         app_state_read    SELECT  {anon}  using (true)
+--         app_state_write   INSERT  {anon}  with check (true)
+--         app_state_update  UPDATE  {anon}  using (true)
+--
+-- Sous RLS, un rôle sans politique permissive applicable est refusé, quels
+-- que soient ses privilèges de table. `authenticated` a donc le DROIT
+-- d'écrire et n'a AUCUNE POLITIQUE qui le lui permette : chaque INSERT part
+-- en 42501.
+--
+-- C'est aussi pourquoi la clé publique écrit sans peine (elle est `anon`,
+-- couverte par `app_state_write`) alors qu'une enseignante connectée échoue.
+--
+-- Conséquence pour la fermeture à venir : fermer `app_state` à `anon` sera
+-- un RETRAIT DE POLITIQUES, pas une révocation de privilèges. Les GRANT sont
+-- identiques pour les trois rôles ; ce sont les politiques qui décident.
 --
 -- ── Ce que l'on ne fait PAS ────────────────────────────────────────────
 --

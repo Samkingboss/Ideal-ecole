@@ -50,10 +50,16 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
         : ''))
 }
 
-// ── A2 · aucun nouveau droit d'écriture accordé à anon ────────────────────
+// ── A2 · aucun élargissement de l'écriture sur app_state ──────────────────
 //
-// La fermeture viendra ; d'ici là, aucun script ne doit ÉLARGIR ce qui est
-// déjà trop large.
+// Le diagnostic a montré que le levier n'est PAS le privilège : `anon`,
+// `authenticated` et `service_role` ont exactement les mêmes GRANT. Ce sont
+// les POLITIQUES qui décident, et les trois existantes visent `{anon}` seul.
+//
+// Une première version de cette garde ne surveillait que les GRANT à `anon`.
+// Elle aurait laissé passer une politique d'écriture pour `authenticated` —
+// précisément ce que la direction a interdit — et n'aurait donc pas su
+// échouer sur le cas le plus probable.
 {
   const sql = []
   const parcourir = d => { if (!existsSync(d)) return
@@ -61,13 +67,22 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
       if (statSync(p).isDirectory()) parcourir(p)
       else if (e.endsWith('.sql')) sql.push(p) } }
   parcourir('sql')
-  const fautifs = sql.filter(f => {
+  const ECRITURE = '(insert|update|delete|all)'
+  const fautifs = []
+  for (const f of sql) {
     const src = lire(f).split('\n').filter(l => !/^\s*--/.test(l)).join('\n')
-    return /grant\s+[^;]*\b(insert|update|delete|all)\b[^;]*\bon\b[^;]*\bapp_state\b[^;]*\banon\b/is.test(src)
-        || /create\s+policy[^;]*\bon\b[^;]*\bapp_state\b[^;]*\bto\b[^;]*\banon\b[^;]*(insert|update|delete|all)/is.test(src)
-  })
-  verifier('A2 · aucun script n’élargit l’écriture d’anon sur app_state',
-    fautifs.length === 0, fautifs.length ? `— ${fautifs.join(', ')}` : '')
+    // Les instructions, une par une : un `;` sépare, et l'on ne veut pas
+    // qu'un `grant` inoffensif d'un bout du fichier se marie au mot
+    // `app_state` d'un autre bout.
+    for (const inst of src.split(';')) {
+      if (!/\bapp_state\b/i.test(inst)) continue
+      const grantEcriture = new RegExp(`grant\\s+[^;]*\\b${ECRITURE}\\b[^;]*\\bon\\b[^;]*\\bapp_state\\b`, 'is')
+      const politique = /create\s+policy/i.test(inst) && new RegExp(`\\b(for\\s+${ECRITURE}|to\\s+(anon|authenticated|public))`, 'is').test(inst)
+      if (grantEcriture.test(inst) || politique) fautifs.push(`${f} · ${inst.trim().split('\n')[0].slice(0, 46)}`)
+    }
+  }
+  verifier('A2 · aucun script n’élargit l’écriture sur app_state',
+    fautifs.length === 0, fautifs.length ? `\n      ${fautifs.join('\n      ')}` : '— ni GRANT ni politique')
 }
 
 // ── A3 · une surface métier ne retombe jamais sur l'écriture générique ────

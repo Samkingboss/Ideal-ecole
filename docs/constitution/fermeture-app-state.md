@@ -14,6 +14,26 @@ POST /rest/v1/app_state                        → 201
 pas un ajout. Quiconque détient la clé peut donc forger une notification,
 remplacer une boîte entière, ou la vider.
 
+### Ce que le diagnostic a établi
+
+| Mesure | Résultat |
+|---|---|
+| Privilèges de table | `anon`, `authenticated` et `service_role` ont **les mêmes** : DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE |
+| RLS | active (`rls_active = true`, non forcée) |
+| Politiques | trois, **toutes `{anon}`** : `app_state_read` SELECT, `app_state_write` INSERT, `app_state_update` UPDATE |
+
+Deux conséquences.
+
+**Le levier de fermeture n'est pas le GRANT, c'est la politique.** Les trois
+rôles ont les mêmes privilèges ; seules les politiques décident. Fermer
+`app_state` à `anon` sera un retrait de `app_state_write` et
+`app_state_update`, pas un `revoke`.
+
+**Aucune politique ne couvre `DELETE`** — alors que les trois rôles en ont le
+privilège. Sous RLS, une commande sans politique est refusée : la suppression
+est donc déjà fermée à tout le monde. C'est le seul verrou en place, et il
+tient par omission, non par intention.
+
 La RPC `notifier_preparation` corrige un workflow. Elle ne ferme pas cette
 porte.
 
