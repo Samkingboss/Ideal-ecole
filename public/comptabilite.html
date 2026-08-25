@@ -1563,7 +1563,7 @@ function deconnexionIdeal() {
             <div style="font-size: 0.85rem; color: #000; font-weight: 800;" id="r-echeance"></div>
           </div>
           <div style="font-size: 0.65rem; color: #94a3b8; margin-top: 10px;">
-            Imprimé le <span id="r-print-now"></span> · Réf. <span id="r-num-box"></span>
+            Imprimé le <span id="r-print-now"></span> · Réf. <span id="r-num-box"></span> · Année <span id="r-annee"></span>
           </div>
         </div>
 
@@ -1603,6 +1603,10 @@ function deconnexionIdeal() {
         <div>
           <div style="border-bottom: 1px solid #000; width: 130px; margin-bottom: 4px;"></div>
           <div style="font-size: 0.72rem; color: #555;">La Direction / Comptable</div>
+          <!-- QUI a encaissé. Le reçu ne le disait pas : une famille qui
+               revenait contester un versement n'avait personne à nommer, et
+               la direction non plus. -->
+          <div id="r-encaisseur" style="font-size: 0.72rem; color: #0d2a3b; font-weight: 700; margin-top: 3px;"></div>
         </div>
         <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 0;">
           <div style="font-size: 0.95rem; color: #8A1538; font-weight: bold; margin-bottom: 3px; font-family: 'Georgia', serif;">Merci de votre confiance !</div>
@@ -6513,6 +6517,20 @@ function openFamilleReceiptsInWindow(generatedPayments, mode, date) {
   }
 }
 
+// Même nomenclature que `src/lib/identiteProfessionnelle.js` : la forme
+// masculine sert d'épicène par défaut, et la civilité n'est jamais déduite
+// d'un prénom.
+function fmtRoleRecu(role) {
+  return ({
+    directeur: 'Directeur',
+    responsable_administratif: 'Responsable administratif',
+    conseiller_vie_scolaire: 'Conseiller de vie scolaire',
+    surveillant: 'Surveillant',
+    professeur: 'Enseignant',
+    cuisiniere: 'Responsable de la cantine',
+  })[role] || role;
+}
+
 function printReceipt(s, h) {
   try {
     const modal = document.getElementById('print-receipt-modal');
@@ -6554,6 +6572,19 @@ function printReceipt(s, h) {
     const pName = pSelect && pSelect.options[pSelect.selectedIndex] ? pSelect.options[pSelect.selectedIndex].text : 'Période en cours';
     
     setT('r-periode-name', pName);
+
+    // ── QUI a encaissé, et pour quelle année ────────────────────────────
+    //
+    // Le reçu ne nommait personne : une famille revenant contester un
+    // versement n'avait aucun interlocuteur à citer, et la direction non
+    // plus. `par_nom` est écrit sur le paiement depuis la correction de la
+    // traçabilité ; les reçus antérieurs n'en ont pas, on ne l'invente pas.
+    const encaisseur = h.par_nom
+      ? `Encaissé par ${h.par_nom}${h.par_role ? ' — ' + fmtRoleRecu(h.par_role) : ''}`
+      : 'Encaissé par : non renseigné (règlement antérieur au suivi)';
+    setT('r-encaisseur', encaisseur);
+
+    setT('r-annee', s.annee_scolaire || (typeof ANNEE_SCOLAIRE !== 'undefined' ? ANNEE_SCOLAIRE : '—'));
 
     // ─── NOUVEAU : calcul de l'allocation cascade ───
     const alloc = buildPaymentAllocation(s, h, periode);
@@ -7273,6 +7304,9 @@ function importerSelection() {
     studentsData.push({
       id: Date.now() + Math.floor(Math.random() * 10000),
       matricule: i.matricule || null,
+      // Reprise de l'inscription : c'est elle qui fait foi sur l'année, pas
+      // une constante recopiée dans la page.
+      annee_scolaire: i.annee_scolaire || null,
       nom: i.nom || '', prenom: i.prenom || '',
       classe: code,
       cantine: !!i.cantine,
@@ -7565,7 +7599,29 @@ function renderRecouvrement() {
 // ══════════════════════════════════════════════
 const _SUPA_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
 const _SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
-const _supa = window.supabase.createClient(_SUPA_URL, _SUPA_KEY);
+// ── La session du portail, pas une identité anonyme ────────────────────
+//
+// Ce client était créé sans options : il utilisait donc le stockage par
+// défaut et n'a JAMAIS vu la session ouverte dans le portail. Toute la
+// comptabilité passait en rôle `anon` — la clé publique, celle qu'embarque
+// le navigateur de n'importe quel visiteur.
+//
+// Mesuré depuis cette clé : lire la comptabilité entière → 200, la modifier
+// → 201, supprimer une ligne → 204. Les salaires de tout le personnel étaient
+// lisibles par quiconque.
+//
+// `storageKey: 'ideal-auth'` est celui de `src/lib/supabase.js` : la page
+// reprend la session du portail et parle donc en `authenticated`. C'est le
+// prérequis pour que les politiques RLS puissent fermer la table sans
+// couper la comptabilité.
+const _supa = window.supabase.createClient(_SUPA_URL, _SUPA_KEY, {
+  auth: {
+    storageKey: 'ideal-auth',
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
 
 // ─── Référentiel Postes & salaires partagé avec le portail directeur (app_state rh/postes) ───
 let _postesDebounce = null;
@@ -7948,7 +8004,7 @@ function renderCartesTabCompta() {
   if (!container || !select) return;
 
   const list = studentsData || [];
-  select.innerHTML = list.map(s => `<option value="${s.id}">${(s.nom||'').toUpperCase()} ${s.prenom||''} (${s.matricule||'24-25 A001'}) — ${s.classe||'CP1'}</option>`).join('');
+  select.innerHTML = list.map(s => `<option value="${s.id}">${(s.nom||'').toUpperCase()} ${s.prenom||''} (${s.matricule||'sans matricule'}) — ${s.classe||'classe non renseignée'}</option>`).join('');
 
   if (list.length > 0) {
     renderCartePreviewCompta(list[0].id);
@@ -7963,15 +8019,28 @@ function renderCartePreviewCompta(eleveId) {
   const el = (studentsData || []).find(s => String(s.id) === String(eleveId)) || studentsData?.[0];
   if (!el) return;
 
-  const nom = (el.nom || 'SAMAKÉ').toUpperCase();
-  const prenom = el.prenom || 'Mamadou';
-  const mat = el.matricule || '24-25 A014';
-  const cls = el.classe || 'CP1 Bilingue';
-  const dob = el.date_naissance || '15/04/2018';
-  const pob = el.lieu_naissance || 'Bamako';
-  const gs = el.groupe_sanguin || 'O+';
-  const tel = el.tel1 || el.telephone_parent || '+223 76 45 89 12';
-  const adr = el.adresse || 'Bamako, Mali';
+  // ── Une carte n'invente rien ────────────────────────────────────────
+  //
+  // Ces champs retombaient sur des valeurs de démonstration : « SAMAKÉ
+  // Mamadou », matricule « 24-25 A014 », né le « 15/04/2018 » à Bamako,
+  // groupe sanguin « O+ », téléphone « +223 76 45 89 12 ».
+  //
+  // Une carte imprimée pour un enfant dont la donnée manque portait donc un
+  // groupe sanguin FAUX — celui-là même qu'on lit en urgence — et un numéro
+  // de téléphone qui n'est celui de personne, ou celui d'un inconnu.
+  //
+  // Un champ vide se dit vide. C'est une gêne administrative ; une valeur
+  // inventée sur un document officiel est autre chose.
+  const MANQUANT = '—';
+  const nom = (el.nom || MANQUANT).toUpperCase();
+  const prenom = el.prenom || '';
+  const mat = el.matricule || MANQUANT;
+  const cls = el.classe || MANQUANT;
+  const dob = el.date_naissance || MANQUANT;
+  const pob = el.lieu_naissance || MANQUANT;
+  const gs = el.groupe_sanguin || 'non renseigné';
+  const tel = el.tel1 || el.telephone_parent || MANQUANT;
+  const adr = el.adresse || MANQUANT;
   const cantine = el.cantine !== false;
 
   container.innerHTML = `

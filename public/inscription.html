@@ -2168,22 +2168,46 @@ Merci de votre confiance.
         const resultsDiv = document.getElementById('reinscription-results');
         resultsDiv.innerHTML = '<div style="color:var(--muted);">Recherche en cours...</div>';
 
-        const isMatricule = query.toUpperCase().startsWith('IDEAL-');
-        let supaQuery = _supa.from('inscriptions').select('*, responsable1:responsables!responsable1_id(*)');
+        // ── Ce que cette recherche faisait, et pourquoi elle ne le fait plus ──
+        //
+        // Elle cherchait par NOM en `ilike %query%` et renvoyait
+        // `select('*, responsable1:responsables!responsable1_id(*)')` — le
+        // dossier COMPLET et le responsable COMPLET, jusqu'à cinq à la fois,
+        // depuis le formulaire PUBLIC.
+        //
+        // Mesuré : la lettre « a » suffisait à obtenir des noms d'élèves, des
+        // adresses de domicile et les téléphones des parents.
+        //
+        //   MATRICULE ≠ SECRET ≠ PREUVE D'IDENTITÉ ≠ AUTORISATION
+        //   RECHERCHE PAR NOM SUR UNE PAGE PUBLIQUE : jamais.
+        //
+        // La vérification passe désormais par `verifier_carte_scolaire`, la
+        // même surface que la carte scolaire : elle ne rend que ce que la
+        // carte porte déjà — prénom, nom, classe, année. Le parent confirme
+        // l'élève, puis saisit ses coordonnées ; le pré-remplissage du dossier
+        // attend une surface serveur dédiée (voir
+        // `sql/prefill_reinscription.sql`).
+        const nomSaisi = document.getElementById('reinscription-nom')?.value.trim() || '';
+        const { data: verif, error } = await _supa.rpc('verifier_carte_scolaire', {
+            p_matricule: query, p_nom: nomSaisi,
+        });
+        const carte = Array.isArray(verif) ? verif[0] : verif;
 
-        if (isMatricule) {
-            supaQuery = supaQuery.eq('matricule', query.toUpperCase());
-        } else {
-            supaQuery = supaQuery.or(`nom.ilike.%${query}%,prenom.ilike.%${query}%`);
-        }
-        supaQuery = supaQuery.limit(5);
-
-        const { data, error } = await supaQuery;
-
-        if (error || !data || data.length === 0) {
-            resultsDiv.innerHTML = '<div style="padding:1rem; color:var(--muted);">Aucun élève trouvé. Vérifiez le matricule ou le nom.</div>';
+        if (error || !carte || carte.reconnue !== true) {
+            resultsDiv.innerHTML = '<div style="padding:1rem; color:var(--muted);">'
+              + 'Aucun élève reconnu. Saisissez le <b>matricule</b> figurant sur la carte scolaire '
+              + 'et le <b>nom de famille</b> exactement comme il y est écrit.<br>'
+              + 'En cas de difficulté, contactez le secrétariat de l\'école.</div>';
             return;
         }
+
+        // On ne dispose QUE de ce que porte la carte : aucun dossier, aucune
+        // coordonnée de parent n'est descendue jusqu'au navigateur.
+        const data = [{
+            matricule: query.toUpperCase(),
+            nom: carte.nom, prenom: carte.prenom,
+            classe_demandee: carte.classe, annee_scolaire: carte.annee_scolaire,
+        }];
 
         let html = '<div style="display:flex; flex-direction:column; gap:1rem;">';
         for (const eleve of data) {

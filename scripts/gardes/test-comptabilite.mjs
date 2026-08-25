@@ -127,7 +127,46 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
     + ` annule le différé:${annuleLeDifferé ? 'oui' : 'NON'}`)
 }
 
+// ── Q8 · le reçu nomme celui qui a encaissé ──────────────────────────────
+//
+// Relevé des 18 champs du reçu : aucun ne portait l'encaisseur. Une famille
+// revenant contester un versement n'avait personne à citer, la direction non
+// plus. L'année scolaire manquait également.
+{
+  const gabarit = /id="r-encaisseur"/.test(compta) && /id="r-annee"/.test(compta)
+  const pr = bloc('printReceipt')
+  const rempli = /setT\('r-encaisseur'/.test(pr) && /setT\('r-annee'/.test(pr)
+  // On ne fabrique pas un encaisseur pour les règlements antérieurs au suivi.
+  // Le motif est ancré sur l'AFFECTATION : une première version cherchait
+  // `h.par_nom ?` n'importe où dans la fonction, et un encaisseur codé en dur
+  // suivi d'un `h.par_nom` inutilisé la satisfaisait encore.
+  const pasInvente = /const encaisseur\s*=\s*h\.par_nom\s*\n?\s*\?/.test(pr)
+  verifier('Q8 · le reçu nomme l’encaisseur et son année',
+    gabarit && rempli && pasInvente,
+    `— gabarit:${gabarit ? 'oui' : 'NON'} rempli:${rempli ? 'oui' : 'NON'}`
+    + ` sans invention:${pasInvente ? 'oui' : 'NON'}`)
+}
+
+// ── Q9 · aucun document officiel ne comble un vide par une invention ─────
+//
+// La carte scolaire retombait sur « SAMAKÉ Mamadou », né le 15/04/2018,
+// groupe sanguin « O+ », téléphone « +223 76 45 89 12 ». Une carte imprimée
+// pour un enfant dont la donnée manque portait donc un groupe sanguin FAUX —
+// celui qu'on lit en urgence — et le numéro de quelqu'un d'autre.
+{
+  const inventions = [
+    ['groupe sanguin', /groupe_sanguin\s*\|\|\s*['"]\s*[ABO]{1,2}[+-]/],
+    ['téléphone',      /(tel1|telephone_parent)[^\n]{0,40}\|\|\s*['"]\+?\d{2,}/],
+    ['date de naissance', /date_naissance\s*\|\|\s*['"]\d{2}\/\d{2}\/\d{4}/],
+    ['nom',            /\bnom\s*\|\|\s*['"][A-ZÀ-Ü]{3,}['"]/],
+    ['matricule',      /matricule\s*\|\|\s*['"]\d{2}-\d{2} [A-Z]\d+/],
+  ].filter(([, re]) => re.test(code)).map(([q]) => q)
+  verifier('Q9 · aucune donnée personnelle inventée sur un document',
+    inventions.length === 0,
+    inventions.length ? `— inventés: ${inventions.join(', ')}` : '')
+}
+
 console.log(echecs === 0
-  ? `\n  ${V}7 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}9 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)
