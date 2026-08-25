@@ -5374,7 +5374,22 @@ async function submitPayment() {
     createEcritureFromPayment(s, __payment);
   }
 
-  const r = await enregistrerMaintenant();
+  // Si un autre appareil a écrit entre-temps, `ecrireSousCondition` recharge
+  // l'état frais du serveur — nos objets en mémoire sont alors remplacés. On
+  // lui donne de quoi rejouer CE paiement sur l'état frais, plutôt que
+  // d'écraser le sien avec le nôtre.
+  const r = await enregistrerMaintenant(() => {
+    const frais = studentsData.find(x =>
+      (s.matricule && x.matricule === s.matricule) || x.id === s.id);
+    if (!frais) return;
+    if (!frais.history) frais.history = [];
+    // Ce paiement est-il déjà présent ? Ce serait le cas si l'autre appareil
+    // était en réalité le nôtre, renvoyé après une réponse perdue.
+    if (frais.history.some(h => h.receiptId === __payment.receiptId)) return;
+    frais.history.push(__payment);
+    frais.paye = (frais.paye || 0) + amt;
+    if (typeof createEcritureFromPayment === 'function') createEcritureFromPayment(frais, __payment);
+  });
 
   if (bouton) { bouton.disabled = false; if (libelleBouton !== null) bouton.textContent = libelleBouton; }
   _encaissementEnCours = false;
@@ -5382,9 +5397,17 @@ async function submitPayment() {
   if (!r.ok) {
     // Le serveur a refusé : ce paiement N'EXISTE PAS. On remet l'état exact
     // d'avant — sinon l'écran afficherait de l'argent que la caisse n'a pas.
-    s.paye -= amt;
-    s.history.pop();
-    ecritures.length = ecrituresAvant;
+    //
+    // Après un conflit, `studentsData` a pu être remplacé par l'état frais du
+    // serveur : on retire le paiement là où il se trouve réellement, et
+    // seulement s'il y est.
+    const cible = studentsData.find(x =>
+      (s.matricule && x.matricule === s.matricule) || x.id === s.id) || s;
+    const i = (cible.history || []).findIndex(h => h.receiptId === __payment.receiptId);
+    if (i >= 0) { cible.history.splice(i, 1); cible.paye = Math.max(0, (cible.paye || 0) - amt); }
+    const j = ecritures.findIndex(e => e.piece === __payment.receiptId);
+    if (j >= 0) ecritures.splice(j, 1);
+    else ecritures.length = Math.min(ecritures.length, ecrituresAvant);
     recalculate();
     renderElevesTab();
     alert("❌ LE PAIEMENT N'A PAS ÉTÉ ENREGISTRÉ.\n\n"
@@ -6222,7 +6245,13 @@ function computeFamilleTotal() {
   document.getElementById('fam-children-count').textContent = count;
 }
 
-function submitFamillePayment() {
+// Deuxième chemin d'encaissement — il portait tous les défauts corrigés sur
+// `submitPayment` : aucun verrou, aucune attente de confirmation, aucun
+// auteur, un numéro de reçu tiré de `history.length`, et une écriture
+// différée de 2 secondes. Encaisser pour trois enfants d'une fratrie pouvait
+// donc produire trois reçus remis à la famille sans qu'aucun n'existe en base.
+async function submitFamillePayment() {
+  if (_encaissementEnCours) return;
   const mode = document.getElementById('fam-mode').value;
   const date = document.getElementById('fam-date').value;
   if (!date) return alert('Sélectionnez une date.');
@@ -6248,27 +6277,64 @@ function submitFamillePayment() {
   const now = new Date();
   const dateStr = dateFR + ' à ' + now.getHours() + 'h' + (now.getMinutes()<10?'0':'') + now.getMinutes();
 
+  _encaissementEnCours = true;
+  const moi = (function () { try { return JSON.parse(localStorage.getItem('ideal_user') || 'null') } catch (e) { return null } })();
+
+  // On note l'état d'avant, pour pouvoir le rétablir exactement si le
+  // serveur refuse. Un encaissement famille est tout ou rien : trois reçus
+  // dont un seul enregistré serait pire que zéro.
+  const avant = toPay.map(e => {
+    const s = studentsData.find(x => x.id === e.sid);
+    return s ? { s, paye: s.paye, n: (s.history || []).length } : null;
+  }).filter(Boolean);
+  const ecrituresAvant = ecritures.length;
+
   toPay.forEach((entry, idx) => {
     const s = studentsData.find(x => x.id === entry.sid);
     if (!s) return;
     const amt = parseInt(entry.amount) || 0;
     const motif = entry.motif;
-    const receiptId = `REC-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}-${(s.history?.length||0)+1}-${s.id.toString().slice(-4)}-F${idx+1}`;
-    const __payment = { amount: amt, mode, motif, date: dateStr, receiptId };
     if (!s.history) s.history = [];
+    // Même règle que l'encaissement simple : le rang vient du plus grand
+    // déjà attribué, jamais de la longueur de l'historique.
+    const rangMax = s.history.reduce((m, h) => {
+      const r = parseInt((String(h.receiptId || '').match(/^REC-\d{6}-(\d+)-/) || [])[1] || 0, 10);
+      return r > m ? r : m;
+    }, 0);
+    const receiptId = `REC-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}-${rangMax + 1}-${s.id.toString().slice(-4)}-F${idx+1}`;
+    const __payment = {
+      amount: amt, mode, motif, date: dateStr, receiptId,
+      le: now.toISOString(),
+      par: moi?.id || null,
+      par_nom: moi ? `${moi.prenom || ''} ${moi.nom || ''}`.trim() : null,
+      par_role: moi?.role || null,
+    };
     s.history.push(__payment);
     s.paye = (s.paye || 0) + amt;
-    // Liaison automatique compta
     if (typeof createEcritureFromPayment === 'function') createEcritureFromPayment(s, __payment);
     generatedPayments.push({ student: s, payment: __payment });
   });
 
+  const r = await enregistrerMaintenant();
+  _encaissementEnCours = false;
+
+  if (!r.ok) {
+    avant.forEach(a => { a.s.paye = a.paye; a.s.history.length = a.n; });
+    ecritures.length = ecrituresAvant;
+    if (typeof recalculate === 'function') recalculate();
+    if (typeof renderElevesTab === 'function') renderElevesTab();
+    alert("❌ AUCUN PAIEMENT DE CETTE FAMILLE N'A ÉTÉ ENREGISTRÉ.\n\n"
+      + (r.message || 'Le serveur a refusé.') + (r.code ? ' (' + r.code + ')' : '')
+      + "\n\nNE REMETTEZ AUCUN REÇU. Recommencez, et si l'erreur persiste, "
+      + "signalez-la à la direction en citant ce message.");
+    return;
+  }
+
   closeFamilleModal();
-  if (typeof autoSave === 'function') autoSave();
   if (typeof recalculate === 'function') recalculate();
   if (typeof renderElevesTab === 'function') renderElevesTab();
 
-  // Générer la page consolidée famille (récap + N reçus)
+  // Les reçus ne sortent qu'une fois les paiements confirmés en base.
   openFamilleReceiptsInWindow(generatedPayments, mode, date);
 }
 
@@ -7655,35 +7721,74 @@ async function savePostesCloud() {
 }
 
 let _supaDebounce = null;
-async function saveToSupabase(state) {
-  try {
-    const { error } = await _supa.from('financement_params')
-      .upsert({ id: 'main', state_json: state, updated_at: new Date().toISOString() }, { onConflict: 'id' });
-    if (error) {
-      console.error('⚠️ Erreur Supabase save:', error.message);
-    } else {
-      console.log('✅ Données sauvegardées dans Supabase');
-    }
-  } catch (err) {
-    console.error('⚠️ Exception Supabase:', err);
+// ── L'écriture différée passe elle aussi par la condition ─────────────────
+//
+// Elle faisait un `upsert` inconditionnel. Mesuré pendant le test de
+// concurrence : deux appareils encaissent 30 000 et 50 000 ; les deux
+// paiements sont bien écrits, puis une sauvegarde différée partie d'un état
+// périmé réécrit tout par-dessus. Résultat en base : 30 000, un seul
+// paiement. Les 50 000 ont disparu SANS ERREUR.
+//
+// Protéger l'encaissement ne servait à rien tant que cette écriture-là
+// pouvait l'effacer deux secondes plus tard.
+//
+// Sur conflit, elle n'insiste pas : la modification de paramètres qu'elle
+// portait est reperdue, mais l'argent ne l'est pas. Une saisie de charge à
+// refaire est une gêne ; un encaissement effacé ne se retrouve pas.
+async function saveToSupabase() {
+  const r = await ecrireSousCondition(null);
+  if (!r.ok && r.code === 'conflit') {
+    console.warn('Sauvegarde différée abandonnée : la comptabilité a changé ailleurs. '
+      + 'L\'état affiché a été rechargé depuis le serveur.');
+    if (typeof recalculate === 'function') recalculate();
+    if (typeof renderElevesTab === 'function') renderElevesTab();
+  } else if (!r.ok) {
+    console.error('⚠️ Sauvegarde refusée :', r.message);
   }
+  return r;
 }
 
 async function loadFromSupabase() {
   try {
-    const { data, error } = await _supa.from('financement_params')
-      .select('state_json').eq('id', 'main').maybeSingle();
-    if (error) {
-      console.error('⚠️ Erreur Supabase load:', error.message);
+    // ── Lecture sans cache ────────────────────────────────────────────
+    //
+    // Cette lecture sert de base à la relecture après conflit d'écriture :
+    // si elle rend une réponse mise en cache par le navigateur, on rejoue
+    // notre paiement sur un état PÉRIMÉ et l'on écrase celui de l'autre
+    // appareil — le conflit est détecté, et la correction est fausse quand
+    // même.
+    //
+    // Le client Supabase ne permet pas de désactiver le cache par requête :
+    // on interroge donc PostgREST directement, avec `cache: 'no-store'`.
+    const reponse = await fetch(
+      `${_SUPA_URL}/rest/v1/financement_params?select=state_json,updated_at&id=eq.main`,
+      { headers: { apikey: _SUPA_KEY, Authorization: `Bearer ${_SUPA_KEY}`,
+                   'Cache-Control': 'no-cache' },
+        cache: 'no-store' });
+    if (!reponse.ok) {
+      console.error('⚠️ Erreur Supabase load:', reponse.status);
       return null;
     }
+    const lignes = await reponse.json();
+    const data = Array.isArray(lignes) ? lignes[0] : lignes;
     if (!data || !data.state_json) return null;
-    console.log('☁️ Données chargées depuis Supabase');
+    // La version lue : c'est elle qui conditionnera notre prochaine écriture.
+    _versionServeur = data.updated_at;
     return data.state_json;
   } catch (err) {
     console.error('⚠️ Exception Supabase load:', err);
     return null;
   }
+}
+
+// Recharge les variables de la page depuis un état frais venu du serveur.
+// Utilisé après un conflit d'écriture : on repart de ce que la base contient
+// vraiment, puis on rejoue notre opération dessus.
+function appliquerEtat(etat) {
+  if (!etat) return;
+  // Directement dans les variables de CET onglet. Le stockage local, partagé
+  // entre onglets, ne doit pas servir de canal ici.
+  autoLoad(etat);
 }
 
 // L'état complet, tel qu'il part en base. Extrait d'`autoSave` pour que
@@ -7716,21 +7821,70 @@ function construireEtat() {
 //
 // Un encaissement ne peut pas attendre : on écrit sur-le-champ, on attend la
 // réponse, et on la rend à l'appelant.
-async function enregistrerMaintenant() {
-  clearTimeout(_supaDebounce);   // annuler l'écriture différée en attente
-  const state = construireEtat();
-  try {
-    localStorage.setItem('ideal-prevision-state', JSON.stringify(state));
-  } catch (err) { /* le local n'est pas la preuve — voir plus bas */ }
-  try {
-    const { error } = await _supa.from('financement_params')
-      .upsert({ id: 'main', state_json: state, updated_at: new Date().toISOString() },
-              { onConflict: 'id' });
+// La version du document que nous croyons à jour. Renseignée à chaque
+// lecture et à chaque écriture réussie.
+let _versionServeur = null;
+
+// ── Pourquoi une écriture conditionnelle ───────────────────────────────────
+//
+// Toute la comptabilité tient dans UNE ligne, réécrite en entier. Un `upsert`
+// simple écrase donc ce qu'un autre appareil vient d'écrire :
+//
+//   Yacouba lit la version 10          Le directeur lit la version 10
+//   Yacouba encaisse 30 000 → v11      Le directeur encaisse 50 000 → v11 bis
+//                                       écrite depuis SA copie de la v10
+//   → les 30 000 de Yacouba ont disparu, sans erreur, sans message.
+//
+// Un verrou dans la page ne protège de rien entre deux téléphones.
+//
+// On écrit donc SOUS CONDITION : « mets à jour cette ligne seulement si son
+// `updated_at` vaut encore celui que j'ai lu ». Si quelqu'un est passé entre
+// temps, PostgREST ne met à jour aucune ligne — on recharge l'état frais, on
+// rejoue notre opération dessus, et on réessaie.
+//
+// `updated_at` existe déjà : aucune colonne, aucune table à créer.
+async function ecrireSousCondition(reappliquer, essais = 3) {
+  for (let essai = 1; essai <= essais; essai++) {
+    const state = construireEtat();
+    const version = new Date().toISOString();
+    let requete = _supa.from('financement_params')
+      .update({ state_json: state, updated_at: version })
+      .eq('id', 'main');
+    // Première écriture d'une session qui n'a jamais lu : on ne peut pas
+    // conditionner, mais on le signale plutôt que de l'ignorer.
+    if (_versionServeur) requete = requete.eq('updated_at', _versionServeur);
+
+    const { data, error } = await requete.select('updated_at');
     if (error) return { ok: false, message: error.message, code: error.code };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, message: String(err?.message || err), code: 'reseau' };
+
+    if (data && data.length === 1) {
+      _versionServeur = data[0].updated_at;
+      return { ok: true, essais: essai };
+    }
+
+    // Zéro ligne : quelqu'un a écrit avant nous.
+    const frais = await loadFromSupabase();
+    if (!frais) return { ok: false, code: 'conflit', message:
+      "un autre appareil a modifié la comptabilité et son état n'a pas pu être relu" };
+    appliquerEtat(frais);
+    if (typeof reappliquer !== 'function') {
+      return { ok: false, code: 'conflit', message:
+        "un autre appareil a modifié la comptabilité entre-temps. Vos données ont été rechargées ; refaites votre saisie." };
+    }
+    reappliquer();
   }
+  return { ok: false, code: 'conflit', message:
+    "la comptabilité est modifiée par plusieurs appareils en même temps. Réessayez dans un instant." };
+}
+
+async function enregistrerMaintenant(reappliquer) {
+  clearTimeout(_supaDebounce);   // annuler l'écriture différée en attente
+  const r = await ecrireSousCondition(reappliquer);
+  if (r.ok) {
+    try { localStorage.setItem('ideal-prevision-state', JSON.stringify(construireEtat())); }
+    catch (err) { /* le local n'est pas la preuve */ }
+  }
+  return r;
 }
 
 function autoSave() {
@@ -7744,14 +7898,30 @@ function autoSave() {
   }
   // Sync Supabase avec délai pour éviter trop d'appels
   clearTimeout(_supaDebounce);
-  _supaDebounce = setTimeout(() => saveToSupabase(state), 2000);
+  // `saveToSupabase` reconstruit l'état au moment où elle écrit, et non deux
+  // secondes plus tôt : sinon elle renverrait une photo déjà périmée.
+  _supaDebounce = setTimeout(() => saveToSupabase(), 2000);
 }
 
-function autoLoad() {
+// `etatDirect` permet de recharger les variables depuis un état DÉJÀ en main,
+// sans passer par `localStorage`.
+//
+// Pourquoi cela compte : le stockage local est partagé par tous les onglets
+// d'un même navigateur. Après un conflit d'écriture, écrire l'état frais dans
+// `localStorage` puis le relire faisait adopter à un onglet l'état
+// intermédiaire de l'autre — un encaissement en cours pouvait être remplacé
+// par la photo d'un onglet voisin. Deux onglets ouverts sur la comptabilité,
+// c'est une situation ordinaire dans un secrétariat.
+function autoLoad(etatDirect) {
   try {
-    const raw = localStorage.getItem('ideal-prevision-state');
-    if (!raw) return;
-    const s = JSON.parse(raw);
+    let s;
+    if (etatDirect) {
+      s = etatDirect;
+    } else {
+      const raw = localStorage.getItem('ideal-prevision-state');
+      if (!raw) return;
+      s = JSON.parse(raw);
+    }
     const DEFAULT_EFFECTIFS = { ps: 13, gs: 20, cp1: 22, cp2: 18, ce1: 7, ce2: 4, cm1: 3 };
     if (s.effectifs && Object.keys(s.effectifs).length > 0) {
       effectifs = { ...DEFAULT_EFFECTIFS, ...s.effectifs };
