@@ -38,26 +38,51 @@ connexion() {
   done
   return 1
 }
-code() {   # $1 jeton, $2 methode, $3 chemin, [$4 corps]
+# ── Juger le CONTENU, pas le code HTTP ───────────────────────────────────
+#
+# Sous RLS, une lecture non autorisee ne leve PAS d erreur : la politique
+# filtre les lignes et PostgREST repond 200 avec []. Juger sur le statut,
+# c est confondre « refuse » et « en erreur ».
+#
+# Ce script le faisait, et il a declare FAIL sur deux acces pourtant fermes.
+# C est exactement le defaut deja corrige dans la garde S1-S8, reintroduit
+# ici. Il rend desormais « statut:lignes ».
+resultat() {   # $1 jeton, $2 methode, $3 chemin, [$4 corps]
+  local rep code corps
   if [ $# -ge 4 ]; then
-    curl -s -o /dev/null -w '%{http_code}' -X "$2" "$URL/rest/v1$3" \
+    rep=$(curl -s -w '\n%{http_code}' -X "$2" "$URL/rest/v1$3" \
       -H "apikey: $KEY" -H "Authorization: Bearer $1" \
-      -H 'Content-Type: application/json' -d "$4"
+      -H 'Content-Type: application/json' -d "$4")
   else
-    curl -s -o /dev/null -w '%{http_code}' -X "$2" "$URL/rest/v1$3" \
-      -H "apikey: $KEY" -H "Authorization: Bearer $1"
+    rep=$(curl -s -w '\n%{http_code}' -X "$2" "$URL/rest/v1$3" \
+      -H "apikey: $KEY" -H "Authorization: Bearer $1")
   fi
+  code=$(printf '%s' "$rep" | tail -1)
+  corps=$(printf '%s' "$rep" | sed '$d')
+  printf '%s:%s' "$code" "$(printf '%s' "$corps" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(len(d) if isinstance(d, list) else -1)
+except Exception:
+    print(-1)')"
 }
 corps() {  # $1 jeton, $2 chemin, $3 corps
   curl -s -X POST "$URL/rest/v1$2" -H "apikey: $KEY" -H "Authorization: Bearer $1" \
     -H 'Content-Type: application/json' -d "$3"
 }
-juge() {   # $1 libelle, $2 obtenu, $3 attendu(PASS|REFUS), $4 detail
-  local ok
-  if [ "$3" = 'PASS' ]; then [ "$2" -lt 300 ] && ok=1 || ok=0
-  else [ "$2" -ge 300 ] && ok=1 || ok=0; fi
-  if [ "$ok" = 1 ]; then printf '  ✓ %-52s %s %s\n' "$1" "$2" "${4:-}"; OK=$((OK+1))
-  else printf '  ✗ %-52s %s %s\n' "$1" "$2" "${4:-}"; KO=$((KO+1)); fi
+# $2 vaut « statut:lignes ». Autorise = des lignes reviennent.
+# Refuse   = une erreur franche, OU zero ligne obtenue.
+juge() {   # $1 libelle, $2 statut:lignes, $3 attendu(PASS|REFUS)
+  local code lignes ok
+  code=${2%%:*}; lignes=${2##*:}
+  if [ "$3" = 'PASS' ]; then
+    { [ "$code" -lt 300 ] && [ "$lignes" -gt 0 ]; } && ok=1 || ok=0
+  else
+    { [ "$code" -ge 300 ] || [ "$lignes" = 0 ]; } && ok=1 || ok=0
+  fi
+  if [ "$ok" = 1 ]; then printf '  ✓ %-46s %s (%s ligne(s))\n' "$1" "$code" "$lignes"; OK=$((OK+1))
+  else printf '  ✗ %-46s %s (%s ligne(s))\n' "$1" "$code" "$lignes"; KO=$((KO+1)); fi
 }
 
 echo
@@ -69,19 +94,19 @@ TENS=$(connexion 'ENSEIGNANTE' 'ex. omogadzi')                 || exit 1
 echo
 
 echo "  ── RESPONSABLE ADMINISTRATIF ──"
-juge '9  · accès comptabilité'            "$(code "$TRA"  GET '/financement_params?select=state_json&id=eq.main')" PASS
-juge '10 · lecture des inscriptions'      "$(code "$TRA"  GET '/inscriptions?select=nom,matricule&limit=1')"       PASS
-juge '11 · lecture des responsables'      "$(code "$TRA"  GET '/responsables?select=nom&limit=1')"                 PASS
+juge '9  · accès comptabilité'            "$(resultat "$TRA"  GET '/financement_params?select=state_json&id=eq.main')" PASS
+juge '10 · lecture des inscriptions'      "$(resultat "$TRA"  GET '/inscriptions?select=nom,matricule&limit=1')"       PASS
+juge '11 · lecture des responsables'      "$(resultat "$TRA"  GET '/responsables?select=nom&limit=1')"                 PASS
 echo
 echo "  ── DIRECTION ──"
-juge '13 · accès aux dossiers'            "$(code "$TDIR" GET '/inscriptions?select=nom&limit=1')"                 PASS
-juge '14 · accès comptable'               "$(code "$TDIR" GET '/financement_params?select=state_json&id=eq.main')" PASS
+juge '13 · accès aux dossiers'            "$(resultat "$TDIR" GET '/inscriptions?select=nom&limit=1')"                 PASS
+juge '14 · accès comptable'               "$(resultat "$TDIR" GET '/financement_params?select=state_json&id=eq.main')" PASS
 echo
 echo "  ── ENSEIGNANTE ──"
-juge '15 · encaissement'                  "$(code "$TENS" POST '/rpc/enregistrer_paiement' \
+juge '15 · encaissement'                  "$(resultat "$TENS" POST '/rpc/enregistrer_paiement' \
       '{"p_matricule":"__aucun__","p_montant":1000,"p_mode":"x","p_motif":"x","p_recu":"VERIF-ENS","p_date_lisible":"x"}')" REFUS
-juge '15b· lecture de la comptabilité'    "$(code "$TENS" GET '/financement_params?select=state_json&id=eq.main')" REFUS
-juge '15c· lecture des responsables'      "$(code "$TENS" GET '/responsables?select=tel1&limit=1')"                REFUS
+juge '15b· lecture de la comptabilité'    "$(resultat "$TENS" GET '/financement_params?select=state_json&id=eq.main')" REFUS
+juge '15c· lecture des responsables'      "$(resultat "$TENS" GET '/responsables?select=tel1&limit=1')"                REFUS
 echo
 echo "  ── 12 · encaissement par le responsable administratif ──"
 echo "  (sur un matricule inexistant : la surface doit répondre, et refuser"
