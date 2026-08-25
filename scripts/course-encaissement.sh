@@ -28,12 +28,6 @@ echo
 echo "  Deux comptes de la DIRECTION sont nécessaires."
 echo "  (directeur ou responsable administratif — un enseignant sera refusé)"
 echo
-read -r  -p "  Identifiant A (ex. youangraoua) : " IDA
-read -rs -p "  Code d'accès A : " MDPA; echo
-read -r  -p "  Identifiant B (ex. dideal) : " IDB
-read -rs -p "  Code d'accès B : " MDPB; echo
-echo
-
 jeton() {
   curl -s -X POST "$URL/auth/v1/token?grant_type=password" \
     -H "apikey: $KEY" -H 'Content-Type: application/json' \
@@ -41,11 +35,27 @@ jeton() {
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("access_token") or "")'
 }
 
-TA=$(jeton "$IDA" "$MDPA"); MDPA=''
-TB=$(jeton "$IDB" "$MDPB"); MDPB=''
+# Trois essais par compte, plutot que de tout reprendre pour une frappe.
+# Le code est efface de la variable des le jeton obtenu.
+connexion() {   # $1 = etiquette, $2 = exemple d identifiant
+  local id mdp t essai
+  for essai in 1 2 3; do
+    read -r  -p "  Identifiant $1 (ex. $2) : " id
+    read -rs -p "  Code d acces $1 : " mdp; echo
+    t=$(jeton "$id" "$mdp"); mdp=''
+    if [ -n "$t" ]; then
+      echo "  session $1 ouverte pour « $id »" >&2
+      printf '%s' "$t"
+      return 0
+    fi
+    echo "  refuse (essai $essai sur 3) — identifiant ou code incorrect." >&2
+  done
+  return 1
+}
 
-[ -z "$TA" ] && { echo "  ✗ Connexion A refusée. Vérifiez l'identifiant et le code."; exit 1; }
-[ -z "$TB" ] && { echo "  ✗ Connexion B refusée. Vérifiez l'identifiant et le code."; exit 1; }
+TA=$(connexion A youangraoua) || { echo; echo "  Abandon : aucune session A. Rien n a ete encaisse."; exit 1; }
+TB=$(connexion B dideal)      || { echo; echo "  Abandon : aucune session B. Rien n a ete encaisse."; exit 1; }
+echo
 echo "  Deux sessions ouvertes."
 
 etat() {
