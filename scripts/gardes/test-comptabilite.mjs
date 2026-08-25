@@ -112,9 +112,18 @@ console.log(`\n${G}── CAISSE · le reçu ne sort pas avant la preuve   [INV-
 // Il venait de `history.length + 1` : supprimer un paiement faisait réémettre
 // un numéro déjà remis à une famille. Deux reçus, un seul numéro.
 {
-  const p = bloc('submitPayment')
+  // LES DEUX chemins d'encaissement. Le paiement famille portait exactement le
+  // même défaut, et une garde qui n'en surveille qu'un laisse l'autre repartir.
+  const p = bloc('submitPayment') + '\n' + bloc('submitFamillePayment')
+  // Le rang doit être LU dans les numéros déjà attribués, pas déduit du
+  // nombre d'entrées. Un premier motif se contentait de voir `rangMax + 1` :
+  // il acceptait `const rangMax = s.history.length`, qui réintroduisait
+  // exactement le défaut sous un autre nom.
   const surLaLongueur = /receiptId\s*=[^\n]*history\.length/.test(p)
-  const surLeRangMax = /rangMax/.test(p) && /rangMax \+ 1/.test(p)
+                     || /rangMax\s*=\s*[^\n]*history\.length/.test(p)
+  const calculReel = /rangMax = s\.history\.reduce\(/.test(p)
+                  && /receiptId \|\| ''\)\.match\(/.test(p)
+  const surLeRangMax = calculReel && /rangMax \+ 1/.test(p)
   verifier('Q6 · un numéro de reçu n’est jamais réémis',
     !surLaLongueur && surLeRangMax,
     `— sur la longueur:${surLaLongueur ? 'OUI' : 'non'} sur le rang max:${surLeRangMax ? 'oui' : 'NON'}`)
