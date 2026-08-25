@@ -15,6 +15,7 @@
 // alimentait la prime.
 
 import { supabase } from './supabase'
+import { FUSEAU_ECOLE } from './tempsPreparation'
 import { fonctionProfessionnelle } from './identiteProfessionnelle'
 
 // ─── Statuts ────────────────────────────────────────────────────────────────
@@ -141,7 +142,8 @@ export const delaiConnu = () => _delai || DELAI_DEFAUT
 // `heure_depot`, lui, reste un instant absolu horodaté en UTC : on compare
 // donc une échéance située dans le temps réel à un instant réel.
 
-const FUSEAU_ECOLE = 'Africa/Bamako'
+// Le fuseau vit dans `tempsPreparation.js`, avec les formateurs qui s'en
+// servent — une seule déclaration, réutilisée ici.
 
 const _formatEcole = new Intl.DateTimeFormat('en-CA', {
   timeZone: FUSEAU_ECOLE, hour12: false,
@@ -503,3 +505,9 @@ export function raconter(entree) {
     commentaire: ancien ? null : entree.commentaire,
   }
 }
+
+// Réexportées pour que les écrans n'aient qu'un point d'entrée sur les
+// préparations. La logique vit dans `tempsPreparation.js`, sans dépendance à
+// Supabase — une garde qui vérifie un calcul d'heure n'a pas à monter un
+// client de base de données pour cela.
+export { FUSEAU_ECOLE, dateDeCours, heureDeCours, momentDeDepot } from './tempsPreparation'

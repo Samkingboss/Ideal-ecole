@@ -21,7 +21,7 @@ case "${1:-}" in
               lanceJS test-identite.mjs; lanceJS test-responsive.mjs
               lanceJS test-reseau-client.mjs; lanceJS test-documents.mjs
               lanceJS test-confidentialite.mjs; lanceJS test-remarques.mjs; lanceJS test-devoirs.mjs
-              lanceJS test-notification-preparation.mjs; lanceJS test-app-state.mjs; lanceJS test-comptabilite.mjs; lanceJS test-rls-donnees-sensibles.mjs; lanceJS test-dossier-pieces.mjs ;;
+              lanceJS test-notification-preparation.mjs; lanceJS test-app-state.mjs; lanceJS test-comptabilite.mjs; lanceJS test-rls-donnees-sensibles.mjs; lanceJS test-dossier-pieces.mjs; lanceJS test-workflow-preparations.mjs ;;
   --metier)   lance invariants.sh ;;
   *)          lance statiques.sh; lance ecrans.sh; lance cliquets.sh
               lanceJS test-chargement.mjs; lanceJS test-programmes.mjs
@@ -31,6 +31,7 @@ case "${1:-}" in
               lanceJS test-devoirs.mjs; lanceJS test-notification-preparation.mjs
               lanceJS test-app-state.mjs; lanceJS test-comptabilite.mjs
               lanceJS test-rls-donnees-sensibles.mjs; lanceJS test-dossier-pieces.mjs
+              lanceJS test-workflow-preparations.mjs
               lance invariants.sh; lance reseau.sh ;;
 esac
 

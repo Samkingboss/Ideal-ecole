@@ -77,7 +77,13 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
     for (const inst of src.split(';')) {
       if (!/\bapp_state\b/i.test(inst)) continue
       const grantEcriture = new RegExp(`grant\\s+[^;]*\\b${ECRITURE}\\b[^;]*\\bon\\b[^;]*\\bapp_state\\b`, 'is')
-      const politique = /create\s+policy/i.test(inst) && new RegExp(`\\b(for\\s+${ECRITURE}|to\\s+(anon|authenticated|public))`, 'is').test(inst)
+      // Une politique de LECTURE n'élargit pas l'écriture. Le premier motif
+      // signalait toute politique portant `to authenticated`, quelle que soit
+      // sa commande : il aurait interdit d'ouvrir la lecture de sa propre
+      // boîte de notifications au personnel connecté, ce qui n'a rien à voir
+      // avec ce que cette garde protège.
+      const politique = /create\s+policy/i.test(inst)
+        && new RegExp(`\\bfor\\s+${ECRITURE}\\b`, 'is').test(inst)
       if (grantEcriture.test(inst) || politique) fautifs.push(`${f} · ${inst.trim().split('\n')[0].slice(0, 46)}`)
     }
   }

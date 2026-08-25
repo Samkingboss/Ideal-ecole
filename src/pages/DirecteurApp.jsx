@@ -18,7 +18,7 @@ import InscriptionsValidation from './InscriptionsValidation'
 import { FicheAlimentaire } from './CuisiniereApp'
 import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
-import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER } from '../lib/preparations'
+import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER, dateDeCours, heureDeCours, momentDeDepot } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
@@ -1898,7 +1898,11 @@ export default function DirecteurApp({ user, onLogout }) {
                         Classe : <b>{classe}</b>{prof && <> · Enseignant : <b>{prof}</b></>}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                        Cours du <b>{prep.date_cours || '—'}</b>{prep.heure_cours ? ` à ${String(prep.heure_cours).slice(0, 5)}` : ''}
+                        {/* Deux notions, deux lignes. Confondues, une préparation
+                            déposée à 17h34 semblait porter l'heure 15:30 — qui
+                            est celle du COURS, et qui était juste. */}
+                        Cours prévu <b>{dateDeCours(prep) || prep.date_cours || '—'}</b>{heureDeCours(prep) ? ` à ${heureDeCours(prep)}` : ''}
+                        {momentDeDepot(prep) && <span style={{ color: 'var(--muted)' }}> · déposé le {momentDeDepot(prep)}</span>}
                         {aTemps !== null && (
                           <> · <span style={{ color: aTemps ? 'var(--green)' : 'var(--amber)', fontWeight: 700 }}>
                             {aTemps ? 'déposée à temps' : 'déposée après l’échéance'}
@@ -2323,9 +2327,31 @@ export default function DirecteurApp({ user, onLogout }) {
 
       {prepDetail && (() => {
         const contenu = prepDetail.contenu || {}
-        const prof = prepDetail.users
-          ? `${prepDetail.users.prenom || ''} ${prepDetail.users.nom || ''}`.trim()
-          : 'Enseignant non renseigné'
+        // ── L'auteur de la préparation ──────────────────────────────────
+        //
+        // Il venait de la ressource imbriquée `users(prenom, nom)`. Or une
+        // ressource imbriquée revient NULL dès que le lecteur ne peut pas lire
+        // la table jointe — et l'écran affichait alors « Enseignant non
+        // renseigné » pour une préparation dont `user_id` était pourtant bien
+        // renseigné.
+        //
+        // Vérifié en base : les VINGT-QUATRE préparations portent un
+        // `user_id`. L'identité n'est jamais perdue dans la donnée ; elle
+        // l'était à l'affichage.
+        //
+        // On résout donc sur la liste du personnel déjà chargée par cet
+        // écran, et l'on ne retombe sur la jointure que si elle a répondu.
+        const auteur = (profs || []).find(u => u.id === prepDetail.user_id)
+        const prof = auteur
+          ? `${auteur.prenom || ''} ${auteur.nom || ''}`.trim()
+          : prepDetail.users
+            ? `${prepDetail.users.prenom || ''} ${prepDetail.users.nom || ''}`.trim()
+            : prepDetail.user_id
+              // Un auteur existe, mais son profil n'a pas pu être lu. Le dire
+              // ainsi plutôt que « non renseigné », qui est faux et envoie
+              // chercher au mauvais endroit.
+              ? 'Enseignant — profil non chargé'
+              : 'Enseignant non renseigné'
         const classe = prepDetail.classes?.nom || prepDetail.groupe || '—'
         const pieces = Array.isArray(prepDetail.pieces_jointes) ? prepDetail.pieces_jointes : []
         const sequences = Array.isArray(contenu.sequences) ? contenu.sequences : []
@@ -2352,7 +2378,12 @@ export default function DirecteurApp({ user, onLogout }) {
                     <b>{prof}</b> · {classe} · {prepDetail.matiere || 'Matière non renseignée'}
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 3 }}>
-                    Cours du {prepDetail.date_cours || '—'}{prepDetail.heure_cours ? ` à ${String(prepDetail.heure_cours).slice(0, 5)}` : ''} · {libelleStatut(prepDetail.status)}
+                    <span>Cours prévu {dateDeCours(prepDetail) || prepDetail.date_cours || '—'}{heureDeCours(prepDetail) ? ` à ${heureDeCours(prepDetail)}` : ''} · {libelleStatut(prepDetail.status)}</span>
+                    {momentDeDepot(prepDetail) && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                        Déposé le {momentDeDepot(prepDetail)} <span style={{ opacity: .7 }}>(heure de Bamako)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button onClick={() => setPrepDetail(null)} aria-label="Fermer" style={{ border: 0, background: 'var(--bg)', borderRadius: 50, width: 38, height: 38, fontSize: 20, cursor: 'pointer' }}>×</button>

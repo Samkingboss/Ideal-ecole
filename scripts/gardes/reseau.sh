@@ -61,9 +61,49 @@ garde "L11 · tout champ de session existe sur users" \
 garde "L12 · une colonne absente est bien refusée" \
       "http 'users?select=custom_role&limit=1'" "400"
 
-garde    "L7 · volume users — données de recette préservées" "compte users" "13"
+# ── L7 · `users` n'est plus lisible par la clé publique ────────────────────
+#
+# Cette garde comptait les treize comptes AVEC LA CLÉ PUBLIQUE, pour prouver
+# que la migration Auth n'avait perdu personne. Elle ne peut plus : la table
+# est fermée à `anon` depuis la fermeture RLS, et c'est le but.
+#
+# Le compte des lignes n'a pas changé — c'est la LECTURE qui est fermée. La
+# garde vérifie donc désormais la propriété qui compte aujourd'hui : l'annuaire
+# du personnel n'est plus aspirable. Le volume se contrôle en session
+# authentifiée, par `scripts/verif-rls-authentifie.sh`.
+garde    "L7 · annuaire du personnel fermé à la clé publique" "compte users" "0"
 plancher "journal_audit" "L8 · journal_audit ne perd aucune ligne" "$(compte journal_audit)"
 garde    "L9 · users_secrets existe" \
   "[ \"\$(http 'users_secrets?select=user_id')\" = '401' ] && echo present || echo absent" "present"
+
+
+# ── L13 · L1 et L2 discriminent-elles encore ? ─────────────────────────────
+#
+# L1 et L2 vérifient que `code_acces` et `plafond_salaire` répondent 400.
+# Depuis la fermeture de `users` à `anon`, il fallait s'assurer qu'elles ne
+# passent pas pour une mauvaise raison — une table fermée refusant TOUT.
+#
+# Mesuré : une colonne qui EXISTE mais dont les lignes sont filtrées répond
+# 200 avec une liste vide ; une colonne ABSENTE répond 400. Les deux réponses
+# diffèrent, donc L1 et L2 prouvent bien que la colonne n'existe plus, et non
+# qu'on ne peut plus la lire.
+#
+# Si cette garde passe un jour à « vacues », L1 et L2 seront devenues des
+# formalités et la preuve devra migrer vers le script authentifié.
+garde "L13 · L1 et L2 discriminent encore" \
+  "python3 - <<'PY'
+import urllib.request, os
+K = os.environ.get('KEY', '')
+U = 'https://jircuneixzwsmtktxrkh.supabase.co/rest/v1'
+def st(q):
+    try:
+        urllib.request.urlopen(urllib.request.Request(
+            U + q, headers={'apikey': K, 'Authorization': 'Bearer ' + K}))
+        return 200
+    except Exception as e:
+        return getattr(e, 'code', 0)
+print('discriminantes' if st('/users?select=prenom&limit=1') != st('/users?select=colonne_qui_nexiste_pas&limit=1') else 'vacues')
+PY" \
+  "discriminantes"
 
 bilan
