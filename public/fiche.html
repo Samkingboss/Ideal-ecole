@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DOSSIER D'INSCRIPTION — IDEAL</title>
+    <title>Vérification de carte scolaire — IDEAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
@@ -150,7 +150,7 @@
 <header>
     <img src="logo-ideal.svg" alt="Logo IDEAL">
     <div class="header-text">
-        <div class="t1">INSCRIPTION VALIDÉE</div>
+        <div class="t1">VÉRIFICATION DE CARTE SCOLAIRE</div>
         <div class="t2">École Internationale Bilingue · Bamako</div>
     </div>
 </header>
@@ -175,45 +175,36 @@
             <div class="annee" id="f-annee"></div>
         </div>
         <div class="fiche-body">
+            <!-- Ce que le porteur de la carte a déjà sous les yeux, et rien
+                 de plus.
+
+                 Avant, cette page affichait le dossier complet — adresse du
+                 domicile, date et lieu de naissance, allergies, plus le
+                 téléphone, le WhatsApp, le courriel et la profession du
+                 responsable légal — à partir du seul matricule imprimé sur
+                 la carte. Une carte perdue livrait tout cela à qui la
+                 ramassait, et cette page EST la cible du QR imprimé dessus.
+
+                 MATRICULE ≠ SECRET ≠ PREUVE D'IDENTITÉ ≠ AUTORISATION.
+                 Le nom transmis dans le QR n'est pas un second facteur : il
+                 est imprimé sur la carte, comme le matricule. Ce qui protège
+                 le dossier, c'est que cette page ne le lit plus. -->
             <div class="section">
-                <div class="section-title">👤 Identité de l'élève</div>
+                <div class="section-title">🎓 Carte scolaire</div>
                 <div class="info-grid">
-                    <div class="info-item"><div class="info-label">Sexe</div><div class="info-value" id="f-sexe"></div></div>
-                    <div class="info-item"><div class="info-label">Date de naissance</div><div class="info-value" id="f-ddn"></div></div>
-                    <div class="info-item"><div class="info-label">Lieu de naissance</div><div class="info-value" id="f-lieu"></div></div>
-                    <div class="info-item"><div class="info-label">Nationalité</div><div class="info-value" id="f-nat"></div></div>
-                    <div class="info-item"><div class="info-label">Langue à la maison</div><div class="info-value" id="f-langue"></div></div>
-                    <div class="info-item"><div class="info-label">Adresse</div><div class="info-value" id="f-adresse"></div></div>
+                    <div class="info-item"><div class="info-label">Élève</div><div class="info-value" id="f-eleve"></div></div>
+                    <div class="info-item"><div class="info-label">Classe</div><div class="info-value" id="f-classe2"></div></div>
+                    <div class="info-item"><div class="info-label">Année scolaire</div><div class="info-value" id="f-annee2"></div></div>
+                    <div class="info-item"><div class="info-label">Validité</div><div class="info-value" id="f-type"></div></div>
                 </div>
             </div>
             <div class="section">
-                <div class="section-title orange">🏫 Scolarité</div>
-                <div class="info-grid">
-                    <div class="info-item"><div class="info-label">Classe demandée</div><div class="info-value" id="f-classe2"></div></div>
-                    <div class="info-item"><div class="info-label">Ancienne école</div><div class="info-value" id="f-anc-ecole"></div></div>
-                    <div class="info-item"><div class="info-label">Classe précédente</div><div class="info-value" id="f-anc-classe"></div></div>
-                    <div class="info-item"><div class="info-label">Statut dossier</div><div class="info-value" id="f-type"></div></div>
-                </div>
-            </div>
-            <div class="section">
-                <div class="section-title" style="background:var(--grey)">👨‍👩‍👧 Responsable légal</div>
-                <div class="info-grid">
-                    <div class="info-item"><div class="info-label">Nom & Prénoms</div><div class="info-value" id="f-r1-nom"></div></div>
-                    <div class="info-item"><div class="info-label">Lien de parenté</div><div class="info-value" id="f-r1-lien"></div></div>
-                    <div class="info-item"><div class="info-label">Téléphone</div><div class="info-value" id="f-r1-tel"></div></div>
-                    <div class="info-item"><div class="info-label">WhatsApp</div><div class="info-value" id="f-r1-wa"></div></div>
-                    <div class="info-item"><div class="info-label">Email</div><div class="info-value" id="f-r1-email"></div></div>
-                    <div class="info-item"><div class="info-label">Profession</div><div class="info-value" id="f-r1-prof"></div></div>
-                </div>
-            </div>
-            <div class="section">
-                <div class="section-title green">✅ Services</div>
-                <div class="badges">
-                    <span class="badge" id="badge-cantine"></span>
-                    <span class="badge" id="badge-image"></span>
-                </div>
-                <div id="allergies-zone" style="margin-top:.75rem; font-size:.83rem; color:var(--muted); display:none;">
-                    Allergies : <strong id="f-allergies"></strong> · Restrictions : <strong id="f-restrictions"></strong>
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.85rem 1rem;font-size:.87rem;line-height:1.55;">
+                    <strong>Vous avez trouvé cette carte ?</strong><br>
+                    Merci de la rapporter à l'École Internationale Bilingue IDEAL,
+                    Faladié Sema, Bamako, ou de prévenir l'école au
+                    <strong style="color:#174e72;">+223 90 19 00 07</strong>.<br>
+                    <span style="color:#64748b;">Aucune coordonnée de la famille n'est affichée sur cette page.</span>
                 </div>
             </div>
         </div>
@@ -292,114 +283,55 @@ window.addEventListener('load', async () => {
         // Mise à jour du message de chargement avec le matricule détecté
         document.querySelector('#state p').textContent = `Matricule détecté : ${matricule}`;
 
-        const { data: ins, error: err1 } = await _supa
-            .from('inscriptions')
-            .select('*')
-            .eq('matricule', matricule)
-            .single();
+        // ── Vérification de carte, pas lecture de dossier ──────────────
+        //
+        // `verifier_carte_scolaire` ne rend que ce que la carte porte déjà :
+        // reconnue, prénom, nom, classe, année. Elle ne touche ni
+        // `inscriptions` ni `responsables`.
+        //
+        // Le QR transmet déjà `&nom=` : c'est la signature à deux arguments
+        // pour laquelle cette fonction a été écrite.
+        const nomQR = params.get('nom') || '';
+        const { data: verif, error: errVerif } = await _supa
+            .rpc('verifier_carte_scolaire', { p_matricule: matricule, p_nom: nomQR });
 
-        if (err1 || !ins) {
-            showErr(`Fiche introuvable pour ${matricule}. Erreur : ${err1?.message || 'aucune donnée'}`);
+        if (errVerif) {
+            showErr(`La vérification n'a pas abouti : ${errVerif.message}`);
             return;
         }
 
-        // Responsable légal — requête séparée
-        let r1 = {};
-        if (ins.responsable1_id) {
-            const { data: resp } = await _supa
-                .from('responsables')
-                .select('*')
-                .eq('id', ins.responsable1_id)
-                .single();
-            if (resp) r1 = resp;
+        const carte = Array.isArray(verif) ? verif[0] : verif;
+
+        // Une carte non reconnue ne renvoie rien d'exploitable : elle ne doit
+        // pas devenir un moyen de deviner un matricule valide.
+        if (!carte || carte.reconnue !== true) {
+            showErr("Cette carte n'est pas reconnue par l'école. "
+                + "Si vous l'avez trouvée, merci de la rapporter à l'accueil.");
+            return;
         }
 
-        // Afficher la fiche
         document.getElementById('state').style.display = 'none';
         document.getElementById('fiche').style.display = 'block';
 
-        // Photo — URL signée Supabase (contourne les restrictions d'accès public)
-        const photoZone = document.getElementById('photo-zone');
-        // `photo_chemin` fait foi depuis le passage du bucket en privé : il
-        // porte le UUID sous lequel le fichier a réellement été déposé.
-        //
-        // Le chemin au matricule ne subsiste qu'en repli, pour les dossiers
-        // antérieurs à août 2026 dont la colonne serait vide. Employé seul, il
-        // ne trouvait plus rien : les inscriptions récentes nomment leurs
-        // fichiers d'après un UUID, jamais d'après le matricule.
-        const photoPath = ins.photo_chemin || `photos/${ins.matricule}.jpg`;
-        const { data: signedData } = await _supa.storage
-            .from('inscriptions')
-            .createSignedUrl(photoPath, 3600); // valable 1 heure
+        // Aucune photo : le portrait d'un enfant n'a pas à s'afficher au scan
+        // d'une carte ramassée dans la rue.
+        document.getElementById('photo-zone').innerHTML = '<div class="photo-placeholder">🎓</div>';
 
-        // Plus de repli sur `ins.photo_url` : le bucket est privé, ces
-        // adresses publiques ne résolvent plus. Certaines répondent encore par
-        // rémanence du cache CDN, ce qui rendrait l'affichage dépendant du
-        // nœud et de l'heure. Mieux vaut le placeholder, franc et prévisible.
-        const photoSrc = signedData?.signedUrl || null;
+        const nomComplet = `${(carte.nom || '').toUpperCase()} ${carte.prenom || ''}`.trim();
+        set('f-matricule', matricule);
+        set('f-nom', nomComplet);
+        set('f-classe', carte.classe);
+        set('f-annee', `Année scolaire ${carte.annee_scolaire || ''}`);
+        set('f-eleve', nomComplet);
+        set('f-classe2', carte.classe);
+        set('f-annee2', carte.annee_scolaire);
+        set('f-type', "Carte reconnue par l'école \u2713");
+        document.title = 'Carte scolaire vérifiée — IDEAL';
 
-        if (photoSrc) {
-            const img = new Image();
-            img.alt = 'Photo élève';
-            img.style.cssText = 'width:72px;height:72px;border-radius:10px;object-fit:cover;border:3px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.25);';
-            img.onerror = () => { photoZone.innerHTML = '<div class="photo-placeholder">👤</div>'; };
-            img.src = photoSrc;
-            photoZone.innerHTML = '';
-            photoZone.appendChild(img);
-        } else {
-            photoZone.innerHTML = '<div class="photo-placeholder">👤</div>';
-        }
-
-        // En-tête
-        set('f-matricule', ins.matricule);
-        set('f-nom', `${(ins.nom || '').toUpperCase()} ${ins.prenom || ''}`);
-        set('f-classe', ins.classe_demandee);
-        set('f-annee', `Année scolaire ${ins.annee_scolaire || ''}`);
-
-        // Identité
-        set('f-sexe', ins.sexe === 'M' ? 'Garçon' : ins.sexe === 'F' ? 'Fille' : ins.sexe);
-        set('f-ddn', ins.date_naissance);
-        set('f-lieu', ins.lieu_naissance);
-        set('f-nat', ins.nationalite);
-        set('f-langue', ins.langue_maison);
-        set('f-adresse', ins.adresse);
-
-        // Scolarité
-        set('f-classe2', ins.classe_demandee);
-        set('f-anc-ecole', ins.ancienne_ecole || 'Première inscription');
-        set('f-anc-classe', ins.classe_precedente || '—');
-        const dossierValide = ins.statut === 'validee';
-        set('f-type', dossierValide ? 'Inscription validée par la Direction ✓' : 'En attente de la signature du directeur ⏳');
-        document.title = `${dossierValide ? 'INSCRIPTION VALIDÉE' : 'INSCRIPTION EN COURS'} — IDEAL`;
-
-        // Responsable légal
-        set('f-r1-nom', `${r1.nom || ''} ${r1.prenom || ''}`);
-        set('f-r1-lien', r1.lien_parente);
-        set('f-r1-tel', r1.tel1);
-        set('f-r1-wa', r1.whatsapp);
-        set('f-r1-email', r1.email);
-        set('f-r1-prof', r1.profession);
-
-        // Services
-        const bc = document.getElementById('badge-cantine');
-        bc.textContent = ins.cantine ? '✓ Cantine' : '✗ Pas de cantine';
-        bc.className = `badge ${ins.cantine ? 'badge-yes' : 'badge-no'}`;
-
-        const bi = document.getElementById('badge-image');
-        bi.textContent = ins.droit_image ? "✓ Droit à l'image" : "✗ Pas de droit image";
-        bi.className = `badge ${ins.droit_image ? 'badge-yes' : 'badge-no'}`;
-
-        if (ins.cantine && (ins.allergies || ins.restrictions)) {
-            document.getElementById('allergies-zone').style.display = 'block';
-            set('f-allergies', ins.allergies || 'Non renseigné');
-            set('f-restrictions', ins.restrictions || 'Non renseigné');
-        }
-
-        // Message de confiance renouvelée
-        if (ins.type_inscription === 'reinscription' || (ins.matricule && !ins.matricule.startsWith('25-26'))) {
-            const bq = document.getElementById('badge-confiance-qr');
-            if (bq) bq.style.display = 'block';
-        }
+        // Le numéro est affiché en clair, sans lien direct vers WhatsApp :
+        // le cliquet INV-FLUX-04 tient un point d'appel unique, et cette page
+        // statique ne peut pas importer `src/lib/ecole.js`. Une copie codée
+        // en dur de plus serait une dispersion de plus.
 
     } catch(e) {
         showErr(`Erreur technique : ${e.message || String(e)}`);

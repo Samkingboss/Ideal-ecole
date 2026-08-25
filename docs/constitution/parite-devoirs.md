@@ -337,11 +337,10 @@ un devoir de deux pages en annonçait quatre. Dédoublonnage sur l'URL (D17).
 | 12 | Mobile 375 / 390 / 430 | **PASS** | aucun débordement, aucun contrôle hors écran aux trois largeurs |
 | 13 | Desktop | **PASS** | 1280 px, A4 pleine taille |
 | 14 | Performance | **PASS** | arrivée 12 stable, CP2 → 0 annoncé, retour 12 stable |
-| 15 | Gardes complètes vertes | **PASS sur le périmètre devoirs · FAIL sur la suite** | D1–D18 vertes, toutes auto-testées. C1/C8 restent rouges sur `fiche.html` — antérieures, sans lien avec les devoirs, et non fermables sans une nouvelle surface SQL |
+| 15 | Gardes complètes vertes | **PASS** | D1–D18 vertes, toutes auto-testées. C1/C8 étaient rouges sur `fiche.html` ; fermées depuis — voir `docs/constitution/carte-scolaire-publique.md`. **TOUS LES MODULES AU VERT.** |
 
-**Bascule effectuée** sur ce constat : les quatorze critères propres au module
-sont PASS, et le quinzième n'échoue que sur deux gardes antérieures qui ne sont
-pas une dépendance de ce basculement.
+**Bascule effectuée.** Les quinze critères sont PASS. Le quinzième l'est
+devenu après la fermeture de la fuite publique de `fiche.html`.
 
 ## Retour arrière
 
