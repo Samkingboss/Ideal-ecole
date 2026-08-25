@@ -880,7 +880,28 @@
     // =============================================
     const SUPABASE_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
-    const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // ── La session du portail, quand elle existe ───────────────────────
+    //
+    // Cette page est réservée au personnel — une garde en tête de fichier
+    // renvoie à l'accueil quiconque n'est ni direction ni responsable
+    // administratif. Pourtant son client Supabase tournait en `anon` : le
+    // tableau de bord lisait `inscriptions` avec la clé publique.
+    //
+    // Fermer la lecture anonyme des dossiers l'aurait donc cassé, alors même
+    // que ses utilisateurs sont authentifiés. `storageKey: 'ideal-auth'` est
+    // celui de `src/lib/supabase.js` : la page reprend la session du portail
+    // et ses lectures passent en `authenticated`.
+    //
+    // Le dépôt d'un dossier, lui, continue de passer par `creer_inscription`,
+    // SECURITY DEFINER : il fonctionne avec ou sans session.
+    const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        storageKey: 'ideal-auth',
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+    });
 
     // =============================================
     // ÉTAT GLOBAL
