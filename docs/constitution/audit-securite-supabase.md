@@ -48,7 +48,58 @@ fermées), et `users_secrets` (401).
 | `materiels` | 16 | stock |
 | `periodes`, `matieres`, `classes`, `objectifs`, `parametres`, `parametres_mois`, `planifications`, `presences_eleves`, `prof_classes`, `mouvements_stock`, `demandes_materiel`, `documents`, `evenements`, `affectations_matieres`, `maternelle_preparations`, `maternelle_controles_materiel` | 1 à 41 | référentiels et données de service |
 
-## STOCKAGE — le point le plus grave
+## STOCKAGE — deux expositions, de natures différentes
+
+Cinq buckets. Deux ne diffèrent que par une majuscule.
+
+| bucket | public | contenu |
+|---|---|---|
+| `devoirs` | **true** | 22 fichiers — pièces jointes des devoirs |
+| `documents` | **true** | vide |
+| `preparations` | **true** | vide |
+| `Inscriptions` | **true** | **vide — doublon** de `inscriptions`, créé trois jours plus tôt |
+| `inscriptions` | false | photos, signatures, actes de naissance |
+
+### A · `devoirs` est un bucket PUBLIC
+
+Un fichier réel, téléchargé **sans aucune clé**, depuis n'importe où :
+
+```
+GET /storage/v1/object/public/devoirs/migration/1783032894322_01.jpg
+→ 200 · 172 381 o · image/jpeg · 1170×1566
+```
+
+Ce n'est pas une question de politique : le bucket porte `public = true`. Il
+se ferme **dans le tableau de bord Storage**, sans SQL et sans propriétaire.
+
+`documents` et `preparations` sont publics aussi, actuellement vides — le
+premier fichier déposé y serait public.
+
+`Inscriptions` avec une majuscule est un **doublon vide**, public, créé le
+28/06 — trois jours avant `inscriptions`. Rien ne l'écrit : le code utilise la
+minuscule partout. À supprimer, sinon un dépôt s'y égarera un jour.
+
+### B · `inscriptions` est PRIVÉ, mais une politique laisse `anon` lire
+
+```
+GET /object/public/inscriptions/photos/26-27 A002.jpg  → 400   (sans clé)
+GET /object/inscriptions/photos/26-27 A002.jpg         → 200   (clé publiable)
+     34 241 o · JPEG
+GET /object/inscriptions/documents/…/acte_naissance.png→ 200
+    420 881 o · PNG 1170×2532
+```
+
+Le drapeau du bucket est bon. C'est une **politique `SELECT` permissive** sur
+`storage.objects` qui ouvre `anon`. Son nom reste à relever : je ne
+proposerai aucun `drop` sur un nom supposé.
+
+### Ce que le catalogue confirme
+
+`rls_active = true` sur `storage.objects` **et** sur `storage.buckets` —
+d'où le `404 Bucket not found` que renvoie l'API des buckets à `anon`, et
+le `400` de la route publique sur un bucket privé.
+
+
 
 Le bucket `inscriptions` n'est « privé » qu'au sens où la route `/public/`
 est fermée (400). **La clé publique, elle, y a un accès complet.**
