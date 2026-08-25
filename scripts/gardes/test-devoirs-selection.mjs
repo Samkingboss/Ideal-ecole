@@ -10,6 +10,7 @@
 // composant les APPELLE réellement.
 
 import { readFileSync, existsSync } from 'node:fs'
+import { viseEleve, lireDevoir, contenuCanonique } from '../../src/lib/devoirs.js'
 import {
   rubriqueDevoir, estArchive, devoirsActifs, classerDevoirs,
   devoirsSelectionnes, selectionRaccourci, ecartDeSelection,
@@ -140,6 +141,76 @@ console.log(`\n${G}── DEVOIRS · ce qui entre dans un document        [INV-M
     /^\d{4}-\d{2}-\d{2}$/.test(aujourdHuiISO(new Date(2026, 0, 5))))
   verifier('DATE aujourdHuiISO ne décale pas d’un jour',
     aujourdHuiISO(new Date(2026, 0, 5)) === '2026-01-05', aujourdHuiISO(new Date(2026, 0, 5)))
+}
+
+// ── G11 · un devoir ciblé désigne le bon enfant ───────────────────────────
+//
+// Défaut mesuré : `DevoirsDocument` lisait `contenu.destinataire_mode` sur le
+// brut. Les cinq devoirs historiques de la base n'ont pas cette clé — leur
+// ciblage vit dans `contenu.destinataires`. `undefined !== 'choix'` étant
+// vrai, ils passaient tous pour « toute la classe » : un devoir visant deux
+// enfants sortait trois fiches, dont une pour un enfant non concerné.
+{
+  // La forme réelle relevée en base, à l'octet près.
+  const historique = { id: 'h1', contenu: { destinataires: { mode: 'choix', eleves: [
+    { cle: 'el:869861b6-4ccd-41de-a8aa-834db4214f60' },
+    { cle: 'el:ccc0ae76-1fe7-42da-9000-ccf278528ed5' },
+    { cle: 'ins:IDEAL-2027-008' },
+  ] } } }
+  const vise = viseEleve(historique, '869861b6-4ccd-41de-a8aa-834db4214f60')
+  const pasVise = viseEleve(historique, '00000000-0000-0000-0000-000000000000')
+  verifier('G11 devoir historique : l’enfant ciblé est visé', vise === true)
+  verifier('G11 devoir historique : l’enfant NON ciblé ne l’est pas', pasVise === false)
+
+  // AUTO-TEST : la lecture brute — le défaut — doit donner la mauvaise réponse.
+  const lectureBrute = (d) => (d.contenu || {}).destinataire_mode !== 'choix'
+  verifier('G11 auto-test · la lecture brute se trompe bien',
+    lectureBrute(historique) === true, 'elle dirait « toute la classe »')
+
+  // Le candidat, joignable par matricule une fois devenu élève.
+  verifier('G11 candidat visé par son matricule',
+    viseEleve(historique, 'autre-uuid', 'IDEAL-2027-008') === true)
+  verifier('G11 un autre matricule n’est pas visé',
+    viseEleve(historique, 'autre-uuid', 'IDEAL-2027-099') === false)
+
+  // Le composant délègue-t-il vraiment ? Une copie locale rediverge.
+  const src = lire('src/pages/DevoirsDocument.jsx')
+  verifier('G11 le document délègue à viseEleve',
+    /const vise = \(devoir, eleve\) => viseEleve\(/.test(src))
+  verifier('G11 aucune lecture brute de destinataire_mode ne subsiste',
+    !/ciblage\.destinataire_mode/.test(src))
+}
+
+// ── G11b · une modification n’efface pas un candidat ──────────────────────
+//
+// `contenuCanonique` n'écrivait pas les candidats. Rouvrir un devoir
+// historique pour corriger sa date et l'enregistrer effaçait définitivement
+// `ins:IDEAL-2027-008` de son ciblage — quatre devoirs en base concernés.
+{
+  const depart = { id: 'h2', contenu: { destinataires: { mode: 'choix', eleves: [
+    { cle: 'el:869861b6-4ccd-41de-a8aa-834db4214f60' },
+    { cle: 'ins:IDEAL-2027-008' },
+  ] } } }
+  const lu = lireDevoir(depart)
+  // L'aller-retour complet : lecture → formulaire → écriture → relecture.
+  const reecrit = { id: 'h2', contenu: contenuCanonique({
+    destinataireMode: lu.destinataireMode,
+    eleveIds: lu.eleveIds,
+    candidatMatricules: lu.candidatMatricules,
+  }) }
+  const relu = lireDevoir(reecrit)
+  verifier('G11b le candidat survit à l’aller-retour',
+    relu.candidatMatricules.includes('IDEAL-2027-008'),
+    JSON.stringify(relu.candidatMatricules))
+  verifier('G11b l’élève survit aussi',
+    relu.eleveIds.includes('869861b6-4ccd-41de-a8aa-834db4214f60'))
+
+  // AUTO-TEST : sans transporter le champ — le défaut — le candidat disparaît.
+  const sansTransport = lireDevoir({ id: 'h2', contenu: contenuCanonique({
+    destinataireMode: lu.destinataireMode, eleveIds: lu.eleveIds,
+  }) })
+  verifier('G11b auto-test · sans transport, le candidat est perdu',
+    sansTransport.candidatMatricules.length === 0)
 }
 
 console.log(echecs === 0

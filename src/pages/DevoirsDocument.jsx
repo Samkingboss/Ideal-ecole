@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
-import { lireDevoir, regrouperPages } from '../lib/devoirs'
+import { lireDevoir, regrouperPages, viseEleve } from '../lib/devoirs'
 
 // Le cahier de devoirs imprimable.
 //
@@ -175,10 +175,21 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
     )
   }
 
-  const vise = (devoir, eleve) => {
-    const ciblage = devoir.contenu || {}
-    return ciblage.destinataire_mode !== 'choix' || (ciblage.eleve_ids || []).some(id => String(id) === String(eleve.id))
-  }
+  // Le ciblage se lit par la couche unique, jamais par une copie locale.
+  //
+  // Cette fonction lisait `contenu.destinataire_mode` directement. Sur les
+  // cinq devoirs historiques de la base, cette clé n'existe pas : le ciblage
+  // y est écrit `contenu.destinataires = { mode: 'choix', eleves: [...] }`.
+  // `undefined !== 'choix'` étant vrai, ils étaient tous traités comme
+  // s'adressant à TOUTE LA CLASSE.
+  //
+  // Mesuré : un devoir visant deux enfants sortait trois fiches nominatives,
+  // dont une pour un enfant qui n'avait pas ce devoir. La liste de l'écran,
+  // elle, annonçait bien deux — l'écran et le papier ne désignaient pas les
+  // mêmes enfants, parce qu'ils lisaient le ciblage à deux endroits.
+  //
+  // `viseEleve` est cet endroit unique. Il existait déjà.
+  const vise = (devoir, eleve) => viseEleve(devoir, eleve.id, eleve.matricule)
   // Union des destinataires : chaque enfant reçoit une page nominative ne
   // contenant que les devoirs qui le concernent.
   const destinataires = eleves.filter(e => list.some(d => vise(d, e)))

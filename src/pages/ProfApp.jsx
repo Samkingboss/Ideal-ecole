@@ -103,7 +103,7 @@ export default function ProfApp({ user, onLogout }) {
   const DEVOIR_VIDE = {
     matiere: '', objectif: '', enonce: '', bareme: '',
     type: TYPE_PAR_DEFAUT, periode: '', aRendrePour: '',
-    fichiers: [], destinataire_mode: 'classe', eleve_ids: [],
+    fichiers: [], destinataire_mode: 'classe', eleve_ids: [], candidat_matricules: [],
   }
   const [newDevoir, setNewDevoir] = useState(DEVOIR_VIDE)
   const [devoirEdite, setDevoirEdite] = useState(null)
@@ -366,6 +366,9 @@ export default function ProfApp({ user, onLogout }) {
       fichiers: [],
       destinataire_mode: d.destinataireMode,
       eleve_ids: d.eleveIds,
+      // Transporté sans être modifiable : l'écran ne sait pas afficher un
+      // candidat, mais il ne doit pas l'effacer pour autant.
+      candidat_matricules: d.candidatMatricules,
     })
     setDevoirErreur('')
     setRechercheEleve('')
@@ -454,6 +457,7 @@ export default function ProfApp({ user, onLogout }) {
           bareme: newDevoir.bareme,
           destinataireMode: newDevoir.destinataire_mode,
           eleveIds: newDevoir.eleve_ids,
+          candidatMatricules: newDevoir.candidat_matricules || [],
         }),
         fichiers: toutesPieces,
         fichier_url: toutesPieces[0]?.url || null,

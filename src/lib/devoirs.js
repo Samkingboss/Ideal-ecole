@@ -97,7 +97,11 @@ export const lireDevoir = (ligne) => {
     ? c.eleve_ids.map(idEleve).filter(Boolean)
     : clesHist.map(idEleve).filter(Boolean)
   // Les candidats visés, gardés à part : ils n'ont pas d'identifiant d'élève.
-  const candidatMatricules = clesHist.map(matriculeCandidat).filter(Boolean)
+  // Deux écritures possibles, comme pour les élèves : la clé canonique
+  // `candidat_matricules`, et les clés `ins:` de la forme historique.
+  const candidatMatricules = Array.isArray(c.candidat_matricules) && c.candidat_matricules.length
+    ? c.candidat_matricules.map(String)
+    : clesHist.map(matriculeCandidat).filter(Boolean)
 
   // Les pièces jointes vivent à deux endroits : la colonne `fichiers` pour
   // l'écran intégré, `contenu.images` pour la plateforme historique.
@@ -250,6 +254,12 @@ export const contenuCanonique = (saisie) => ({
   bareme: (saisie.bareme || '').trim() || null,
   destinataire_mode: saisie.destinataireMode === 'choix' ? 'choix' : 'classe',
   eleve_ids: saisie.destinataireMode === 'choix' ? (saisie.eleveIds || []) : [],
+  // Les CANDIDATS visés — des enfants inscrits mais pas encore élèves, donc
+  // sans identifiant dans `eleves`. La forme canonique les ignorait : rouvrir
+  // un devoir historique pour corriger sa date et le réenregistrer effaçait
+  // définitivement le candidat de son ciblage. Quatre devoirs en base visent
+  // `ins:IDEAL-2027-008` et l'auraient perdu à la première retouche.
+  candidat_matricules: saisie.destinataireMode === 'choix' ? (saisie.candidatMatricules || []) : [],
 })
 
 // ── Règles ─────────────────────────────────────────────────────────────────
