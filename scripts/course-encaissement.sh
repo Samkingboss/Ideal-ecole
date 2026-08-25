@@ -58,6 +58,22 @@ TB=$(connexion B dideal)      || { echo; echo "  Abandon : aucune session B. Rie
 echo
 echo "  Deux sessions ouvertes."
 
+# ── Controle prealable, sans toucher a l argent ──────────────────────────
+#
+# Le premier essai a rendu deux reponses VIDES : ni resultat, ni erreur. On
+# verifie donc d abord que chaque jeton parle vraiment au serveur, avec un
+# appel inoffensif. S il repond, le jeton est bon et le probleme est ailleurs.
+role() {
+  curl -sS -X POST "$URL/rest/v1/rpc/ideal_role" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $1" \
+    -H 'Content-Type: application/json' -d '{}' -w ' [http %{http_code}]' 2>&1
+}
+echo "  Role vu par le serveur pour A : $(role "$TA")"
+echo "  Role vu par le serveur pour B : $(role "$TB")"
+echo
+echo "  Ces deux roles doivent etre « directeur » ou"
+echo "  « responsable_administratif ». Sinon l encaissement sera refuse."
+
 etat() {
   curl -s "$URL/rest/v1/financement_params?select=state_json&id=eq.main" \
     -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H 'Cache-Control: no-cache' \
@@ -78,12 +94,15 @@ echo "  Avant : $AVANT"
 echo
 
 STAMP=$(date +%s)
+# `-sS` et non `-s` : le premier masque la barre de progression mais LAISSE
+# passer les erreurs. Avec `-s` seul, un échec réseau produisait un fichier
+# vide, et le script affichait « Réponse A : » suivi de rien — une panne
+# muette prise pour un résultat.
 appel() {   # $1 jeton, $2 montant, $3 mode, $4 suffixe de reçu
-  curl -s -X POST "$URL/rest/v1/rpc/enregistrer_paiement" \
+  curl -sS -X POST "$URL/rest/v1/rpc/enregistrer_paiement" \
     -H "apikey: $KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
-    -d "{\"p_matricule\":\"$MAT\",\"p_montant\":$2,\"p_mode\":\"$3\",
-         \"p_motif\":\"Régularisation Globale\",
-         \"p_recu\":\"COURSE-$STAMP-$4\",\"p_date_lisible\":\"course $STAMP\"}"
+    -w '\n  [http %{http_code}]' \
+    -d "{\"p_matricule\":\"$MAT\",\"p_montant\":$2,\"p_mode\":\"$3\",\"p_motif\":\"Regularisation Globale\",\"p_recu\":\"COURSE-$STAMP-$4\",\"p_date_lisible\":\"course $STAMP\"}" 2>&1
 }
 
 # ── LES DEUX EN MÊME TEMPS ────────────────────────────────────────────
@@ -93,9 +112,16 @@ appel "$TB" 50000 'Wave'    B > /tmp/course-B.json &
 PB=$!
 wait $PA; wait $PB
 
-echo "  Réponse A : $(cat /tmp/course-A.json)"
-echo "  Réponse B : $(cat /tmp/course-B.json)"
+RA=$(cat /tmp/course-A.json); RB=$(cat /tmp/course-B.json)
+echo "  Réponse A : ${RA:-(VIDE — la requête n a rien renvoyé)}"
+echo "  Réponse B : ${RB:-(VIDE — la requête n a rien renvoyé)}"
 echo
+if [ -z "$RA" ] || [ -z "$RB" ]; then
+  echo "  ✗ Au moins un appel n a rien renvoyé. Ce n est pas un resultat, c est"
+  echo "    une panne : le test ne conclut rien. Verifiez la connexion reseau."
+  rm -f /tmp/course-A.json /tmp/course-B.json
+  exit 1
+fi
 sleep 1
 APRES=$(etat)
 echo "  Après : $APRES"
