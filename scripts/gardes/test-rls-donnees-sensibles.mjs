@@ -1,19 +1,23 @@
-// Garde de FERMETURE : ce que la clé publique peut réellement faire.
+// Garde de FERMETURE : ce que la clé publique OBTIENT réellement.
 //
-// ── Pourquoi elle est comportementale et non déclarative ──────────────────
+// ── Pourquoi elle juge le CONTENU et non le code HTTP ─────────────────────
 //
-// La migration RLS a « réussi » sans rien fermer. Ses `drop policy if exists`
-// visaient neuf noms inventés ; la production en portait trois autres. Un
-// `drop policy IF EXISTS` sur un nom inexistant est un NO-OP SILENCIEUX — ni
-// erreur, ni avertissement.
+// Première version : elle exigeait un statut ≥ 300. Elle a déclaré FAIL sur
+// une fermeture pourtant effective.
 //
-// Lire `pg_policies` n'aurait rien changé : la clé publique n'y a pas accès,
-// et surtout un nom de politique ne dit pas ce qu'elle autorise. Cette garde
-// ne demande donc pas « quelles politiques existent » mais « qu'est-ce que la
-// clé publique arrive à faire ». C'est la seule question qui compte.
+// Sous RLS, un SELECT non autorisé ne lève PAS d'erreur : la politique filtre
+// les lignes, et PostgREST répond 200 avec `[]`. Un UPDATE ou un DELETE non
+// autorisé touche zéro ligne et répond de même. Seul l'INSERT échoue
+// franchement, parce qu'il n'y a aucune ligne à filtrer — la nouvelle viole
+// le `with check`.
 //
-// Elle écrit sur une ligne de sonde, jamais sur `main`, et nettoie derrière
-// elle.
+// Juger sur le statut, c'est donc confondre « refusé » et « en erreur ». La
+// vraie question est : la clé publique repart-elle avec des données, ou les
+// a-t-elle modifiées ? C'est ce que cette garde mesure.
+//
+// Elle n'écrit rien de persistant : les tentatives d'écriture portent sur des
+// lignes que la politique rend invisibles, donc sans effet — et la garde le
+// vérifie en comptant les lignes réellement touchées.
 
 import { readFileSync, existsSync } from 'node:fs'
 
@@ -24,65 +28,68 @@ const verifier = (nom, ok, detail = '') => {
   if (!ok) echecs++
 }
 const U = 'https://jircuneixzwsmtktxrkh.supabase.co/rest/v1'
-const CLE = (existsSync('public/inscription.html')
+const CLE = existsSync('public/inscription.html')
   ? (readFileSync('public/inscription.html', 'utf8').match(/SUPABASE_KEY = '([^']+)'/) || [])[1]
-  : null)
+  : null
 
-const appel = async (methode, chemin, corps, prefer) => {
-  const headers = { apikey: CLE, Authorization: `Bearer ${CLE}`, 'Content-Type': 'application/json' }
-  if (prefer) headers.Prefer = prefer
+// Rend { statut, lignes } — `lignes` vaut null quand le corps n'est pas une liste.
+const sonder = async (methode, chemin, corps, representation = false) => {
+  const headers = {
+    apikey: CLE, Authorization: `Bearer ${CLE}`, 'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, max-age=0', Pragma: 'no-cache',
+  }
+  if (representation) headers.Prefer = 'return=representation'
   try {
-    const r = await fetch(U + chemin, { method: methode, headers,
+    const r = await fetch(U + chemin, { method: methode, headers, cache: 'no-store',
       body: corps === undefined ? undefined : JSON.stringify(corps) })
-    return r.status
-  } catch { return 0 }
+    let lignes = null
+    try { const j = await r.json(); if (Array.isArray(j)) lignes = j.length } catch { /* corps vide */ }
+    return { statut: r.status, lignes }
+  } catch (e) { return { statut: 0, lignes: null, reseau: String(e).slice(0, 40) } }
 }
 
-console.log(`\n${G}── FERMETURE · ce que la clé publique arrive à faire   [INV-SEC]${F}`)
+// Refusé = soit une erreur franche, soit zéro donnée obtenue/touchée.
+const refuse = r => r.statut >= 400 || r.lignes === 0
+const detail = r => `— ${r.statut}${r.lignes !== null ? ` · ${r.lignes} ligne(s)` : ''}`
+
+console.log(`\n${G}── FERMETURE · ce que la clé publique OBTIENT   [INV-SEC]${F}`)
 
 if (!CLE) {
   verifier('clé publique introuvable', false, '— sonde impossible')
 } else {
-  const SONDE = '__sonde_garde_rls'
+  const s1 = await sonder('GET', '/financement_params?select=state_json&id=eq.main')
+  verifier('S1 · anon n’obtient aucune donnée comptable', refuse(s1), detail(s1))
 
-  // ── S1 à S4 · la comptabilité ──────────────────────────────────────────
-  const lecture = await appel('GET', '/financement_params?select=state_json&id=eq.main')
-  verifier('S1 · anon ne lit pas la comptabilité', lecture >= 300, `— ${lecture}`)
+  const s2 = await sonder('POST', '/financement_params',
+    { id: '__sonde_garde_rls', state_json: { sonde: true } }, true)
+  verifier('S2 · anon n’insère pas dans la comptabilité', refuse(s2), detail(s2))
 
-  const ecriture = await appel('POST', '/financement_params',
-    { id: SONDE, state_json: { sonde: true } }, 'return=minimal')
-  verifier('S2 · anon n’écrit pas dans la comptabilité', ecriture >= 300, `— ${ecriture}`)
+  const s3 = await sonder('PATCH', '/financement_params?id=eq.main',
+    { annee_scolaire: '2026-2027' }, true)
+  verifier('S3 · anon ne modifie aucune ligne comptable', refuse(s3), detail(s3))
 
-  const maj = await appel('PATCH', `/financement_params?id=eq.${SONDE}`,
-    { state_json: { sonde: 2 } }, 'return=minimal')
-  verifier('S3 · anon ne modifie pas la comptabilité', maj >= 300, `— ${maj}`)
+  const s4 = await sonder('DELETE', '/financement_params?id=eq.main', undefined, true)
+  verifier('S4 · anon ne supprime aucune ligne comptable', refuse(s4), detail(s4))
 
-  const suppression = await appel('DELETE', `/financement_params?id=eq.${SONDE}`)
-  verifier('S4 · anon ne supprime pas la comptabilité', suppression >= 300, `— ${suppression}`)
+  const s5 = await sonder('GET', '/inscriptions?select=nom,adresse&limit=1')
+  verifier('S5 · anon n’obtient aucun dossier d’inscription', refuse(s5), detail(s5))
 
-  // Ménage : si S2 a réussi, la sonde existe et doit partir.
-  if (ecriture < 300) await appel('DELETE', `/financement_params?id=eq.${SONDE}`)
+  const s6 = await sonder('GET', '/responsables?select=nom,tel1&limit=1')
+  verifier('S6 · anon n’obtient aucun responsable légal', refuse(s6), detail(s6))
 
-  // ── S5, S6 · les familles ──────────────────────────────────────────────
-  const dossiers = await appel('GET', '/inscriptions?select=nom,adresse&limit=1')
-  verifier('S5 · anon ne lit pas les dossiers d’inscription', dossiers >= 300, `— ${dossiers}`)
-
-  const parents = await appel('GET', '/responsables?select=nom,tel1&limit=1')
-  verifier('S6 · anon ne lit pas les responsables légaux', parents >= 300, `— ${parents}`)
-
-  // ── S7, S8 · les deux surfaces publiques restent vivantes ──────────────
+  // ── Les deux surfaces publiques doivent rester vivantes ────────────────
   //
   // Fermer trop large casserait le dépôt d'un dossier par un parent et la
-  // vérification d'une carte trouvée. On vérifie que les deux répondent
-  // encore — un refus de DROIT (401/403) serait une fermeture excessive ;
-  // un refus MÉTIER (400) prouve au contraire que la surface est vivante.
-  const depot = await appel('POST', '/rpc/creer_inscription', { p_dossier: {} })
+  // vérification d'une carte trouvée. Un refus de DROIT (401/403/404) serait
+  // une fermeture excessive ; un refus MÉTIER (400) prouve que la surface
+  // répond.
+  const s7 = await sonder('POST', '/rpc/creer_inscription', { p_dossier: {} })
   verifier('S7 · le dépôt public d’un dossier reste possible',
-    depot !== 401 && depot !== 403 && depot !== 404, `— ${depot}`)
+    ![401, 403, 404].includes(s7.statut) && s7.statut !== 0, detail(s7))
 
-  const carte = await appel('POST', '/rpc/verifier_carte_scolaire',
+  const s8 = await sonder('POST', '/rpc/verifier_carte_scolaire',
     { p_matricule: '__inexistant__', p_nom: '__inexistant__' })
-  verifier('S8 · la vérification de carte reste possible', carte === 200, `— ${carte}`)
+  verifier('S8 · la vérification de carte reste possible', s8.statut === 200, detail(s8))
 }
 
 console.log(echecs === 0
