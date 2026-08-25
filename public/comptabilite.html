@@ -1650,7 +1650,7 @@ function deconnexionIdeal() {
 
       <div style="display:flex; gap:1rem;">
         <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="closePaymentModal()">Annuler</button>
-        <button class="btn" style="flex:1; justify-content:center; background:var(--green); color:#fff;" onclick="submitPayment()">Encaisser & Générer Reçu</button>
+        <button id="paybtn-valider" class="btn" style="flex:1; justify-content:center; background:var(--green); color:#fff;" onclick="submitPayment()">Encaisser & Générer Reçu</button>
       </div>
     </div>
   </div>
@@ -5312,41 +5312,92 @@ function closePaymentModal() {
   document.getElementById('payment-modal').classList.remove('active');
 }
 
-function submitPayment() {
+// Un encaissement à la fois. Sans ce verrou, un double clic — ou un clic
+// répété parce que « ça n'a pas l'air de répondre » — enregistrait deux
+// paiements pour un seul billet reçu.
+let _encaissementEnCours = false;
+
+async function submitPayment() {
+  if (_encaissementEnCours) return;
+
   const id = parseInt(document.getElementById('paybtn-id').value);
   const amt = parseInt(document.getElementById('paybtn-montant').value);
   const mode = document.getElementById('paybtn-mode').value;
   const motif = document.getElementById('paybtn-motif').value;
-  
+
   if (isNaN(amt) || amt <= 0) return alert("Montant invalide");
 
   const s = studentsData.find(x => x.id === id);
   if (!s) return;
-  
-  s.paye += amt;
+
+  _encaissementEnCours = true;
+  const bouton = document.getElementById('paybtn-valider');
+  const libelleBouton = bouton ? bouton.textContent : null;
+  if (bouton) { bouton.disabled = true; bouton.textContent = 'Enregistrement…'; }
+
   if (!s.history) s.history = [];
-  
+
   const d = new Date();
   const dateStr = d.toLocaleDateString('fr-FR') + ' à ' + d.getHours() + 'h' + (d.getMinutes()<10?'0':'') + d.getMinutes();
-  const receiptId = `REC-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}-${s.history.length+1}-${s.id.toString().slice(-4)}`;
 
-  const __payment = { amount: amt, mode, motif, date: dateStr, receiptId };
+  // Le numéro de reçu ne peut pas dépendre de `history.length` : supprimer un
+  // paiement ferait réémettre un numéro déjà remis à une famille. On prend le
+  // plus grand rang déjà attribué à cet élève, et on l'incrémente.
+  const rangMax = s.history.reduce((m, h) => {
+    const r = parseInt((String(h.receiptId || '').match(/^REC-\d{6}-(\d+)-/) || [])[1] || 0, 10);
+    return r > m ? r : m;
+  }, 0);
+  const receiptId = `REC-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}-${rangMax + 1}-${s.id.toString().slice(-4)}`;
+
+  // QUI, QUAND — sans réponse jusqu'ici. `date` reste la chaîne française que
+  // le reçu imprime ; `le` porte l'instant réel, triable et daté.
+  const moi = (typeof currentUser === 'function' ? currentUser() : null)
+           || (function () { try { return JSON.parse(localStorage.getItem('ideal_user') || 'null') } catch (e) { return null } })();
+
+  const __payment = {
+    amount: amt, mode, motif, date: dateStr, receiptId,
+    le: d.toISOString(),
+    par: moi?.id || null,
+    par_nom: moi ? `${moi.prenom || ''} ${moi.nom || ''}`.trim() : null,
+    par_role: moi?.role || null,
+  };
+
+  // On applique en mémoire, on écrit, et on DÉFAIT si le serveur refuse.
+  s.paye += amt;
   s.history.push(__payment);
-
-  // ─── Liaison automatique avec la comptabilité SYSCOHADA ───
+  const ecrituresAvant = ecritures.length;
   if (typeof createEcritureFromPayment === 'function') {
     createEcritureFromPayment(s, __payment);
   }
 
+  const r = await enregistrerMaintenant();
+
+  if (bouton) { bouton.disabled = false; if (libelleBouton !== null) bouton.textContent = libelleBouton; }
+  _encaissementEnCours = false;
+
+  if (!r.ok) {
+    // Le serveur a refusé : ce paiement N'EXISTE PAS. On remet l'état exact
+    // d'avant — sinon l'écran afficherait de l'argent que la caisse n'a pas.
+    s.paye -= amt;
+    s.history.pop();
+    ecritures.length = ecrituresAvant;
+    recalculate();
+    renderElevesTab();
+    alert("❌ LE PAIEMENT N'A PAS ÉTÉ ENREGISTRÉ.\n\n"
+      + (r.message || 'Le serveur a refusé.') + (r.code ? ' (' + r.code + ')' : '')
+      + "\n\nNE REMETTEZ PAS DE REÇU. Recommencez, et si l'erreur persiste, "
+      + "signalez-la à la direction en citant ce message.");
+    return;
+  }
+
+  // À partir d'ici seulement, le paiement existe en base.
   closePaymentModal();
   recalculate();
   renderElevesTab();
 
-  // Proposer l'envoi du reçu illustré au parent sur WhatsApp (carte-image, principe rapport hebdo)
   if (confirm('📲 Envoyer le reçu illustré sur WhatsApp ?\n\nWhatsApp s\'ouvrira : cherchez le parent ou le groupe de la classe.\n(Le reçu papier reste imprimable via le bouton 🖨️ de la liste.)')) {
     waSendImage(s.id, 'recu');
   } else {
-    // Directly print
     printReceipt(s, s.history[s.history.length - 1]);
   }
 }
@@ -7579,8 +7630,11 @@ async function loadFromSupabase() {
   }
 }
 
-function autoSave() {
-  const state = {
+// L'état complet, tel qu'il part en base. Extrait d'`autoSave` pour que
+// l'écriture immédiate et l'écriture différée envoient exactement la même
+// chose — deux constructions séparées finiraient par diverger.
+function construireEtat() {
+  return {
     tauxRed: document.getElementById('taux-red')?.value,
     tauxCantine: document.getElementById('taux-cantine')?.value,
     pctMensualise: document.getElementById('pct-mensualise')?.value,
@@ -7594,6 +7648,37 @@ function autoSave() {
     planComptable,
     recouvrementConfig
   };
+}
+
+// ── Enregistrer TOUT DE SUITE, et dire si ça a marché ──────────────────────
+//
+// `autoSave` programme l'écriture 2 secondes plus tard et jette le résultat
+// dans une console. Mesuré : après un encaissement, `submitPayment` rendait la
+// main en 32 ms — reçu imprimé, WhatsApp proposé au parent — alors que la base
+// ne voyait le paiement qu'à 2 827 ms. Et quand le serveur refusait (403 ·
+// 42501), l'écran affichait quand même l'argent encaissé.
+//
+// Un encaissement ne peut pas attendre : on écrit sur-le-champ, on attend la
+// réponse, et on la rend à l'appelant.
+async function enregistrerMaintenant() {
+  clearTimeout(_supaDebounce);   // annuler l'écriture différée en attente
+  const state = construireEtat();
+  try {
+    localStorage.setItem('ideal-prevision-state', JSON.stringify(state));
+  } catch (err) { /* le local n'est pas la preuve — voir plus bas */ }
+  try {
+    const { error } = await _supa.from('financement_params')
+      .upsert({ id: 'main', state_json: state, updated_at: new Date().toISOString() },
+              { onConflict: 'id' });
+    if (error) return { ok: false, message: error.message, code: error.code };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: String(err?.message || err), code: 'reseau' };
+  }
+}
+
+function autoSave() {
+  const state = construireEtat();
   try {
     localStorage.setItem('ideal-prevision-state', JSON.stringify(state));
   } catch (err) {
@@ -7630,11 +7715,23 @@ function autoLoad() {
     }
     // Élèves dont la classe est encore 'm' → bascule par défaut sur 'ps' (sera modifiable manuellement)
     if (Array.isArray(studentsData)) {
-      // Nettoyage automatique des élèves de démonstration / test
-      studentsData = studentsData.filter(st => {
-        const full = `${st.nom || ''} ${st.prenom || ''}`.toUpperCase();
-        return !full.includes('AG OK') && !full.includes('OGAKANE') && !full.includes('SANOGO PATRICK') && !full.includes('TEST');
-      });
+      // ── Ce qui se trouvait ici, et pourquoi c'est parti ─────────────────
+      //
+      // Un « nettoyage automatique » supprimait, à CHAQUE chargement de page,
+      // tout élève dont le nom contenait « TEST », « AG OK », « OGAKANE » ou
+      // « SANOGO PATRICK » — puis l'état nettoyé repartait en base.
+      //
+      // Mesuré : un élève et son paiement de 200 000 F ont disparu de Supabase
+      // au simple rechargement de la page. Silencieusement.
+      //
+      // Le filtre portait sur une SOUS-CHAÎNE du nom. Une famille TESTA,
+      // CONTESTE, BATTESTINI ou ATTESTÉ aurait été effacée avec tout son
+      // historique de règlements, sans message, sans trace, sans possibilité
+      // de savoir que l'argent avait été encaissé.
+      //
+      // Une donnée financière ne se supprime pas au chargement d'un écran.
+      // Retirer une fiche de démonstration est une action explicite, pas un
+      // effet de bord d'ouverture.
       let migrated = 0;
       studentsData.forEach(st => {
         if (st.classe === 'm') { st.classe = 'ps'; migrated++; }
