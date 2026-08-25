@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { etatDossier, libelleEtat } from '../lib/dossierPieces'
 import { supabase } from '../lib/supabase'
 
 const telephoneWA = valeur => {
@@ -11,6 +12,11 @@ const telephoneWA = valeur => {
 export default function InscriptionsValidation({ inscriptions = [], directeur, onValidated, inscriptionCiblee }) {
   const [selection, setSelection] = useState(null)
   const [responsable, setResponsable] = useState(null)
+  // Les pièces du dossier. `documents_inscription` n'avait AUCUN lecteur dans
+  // tout le dépôt : les fichiers montaient, et plus personne ne savait ce qui
+  // manquait à un dossier.
+  const [pieces, setPieces] = useState([])
+  const [piecesEtat, setPiecesEtat] = useState('inconnu')
   const [signatureParentUrl, setSignatureParentUrl] = useState('')
   const [nomDirecteur, setNomDirecteur] = useState(`${directeur?.prenom || ''} ${directeur?.nom || ''}`.trim())
   const [enCours, setEnCours] = useState(false)
@@ -26,6 +32,27 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
     const trouvee = inscriptions.find(i => String(i.id) === String(inscriptionCiblee))
     if (trouvee) setSelection(trouvee)
   }, [inscriptionCiblee, inscriptions])
+
+  useEffect(() => {
+    if (!selection?.id) { setPieces([]); setPiecesEtat('inconnu'); return }
+    let vivant = true
+    setPiecesEtat('chargement')
+    supabase.from('documents_inscription')
+      .select('id, type, nom_fichier, uploaded_at, chemin')
+      .eq('inscription_id', selection.id)
+      .then(({ data, error }) => {
+        if (!vivant) return
+        // Une lecture en échec n'est pas un dossier vide : un dossier complet
+        // affiché comme incomplet enverrait le secrétariat réclamer des pièces
+        // déjà remises.
+        if (error) { setPiecesEtat('erreur'); setPieces([]); return }
+        // On n'arrive ici que sans erreur : une liste vide signifie alors
+        // réellement zéro pièce, et non une lecture qui a échoué.
+        setPieces(Array.isArray(data) ? data : [])
+        setPiecesEtat('charge')
+      })
+    return () => { vivant = false }
+  }, [selection])
 
   useEffect(() => {
     if (!selection?.responsable1_id) { setResponsable(null); return }
@@ -133,7 +160,27 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
     </div>
     <div style={{display:'grid',gap:10,marginTop:14}}>{inscriptions.map(i => <article id={`inscription-${i.id}`} key={i.id} style={{background:'#fff',border:`2px solid ${String(i.id) === String(inscriptionCiblee) ? '#00a8e0' : i.statut === 'validee' ? '#b8dfca' : '#d9e3e9'}`,borderLeft:`5px solid ${i.statut === 'validee' ? '#16825d' : '#f28c28'}`,borderRadius:12,padding:'13px 15px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',boxShadow:String(i.id) === String(inscriptionCiblee) ? '0 0 0 4px rgba(0,168,224,.16)' : 'none'}}><div><b style={{color:'#17364d'}}>{i.prenom} {i.nom}</b><div style={{fontSize:11,color:'#71808b',marginTop:3}}>{i.matricule} · {String(i.classe_demandee || '').replace(/\s+Bilingue/gi, '')}</div></div><div style={{display:'flex',alignItems:'center',gap:9}}><span style={{fontSize:11,fontWeight:850,color:i.statut === 'validee' ? '#16825d' : '#b86613'}}>{i.statut === 'validee' ? '✓ Validée' : '⏳ En attente'}</span><button onClick={() => setSelection(i)} style={{border:0,borderRadius:8,padding:'8px 11px',background:'#174e72',color:'#fff',fontWeight:800,cursor:'pointer'}}>{i.statut === 'validee' ? 'Voir la fiche' : 'Examiner et signer'}</button></div></article>)}</div>
     {!inscriptions.length && <div style={{padding:30,textAlign:'center',color:'#71808b'}}>Aucun dossier d’inscription.</div>}
-    {selection && <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setSelection(null)} style={{zIndex:999999}}><div className="modal" style={{maxWidth:720,maxHeight:'92vh',overflowY:'auto'}}><div className="modal-title">Dossier — {selection.prenom} {selection.nom}</div><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,background:'#f3f6f8',padding:14,borderRadius:10,fontSize:13}}><div><b>Matricule</b><br/>{selection.matricule}</div><div><b>Classe demandée</b><br/>{selection.classe_demandee}</div><div><b>Date de naissance</b><br/>{selection.date_naissance}</div><div><b>Responsable</b><br/>{responsable ? `${responsable.prenom} ${responsable.nom}` : 'Chargement…'}</div><div><b>Signature parent</b><br/>{selection.signature_chemin ? '✓ Enregistrée' : '✗ Absente'}</div><div><b>Statut</b><br/>{selection.statut === 'validee' ? 'Validée' : 'En attente de la Direction'}</div></div>{/* Le dossier complet se lit ICI, dans le portail, où la session existe.
+    {selection && <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setSelection(null)} style={{zIndex:999999}}><div className="modal" style={{maxWidth:720,maxHeight:'92vh',overflowY:'auto'}}><div className="modal-title">Dossier — {selection.prenom} {selection.nom}</div><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,background:'#f3f6f8',padding:14,borderRadius:10,fontSize:13}}><div><b>Matricule</b><br/>{selection.matricule}</div><div><b>Classe demandée</b><br/>{selection.classe_demandee}</div><div><b>Date de naissance</b><br/>{selection.date_naissance}</div><div><b>Responsable</b><br/>{responsable ? `${responsable.prenom} ${responsable.nom}` : 'Chargement…'}</div><div><b>Signature parent</b><br/>{selection.signature_chemin ? '✓ Enregistrée' : '✗ Absente'}</div><div><b>Statut</b><br/>{selection.statut === 'validee' ? 'Validée' : 'En attente de la Direction'}</div></div>{(() => {
+          if (piecesEtat === 'chargement') return <div style={{marginTop:12,fontSize:13,color:'#64748b'}}>Lecture des pièces…</div>
+          if (piecesEtat === 'erreur') return (
+            <div style={{marginTop:12,padding:'10px 12px',borderRadius:10,background:'rgba(239,68,68,.08)',border:'1px solid #ef4444',fontSize:13}}>
+              Les pièces du dossier n’ont pas pu être lues. <b>Ce dossier n’est pas nécessairement incomplet</b> — ne réclamez rien avant d’avoir rechargé.
+            </div>)
+          if (piecesEtat !== 'charge') return null
+          const ep = etatDossier(pieces)
+          return (
+            <div style={{marginTop:12,padding:'12px 14px',borderRadius:10,background: ep.complet ? 'rgba(46,158,79,.08)' : 'rgba(244,121,32,.08)',border: `1px solid ${ep.complet ? 'rgba(46,158,79,.45)' : 'rgba(244,121,32,.55)'}`}}>
+              <div style={{fontWeight:900,fontSize:13,color: ep.complet ? '#166534' : '#9a3412'}}>{ep.complet ? '✓ ' : '⚠ '}{libelleEtat(ep)}</div>
+              <div style={{marginTop:8,display:'grid',gap:4}}>
+                {ep.detail.map(d => (
+                  <div key={d.id} style={{fontSize:13,color: d.fournie ? '#166534' : '#9a3412'}}>
+                    {d.fournie ? '✓' : '✗'} {d.label}{!d.requise && <span style={{color:'#64748b'}}> (facultative)</span>}
+                  </div>
+                ))}
+              </div>
+              {!ep.complet && <div style={{marginTop:8,fontSize:12,color:'#64748b'}}>Une pièce manquante <b>n’empêche ni l’inscription ni l’encaissement</b>. Elle peut être apportée plus tard.</div>}
+            </div>)
+        })()}{/* Le dossier complet se lit ICI, dans le portail, où la session existe.
 
           Il s'ouvrait auparavant dans `/fiche.html`, page publique et cible du
           QR imprimé sur la carte scolaire : le même lien qui servait à la
