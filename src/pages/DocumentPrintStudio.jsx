@@ -1,5 +1,6 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
+import { A4, HAUTEUR_UTILE_MM, MM_EN_PX } from '../lib/pageA4'
 
 // Moteur documentaire commun d'IDEAL.
 //
@@ -29,24 +30,6 @@ import html2canvas from 'html2canvas'
 // l'écran, et l'impression tombe juste sans réglage. Une largeur en pixels
 // obligeait à deviner la résolution, et se décalait à chaque imprimante.
 
-const A4 = {
-  largeur: 210,
-  hauteur: 297,
-  marge: 14,
-}
-// Hauteur utile pour le contenu, une fois l'en-tête et le pied déduits.
-//
-// Les deux espaces de 4 mm qui séparent l'en-tête du contenu et le contenu du
-// pied comptent eux aussi. Ils étaient oubliés : le moteur croyait disposer de
-// 223 mm là où la feuille n'en offre que 218, et pouvait donc placer un bloc
-// qui ne tenait pas tout à fait. Mesuré au banc d'essai — en-tête 33,4 mm,
-// pied 9,6 mm — la réserve retenue reste prudente.
-const RESERVE_ENTETE_MM = 34
-const RESERVE_PIED_MM   = 12
-const ECARTS_MM         = 8      // deux gaps de 4 mm
-const HAUTEUR_UTILE_MM =
-  A4.hauteur - 2 * A4.marge - RESERVE_ENTETE_MM - RESERVE_PIED_MM - ECARTS_MM
-const MM_EN_PX = 3.779528   // 1 mm à 96 dpi
 
 // ─── Provenances ────────────────────────────────────────────────────────────
 //
@@ -234,7 +217,7 @@ function EnTete({ prov, titre, bandeau }) {
   )
 }
 
-function Pied({ prov, page, total, etabliLe }) {
+function Pied({ prov, page, total, etabliLe, mention }) {
   return (
     <div style={{
       flex: 'none', borderTop: `0.4mm solid ${prov.accent}44`, paddingTop: '2.5mm',
@@ -243,6 +226,10 @@ function Pied({ prov, page, total, etabliLe }) {
     }}>
       <Sceau prov={prov} compact />
       <span style={{ textAlign: 'right', lineHeight: 1.4 }}>
+        {/* Le destinataire, répété sur CHAQUE page. Une pile de feuilles se
+            distribue ; sans nom en pied, la page 3 d'un cahier ne se rattache
+            à personne. */}
+        {mention && <><span style={{ fontWeight: 900, color: prov.accent }}>{mention}</span><br /></>}
         <span style={{ fontWeight: 900, color: prov.accent, letterSpacing: '.05em' }}>
           École Internationale Bilingue IDEAL — Bamako, Mali
         </span>
@@ -259,7 +246,10 @@ function Pied({ prov, page, total, etabliLe }) {
 // L'unité que la pagination ne coupe jamais. Un document paginé se compose de
 // blocs ; le moteur les répartit sur les feuilles sans en scinder aucun.
 
-export function Bloc({ titre, numero, children, style }) {
+// `sautAvant` et `mention` ne changent RIEN au rendu du bloc : ils sont lus
+// par le moteur avant la répartition. Un bloc les reçoit et les ignore.
+export function Bloc({ titre, numero, children, style, sautAvant, mention, ...reste }) {
+  void sautAvant; void mention; void reste
   const prov = React.useContext(ProvenanceContext)
   return (
     <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid', ...style }}>
@@ -300,12 +290,16 @@ const ProvenanceContext = React.createContext(PROVENANCES.administration)
 // déborde : le moteur le signale en console plutôt que de le tronquer en
 // silence.
 
-function repartir(hauteurs, hauteurUtilePx, espacementPx) {
+// `sauts` porte les indices qui doivent OUVRIR une page. Sans eux, le cahier
+// de devoirs perdait sa règle métier : la page nominative d'un enfant se
+// remplissait avec les devoirs du suivant.
+function repartir(hauteurs, hauteurUtilePx, espacementPx, sauts = new Set()) {
   const pages = [[]]
   let restant = hauteurUtilePx
   hauteurs.forEach((h, i) => {
     const cout = h + (pages[pages.length - 1].length ? espacementPx : 0)
-    if (cout > restant && pages[pages.length - 1].length) {
+    const forcee = sauts.has(i) && pages[pages.length - 1].length
+    if (forcee || (cout > restant && pages[pages.length - 1].length)) {
       pages.push([i])
       restant = hauteurUtilePx - h
     } else {
@@ -361,7 +355,7 @@ const useEchelleFeuille = () => {
   return { cadre, docRef, echelle, hauteurDoc }
 }
 
-function Feuille({ prov, titre, bandeau, page, total, etabliLe, children }) {
+function Feuille({ prov, titre, bandeau, page, total, etabliLe, mention, children }) {
   return (
     <div className="feuille" style={{
       width: `${A4.largeur}mm`,
@@ -386,7 +380,7 @@ function Feuille({ prov, titre, bandeau, page, total, etabliLe, children }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4mm' }}>
         {children}
       </div>
-      <Pied prov={prov} page={page} total={total} etabliLe={etabliLe} />
+      <Pied prov={prov} page={page} total={total} etabliLe={etabliLe} mention={mention} />
     </div>
   )
 }
@@ -453,8 +447,31 @@ export default function DocumentPrintStudio({
   // l'oublier ferait déborder la première feuille de sa propre hauteur.
   const unites = !pagine ? null : [
     ...(champs?.length ? [<Identification key="id" prov={prov} champs={champs} />] : []),
-    ...React.Children.toArray(children).filter(Boolean),
+    // Les commandes d'écran — bandeau WhatsApp, boutons — portent
+    // `className="no-print"`. Elles ne sont pas du document : les compter
+    // comme unité réserverait leur hauteur en haut de la première page, et
+    // laisserait un trou sur le papier.
+    ...React.Children.toArray(children).filter(
+      e => e && !(React.isValidElement(e) && e.props?.className === 'no-print')),
   ]
+
+  // Les indications posées sur les blocs, lues AVANT la répartition. Le
+  // décalage tient compte du bloc d'identification, inséré en tête quand des
+  // champs sont fournis : sans lui, les indices désigneraient le mauvais bloc.
+  // Mémorisées : la répartition les lit dans un effet, et un `Set` reconstruit
+  // à chaque rendu relancerait la mise en page sans fin.
+  const { sautsForces, mentions } = useMemo(() => {
+    const decalage = champs?.length ? 1 : 0
+    const utiles = React.Children.toArray(children).filter(
+      e => e && !(React.isValidElement(e) && e.props?.className === 'no-print'))
+    const sauts = new Set(
+      utiles.flatMap((e, i) => (React.isValidElement(e) && e.props?.sautAvant) ? [i + decalage] : []))
+    const m = {}
+    utiles.forEach((e, i) => {
+      if (React.isValidElement(e) && e.props?.mention) m[i + decalage] = e.props.mention
+    })
+    return { sautsForces: sauts, mentions: m }
+  }, [children, champs])
 
   const mesureRef = useRef(null)
   const [pages, setPages] = useState(null)
@@ -477,8 +494,8 @@ export default function DocumentPrintStudio({
         `Scindez-le en plusieurs <Bloc>.`
       )
     })
-    setPages(repartir(hauteurs, utile, 4 * MM_EN_PX))
-  }, [pagine, children, meta, eleveInfo])
+    setPages(repartir(hauteurs, utile, 4 * MM_EN_PX, sautsForces))
+  }, [pagine, children, meta, eleveInfo, sautsForces])
 
   // ── Impression ────────────────────────────────────────────────────────────
   //
@@ -515,6 +532,14 @@ export default function DocumentPrintStudio({
         h6 { break-after: avoid; page-break-after: avoid; }
         img { max-width: 100% !important; }
         .no-print { display: none !important; }
+        /* L'apercu a l'ecran met le document a l'echelle pour tenir dans la
+           fenetre : un transform scale() pose en style INLINE. La fonction
+           d'impression recopie outerHTML, donc ce style part avec elle. Sur
+           un telephone, imprimer sortait un document a 47 % cale en haut a
+           gauche. App.css a bien la regle qui l'annule, mais elle ne couvre
+           que le Ctrl+P direct, pas cette fenetre-ci. */
+        #ideal-document { transform: none !important; width: auto !important;
+                          height: auto !important; }
       </style></head><body>${doc.outerHTML}</body></html>`)
     w.document.close()
 
@@ -539,6 +564,12 @@ export default function DocumentPrintStudio({
     if (!feuilles.length) return
     setEnExport(true)
     setMotExport('Génération du visuel…')
+    // `setEnExport(true)` retire le zoom d'aperçu, mais React ne l'a pas
+    // encore peint quand `html2canvas` cloner le DOM : l'appel se fait avant
+    // le premier point de suspension. Deux trames garantissent que le style
+    // est appliqué — une seule ne suffit pas, le style est posé pendant la
+    // première.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
     try {
       for (let i = 0; i < feuilles.length; i++) {
         const canvas = await html2canvas(feuilles[i], {
@@ -686,7 +717,13 @@ export default function DocumentPrintStudio({
               }}>Mise en page…</div>
             ) : (
               pages.map((indices, p) => (
-                <Feuille key={p} {...commun} page={p + 1} total={pages.length}>
+                /* La mention se REPORTE : une page qui ne contient que des
+                   fiches, sans bloc porteur, garde le nom de l'enfant à qui
+                   elles appartiennent. Sans report, la page 2 d'un cahier
+                   n'aurait plus de destinataire. */
+                <Feuille key={p} {...commun} page={p + 1} total={pages.length}
+                         mention={indices.map(i => mentions[i]).find(Boolean)
+                           ?? [...Array(indices[0] ?? 0).keys()].reverse().map(i => mentions[i]).find(Boolean)}>
                   {indices.map(i => (
                     <div key={i} data-bloc="">{unites[i]}</div>
                   ))}

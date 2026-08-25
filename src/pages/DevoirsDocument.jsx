@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import DocumentPrintStudio from './DocumentPrintStudio'
+import DocumentPrintStudio, { Bloc } from './DocumentPrintStudio'
+import { HAUTEUR_UTILE_MM } from '../lib/pageA4'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
 import { lireDevoir, regrouperPages, viseEleve } from '../lib/devoirs'
@@ -94,16 +95,57 @@ function CarteDevoir({ item }) {
         </div>
       </div>
 
-      {/* Les exercices photographiés. Sur le papier une adresse ne sert à
-          rien : on imprime l'image elle-même. */}
+      {/* Les fiches ne sont plus posees DANS la carte : chacune occupe sa
+          propre page, en pleine hauteur. `maxHeight: 340` les reduisait a
+          90 mm -- une fiche A4 photographiee sortait au format timbre-poste,
+          illisible pour un enfant de CP.
+
+          La carte n'annonce donc plus que leur nombre ; les pages suivent. */}
       {pieces.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
-          {pieces.map((f, k) => (
-            <img key={k} src={f.url} alt={f.nom || 'exercice'}
-              style={{ maxWidth: '100%', maxHeight: 340, borderRadius: 12, border: '1px solid #bae6fd', background: '#fff' }} />
-          ))}
+        <div style={{ marginTop: 12, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
+          📎 {pieces.length} fiche{pieces.length > 1 ? 's' : ''} jointe{pieces.length > 1 ? 's' : ''}
+          <span style={{ fontWeight: 500, color: '#64748b' }}> — page{pieces.length > 1 ? 's' : ''} suivante{pieces.length > 1 ? 's' : ''}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+// Une fiche jointe occupe exactement la hauteur utile d'une page, ratio
+// conserve.
+//
+//   `object-fit: contain`, jamais `cover` : `cover` recadre, donc coupe.
+//   `display: block`, sans quoi la descendante d'une image en ligne ajoute
+//   quatre pixels et fait deborder la page.
+//   Aucun `max-height` : la hauteur EST la contrainte.
+//
+// Zone utile 182 x 214 mm. Une fiche portrait A4 tient en 151 x 214 avec des
+// bandes laterales ; une fiche paysage en 182 x 129, centree. Dans les deux
+// cas : rien ne depasse, rien n'est coupe.
+function FichePleinePage({ piece }) {
+  return (
+    <img src={piece.url} alt={piece.nom || 'exercice'} style={{
+      display: 'block', width: '100%', height: `calc(${HAUTEUR_UTILE_MM}mm - 1mm)`,
+      objectFit: 'contain', objectPosition: 'center',
+      borderRadius: 12, border: '1px solid #bae6fd', background: '#fff',
+      breakInside: 'avoid', pageBreakInside: 'avoid',
+    }} />
+  )
+}
+
+// Un PDF joint ne s'affiche pas dans une balise image : le navigateur refuse
+// de le decoder, et le papier ne montrait qu'un cadre vide portant, au mieux,
+// le nom du fichier. On le dit, plutot que de faire croire a une fiche.
+const estPdf = f => /\.pdf(\?|#|$)/i.test(f?.nom || f?.url || '')
+
+function FicheNonImprimable({ piece }) {
+  return (
+    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 14,
+                  padding: '18px 20px', fontSize: 13, color: '#78350f', fontWeight: 700 }}>
+      📄 Document PDF joint — {piece.nom || 'sans nom'}
+      <div style={{ fontWeight: 500, marginTop: 6, fontSize: 12 }}>
+        Un PDF ne s’imprime pas depuis cette page : ouvrez-le et imprimez-le à part.
+      </div>
     </div>
   )
 }
@@ -215,6 +257,8 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
 
   return (
     <DocumentPrintStudio
+      pagine
+      nomFichier="Cahier_devoirs"
       type="pedagogie"
       documentTitle="CAHIER DE DEVOIRS DE MAISON"
       subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • DEVOIRS DE MAISON"
@@ -239,23 +283,41 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
         </div>}
       </div>
 
-      {destinataires.map((eleve, iPage) => {
+      {destinataires.flatMap((eleve, iPage) => {
         const devoirsEleve = list.filter(d => vise(d, eleve))
-        return <div key={eleve.id || iPage} style={iPage > 0 ? { breakBefore: 'page', pageBreakBefore: 'always', paddingTop: 24 } : undefined}>
-          {/* Page de garde nominative : le nom de l'élève, en tête de sa
-              feuille, pour que le cahier se rende et se signe sans confusion. */}
-          <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '18px 24px', marginBottom: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1px', opacity: .85 }}>DEVOIRS DE MAISON — {laClasse.toUpperCase()}</div>
+        // Le nom voyage avec chaque unite : le moteur le pose en pied de
+        // CHAQUE page, et le reporte sur celles qui n'en portent pas.
+        const mention = nomComplet(eleve) + ' \u00b7 ' + laClasse
+        return [
+          // Page de garde nominative -- une par enfant, et elle ouvre sa page.
+          <Bloc key={'g' + (eleve.id || iPage)} sautAvant={iPage > 0} mention={mention}>
+            <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '18px 24px' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1px', opacity: .85 }}>DEVOIRS DE MAISON \u2014 {laClasse.toUpperCase()}</div>
               <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>{nomComplet(eleve)}</div>
-              <div style={{ fontSize: 12, marginTop: 4, opacity: .9 }}>Remis le {aujourdhui}</div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {devoirsEleve.map((item, idx) => <CarteDevoir key={item.id || idx} item={item} />)}
-          </div>
-
-          <PiedDePage nominatif signataire={signataire} />
-        </div>
+              <div style={{ fontSize: 12, marginTop: 4, opacity: .9 }}>
+                Remis le {aujourdhui} \u00b7 {devoirsEleve.length} devoir{devoirsEleve.length > 1 ? 's' : ''}
+              </div>
+            </div>
+          </Bloc>,
+          // Chaque devoir est une unite : le moteur ne coupe jamais une carte
+          // en deux. Chaque fiche jointe est une unite a part, en pleine page.
+          ...devoirsEleve.flatMap((item, idx) => {
+            const dv = lireDevoir(item)
+            return [
+              <Bloc key={'d' + (eleve.id || iPage) + '-' + idx} mention={mention}>
+                <CarteDevoir item={item} />
+              </Bloc>,
+              ...dv.piecesJointes.map((f2, k) => (
+                <Bloc key={'f' + (eleve.id || iPage) + '-' + idx + '-' + k} sautAvant mention={mention}>
+                  {estPdf(f2) ? <FicheNonImprimable piece={f2} /> : <FichePleinePage piece={f2} />}
+                </Bloc>
+              )),
+            ]
+          }),
+          <Bloc key={'p' + (eleve.id || iPage)} mention={mention}>
+            <PiedDePage nominatif signataire={signataire} />
+          </Bloc>,
+        ]
       })}
     </DocumentPrintStudio>
   )
