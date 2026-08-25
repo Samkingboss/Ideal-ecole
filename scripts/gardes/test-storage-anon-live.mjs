@@ -94,6 +94,31 @@ for (const prefix of ['', 'photos', 'signatures', 'documents']) {
   verifier('G4 lien signé : refusé', signatureRefusee(corps), `http ${r.status}`)
 }
 
+// ── G13 · anon n'atteint pas la validation d'un dossier ───────────────────
+//
+// Le bucket n'est qu'une moitié du sujet. `valider_inscription_direction`
+// était `grant execute … to anon` et ne vérifiait aucun droit : avec la seule
+// clé publiable on recevait `inscription_introuvable` — la logique métier,
+// pas un refus. Et l'identifiant n'est pas un secret : `creer_inscription`
+// rend `inscription_id` au parent qui vient de déposer. Ce parent tenait donc
+// l'identifiant de son propre dossier et pouvait le valider lui-même.
+//
+// L'UUID nul ne correspond à aucun dossier : la garde ne peut rien valider.
+export const validationRefusee = corps =>
+  /42501|permission denied|validation_reservee_direction|PGRST202/i.test(corps)
+{
+  const r = await fetch(`${URL_BASE}/rest/v1/rpc/valider_inscription_direction`, {
+    method: 'POST', headers: { ...entetes, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      p_inscription_id: '00000000-0000-0000-0000-000000000000',
+      p_signature_chemin: 'x', p_directeur_nom: 'x',
+    }),
+  })
+  const corps = await r.text()
+  verifier('G13 validation d\'un dossier : hors de portée', validationRefusee(corps),
+    `http ${r.status} · ${corps.slice(0, 46)}`)
+}
+
 // ── AUTO-TESTS · une garde qui ne sait pas échouer ne prouve rien ─────────
 console.log(`\n${G}  auto-tests des juges${F}`)
 const auto = (nom, obtenu, attendu) => verifier(nom, obtenu === attendu)
@@ -108,6 +133,10 @@ auto('listeVide · 400 + erreur',              listeVide(400, '{"error":"x"}'), 
 auto('listeVide · 200 + corps illisible',     listeVide(200, 'nginx'), false)
 auto('signatureRefusee · lien délivré',       signatureRefusee('{"signedURL":"/object/sign/…"}'), false)
 auto('signatureRefusee · refus',              signatureRefusee('{"error":"not_found"}'), true)
+auto('validationRefusee · metier atteint',    validationRefusee('{"code":"P0001","message":"inscription_introuvable"}'), false)
+auto('validationRefusee · dossier valide !',  validationRefusee('{"ok":true,"matricule":"26-27 A099"}'), false)
+auto('validationRefusee · droit retire',      validationRefusee('{"code":"42501","message":"permission denied for function"}'), true)
+auto('validationRefusee · garde interne',     validationRefusee('{"code":"P0001","message":"validation_reservee_direction"}'), true)
 
 console.log(echecs === 0
   ? `\n  ${V}Bucket inscriptions : fermé à l'inconnu${F}\n`
