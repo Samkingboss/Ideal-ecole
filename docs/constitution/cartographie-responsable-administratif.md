@@ -93,3 +93,56 @@ nécessairement en base, sans que son nom figure nulle part, et sans qu'un
 deuxième clic soit empêché.**
 
 C'est le point de départ des boucles de correction.
+
+---
+
+## Concurrence — prouvée en conditions réelles
+
+Deux sessions authentifiées indépendantes, deux requêtes HTTP lancées en
+parallèle, même dossier.
+
+| Avant | Après |
+|---|---|
+| 41 000 F · 2 opérations | **121 000 F · 4 opérations** |
+
+**+80 000 F exactement.** Aucune opération perdue.
+
+### La preuve de sérialisation est dans les réponses elles-mêmes
+
+```
+Réponse B : {"ok": true, "par": "Directeur IDEAL",     "paye":  91000, "operations": 3}
+Réponse A : {"ok": true, "par": "Yacouba OUANGRAOUA",  "paye": 121000, "operations": 4}
+```
+
+B a écrit le premier : 41 000 + 50 000 = 91 000, trois opérations. A, parti en
+même temps, rend **121 000 et quatre opérations** — il a donc lu l'état
+POSTÉRIEUR à B. Le `for update` a fait attendre A, qui est reparti de ce que B
+venait d'écrire au lieu de l'écraser.
+
+C'est exactement le scénario qui perdait un paiement avant la correction.
+
+| Critère | Résultat |
+|---|---|
+| Deux opérations persistées | ✓ 2 → 4 |
+| Total ajouté | ✓ exactement 80 000 |
+| Aucun écrasement | ✓ |
+| Références distinctes | ✓ `COURSE-…-A`, `COURSE-…-B` |
+| Auteurs distincts, résolus par le serveur | ✓ « Yacouba OUANGRAOUA », « Directeur IDEAL » |
+| Horodatages distincts | ✓ 4/4, les deux derniers à 116 ms d'écart |
+| Aucune dépendance au stockage local | ✓ deux clients HTTP, aucun navigateur |
+| Aucune réécriture globale | ✓ le client n'envoie qu'un paiement |
+| Total dérivé de l'historique | ✓ somme = 121 000 = champ `paye` |
+
+### Trois pannes de mon outil de test, avant d'y arriver
+
+Toutes de la même famille — une panne rendue muette — dans l'outil même qui
+devait débusquer ce travers.
+
+1. `curl -s` masquait les erreurs : deux réponses vides ont été prises pour un
+   résultat, et le verdict a annoncé FAIL. Une réponse vide n'est plus un
+   résultat : le script s'arrête en disant que c'est une panne.
+2. Le `echo` suivant la saisie masquée écrivait sur `stdout`. Il était donc
+   capturé dans la variable du jeton et se retrouvait **en tête de l'en-tête
+   HTTP** — `curl: (43)`, code 000, la requête ne partait jamais. Reproduit
+   puis vérifié : jeton précédé de `\n` → 43/000 ; nettoyé → 200.
+3. Un abandon au premier code erroné, corrigé en trois essais par compte.
