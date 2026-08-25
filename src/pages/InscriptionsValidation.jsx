@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { etatDossier, libelleEtat } from '../lib/dossierPieces'
+import { etatDossier, libelleEtat, etatPiece, LIBELLE_CONTEXTE } from '../lib/dossierPieces'
 import { supabase } from '../lib/supabase'
 
 const telephoneWA = valeur => {
@@ -167,17 +167,31 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
               Les pièces du dossier n’ont pas pu être lues. <b>Ce dossier n’est pas nécessairement incomplet</b> — ne réclamez rien avant d’avoir rechargé.
             </div>)
           if (piecesEtat !== 'charge') return null
-          const ep = etatDossier(pieces)
+          const ep = etatDossier(pieces, selection)
           return (
             <div style={{marginTop:12,padding:'12px 14px',borderRadius:10,background: ep.complet ? 'rgba(46,158,79,.08)' : 'rgba(244,121,32,.08)',border: `1px solid ${ep.complet ? 'rgba(46,158,79,.45)' : 'rgba(244,121,32,.55)'}`}}>
               <div style={{fontWeight:900,fontSize:13,color: ep.complet ? '#166534' : '#9a3412'}}>{ep.complet ? '✓ ' : '⚠ '}{libelleEtat(ep)}</div>
+              <div style={{fontSize:11.5,color:'#64748b',marginTop:2}}>{LIBELLE_CONTEXTE[ep.contexte]}</div>
               <div style={{marginTop:8,display:'grid',gap:4}}>
-                {ep.detail.map(d => (
-                  <div key={d.id} style={{fontSize:13,color: d.fournie ? '#166534' : '#9a3412'}}>
-                    {d.fournie ? '✓' : '✗'} {d.label}{!d.requise && <span style={{color:'#64748b'}}> (facultative)</span>}
-                  </div>
-                ))}
+                {ep.detail.map(d => {
+                  const e = etatPiece(d)
+                  const signe = { fournie:'✓', manquante:'✗', a_confirmer:'?', sans_objet:'—' }[e]
+                  const teinte = { fournie:'#166534', manquante:'#9a3412', a_confirmer:'#7c5800', sans_objet:'#94a3b8' }[e]
+                  const suffixe = { a_confirmer:' — à confirmer', sans_objet:' — sans objet ici' }[e] || ''
+                  return (
+                    <div key={d.id} style={{fontSize:13,color:teinte}}>
+                      {signe} {d.label}<span style={{color:'#94a3b8'}}>{suffixe}</span>
+                    </div>
+                  )
+                })}
               </div>
+              {ep.aConfirmer.length > 0 && (
+                <div style={{marginTop:8,fontSize:12,color:'#7c5800'}}>
+                  La scolarisation antérieure n’est pas renseignée sur ce dossier.
+                  Ces pièces ne sont <b>pas comptées comme manquantes</b> — mais si
+                  l’enfant vient d’un autre établissement, elles sont à réclamer.
+                </div>
+              )}
               {!ep.complet && <div style={{marginTop:8,fontSize:12,color:'#64748b'}}>Une pièce manquante <b>n’empêche ni l’inscription ni l’encaissement</b>. Elle peut être apportée plus tard.</div>}
             </div>)
         })()}{/* Le dossier complet se lit ICI, dans le portail, où la session existe.
