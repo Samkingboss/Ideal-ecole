@@ -488,10 +488,17 @@ export default function DirecteurApp({ user, onLogout }) {
           commentaire: (p.commentaire || '').replace(/Fati\s*DJIRÉ/gi, '').replace(/\(–\s*trilingue\)/gi, '').replace(/\(Fati\s*DJIRÉ\s*–\s*trilingue\)/gi, '').trim()
         }))
         setPostes(cleaned)
-        await supabase.from('app_state').upsert(
+        // Nettoyage cosmétique rejoué à chaque chargement : un refus n'a pas
+        // de conséquence pour l'utilisateur, la version nettoyée reste
+        // affichée et la tentative recommencera. On lit tout de même le
+        // résultat plutôt que de l'ignorer — une écriture dont personne ne
+        // regarde l'issue est une écriture dont personne ne sait qu'elle
+        // échoue depuis des mois.
+        const { error: errNettoyage } = await supabase.from('app_state').upsert(
           { app: 'rh', key: 'postes', value: cleaned, updated_at: new Date().toISOString() },
           { onConflict: 'app,key' }
         )
+        if (errNettoyage) console.warn('Nettoyage des postes non persisté :', errNettoyage.message)
       }
 
       // Demandes RH soumises par les enseignants
@@ -937,7 +944,10 @@ export default function DirecteurApp({ user, onLogout }) {
                             const b = Number(e.target.value) || 0
                             const updated = { ...ficheMarcheCantine, budget: b }
                             setFicheMarcheCantine(updated)
-                            await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+                            // Sans lecture du résultat, le budget s'affichait
+                            // modifié à l'écran sans avoir été enregistré.
+                            const { error: errBudget } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+                            if (errBudget) setErreurGlobale("Le budget du marché n'a pas été enregistré : " + errBudget.message)
                           }}
                           style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}
                         />

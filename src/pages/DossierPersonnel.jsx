@@ -155,8 +155,13 @@ export default function DossierPersonnel({ user, profInfo, roleLabel = 'Enseigna
       const storageKey = `dossier_rh_${user.id}`
       localStorage.setItem(storageKey, JSON.stringify(formData))
 
-      // Sauvegarde Cloud Supabase
-      await supabase
+      // Sauvegarde Cloud Supabase.
+      //
+      // Le client Supabase ne lève pas d'exception : il rend `{ error }`. Le
+      // `try/catch` autour de cet appel n'attrapait donc rien, et `setSaved`
+      // s'exécutait quoi qu'il arrive — l'employé lisait « enregistré » même
+      // quand le serveur avait refusé. On lit le résultat.
+      const { error: errDossier } = await supabase
         .from('app_state')
         .upsert({
           // Sans `app`, colonne obligatoire de la clé primaire, le dossier
@@ -165,7 +170,14 @@ export default function DossierPersonnel({ user, profInfo, roleLabel = 'Enseigna
           key: `dossier_rh_${user.id}`,
           value: formData,
           updated_at: new Date().toISOString()
-        })
+        }, { onConflict: 'app,key' })
+
+      if (errDossier) {
+        alert("Votre dossier n'a pas été enregistré sur le serveur : "
+          + errDossier.message
+          + "\n\nIl reste sur cet appareil. Signalez-le à la direction.")
+        return
+      }
 
       setSaved(true)
       setTimeout(() => setSaved(false), 4000)

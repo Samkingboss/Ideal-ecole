@@ -378,7 +378,10 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   const loadPointageForDate = async (dt) => {
     try {
       const key = `cantine_pointage_${dt}`
-      const { data } = await supabase.from('app_state').select('value').eq('key', key).single()
+      // `app` fait partie de la clé primaire : sans elle, la lecture peut
+      // tomber sur une autre ligne portant la même clé.
+      const { data } = await supabase.from('app_state').select('value')
+        .eq('app', 'cantine').eq('key', key).maybeSingle()
       if (data && data.value) {
         setPointage(data.value)
       } else {
@@ -397,15 +400,36 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
     }
   }
 
-  // Sauvegarder le pointage du jour dans Supabase
+  // Sauvegarder le pointage du jour dans Supabase.
+  //
+  // ── Ce qui ne marchait pas ─────────────────────────────────────────────
+  //
+  // L'upsert omettait `app`, colonne de la clé primaire et NOT NULL. Chaque
+  // enregistrement partait en 400 (23502) et AUCUN pointage n'a jamais été
+  // écrit — vérifié en base : la table n'en contient pas une seule ligne.
+  //
+  // Rien ne le disait. Le client Supabase ne lève pas d'exception : il rend
+  // `{ error }`. Le `try/catch` ne se déclenchait donc jamais, et même le
+  // `console.error` restait muet. La cuisinière cochait ses repas, l'écran
+  // les affichait, et tout disparaissait au rechargement.
   const savePointage = async (updatedPt) => {
     setPointage(updatedPt)
-    try {
-      const key = `cantine_pointage_${datePointage}`
-      await supabase.from('app_state').upsert({ key, value: updatedPt, updated_at: new Date().toISOString() })
-    } catch (e) {
-      console.error('Erreur sauvegarde pointage:', e)
+    const key = `cantine_pointage_${datePointage}`
+    const { error } = await supabase.from('app_state').upsert({
+      app: 'cantine', key, value: updatedPt,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'app,key' })
+    // Un pointage perdu en silence est pire que pas de pointage : la
+    // cuisinière croit avoir enregistré, et les effectifs du lendemain sont
+    // faux sans que personne sache pourquoi.
+    if (error) {
+      setErreurChargement(
+        `Le pointage du ${datePointage} n'a pas été enregistré : ${error.message}. `
+        + `Ne quittez pas cet écran, signalez-le à la direction.`)
+      return false
     }
+    setErreurChargement('')
+    return true
   }
 
   // Toggle du repas (matin, midi, gouter) pour un élève
@@ -539,7 +563,15 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
     try {
       // `app` fait partie de la clé primaire et ne peut être nulle : sans elle
       // l'écriture partait en 400 et la cantine ne quittait jamais l'appareil.
-      await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      // Le client Supabase ne lève pas d'exception : il rend `{ error }`. Le
+      // `catch` ci-dessous ne se déclenchait donc jamais sur un refus du
+      // serveur, et « ✅ Menu enregistré » s'affichait quand même.
+      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      if (error) {
+        alert("Le menu n'a pas été enregistré : " + error.message
+          + "\n\nIl reste affiché sur cet appareil. Signalez-le à la direction.")
+        return false
+      }
       setMsg('✅ Menu de la semaine enregistré.')
       setTimeout(() => setMsg(''), 4000)
       return true

@@ -73,10 +73,28 @@ forgée porte la parole de la direction.
 des données nominatives d'employés. `dossier_rh_<id>` est le cas le plus net :
 chacun ne doit écrire que le sien.
 
-**3 · `cantine`** — menus, fiche de marché, justificatifs. Moins sensible, mais
-`CuisiniereApp.jsx:405` est **déjà morte** : l'`upsert` omet `app`, colonne de
-la clé primaire. Elle part en 400 et le pointage ne quitte jamais l'appareil.
-À traiter comme un bug, pas comme une migration.
+**3 · `cantine`** — menus, fiche de marché, justificatifs. Moins sensible.
+
+## Quatre écritures qui mentaient — corrigées
+
+Trouvées en auditant l'inventaire, sans rapport avec la fermeture elle-même,
+mais toutes de la même famille : **le client Supabase ne lève pas d'exception,
+il rend `{ error }`**. Un `try/catch` autour d'un `upsert` n'attrape donc rien.
+
+| Écriture | Ce qui se passait | État |
+|---|---|---|
+| `CuisiniereApp.savePointage` | `app` omise → 400 · 23502 à chaque fois. **Zéro pointage n'a jamais été enregistré** — vérifié en base. La cuisinière cochait ses repas, l'écran les affichait, tout disparaissait au rechargement. Le `console.error` lui-même ne s'exécutait pas. | corrigée, l'échec est désormais dit |
+| `CuisiniereApp.saveMenuSemaine` | « ✅ Menu de la semaine enregistré » s'affichait même sur un refus du serveur | corrigée |
+| `DossierPersonnel` | `setSaved(true)` s'exécutait quoi qu'il arrive : l'employé lisait « enregistré » sans que rien ne parte | corrigée |
+| `DirecteurApp` · budget du marché | le budget s'affichait modifié à l'écran sans avoir été enregistré | corrigée |
+
+Une cinquième, le nettoyage cosmétique des postes au chargement, ignorait aussi
+son résultat. Sans conséquence pour l'utilisateur — la tentative recommence au
+chargement suivant — mais le résultat est désormais lu et journalisé : une
+écriture dont personne ne regarde l'issue est une écriture dont personne ne
+sait qu'elle échoue depuis des mois.
+
+La garde A6 empêche le retour de cette famille.
 
 ## Porte de fermeture
 

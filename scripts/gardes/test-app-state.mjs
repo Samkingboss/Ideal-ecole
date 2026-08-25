@@ -107,23 +107,62 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
     + ` contournement:${pasDeSecondeTentative ? 'aucun' : 'PRÉSENT'}`)
 }
 
-// ── A5 · l'inventaire de migration reste à jour ───────────────────────────
+// ── A5 · l'inventaire de migration reste à jour ─────────────────────
 //
-// Chaque écriture directe restante doit être nommée dans le document de
-// fermeture, avec son workflow et sa surface de remplacement. Une écriture
-// qu'aucun document ne mentionne est une écriture que personne ne migrera.
+// Chaque écriture directe restante doit être couverte par le document de
+// fermeture. Une écriture qu'aucun document ne mentionne est une écriture que
+// personne ne migrera.
+//
+// L'index est le FICHIER et le total, pas le numéro de ligne : une première
+// version pointait `fichier:ligne`, et la moindre correction ailleurs dans le
+// fichier faisait rougir la garde sans qu'aucune écriture ait bougé. Une
+// garde qui crie pour rien finit par être ignorée.
 {
   const doc = lire('docs/constitution/fermeture-app-state.md')
   const trouvees = ecrituresAppState()
-  const manquantes = trouvees.filter(e => !doc.includes(`${e.fichier}:${e.ligne}`))
+  const fichiers = [...new Set(trouvees.map(e => e.fichier))]
+  const absents = fichiers.filter(f => !doc.includes(f))
+  // Le total annoncé par le plan doit être celui que l'on mesure.
+  const annonce = Number((doc.match(/Inventaire des (\d+) écritures/) || [])[1] || -1)
   verifier('A5 · chaque écriture restante figure au plan de fermeture',
-    doc.length > 0 && manquantes.length === 0,
+    doc.length > 0 && absents.length === 0 && annonce === trouvees.length,
     doc.length === 0 ? '— document absent'
-      : (manquantes.length ? `— absentes: ${manquantes.map(e => `${e.fichier}:${e.ligne}`).join(', ')}`
-                           : `— ${trouvees.length}/${trouvees.length} inventoriées`))
+      : (absents.length ? `— fichiers absents: ${absents.join(', ')}`
+         : `— ${fichiers.length} fichier(s), ${trouvees.length} écriture(s), plan annonce ${annonce}`))
 }
 
+// ── A6 · une écriture nomme son espace et lit son résultat ────────────
+//
+// Deux défauts de la même famille, tous deux vérifiés en base :
+//
+//   `app` est NOT NULL et fait partie de la clé primaire. L'omettre donne
+//   400 · 23502. `CuisiniereApp.savePointage` l'omettait : la table ne
+//   contenait pas UN SEUL pointage. La cuisinière cochait ses repas et tout
+//   disparaissait au rechargement.
+//
+//   Le client Supabase ne lève pas d'exception, il rend `{ error }`. Un
+//   `try/catch` autour d'un `upsert` n'attrape donc rien : le `console.error`
+//   ne s'exécutait pas, et `setSaved(true)` annonçait un succès qui n'avait
+//   pas eu lieu.
+//
+// Une écriture perdue en silence est pire qu'une écriture refusée : personne
+// ne sait qu'il faut recommencer.
+{
+  const manquent = []
+  for (const e of ecrituresAppState()) {
+    const lignes = lire(e.fichier).split('\n')
+    const fenetre = lignes.slice(e.ligne - 1, e.ligne + 14).join('\n')
+    if (!/(^|[\s({,])app\s*:/m.test(fenetre))
+      manquent.push(`${e.fichier}:${e.ligne} sans app`)
+    const suite = lignes.slice(Math.max(0, e.ligne - 4), e.ligne + 22).join('\n')
+    const litLeResultat = /(const|let)\s*\{[^}]*\berror\b/.test(suite)
+    if (!litLeResultat) manquent.push(`${e.fichier}:${e.ligne} sans lecture du résultat`)
+  }
+  verifier('A6 · chaque écriture nomme son espace et lit son résultat',
+    manquent.length === 0,
+    manquent.length ? `— ${manquent.join(' · ')}` : '— toutes conformes')
+}
 console.log(echecs === 0
-  ? `\n  ${V}5 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}6 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)
