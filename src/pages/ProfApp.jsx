@@ -23,6 +23,7 @@ import { statutDe as statutDePrep, libelleStatut as libelleStatutPrep } from '..
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir, auteurAuthentifie } from '../lib/devoirs'
 import { classerDevoirs, devoirsSelectionnes, selectionRaccourci, aujourdHuiISO } from '../lib/devoirsSelection'
+import { periodePourDate, periodesUtilisables, libellePeriode, calendrierEnBase, MESSAGE_HORS_CALENDRIER } from '../lib/periodeScolaire'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -452,7 +453,9 @@ export default function ProfApp({ user, onLogout }) {
         // n'y est recopié.
         contenu: contenuCanonique({
           type: newDevoir.type,
-          periode: newDevoir.periode,
+          // Calculée, jamais saisie. Si la date ne tombe dans aucune période,
+          // on écrit `null` — on n'invente pas la plus proche.
+          periode: libellePeriode(periodePourDate(newDevoir.aRendrePour, periodes)),
           enonce: newDevoir.enonce,
           bareme: newDevoir.bareme,
           destinataireMode: newDevoir.destinataire_mode,
@@ -779,8 +782,15 @@ export default function ProfApp({ user, onLogout }) {
             <select className="form-select" style={{ flex: 1, minWidth: 140 }} value={selectedClasse?.id || ''} onChange={e => setSelectedClasse(classes.find(c => c.id === e.target.value))}>
               {classes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
             </select>
+            {/* La table `periodes` porte 15 lignes = 5 périodes × 3 exemplaires
+                identiques, toutes en 2024-2025 : un seed passé trois fois, sans
+                contrainte d'unicité. Le filtre ci-dessous n'est pas le
+                correctif — la cause est en base et se répare par une migration.
+                Il empêche l'écran d'afficher trois fois « 1er Trimestre » en
+                attendant, et il dédoublonne sur (année, ordre), jamais sur le
+                libellé : deux années peuvent porter les mêmes noms. */}
             <select className="form-select" style={{ flex: 1, minWidth: 140 }} value={selectedPeriode?.id || ''} onChange={e => setSelectedPeriode(periodes.find(p => p.id === e.target.value))}>
-              {periodes.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
+              {periodesUtilisables(periodes).map(p => <option key={p.id || p.ordre} value={p.id || ''}>{p.nom}</option>)}
             </select>
           </div>
         )}
@@ -984,13 +994,42 @@ export default function ProfApp({ user, onLogout }) {
                       {TYPES_DEVOIR.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+                  {/* La période ne se choisit plus : elle se déduit de la date
+                      de remise, par le calendrier scolaire. C'était le seul
+                      champ du formulaire qu'aucun référentiel ne contredisait
+                      — un devoir de novembre pouvait porter « Période 5 ».
+
+                      La date de remise fait foi, et non la date de création :
+                      un devoir donné le 30 novembre et rendu le 2 décembre
+                      appartient à la période où il est ÉVALUÉ. */}
                   <div>
-                    <label className="form-label">Période <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(facultatif)</span></label>
-                    <select className="form-select" value={newDevoir.periode}
-                      onChange={e => setNewDevoir({ ...newDevoir, periode: e.target.value })}>
-                      <option value="">— non précisée —</option>
-                      {['1', '2', '3', '4', '5'].map(p => <option key={p} value={p}>Période {p}</option>)}
-                    </select>
+                    <label className="form-label">Période</label>
+                    {(() => {
+                      const per = periodePourDate(newDevoir.aRendrePour, periodes)
+                      if (!newDevoir.aRendrePour) return (
+                        <div className="form-input" style={{ display: 'flex', alignItems: 'center', color: 'var(--muted)', fontSize: 13, background: 'var(--bg)' }}>
+                          Indiquez la date de remise
+                        </div>
+                      )
+                      if (!per) return (
+                        <div className="form-input" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
+                                                             background: 'rgba(237,28,36,.07)', color: 'var(--red)', fontWeight: 700, lineHeight: 1.3 }}>
+                          {MESSAGE_HORS_CALENDRIER}
+                        </div>
+                      )
+                      return (
+                        <div className="form-input" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)', fontWeight: 800, fontSize: 13 }}>
+                          <span style={{ color: '#0284c7' }}>✓</span> {libellePeriode(per)}
+                          {/* Tant que la table `periodes` ne porte pas l'année en
+                              cours, le calcul s'appuie sur le calendrier intégré —
+                              celui que l'agenda affiche déjà. On le dit plutôt que
+                              de laisser croire à une source unique. */}
+                          <span style={{ fontWeight: 500, color: 'var(--muted)', fontSize: 11 }}>
+                            détectée{calendrierEnBase(periodes) ? '' : ' · calendrier intégré'}
+                          </span>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
 
