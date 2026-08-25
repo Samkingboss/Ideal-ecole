@@ -151,7 +151,26 @@ const sqlCode = sansCommentaires(sql)
   }
 }
 
+// ── P9 · `cree` est toujours un booléen ────────────────────────────────────
+//
+// Mesuré à l'étape 3 : au second appel, `cree` valait `null` et non `false`.
+// `array_length(t, 1)` rend NULL sur un tableau VIDE — la comparaison
+// devenait NULL, et le client qui teste `cree === false` ne voyait rien.
+//
+// L'idempotence fonctionnait ; c'est le CONTRAT qui était faux. Une valeur
+// qui n'est ni vraie ni fausse oblige chaque appelant à se souvenir du piège.
+{
+  const bloc = sqlCode.match(/create or replace function public\.notifier_preparation[\s\S]*?\$function\$;/)?.[0] || ''
+  const surTableau = /array_length\s*\(\s*v_(ecrites|deja)/.test(bloc)
+  const cree = (bloc.match(/'cree',\s*([^,\n]+)/) || [])[1] || ''
+  const booleen = /cardinality\(|coalesce\(\s*array_length/.test(cree)
+  verifier('P9 · `cree` est toujours un booléen, jamais null',
+    bloc.length > 0 && !surTableau && booleen,
+    `— cree=(${cree.trim() || 'ABSENT'})`
+    + ` array_length sur tableau:${surTableau ? 'PRÉSENT' : 'aucun'}`)
+}
+
 console.log(echecs === 0
-  ? `\n  ${V}8 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}9 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)

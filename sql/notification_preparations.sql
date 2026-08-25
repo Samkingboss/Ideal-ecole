@@ -257,7 +257,11 @@ begin
   --       un renvoi ne doit pas refaire sonner le téléphone. Son échec ne
   --       doit jamais annuler la notification déjà déposée : la cloche
   --       l'affichera à la prochaine ouverture.
-  if array_length(v_ecrites, 1) > 0 then
+  -- `cardinality` et non `array_length` : sur un tableau VIDE,
+  -- `array_length(t, 1)` rend NULL et non 0. La comparaison devenait NULL,
+  -- que le `if` traite comme faux — le comportement était juste ici, mais
+  -- par accident. `cardinality` rend 0, et la condition reste booléenne.
+  if cardinality(v_ecrites) > 0 then
     begin
       perform public.emettre_notification_push(
         p_cibles  => v_cles,
@@ -273,7 +277,10 @@ begin
   end if;
 
   return jsonb_build_object(
-    'cree',        array_length(v_ecrites, 1) > 0,
+    -- Là, le NULL sortait. Le contrat de la fonction est que `cree` soit
+    -- TOUJOURS un booléen : un appelant qui teste `cree === false` doit
+    -- pouvoir s'y fier, et `null` n'est ni vrai ni faux.
+    'cree',        cardinality(v_ecrites) > 0,
     'evenement',   case when v_retour then 'resoumission' else 'depot' end,
     'cycle',       v_cycles,
     'notification', v_id,
