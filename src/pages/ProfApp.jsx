@@ -22,6 +22,7 @@ import FrisePreparation from '../components/FrisePreparation'
 import { statutDe as statutDePrep, libelleStatut as libelleStatutPrep } from '../lib/preparations'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir, auteurAuthentifie } from '../lib/devoirs'
+import { classerDevoirs, devoirsSelectionnes, selectionRaccourci, aujourdHuiISO } from '../lib/devoirsSelection'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -115,6 +116,10 @@ export default function ProfApp({ user, onLogout }) {
   const [devoirEnCours, setDevoirEnCours] = useState(false)
   const [devoirErreur, setDevoirErreur] = useState('')
   const [showDevoirsModal, setShowDevoirsModal] = useState(false)
+  // La sélection d'impression : des IDENTIFIANTS, jamais des objets. Elle
+  // survit à un rechargement de la liste, et l'écran ne peut pas en détenir
+  // une copie divergente de celle qu'on imprime.
+  const [selectionDevoirs, setSelectionDevoirs] = useState([])
 
   // Discipline states
   // `allEleves` chargeait les élèves de TOUTE l'école et n'était jamais lu :
@@ -145,7 +150,14 @@ export default function ProfApp({ user, onLogout }) {
         .from('devoirs').select(CHAMPS_DEVOIR)
         .eq('classe_id', selectedClasse.id)
         .order('date_rendu', { ascending: false })
-      if (!annule) setDevoirs(Array.isArray(data) ? data : [])
+      if (!annule) {
+        const liste = Array.isArray(data) ? data : []
+        setDevoirs(liste)
+        // Par défaut, ce qui se rend AUJOURD'HUI — et rien d'autre. Le défaut
+        // d'origine était l'inverse : tout l'historique partait à l'impression
+        // sans que personne ne l'ait demandé.
+        setSelectionDevoirs(selectionRaccourci(liste, 'aujourdhui'))
+      }
     })()
     return () => { annule = true }
   }, [selectedClasse])
@@ -919,21 +931,26 @@ export default function ProfApp({ user, onLogout }) {
                 </h2>
                 <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
                   Classe {selectedClasse?.nom} · {devoirs.length} devoir{devoirs.length > 1 ? 's' : ''} enregistré{devoirs.length > 1 ? 's' : ''}
+                  {selectionDevoirs.length > 0 && <> · <b style={{ color: '#0284c7' }}>{selectionDevoirs.length} sélectionné{selectionDevoirs.length > 1 ? 's' : ''}</b></>}
                 </p>
               </div>
 
               {/* Action secondaire : l'action principale de cet écran est
                   d'enregistrer un devoir, pas d'en imprimer le cahier. */}
+              {/* Le bouton n'imprime plus « les devoirs » : il imprime LA
+                  SÉLECTION, et il le dit. Sans sélection il ne s'active pas —
+                  un document vide se voit tout de suite, vingt-cinq pages
+                  d'archives ne se voient qu'au moment de les distribuer. */}
               <button
                 onClick={() => setShowDevoirsModal(true)}
-                disabled={devoirs.length === 0}
-                style={{ background: devoirs.length === 0 ? 'var(--bg)' : 'linear-gradient(135deg, #0284c7, #0078b4)',
-                         color: devoirs.length === 0 ? 'var(--muted)' : '#fff',
-                         border: devoirs.length === 0 ? '1px solid var(--border)' : 'none',
+                disabled={selectionDevoirs.length === 0}
+                style={{ background: selectionDevoirs.length === 0 ? 'var(--bg)' : 'linear-gradient(135deg, #0284c7, #0078b4)',
+                         color: selectionDevoirs.length === 0 ? 'var(--muted)' : '#fff',
+                         border: selectionDevoirs.length === 0 ? '1px solid var(--border)' : 'none',
                          padding: '11px 18px', borderRadius: 12, fontWeight: 800, fontSize: 13,
-                         cursor: devoirs.length === 0 ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
+                         cursor: selectionDevoirs.length === 0 ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
               >
-                🖨️ Aperçu &amp; impression
+                🖨️ Imprimer {selectionDevoirs.length > 0 ? `${selectionDevoirs.length} devoir${selectionDevoirs.length > 1 ? 's' : ''}` : 'la sélection'}
               </button>
             </div>
 
@@ -1155,6 +1172,27 @@ export default function ProfApp({ user, onLogout }) {
               </div>
             </AccordionCard>
 
+            {/* Sélection d'impression — visible AVANT de générer, jamais
+                après. Les raccourcis reprennent les mots de l'enseignant :
+                « aujourd'hui », « cette semaine ». « Tout sélectionner » ne
+                prend PAS les archives : les archives se cochent une par une,
+                délibérément. */}
+            {devoirs.length > 0 && (
+              <div className="no-print" style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center',
+                                                 background: 'var(--bg)', border: '1px solid var(--border)',
+                                                 borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--muted)', marginRight: 2 }}>À IMPRIMER :</span>
+                {[['aujourdhui', "Aujourd’hui"], ['semaine', 'Cette semaine'], ['actifs', 'Tout sélectionner'], ['rien', 'Effacer']].map(([cle, libelle]) => (
+                  <button key={cle} className="btn-sm" style={{ minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+                    onClick={() => setSelectionDevoirs(selectionRaccourci(devoirs, cle))}>{libelle}</button>
+                ))}
+                <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800,
+                               color: selectionDevoirs.length ? '#0284c7' : 'var(--muted)' }}>
+                  {selectionDevoirs.length} sélectionné{selectionDevoirs.length > 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
+
             {/* Liste des Devoirs Enregistrés */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {devoirs.length === 0 && (
@@ -1162,10 +1200,44 @@ export default function ProfApp({ user, onLogout }) {
                   <p style={{ fontSize: 13 }}>Aucun devoir enregistré pour l’instant.</p>
                 </div>
               )}
-              {devoirs.map((d, i) => (
-                <div key={d.id || i} className="card" style={{ padding: 16, borderLeft: '4px solid #0284c7' }}>
+              {(() => {
+                // Un flux continu de devoirs sur téléphone ne se lit pas : on
+                // range. `date_rendu` est la référence — c'est la date que
+                // l'élève et le parent ont en tête.
+                const groupes = classerDevoirs(devoirs, aujourdHuiISO())
+                const rubriques = [
+                  ['enRetard',  '⚠️ En retard',            '#b45309'],
+                  ['aujourdhui', '📌 Aujourd’hui',          '#0284c7'],
+                  ['aVenir',    '🗓 À venir',               '#0284c7'],
+                  ['sansDate',  '• Sans date de remise',    '#64748b'],
+                  ['archives',  '🗄 Archives',              '#64748b'],
+                ]
+                return rubriques.filter(([cle]) => groupes[cle].length > 0).map(([cle, titre, couleur]) => (
+                  <div key={cle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 900, color: couleur, letterSpacing: '.04em' }}>
+                        {titre} · {groupes[cle].length}
+                      </span>
+                      {cle === 'archives' && (
+                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+                          consultables — jamais imprimées ni envoyées sans être cochées
+                        </span>
+                      )}
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    </div>
+                    {groupes[cle].map((d, i) => (
+                <div key={d.id || i} className="card" style={{ padding: 16,
+                       borderLeft: `4px solid ${selectionDevoirs.includes(String(d.id)) ? '#0284c7' : 'var(--border)'}`,
+                       background: selectionDevoirs.includes(String(d.id)) ? 'rgba(2,132,199,.04)' : undefined }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 900, color: '#0284c7', fontSize: 14 }}>📖 {d.matiere}</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', minHeight: 32 }}>
+                      <input type="checkbox" style={{ width: 17, height: 17 }}
+                        checked={selectionDevoirs.includes(String(d.id))}
+                        onChange={() => setSelectionDevoirs(sel => sel.includes(String(d.id))
+                          ? sel.filter(x => x !== String(d.id))
+                          : [...sel, String(d.id)])} />
+                      <span style={{ fontWeight: 900, color: '#0284c7', fontSize: 14 }}>📖 {d.matiere}</span>
+                    </label>
                     {d.date_rendu && (
                       <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b' }}>
                         ⏰ Pour le {new Date(d.date_rendu + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -1223,7 +1295,10 @@ export default function ProfApp({ user, onLogout }) {
                     </a>
                   ))}
                 </div>
-              ))}
+                    ))}
+                  </div>
+                ))
+              })()}
             </div>
           </div>
         )}
@@ -1428,7 +1503,8 @@ export default function ProfApp({ user, onLogout }) {
            a une : l'enveloppe qui existait ici faisait doublon et imposait au
            document une largeur fixe de 880 px sur un téléphone. */
         <DevoirsDocument
-          devoirsList={devoirs}
+          devoirsList={devoirsSelectionnes(devoirs, selectionDevoirs)}
+          idsSelectionnes={selectionDevoirs}
           classeNom={selectedClasse?.nom || 'CP1 Bilingue'}
           eleves={getClasseEleves()}
           user={user}
