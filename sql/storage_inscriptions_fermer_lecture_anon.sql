@@ -121,3 +121,44 @@ select
 -- S3 — le bucket n'est pas devenu public au passage.
 --      ATTENDU : public = false
 select name, public from storage.buckets where name = 'inscriptions';
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SUITE — D5 : LA DIRECTION NE PEUT PAS SIGNER UN DOSSIER
+-- ═══════════════════════════════════════════════════════════════════════
+--
+-- Constat de recette, session direction ouverte :
+--
+--   POST /object/inscriptions/signatures-direction/FIXTURE-STORAGE.txt
+--     → 403 « new row violates row-level security policy »
+--
+-- `InscriptionsValidation.jsx:123` depose la signature du directeur dans
+-- `signatures-direction/` AVANT d appeler `valider_inscription_direction`.
+-- Le depot echoue, donc la validation d un dossier est impossible.
+--
+-- CE DEFAUT EST ANTERIEUR A LA FERMETURE. Les trois policies d ecriture du
+-- bucket visent `anon` ; aucune n a jamais vise `authenticated`. Retirer la
+-- lecture anonyme ne l a pas cree, seule la recette l a revele.
+--
+-- ⚠ NON APPLIQUE. Rien ne doit toucher aux policies sans validation.
+--
+-- Geste propose, meme voie tableau de bord :
+--
+--   Storage → Policies → `inscriptions` → New policy
+--                      → For full customization
+--
+--     Policy name        depot_signature_direction
+--     Allowed operation  INSERT   (cette case seule)
+--     Target roles       authenticated
+--     WITH CHECK         bucket_id = 'inscriptions'
+--                        and (storage.foldername(name))[1] = 'signatures-direction'
+--                        and public.ideal_est_direction()
+--
+-- Le prefixe est contraint : la direction depose SA signature, elle
+-- n obtient pas le droit d ecrire partout dans le bucket.
+--
+-- `InscriptionsValidation.jsx:136` fait en plus un `remove([chemin])` pour
+-- annuler un depot en cas d echec de la RPC. Ce retrait exige un DELETE que
+-- personne n a. A trancher separement : soit une policy DELETE de meme
+-- prefixe, soit renoncer au retrait et laisser un fichier orphelin, ce qui
+-- est le moindre mal. Ne pas ajouter les deux « au cas ou ».

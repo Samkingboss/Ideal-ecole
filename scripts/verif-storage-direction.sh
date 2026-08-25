@@ -30,7 +30,10 @@ OK=0; KO=0
 # les rend, la direction lit ; sinon elle est enfermée dehors.
 PHOTO='photos/26-27%20A002.jpg'
 SIGNA='signatures/26-27%20A002.png'
-ACTE='documents/40d89eb9-fa2f-45e6-9d25-8363511e82e2/acte_naissance.png'
+# Aucun chemin de piece en dur. Un chemin recopie de memoire qui rend
+# « Object not found » ne prouve rien : ni un refus, ni une absence. La
+# piece est DECOUVERTE par listing, avec la session qui vient de s ouvrir.
+ACTE=''
 
 jeton() {
   curl -sS -X POST "$URL/auth/v1/token?grant_type=password" \
@@ -64,6 +67,26 @@ lire() {  # $1 libellé  $2 chemin  $3 jeton
   fi
 }
 
+# Descend documents/<dossier>/<piece> et rend le chemin d une piece reelle.
+decouvrir_piece() {  # $1 jeton
+  local dossier piece
+  dossier=$(curl -sS -X POST -H "apikey: $KEY" -H "Authorization: Bearer $1" \
+    -H 'Content-Type: application/json' -d '{"prefix":"documents","limit":100}' \
+    "$URL/storage/v1/object/list/inscriptions" \
+    | python3 -c 'import sys,json
+o=[x["name"] for x in json.load(sys.stdin) if not x.get("id")]
+print(o[0] if o else "")' 2>/dev/null)
+  [ -z "$dossier" ] && return 1
+  piece=$(curl -sS -X POST -H "apikey: $KEY" -H "Authorization: Bearer $1" \
+    -H 'Content-Type: application/json' -d "{\"prefix\":\"documents/$dossier\",\"limit\":100}" \
+    "$URL/storage/v1/object/list/inscriptions" \
+    | python3 -c 'import sys,json
+o=[x["name"] for x in json.load(sys.stdin) if x.get("id")]
+print(o[0] if o else "")' 2>/dev/null)
+  [ -z "$piece" ] && return 1
+  printf 'documents/%s/%s' "$dossier" "$piece"
+}
+
 echo
 echo '════════ COMPTE DIRECTION ════════'
 T_DIR=$(connexion 'direction') || { echo 'ABANDON : session direction non ouverte'; exit 1; }
@@ -71,7 +94,13 @@ echo
 echo '--- Lecture des pieces (ce que l ecran Dossiers affiche) ---'
 lire 'D1 photo eleve'         "$PHOTO" "$T_DIR"
 lire 'D2 signature parent'    "$SIGNA" "$T_DIR"
-lire 'D3 acte de naissance'   "$ACTE"  "$T_DIR"
+ACTE=$(decouvrir_piece "$T_DIR")
+if [ -z "$ACTE" ]; then
+  echo 'FAIL  D3 aucune piece listee sous documents/ — la direction ne voit rien'; KO=$((KO+1))
+else
+  echo "      piece trouvee par listing : $ACTE"
+  lire 'D3 piece du dossier'  "$(printf '%s' "$ACTE" | sed 's/ /%20/g')"  "$T_DIR"
+fi
 
 echo
 echo '--- D4 lien signe (ce qu appelle reellement InscriptionsValidation) ---'
@@ -111,7 +140,12 @@ if [ $etat -eq 0 ]; then
   echo
   lire 'R1 photo eleve'       "$PHOTO" "$T_RA"
   lire 'R2 signature parent'  "$SIGNA" "$T_RA"
-  lire 'R3 acte de naissance' "$ACTE"  "$T_RA"
+  R_ACTE=$(decouvrir_piece "$T_RA")
+  if [ -z "$R_ACTE" ]; then
+    echo 'FAIL  R3 aucune piece listee sous documents/ — le RA ne voit rien'; KO=$((KO+1))
+  else
+    lire 'R3 piece du dossier' "$(printf '%s' "$R_ACTE" | sed 's/ /%20/g')" "$T_RA"
+  fi
 elif [ $etat -eq 2 ]; then
   echo '  R1-R3 non executes'
 else
@@ -127,7 +161,7 @@ T_PROF=$(connexion 'enseignant'); etat=$?
 if [ $etat -eq 0 ]; then
   code=$(curl -sS -o /tmp/ideal-prof.bin -w '%{http_code}' \
          -H "apikey: $KEY" -H "Authorization: Bearer $T_PROF" \
-         "$URL/storage/v1/object/inscriptions/$ACTE")
+         "$URL/storage/v1/object/inscriptions/$(printf '%s' "${ACTE:-$PHOTO}" | sed 's/ /%20/g')")
   taille=$(wc -c < /tmp/ideal-prof.bin | tr -d ' ')
   if [ "$code" = '200' ] && [ "$taille" -gt 1000 ]; then
     echo "FAIL  N1 un enseignant lit un acte de naissance ($taille o) — FUITE"; KO=$((KO+1))
@@ -143,6 +177,8 @@ echo '════════════════════════�
 echo "  $OK PASS · $KO FAIL"
 [ $KO -eq 0 ] && echo '  LECTURE DIRECTION/RA CONFORME' || echo '  A CORRIGER'
 echo
-echo '  Menage a prevoir si D5 a reussi :'
-echo '    inscriptions/signatures-direction/FIXTURE-STORAGE.txt'
+if [ "${rep:-}" = '200' ]; then
+  echo '  Menage a prevoir :'
+  echo '    inscriptions/signatures-direction/FIXTURE-STORAGE.txt'
+fi
 rm -f /tmp/ideal-lecture.bin /tmp/ideal-depot.json /tmp/ideal-prof.bin /tmp/ideal-fixture.txt
