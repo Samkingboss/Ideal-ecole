@@ -23,6 +23,7 @@ import { MaternelleDirection } from './MaternelleApp'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
 import BlocCommentable from '../components/BlocCommentable'
+import ComptabiliteRA from './ComptabiliteRA'
 import { remarquesParSection, remarquesGenerales, nbCorrectionsOuvertes, entreeRemarque, cleEtape, SECTION_PROGRAMME } from '../lib/remarques'
 import { RUBRIQUES as RUBRIQUES_PREPA } from './FichePreparation'
 import { fonctionProfessionnelle } from '../lib/identiteProfessionnelle'
@@ -1347,24 +1348,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
           {/* ════════════════ SESSION 3 : COMPTABILITÉ ════════════════ */}
           {activeSession === 'compta' && (
-            <div>
-              <div style={{ marginBottom: 20 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>💰 Session : Comptabilité &amp; Finances</h1>
-                <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Plateforme financière : gestion des frais de scolarité, reçus, dépenses et trésorerie prévisionnelle (séparée de la paie et des élèves).</p>
-              </div>
-              <div className="card" style={{ padding: '2.5rem 1.5rem', textAlign: 'center', background: 'linear-gradient(135deg, #0d2a3b, #1565a0)', color: '#fff', borderRadius: 16 }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-                <h2 style={{ fontSize: 22, fontWeight: 900, margin: '0 0 8px 0' }}>Plateforme Comptabilité Financière Purifiée</h2>
-                <p style={{ fontSize: 13, opacity: 0.85, maxWidth: 500, margin: '0 auto 24px' }}>
-                  Accédez au portail comptable dédié pour suivre les effectifs &amp; recettes, les dépenses fixes et la trésorerie mensuelle sans aucune interférence RH.
-                </p>
-                <a href="/comptabilite.html" style={{ textDecoration: 'none' }}>
-                  <button style={{ background: 'linear-gradient(135deg,#8DC63F,#7bc142)', color: '#0d2a3b', border: 'none', padding: '14px 32px', borderRadius: 12, fontWeight: 900, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 16px rgba(141,198,63,0.4)' }}>
-                    💵 Accéder à la Comptabilité Financière →
-                  </button>
-                </a>
-              </div>
-            </div>
+            <ComptabiliteRA supabase={supabase} user={user} />
           )}
 
         </div>

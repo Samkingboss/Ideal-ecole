@@ -1,0 +1,66 @@
+.compta-ra { --compta-blue:#0d2a3b; --compta-cyan:#00a8e0; --compta-orange:#f47920; display:grid; gap:16px; min-width:0; }
+.compta-ra * { box-sizing:border-box; }
+.compta-ra__head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.compta-ra__title { margin:0; color:var(--dark); font-size:22px; font-weight:900; }
+.compta-ra__subtitle { margin:4px 0 0; color:var(--muted); font-size:13px; }
+.compta-ra__actions { display:flex; gap:8px; flex-wrap:wrap; }
+.compta-ra__button { border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--dark); padding:9px 12px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
+.compta-ra__button--primary { background:var(--compta-cyan); border-color:var(--compta-cyan); color:#fff; }
+.compta-ra__tabs { display:flex; gap:7px; overflow-x:auto; padding:6px; background:var(--compta-blue); border-radius:14px; scrollbar-width:thin; }
+.compta-ra__tab { flex:0 0 auto; border:1px solid transparent; border-radius:9px; padding:9px 12px; color:#dbeafe; background:transparent; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+.compta-ra__tab[aria-selected="true"] { background:var(--compta-cyan); color:#fff; border-color:#67e8f9; }
+.compta-ra__notice { padding:13px 15px; border-radius:12px; font-size:13px; font-weight:700; }
+.compta-ra__notice--error { background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+.compta-ra__notice--success { background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; }
+.compta-ra__kpis { display:grid; grid-template-columns:repeat(5,minmax(140px,1fr)); gap:10px; }
+.compta-ra__kpi,.compta-ra__panel { background:var(--card); border:1px solid var(--border); border-radius:14px; box-shadow:0 3px 12px rgba(13,42,59,.06); }
+.compta-ra__kpi { padding:15px; border-top:4px solid var(--compta-cyan); }
+.compta-ra__kpi:nth-child(3) { border-top-color:var(--compta-orange); }
+.compta-ra__kpi:nth-child(4) { border-top-color:#ef4444; }
+.compta-ra__kpi-label { color:var(--muted); font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.04em; }
+.compta-ra__kpi-value { color:var(--dark); font-size:19px; font-weight:900; margin-top:5px; overflow-wrap:anywhere; }
+.compta-ra__panel { padding:16px; min-width:0; }
+.compta-ra__panel h2 { margin:0 0 12px; color:var(--dark); font-size:16px; }
+.compta-ra__filters { display:grid; grid-template-columns:minmax(220px,2fr) minmax(150px,1fr) auto; gap:8px; margin-bottom:12px; }
+.compta-ra__input { width:100%; min-width:0; border:1px solid var(--border); border-radius:9px; background:var(--bg); color:var(--dark); padding:9px 10px; font:inherit; font-size:13px; }
+.compta-ra__table-wrap { width:100%; overflow-x:auto; }
+.compta-ra__table { width:100%; border-collapse:collapse; font-size:12px; }
+.compta-ra__table th { padding:9px; background:#eef6fa; color:var(--compta-blue); text-align:left; white-space:nowrap; }
+.compta-ra__table td { padding:9px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.compta-ra__right { text-align:right !important; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.compta-ra__student-actions { display:flex; gap:5px; justify-content:flex-end; flex-wrap:wrap; }
+.compta-ra__empty { padding:28px; text-align:center; color:var(--muted); }
+.compta-ra__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.compta-ra__subtabs { display:flex; gap:7px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px; }
+.compta-ra__subtabs .compta-ra__button[aria-pressed="true"] { background:var(--compta-blue); color:#fff; border-color:var(--compta-blue); }
+.compta-ra__charge { display:grid; grid-template-columns:1fr minmax(130px,180px); gap:8px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); }
+.compta-ra__modal { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:16px; background:rgba(2,20,35,.68); }
+.compta-ra__dialog { width:min(560px,100%); max-height:calc(100vh - 32px); overflow:auto; background:#fff; border-radius:16px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.25); }
+.compta-ra__dialog h2 { margin:0 0 14px; }
+.compta-ra__form { display:grid; gap:11px; }
+.compta-ra__form label { display:grid; gap:4px; color:#334155; font-size:12px; font-weight:800; }
+.compta-ra__dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:5px; }
+.compta-ra__receipt { color:#0f172a; background:#fff; }
+.compta-ra__receipt-head { padding:16px; color:#fff; background:var(--compta-blue); border-radius:12px; }
+.compta-ra__receipt-line { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid #e2e8f0; }
+@media (max-width:1000px) { .compta-ra__kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:600px) {
+  .compta-ra__head,.compta-ra__actions { width:100%; }
+  .compta-ra__actions .compta-ra__button { flex:1; }
+  .compta-ra__kpis,.compta-ra__grid { grid-template-columns:1fr; }
+  .compta-ra__filters { grid-template-columns:1fr; }
+  .compta-ra__table,.compta-ra__table tbody,.compta-ra__table tr,.compta-ra__table td { display:block; width:100%; }
+  .compta-ra__table thead { display:none; }
+  .compta-ra__table tr { margin-bottom:10px; border:1px solid var(--border); border-radius:12px; padding:9px; background:var(--card); }
+  .compta-ra__table td { display:flex; justify-content:space-between; gap:12px; text-align:right; padding:7px; }
+  .compta-ra__table td::before { content:attr(data-label); color:var(--muted); font-weight:800; text-align:left; }
+  .compta-ra__right { white-space:normal; }
+  .compta-ra__student-actions { justify-content:flex-end; }
+  .compta-ra__charge { grid-template-columns:1fr; }
+}
+@media print {
+  body * { visibility:hidden; }
+  .compta-ra__receipt,.compta-ra__receipt * { visibility:visible; }
+  .compta-ra__receipt { position:absolute; inset:0; padding:12mm; }
+  .compta-ra__dialog-actions { display:none; }
+}
