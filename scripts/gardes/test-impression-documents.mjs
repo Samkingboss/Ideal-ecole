@@ -198,6 +198,35 @@ console.log(`\n${G}── IMPRESSION · planches, certificat, effectifs   [INV-U
     /nowrap/.test(defaut) === true && /white-space:normal/.test(defaut) === false)
 }
 
+// ── MESURES NAVIGATEUR, consignées ────────────────────────────────────────
+//
+// Prises sur un banc d'essai qui rendait les VRAIS composants de carte dans
+// la VRAIE structure de planche, et la feuille de style RÉELLE du bandeau
+// d'effectifs extraite de sa source. Recopier le CSS à la main n'aurait
+// prouvé que la copie.
+//
+// PLANCHES · 21 cartes
+//   feuilles produites ... 6            3 planches × recto/verso
+//   feuille .............. 210 × 297 mm exactement
+//   carte ................ 53,98 × 85,60 mm exactement
+//   débordements ......... 0
+//   cartes par feuille ... 9, 9, 9, 9, 3, 3
+//
+// MIROIR · planche 1
+//   recto   A001 A002 A003 │ A004 A005 A006 │ A007 A008 A009
+//   verso   A003 A002 A001 │ A006 A005 A004 │ A009 A008 A007
+//   planche 3, incomplète : A019 A020 A021 → A021 A020 A019
+//
+// EFFECTIFS · quatre largeurs, libellés sur 1 ou 2 lignes, 0 débordement
+//   360 px  grille 336  blocs 107  1/2/2 lignes
+//   375 px  grille 351  blocs 112  1/2/2
+//   390 px  grille 366  blocs 117  1/2/2
+//   430 px  grille 406  blocs 130  1/1/1
+//
+// CERTIFICAT · non mesuré au navigateur. Le composant charge ses élèves
+// depuis Supabase et la session de recette a expiré. Les corrections sont
+// couvertes par C1 et C2 ci-dessus — par construction, pas par la mesure.
+
 console.log(echecs === 0
   ? `\n  ${V}Impression : planches, certificat et effectifs conformes${F}\n`
   : `\n  ${R}${echecs} écart(s)${F}\n`)
