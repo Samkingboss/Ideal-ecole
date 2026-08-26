@@ -24,6 +24,7 @@ import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir, auteurAuthentifie } from '../lib/devoirs'
 import { classerDevoirs, devoirsSelectionnes, selectionRaccourci, aujourdHuiISO } from '../lib/devoirsSelection'
 import { periodePourDate, periodesUtilisables, libellePeriode, calendrierEnBase, MESSAGE_HORS_CALENDRIER } from '../lib/periodeScolaire'
+import { pdfEnImages, estFichierPdf } from '../lib/pdfEnImages'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -444,9 +445,39 @@ export default function ProfApp({ user, onLogout }) {
 
     setDevoirEnCours(true)
     try {
-      const fichiers = []
+      // ── Un PDF devient N images, une par page ─────────────────────────
+      //
+      // Le document imprimable ne sait manipuler que des images : c'est ce
+      // que toute la chaîne traite déjà — pagination, pleine page, JPEG,
+      // WhatsApp. Un PDF rendu par une balise image ne s'affichait pas du
+      // tout : le navigateur refuse de le décoder, et le papier ne montrait
+      // qu'un cadre vide.
+      //
+      // La conversion se fait ICI, au dépôt, et non à l'impression : sinon le
+      // téléphone de l'enseignant referait le travail à chaque aperçu, pour
+      // chaque élève du publipostage.
+      const aDeposer = []
       for (const f of newDevoir.fichiers) {
-        const chemin = `${selectedClasse.id}/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        if (!estFichierPdf(f)) { aDeposer.push(f); continue }
+        setDevoirErreur(`Lecture de « ${f.name} »…`)
+        const { pages, images, erreur } = await pdfEnImages(f, (n, total) =>
+          setDevoirErreur(`« ${f.name} » — page ${n} sur ${total}…`))
+        if (erreur) throw new Error(erreur)
+        // Le contrôle qui compte : un PDF de trois pages qui n'en rendrait
+        // qu'une passerait pour un document complet.
+        if (images.length !== pages) {
+          throw new Error(`« ${f.name} » compte ${pages} page(s), ${images.length} rendue(s) : dépôt annulé.`)
+        }
+        aDeposer.push(...images)
+      }
+      setDevoirErreur('')
+
+      const fichiers = []
+      // Le rang est dans le chemin : l'ordre ne dépend jamais de ce que
+      // Storage renvoie, qui ne garantit rien.
+      const marque = Date.now()
+      for (const [rang, f] of aDeposer.entries()) {
+        const chemin = `${selectedClasse.id}/${marque}_${String(rang).padStart(2, '0')}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
         const { error: errUp } = await supabase.storage.from('devoirs').upload(chemin, f)
         if (errUp) throw new Error(`« ${f.name} » n’a pas pu être déposé : ${errUp.message}`)
         fichiers.push({

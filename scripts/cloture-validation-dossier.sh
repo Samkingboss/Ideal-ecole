@@ -30,7 +30,7 @@ if [ -z "$FIX" ]; then
   api -o /dev/null -X POST -H 'Content-Type: text/plain' --data-binary @/tmp/ideal-sig.txt \
       "$URL/storage/v1/object/inscriptions/$SIG"
   FIX=$(api -X POST "$URL/rest/v1/rpc/creer_inscription" -H 'Content-Type: application/json' \
-    -d "{\"p_dossier\":{\"eleve\":{\"nom\":\"FIXTURE-CLOTURE\",\"prenom\":\"Recette\",\"date_naissance\":\"2018-01-01\",\"sexe\":\"M\",\"classe_demandee\":\"$CLASSE\"},\"responsable1\":{\"nom\":\"FIXTURE-CLOTURE\",\"prenom\":\"Parent\",\"tel1\":\"+22300000000\"},\"fichiers\":{\"signature_chemin\":\"$SIG\"}}}" \
+    -d "{\"p_dossier\":{\"eleve\":{\"nom\":\"FIXTURE-CLOTURE\",\"prenom\":\"Recette\",\"date_naissance\":\"2018-01-01\",\"sexe\":\"M\",\"classe_demandee\":\"$CLASSE\"},\"dossier\":{\"annee_scolaire\":\"2026-2027\"},\"responsable1\":{\"nom\":\"FIXTURE-CLOTURE\",\"prenom\":\"Parent\",\"tel1\":\"+22300000000\"},\"fichiers\":{\"signature_chemin\":\"$SIG\"}}}" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("inscription_id") or "")' 2>/dev/null)
   [ -z "$FIX" ] && { echo 'ECHEC — fixture non creee'; exit 1; }
   echo "creee ($FIX)"
