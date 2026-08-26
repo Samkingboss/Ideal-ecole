@@ -212,7 +212,10 @@ export default function SurveillantApp({ user, onLogout }) {
 
     if (!updErr) {
       if (transmisDirection) {
-        await pushNotification('directeur', {
+        // Discipline : la direction ET l'administratif, nommément. Le second
+        // l'obtenait par une règle implicite dans `pushNotification` ; il
+        // l'obtient désormais parce que cet appel le demande.
+        await pushNotification(['directeur', 'responsable_administratif'], {
           titre: '⚖️ Incident transmis par le surveillant',
           message: `${selectedIncident.eleves?.prenom || ''} ${selectedIncident.eleves?.nom || ''} · ${selectedIncident.eleves?.classes?.nom || ''} · ${selectedIncident.motif || 'Signalement disciplinaire'}`,
           type: 'discipline',

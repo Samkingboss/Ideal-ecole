@@ -287,8 +287,9 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
         return
       }
 
-      // Push notification au Directeur & Admin
-      await pushNotification('directeur', {
+      // Demande RH : la direction ET l'administratif, nommément — c'est le
+      // responsable administratif qui traite les dossiers du personnel.
+      await pushNotification(['directeur', 'responsable_administratif'], {
         titre: `📩 Nouvelle demande: ${getTypeLabel(typeDemande)}`,
         message: `${nouvelleDemande.user_name} a soumis une nouvelle demande.`,
         type: 'rh',

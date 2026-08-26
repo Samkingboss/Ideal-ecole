@@ -17,10 +17,17 @@ export async function pushNotification(target, notifData) {
   try {
     const targets = Array.isArray(target) ? [...target] : [target]
     
-    // Si la cible est le directeur, en informer aussi le responsable administratif
-    if (targets.includes('directeur') && !targets.includes('responsable_administratif')) {
-      targets.push('responsable_administratif')
-    }
+    // Aucune cible n'est ajoutée d'office.
+    //
+    // Une règle recopiait ici toute notification adressée au directeur vers le
+    // responsable administratif, quel qu'en soit le sujet. Le RA recevait donc
+    // le pédagogique — dépôts de préparations, retours de cycle — alors que son
+    // interface n'a que trois sessions : élèves, RH, comptabilité. Il recevait
+    // des messages ouvrant un onglet qui n'existe pas chez lui.
+    //
+    // Qui doit être prévenu se décide à l'ENVOI, où l'on sait de quoi il
+    // s'agit, et se lit dans l'appel. Une règle implicite ici finissait par
+    // rattraper tout ce qu'on ajoutait ailleurs.
 
     const currentUser = JSON.parse(localStorage.getItem('ideal_user') || '{}')
     const currentRole = currentUser.role || 'prof'

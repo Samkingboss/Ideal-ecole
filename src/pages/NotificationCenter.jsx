@@ -151,8 +151,14 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
         user?.role ? `notifs_${user.role}` : null,
         'notifs_global',
         user?.id ? `notifs_${user.id}` : null,
-        // La direction et l'administratif se relaient mutuellement.
-        ...(isDirector ? ['notifs_directeur', 'notifs_responsable_administratif'] : []),
+        // Chacun lit SA boîte, et seulement la sienne.
+        //
+        // La direction et l'administratif se relayaient mutuellement : le
+        // responsable administratif lisait `notifs_directeur` en plus de la
+        // sienne. Fermer l'écriture pédagogique vers sa boîte n'aurait donc
+        // rien changé — il aurait continué de tout voir par ce relais.
+        //
+        // Un message destiné aux deux s'adresse aux deux, à l'envoi.
       ].filter(Boolean))]
 
       let mergedNotifs = []

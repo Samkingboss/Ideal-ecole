@@ -143,7 +143,17 @@ declare
   v_notif      jsonb;
   v_liste      jsonb;
   v_cible      text;
-  v_cles       text[] := array['directeur', 'responsable_administratif'];
+  -- Le seul destinataire d'une notification PEDAGOGIQUE.
+  --
+  -- Le responsable administratif y figurait. Or son interface n'a que trois
+  -- sessions -- eleves, RH, comptabilite -- et cette notification porte
+  -- tabTarget = 'pedagogie' : elle ouvrait chez lui un onglet inexistant.
+  -- Il recevait en outre le Web Push, `v_cles` servant aussi a
+  -- `emettre_notification_push` : son telephone sonnait pour chaque depot de
+  -- preparation.
+  --
+  -- Regle metier : le pedagogique ne passe pas par le compte administratif.
+  v_cles       text[] := array['directeur'];
   v_ecrites    text[] := array[]::text[];
   v_deja       text[] := array[]::text[];
 begin
