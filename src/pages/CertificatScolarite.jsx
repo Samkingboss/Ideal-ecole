@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { signature } from '../lib/identiteProfessionnelle'
 import { CHAMPS_ELEVE_LISTE } from '../lib/eleves'
 import { useEchelleFeuille } from '../lib/echelleApercu'
 import { texteCertificat, lieuEtDate } from '../lib/certificatTexte'
+import { DIRECTEUR } from '../lib/ecole'
 import { ANNEE_SCOLAIRE } from '../lib/periodeScolaire'
 
-export default function CertificatScolarite({ user = null }) {
-  // Le signataire n'est pas « le Directeur » écrit en dur : c'est la personne
-  // qui délivre le certificat, avec la fonction que lui donne son rôle. Un
-  // responsable administratif habilité signera de son propre titre.
-  const signataire = signature(user, { role: user?.role || 'directeur' })
+// Le composant ne reçoit plus `user` : il ne s'en sert pas. Le signataire
+// d'un certificat est le chef d'établissement, pas la personne connectée.
+export default function CertificatScolarite() {
+  // Le signataire d'un certificat de scolarité n'est pas la personne
+  // connectée : c'est le chef d'établissement. Un responsable administratif
+  // qui édite un certificat ne le signe pas de son nom. `DIRECTEUR` est la
+  // source canonique — le document affichait « M. Directeur IDEAL », soit la
+  // fonction à la place du nom.
   const [eleves, setEleves] = useState([])
   const [, setLoading] = useState(true)
   // L'aperçu est mis à l'échelle pour tenir dans l'écran : la feuille reste
@@ -30,36 +33,58 @@ export default function CertificatScolarite({ user = null }) {
   const loadEleves = async () => {
     setLoading(true)
     try {
-      const [resEleves, resInsc] = await Promise.all([
+      // ── AUCUNE VALEUR INVENTÉE ────────────────────────────────────────
+      //
+      // Ce bloc comblait les trous : `date_naissance || '15/04/2018'`,
+      // `lieu_naissance || 'Bamako'`, `nom || 'SAMAKÉ'`. Un certificat de
+      // scolarité portait donc un état civil FABRIQUÉ pour tout élève dont
+      // la fiche était incomplète — sur un acte signé par le directeur.
+      //
+      // Un champ absent reste absent. La rédaction sait faire une phrase
+      // correcte sans lui ; elle ne sait pas se relire.
+      const [resEleves, resInsc, resResp] = await Promise.all([
         supabase.from('eleves').select(CHAMPS_ELEVE_LISTE).order('nom', { ascending: true }),
-        supabase.from('inscriptions').select('*')
+        supabase.from('inscriptions').select('*'),
+        // La filiation et les responsables légaux viennent de `responsables`,
+        // liée par `inscriptions.responsable1_id` / `responsable2_id`. Le
+        // LIEN est déclaré dans `lien_parente` — il ne se déduit pas de la
+        // position : rien ne dit que le premier responsable est le père.
+        supabase.from('responsables').select('id, nom, prenom, lien_parente'),
       ])
 
       const rawEleves = Array.isArray(resEleves.data) ? resEleves.data : []
       const rawInsc = Array.isArray(resInsc.data) ? resInsc.data : []
+      const rawResp = Array.isArray(resResp.data) ? resResp.data : []
+      const parId = new Map(rawResp.map(r => [r.id, r]))
+
+      const responsablesDe = insc => [insc?.responsable1_id, insc?.responsable2_id]
+        .map(id => (id ? parId.get(id) : null))
+        .filter(Boolean)
 
       const merged = rawEleves.map(e => {
-        const matchingInsc = rawInsc.find(i => i.matricule === e.matricule || i.id === e.inscription_id)
+        const insc = rawInsc.find(i => i.matricule === e.matricule || i.id === e.inscription_id)
         return {
           ...e,
-          date_naissance: e.date_naissance || matchingInsc?.date_naissance || '15/04/2018',
-          lieu_naissance: matchingInsc?.lieu_naissance || 'Bamako',
-          nationalite: matchingInsc?.nationalite || 'Malienne',
-          classe_nom: e.classe_nom || matchingInsc?.classe_demandee || 'CP1 Bilingue',
-          matricule: e.matricule || matchingInsc?.matricule || '24-25 A014'
+          date_naissance: e.date_naissance || insc?.date_naissance || null,
+          lieu_naissance: insc?.lieu_naissance || null,
+          nationalite: insc?.nationalite || null,
+          classe_nom: e.classe_nom || insc?.classe_demandee || null,
+          matricule: e.matricule || insc?.matricule || null,
+          responsables: responsablesDe(insc),
         }
       })
 
       const finalList = merged.length > 0 ? merged : rawInsc.map(i => ({
         id: i.id,
-        matricule: i.matricule || '24-25 A014',
-        nom: i.nom || 'SAMAKÉ',
-        prenom: i.prenoms || i.prenom || 'Mamadou',
-        classe_nom: i.classe_demandee || 'CP1 Bilingue',
-        date_naissance: i.date_naissance || '2018-04-15',
-        lieu_naissance: i.lieu_naissance || 'Bamako',
-        nationalite: i.nationalite || 'Malienne',
-        sexe: i.sexe || 'M'
+        matricule: i.matricule || null,
+        nom: i.nom || null,
+        prenom: i.prenoms || i.prenom || null,
+        classe_nom: i.classe_demandee || null,
+        date_naissance: i.date_naissance || null,
+        lieu_naissance: i.lieu_naissance || null,
+        nationalite: i.nationalite || null,
+        sexe: i.sexe || null,
+        responsables: responsablesDe(i),
       }))
 
       const demoList = finalList.length > 0 ? finalList : [
@@ -250,7 +275,14 @@ export default function CertificatScolarite({ user = null }) {
             {(() => {
               const t = texteCertificat({
                 eleve: selectedEleve,
-                directeur: { civilite: 'M.', nom: signataire.nom, fonction: signataire.fonction },
+                // Un certificat de scolarité est un acte du chef
+                // d'établissement : il est signé par le Directeur, quelle que
+                // soit la personne qui l'imprime. Le nom vient de la source
+                // canonique — le document affichait « M. Directeur IDEAL »,
+                // c'est-à-dire la FONCTION à la place du nom.
+                directeur: DIRECTEUR,
+                responsables: selectedEleve.responsables,
+                motif: motifDelivrance,
                 anneeScolaire: ANNEE_SCOLAIRE,
                 ecole: 'École Internationale Bilingue IDEAL',
               })
@@ -271,12 +303,14 @@ export default function CertificatScolarite({ user = null }) {
                     <span style={{ fontSize: 21, fontWeight: 700, color: '#174E72' }}>{identite}</span>{suite}
                   </p>
 
+                  {/* Filiation et responsables légaux : deux faits distincts,
+                      jamais confondus, et absents quand la base ne les porte
+                      pas. Le motif de délivrance est fondu dans la formule
+                      finale — il faisait auparavant une seconde phrase qui
+                      répétait la première. */}
+                  {t.filiation && <p style={{ margin: '14px 0 0' }}>{t.filiation}</p>}
+                  {t.legaux && <p style={{ margin: '8px 0 0' }}>{t.legaux}</p>}
                   <p style={{ margin: '18px 0 0' }}>{t.formule}</p>
-                  {motifDelivrance && (
-                    <p style={{ margin: '10px 0 0', fontSize: 14.5, color: '#536575' }}>
-                      Délivré à la demande de l’intéressé, pour {motifDelivrance.toLowerCase()}.
-                    </p>
-                  )}
                 </section>
               )
             })()}
@@ -286,8 +320,8 @@ export default function CertificatScolarite({ user = null }) {
                 {lieuEtDate('Bamako', dateISO)}
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12, fontWeight: 850, color: '#17364D', letterSpacing: 1, textTransform: 'uppercase' }}>{signataire.fonction}</div>
-                {signataire.nom && <div style={{ fontSize: 11, fontWeight: 700, color: '#4A5C6B', marginTop: 2 }}>{signataire.nom}</div>}
+                <div style={{ fontSize: 12, fontWeight: 850, color: '#17364D', letterSpacing: 1, textTransform: 'uppercase' }}>{DIRECTEUR.fonction}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#4A5C6B', marginTop: 2 }}>{DIRECTEUR.nom}</div>
                 <div style={{ height: 68, marginTop: 6, borderBottom: '1px solid #A7B4BE' }} />
                 <div style={{ marginTop: 8, fontSize: 11, color: '#7B8792' }}>Signature et cachet officiels</div>
               </div>

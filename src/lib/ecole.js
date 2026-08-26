@@ -48,3 +48,19 @@ export const ADRESSE   = 'Faladié Sema, Bamako, Mali'
 //   public/pedago-archive/app.js    — const IDEAL_WA
 //   public/pedago-archive/index.html — libellé affiché
 //   public/comptabilite.html        — en-têtes institutionnels et WAVE_NUMERO
+
+// ── Le chef d'établissement ──────────────────────────────────────────────────
+//
+// Un certificat de scolarité est un acte du chef d'établissement : il est
+// signé par le Directeur, quelle que soit la personne qui l'imprime. Le
+// responsable administratif qui édite un certificat ne le signe pas de son
+// nom — il édite un document que le Directeur signe.
+//
+// Le nom vivait nulle part : le certificat affichait « M. Directeur IDEAL »,
+// c'est-à-dire la FONCTION à la place du nom. Il est ici, une fois, à côté du
+// reste de l'identité officielle.
+export const DIRECTEUR = {
+  civilite: 'M.',
+  nom: 'Samuel MOGADZI',
+  fonction: 'Directeur',
+}

@@ -15,7 +15,8 @@ import {
   A4, MARGE_X, MARGE_Y, grilleL, grilleH, plancheTient,
   planches, miroirRangees, nombreDeFeuilles, unites, tailleNom, LARGEUR_NOM,
 } from '../../src/lib/carteScolaire.js'
-import { texteCertificat, dateEnLettres, lieuEtDate } from '../../src/lib/certificatTexte.js'
+import { texteCertificat, dateEnLettres, lieuEtDate, phraseFiliation, phraseResponsables, nomAvecCivilite } from '../../src/lib/certificatTexte.js'
+import { DIRECTEUR } from '../../src/lib/ecole.js'
 
 let echecs = 0
 const V = '\x1b[0;32m', R = '\x1b[0;31m', G = '\x1b[0;90m', F = '\x1b[0m'
@@ -319,6 +320,134 @@ console.log(`\n${G}── IMPRESSION · planches, certificat, effectifs   [INV-U
     /texteCertificat\(\{/.test(src) && /lieuEtDate\('Bamako', dateISO\)/.test(src))
   verifier('T1 l’interpolation nue du lieu a disparu',
     !/\$\{selectedEleve\.lieu_naissance\}/.test(src))
+}
+
+// ── T2 · filiation et responsables : les quatre cas imposés ──────────────
+//
+// LE LIEN NE SE DÉDUIT PAS DE LA POSITION. `inscriptions` porte
+// `responsable1_id` et `responsable2_id`, mais le formulaire demande
+// explicitement `lien_parente` — « pere », « mere » ou « tuteur ». Deux
+// mères, un tuteur seul, un père en second : tout cela existe. Écrire
+// « Fils de M. [responsable1] » serait une invention.
+{
+  const P = { nom: 'DIARRA', prenom: 'Moussa', lien_parente: 'pere' }
+  const M = { nom: 'TRAORÉ', prenom: 'Fatoumata', lien_parente: 'mere' }
+  const T = { nom: 'KONE', prenom: 'Adama', lien_parente: 'tuteur' }
+
+  const CAS = [
+    ['A · garçon, date+lieu, père+mère',
+     { prenom: 'Akotsi', nom: 'ABATSOGADAAA', sexe: 'M', date_naissance: '2018-04-15',
+       lieu_naissance: 'Bamako', matricule: '24-25 A014', classe_nom: 'CP1 Bilingue' }, [P, M]],
+    ['B · fille, date sans lieu, 1 responsable',
+     { prenom: 'Aminata', nom: 'DIARRA', sexe: 'F', date_naissance: '2017-11-02',
+       matricule: '26-27 A005', classe_nom: 'CP2' }, [M]],
+    ['C · sexe inconnu, aucun parent, tuteur',
+     { prenom: 'Alex', nom: 'SANVI', date_naissance: '2018-01-20', lieu_naissance: 'Sikasso',
+       matricule: '26-27 A011', classe_nom: 'CP1' }, [T]],
+    ['D · données minimales', { prenom: 'X', nom: 'Y' }, []],
+    ['E · père + tuteur',
+     { prenom: 'Ibrahim', nom: 'CISSÉ', sexe: 'M', date_naissance: '2016-05-05',
+       matricule: '26-27 A020', classe_nom: 'CE1' }, [P, T]],
+    ['F · champs pollués',
+     { prenom: 'Z', nom: 'W', date_naissance: 'null', lieu_naissance: 'undefined',
+       matricule: '   ', classe_nom: null, sexe: '' }, [{ nom: 'null', prenom: '' }]],
+  ]
+
+  const rendu = (e, r, motif) => {
+    const t = texteCertificat({ eleve: e, responsables: r, directeur: DIRECTEUR,
+                                anneeScolaire: '2026-2027', motif })
+    return [t.entete, t.corps, t.filiation, t.legaux, t.formule].filter(Boolean).join('\n')
+  }
+
+  const interdits = /\b(null|undefined|NaN|Invalid Date)\b/i
+  const malforme = /\s,|,\s*\.|\s{2,}| à ,|de \.|de et|,\s*$/
+  const fautifs = CAS.filter(([, e, r]) => {
+    const txt = rendu(e, r)
+    return interdits.test(txt) || malforme.test(txt)
+  }).map(([n]) => n)
+  verifier('T2 aucun cas ne produit de texte malformé',
+    fautifs.length === 0, fautifs.length ? R + fautifs.join(' · ') + F : `${CAS.length} cas`)
+
+  // Une seule formule finale — elle était écrite deux fois.
+  const doublons = CAS.filter(([, e, r]) =>
+    (rendu(e, r, 'démarches administratives').match(/servir et valoir ce que de droit/g) || []).length !== 1)
+  verifier('T2 une seule formule « servir et valoir »',
+    doublons.length === 0, doublons.length ? R + doublons.map(c => c[0]).join(', ') + F : '')
+
+  // Jamais de filiation sans parent.
+  const orphelines = CAS.filter(([, e, r]) => {
+    const t = texteCertificat({ eleve: e, responsables: r, directeur: DIRECTEUR, anneeScolaire: '2026-2027' })
+    const aParent = r.some(x => ['pere', 'mere'].includes(String(x.lien_parente || '')))
+    return /^(Fils|Fille|Enfant) de/.test(t.filiation || '') && !aParent
+  }).map(([n]) => n)
+  verifier('T2 aucun « Fils de » sans parent déclaré',
+    orphelines.length === 0, orphelines.length ? R + orphelines.join(', ') + F : '')
+
+  // LE point de la consigne : la position ne fait pas le lien.
+  const inverse = phraseFiliation([M, P], 'M')   // mère en premier
+  verifier('T2 le lien vient de `lien_parente`, pas de la position',
+    inverse === 'Fils de M. Moussa DIARRA et de Mme Fatoumata TRAORÉ.', inverse)
+  verifier('T2 un tuteur n’est jamais présenté comme parent',
+    phraseFiliation([T], 'M') === null
+    && !/Fils de/.test(phraseResponsables([T]) || ''),
+    'tuteur ≠ filiation')
+  verifier('T2 aucune civilité n’est déduite d’un prénom',
+    nomAvecCivilite(T) === 'Adama KONE' && nomAvecCivilite(P) === 'M. Moussa DIARRA',
+    'la civilité suit le lien déclaré, jamais le prénom')
+
+  // Accord des responsables.
+  verifier('T2 accord au féminin sur la responsable',
+    /Sa mère, Mme Fatoumata TRAORÉ, est enregistrée comme responsable légale\./.test(phraseResponsables([M])))
+  verifier('T2 deux parents responsables ne sont pas nommés deux fois',
+    (rendu(CAS[0][1], CAS[0][2]).match(/Moussa DIARRA/g) || []).length === 1,
+    'la filiation absorbe la mention des responsables quand ce sont les mêmes')
+  verifier('T2 un tiers responsable est bien mentionné à part',
+    /Ses représentants légaux sont M\. Moussa DIARRA et Adama KONE\./.test(rendu(CAS[4][1], CAS[4][2])))
+
+  // Le motif se fond dans la formule, il n'en crée pas une seconde.
+  verifier('T2 le motif s’insère dans la formule unique',
+    /en vue de démarches administratives, pour servir et valoir ce que de droit\./
+      .test(rendu(CAS[0][1], CAS[0][2], 'Démarches administratives')))
+
+  // AUTO-TEST : chaque juge doit savoir condamner.
+  verifier('T2 auto-test · un texte pollué serait vu',
+    interdits.test('né le null à undefined') === true)
+  verifier('T2 auto-test · une virgule orpheline serait vue',
+    malforme.test('Fils de M. X , et de') === true)
+  verifier('T2 auto-test · une double formule serait vue',
+    ('a servir et valoir ce que de droit b servir et valoir ce que de droit'
+      .match(/servir et valoir ce que de droit/g) || []).length === 2)
+}
+
+// ── T3 · le signataire est nommé, et rien n’est inventé ──────────────────
+{
+  verifier('T3 le directeur a une source canonique',
+    DIRECTEUR.nom === 'Samuel MOGADZI' && DIRECTEUR.fonction === 'Directeur')
+  const t = texteCertificat({ eleve: { prenom: 'A', nom: 'B' }, directeur: DIRECTEUR, anneeScolaire: '2026-2027' })
+  verifier('T3 la première phrase nomme le directeur',
+    /Je soussigné, M\. Samuel MOGADZI, agissant en qualité de Directeur/.test(t.entete))
+  verifier('T3 la fonction ne remplace plus le nom',
+    !/M\. Directeur/.test(t.entete), 'le document affichait « M. Directeur IDEAL »')
+
+  const src = lire('src/pages/CertificatScolarite.jsx')
+  verifier('T3 le composant lit la source canonique',
+    /import \{ DIRECTEUR \} from '\.\.\/lib\/ecole'/.test(src) && /directeur: DIRECTEUR/.test(src))
+  verifier('T3 aucun nom de directeur en dur dans l’écran',
+    !/Samuel MOGADZI/.test(src), 'une seule copie, dans lib/ecole')
+
+  // LE défaut le plus grave de ce lot : les valeurs de remplissage.
+  const inventees = /\|\| '(SAMAKÉ|Bamako|Malienne|CP1 Bilingue|24-25 A014|Mamadou|15\/04\/2018|2018-04-15|M)'/
+  const net = src.split('\n').filter(l => !/^\s*(\/\/|\*)/.test(l)).join('\n')
+  verifier('T3 aucune donnée d’état civil inventée',
+    !inventees.test(net),
+    'le certificat portait « né le 15/04/2018 à Bamako » pour toute fiche incomplète')
+  verifier('T3 auto-test · un repli inventé serait vu',
+    inventees.test("lieu_naissance: insc?.lieu_naissance || 'Bamako',") === true)
+
+  verifier('T3 les responsables sont chargés depuis leur table',
+    /from\('responsables'\)\.select\('id, nom, prenom, lien_parente'\)/.test(src))
+  verifier('T3 ils sont rattachés par les deux clés de l’inscription',
+    /responsable1_id, insc\?\.responsable2_id/.test(src) || /\[insc\?\.responsable1_id, insc\?\.responsable2_id\]/.test(src))
 }
 
 // ── MESURES NAVIGATEUR, consignées ────────────────────────────────────────

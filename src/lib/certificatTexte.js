@@ -52,13 +52,100 @@ const accord = (sexe) => {
   return null
 }
 
+// ── Filiation et responsables légaux ───────────────────────────────────────
+//
+// LE LIEN NE SE DÉDUIT PAS DE LA POSITION. `inscriptions` porte
+// `responsable1_id` et `responsable2_id`, mais rien ne dit que le premier est
+// le père : le formulaire demande explicitement `lien_parente`, dont les
+// valeurs sont « pere », « mere » ou « tuteur ». Deux mères, un tuteur seul,
+// un père en second : tout cela existe. Écrire « Fils de M. [responsable1] »
+// serait une invention.
+//
+// La civilité suit le LIEN DÉCLARÉ, jamais le prénom : un prénom n'est pas
+// une donnée d'état civil. Pour un tuteur, dont le lien ne dit pas la
+// civilité, on n'en met aucune et on parle de « représentant légal » —
+// « tuteur » et « tutrice » s'accordent, « représentant légal » se lit comme
+// une fonction.
+
+const LIENS = {
+  pere: { civilite: 'M.',  filiation: 'père', qualite: 'père' },
+  mere: { civilite: 'Mme', filiation: 'mère', qualite: 'mère' },
+}
+
+const normaliserLien = (v) => {
+  const t = String(v ?? '').trim().toLowerCase()
+  if (t.startsWith('per') || t.startsWith('pèr')) return 'pere'
+  if (t.startsWith('mer') || t.startsWith('mèr')) return 'mere'
+  if (t.startsWith('tut')) return 'tuteur'
+  return null
+}
+
+/** « M. Moussa DIARRA », ou « Moussa DIARRA » quand la civilité est inconnue. */
+export const nomAvecCivilite = (r) => {
+  const nom = [propre(r?.prenom), propre(r?.nom)].filter(Boolean).join(' ')
+  if (!nom) return null
+  const lien = LIENS[normaliserLien(r?.lien_parente)]
+  return lien ? `${lien.civilite} ${nom}` : nom
+}
+
+/**
+ * La phrase de filiation, ou `null`.
+ *
+ * Un seul parent connu : on le nomme et on ne suppose pas l'autre. Aucun
+ * parent : la phrase disparaît entièrement — un certificat qui écrirait
+ * « Fils de » sans parents serait pire qu'un certificat qui n'en parle pas.
+ */
+export const phraseFiliation = (responsables, sexe) => {
+  const liste = Array.isArray(responsables) ? responsables : []
+  const pere = liste.find(r => normaliserLien(r?.lien_parente) === 'pere')
+  const mere = liste.find(r => normaliserLien(r?.lien_parente) === 'mere')
+  const nomPere = nomAvecCivilite(pere)
+  const nomMere = nomAvecCivilite(mere)
+  if (!nomPere && !nomMere) return null
+
+  const g = accord(sexe)
+  const mot = g === 'f' ? 'Fille' : g === 'm' ? 'Fils' : 'Enfant'
+  const parents = nomPere && nomMere ? `${nomPere} et de ${nomMere}` : (nomPere || nomMere)
+  return `${mot} de ${parents}.`
+}
+
+/**
+ * La phrase des responsables légaux, ou `null`.
+ *
+ * Elle est DISTINCTE de la filiation : un père peut ne pas être le
+ * responsable légal déclaré, et un tuteur n'est pas un parent.
+ */
+export const phraseResponsables = (responsables) => {
+  const liste = (Array.isArray(responsables) ? responsables : [])
+    .filter(r => propre(r?.nom) || propre(r?.prenom))
+  if (!liste.length) return null
+
+  if (liste.length === 1) {
+    const r = liste[0]
+    const lien = LIENS[normaliserLien(r?.lien_parente)]
+    const nom = nomAvecCivilite(r)
+    // Le lien connu enrichit la phrase ; il n'est jamais supposé.
+    if (lien) {
+      const possessif = lien.qualite === 'mère' ? 'Sa' : 'Son'
+      const accordQualite = lien.qualite === 'mère' ? 'responsable légale' : 'responsable légal'
+      return `${possessif} ${lien.qualite}, ${nom}, est enregistré${lien.qualite === 'mère' ? 'e' : ''} comme ${accordQualite}.`
+    }
+    return `Son représentant légal est ${nom}.`
+  }
+
+  const noms = liste.map(nomAvecCivilite).filter(Boolean)
+  if (!noms.length) return null
+  const dernier = noms.pop()
+  return `Ses représentants légaux sont ${[noms.join(', '), dernier].filter(Boolean).join(' et ')}.`
+}
+
 /**
  * Le corps du certificat, en trois paragraphes.
  *
  * Rend `{ entete, corps, formule }` — trois chaînes prêtes à poser, aucune
  * ne contenant de champ vide.
  */
-export const texteCertificat = ({ eleve = {}, directeur = {}, anneeScolaire, ecole }) => {
+export const texteCertificat = ({ eleve = {}, responsables = [], directeur = {}, anneeScolaire, ecole, motif = null }) => {
   const nom = [propre(eleve.prenom), propre(eleve.nom)].filter(Boolean).join(' ') || null
   const matricule = propre(eleve.matricule)
   const classe = propre(eleve.classe_nom) || propre(eleve.classe)
@@ -98,19 +185,56 @@ export const texteCertificat = ({ eleve = {}, directeur = {}, anneeScolaire, eco
     : 'l’élève désigné ci-dessous'
   const inscrit = g === 'f' ? 'est régulièrement inscrite'
                 : g === 'm' ? 'est régulièrement inscrit'
-                : 'suit régulièrement la scolarité'
-  const auSein = g ? 'au sein de notre établissement' : 'de notre établissement'
+                : 'poursuit régulièrement sa scolarité'
+  const auSein = 'au sein de notre établissement'
 
   let corps = `${sujet} ${inscrit} ${auSein}`
   if (annee) corps += ` au titre de l’année scolaire ${annee}`
-  if (classe) corps += ` et fréquente la classe de ${classe}`
+  // « y suit effectivement les enseignements » : c'est ce qu'un certificat de
+  // scolarité atteste, et non la seule inscription administrative.
+  // Le verbe de la proposition dépend du premier : « est inscrit … et y suit »
+  // se lit bien, « poursuit … et y suit » répète le verbe.
+  if (classe) corps += g
+    ? ` et y suit effectivement les enseignements de la classe de ${classe}`
+    : `, en classe de ${classe}`
   corps += '.'
 
-  // ── Paragraphe 3 : la formule consacrée ─────────────────────────────────
-  // « lui » est épicène : le pronom ne varie pas, contrairement au participe.
-  const formule = 'Le présent certificat lui est délivré pour servir et valoir ce que de droit.'
+  // ── Paragraphes 3 et 4 : filiation, puis responsables ───────────────────
+  //
+  // Deux phrases distinctes, et jamais confondues : un père peut ne pas être
+  // le responsable légal déclaré, et un tuteur n'est pas un parent.
+  const filiation = phraseFiliation(responsables, eleve.sexe)
+  let legaux = phraseResponsables(responsables)
 
-  return { entete, corps, formule }
+  // Quand les responsables légaux SONT exactement les parents qu'on vient de
+  // nommer, une seconde phrase répéterait les mêmes noms mot pour mot. On
+  // replie l'information sur la filiation plutôt que de la redire.
+  const parents = (Array.isArray(responsables) ? responsables : [])
+    .filter(r => ['pere', 'mere'].includes(normaliserLien(r?.lien_parente)))
+  const tous = (Array.isArray(responsables) ? responsables : [])
+    .filter(r => propre(r?.nom) || propre(r?.prenom))
+  const memesPersonnes = filiation && parents.length === tous.length && tous.length > 0
+  let filiationFinale = filiation
+  if (memesPersonnes) {
+    const suffixe = tous.length > 1
+      ? ', tous deux enregistrés comme ses responsables légaux.'
+      : (normaliserLien(tous[0]?.lien_parente) === 'mere'
+          ? ', enregistrée comme sa responsable légale.'
+          : ', enregistré comme son responsable légal.')
+    filiationFinale = filiation.replace(/\.$/, '') + suffixe
+    legaux = null
+  }
+
+  // ── Paragraphe 5 : la formule consacrée, UNE seule fois ─────────────────
+  //
+  // Le motif de délivrance faisait l'objet d'une seconde phrase qui répétait
+  // la première. Il s'insère ici, ou disparaît.
+  const pourquoi = propre(motif)
+  const formule = pourquoi
+    ? `Le présent certificat lui est délivré en vue de ${pourquoi.toLowerCase()}, pour servir et valoir ce que de droit.`
+    : 'Le présent certificat lui est délivré pour servir et valoir ce que de droit.'
+
+  return { entete, corps, filiation: filiationFinale, legaux, formule }
 }
 
 /** « Fait à Bamako, le 26 août 2026 ». */
