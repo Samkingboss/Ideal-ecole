@@ -3,23 +3,26 @@ import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 import { WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import { CHAMPS_ELEVE_AVEC_PHOTO } from '../lib/eleves'
+import {
+  CARTE_L, CARTE_H, COLONNES, PAR_PLANCHE, GOUTTIERE,
+  A4, MARGE_X, MARGE_Y,
+  planches, miroirRangees, nombreDeFeuilles, unites,
+} from '../lib/carteScolaire'
 
 // ─────────────────────────────────────────────────────────────────────
 // GABARIT
 //
-// Format ID-1 vertical : 54 × 85,6 mm, la carte bancaire tournée d'un
-// quart de tour. Tout est exprimé en millimètres et mis à l'échelle par
-// ECHELLE pour l'aperçu ; l'impression utilise les millimètres réels, si
-// bien que l'écran et le papier partagent une seule source de vérité.
+// Format fini CR80 (ISO 7810 ID-1) en PORTRAIT : 53,98 × 85,60 mm, la carte
+// bancaire tournée d'un quart de tour. Les dimensions et la géométrie de la
+// planche vivent dans `lib/carteScolaire` — la feuille de style d'impression
+// en gardait sa propre copie en dur, et deux jeux de nombres décrivant la
+// même planche finissent toujours par diverger.
+//
+// Le dessin est exprimé en millimètres. `unites('mm')` les rend tels quels
+// pour le papier ; `unites('px', ECHELLE)` les convertit pour l'aperçu à
+// l'écran, où l'on veut pouvoir réduire.
 // ─────────────────────────────────────────────────────────────────────
-const CARTE_L = 54      // largeur en mm
-const CARTE_H = 85.6    // hauteur en mm
 const ECHELLE = 3.6     // px par mm à l'écran — 194 × 308 px
-// À l'impression, 1 px CSS vaut exactement 1/96 de pouce : 96/25,4 px par
-// millimètre. Rendre la planche à cette échelle donne une carte de 54 mm
-// réels sans forcer aucune dimension en CSS — et surtout sans désaccorder
-// le contenu interne, qui est dimensionné en pixels par la même échelle.
-const PX_MM   = 96 / 25.4   // ≈ 3,7795 px/mm — 204 × 323 px = 54 × 85,6 mm
 
 const C = {
   marine:  '#1A2B4C',   // NAVY du Design System documentaire
@@ -49,8 +52,8 @@ function Placeholder({ eleve, mm }) {
 }
 
 // ── RECTO ────────────────────────────────────────────────────────────
-export function CarteRecto({ eleve, echelle = ECHELLE }) {
-  const mm = v => v * echelle
+export function CarteRecto({ eleve, echelle = ECHELLE, unite = 'px' }) {
+  const mm = unites(unite, echelle)
   const photo = eleve.photo_url || eleve.photo_signee || null
 
   return (
@@ -63,10 +66,10 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
       color: C.texte, boxSizing: 'border-box',
     }}>
       {/* Filet extérieur rappelant le porte-carte blanc du modèle. */}
-      <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)}px solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
+      <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)} solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
 
       {/* Deux aplats parfaitement nets : bleu institutionnel et gris perle. */}
-      <div style={{ position: 'absolute', inset: `${mm(2)}px ${mm(2)}px auto`, height: mm(42), background: '#174E72' }} />
+      <div style={{ position: 'absolute', inset: `${mm(2)} ${mm(2)} auto`, height: mm(42), background: '#174E72' }} />
       <div style={{ position: 'absolute', left: mm(2), right: mm(2), top: mm(42), bottom: mm(2), background: '#F1F2F3' }} />
 
       {/* Marque et établissement dans la partie supérieure. */}
@@ -85,7 +88,7 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
       {/* Photo carrée à cheval sur les deux aplats, signature du modèle. */}
       <div style={{
         position: 'absolute', top: mm(23), left: mm(7), width: mm(24), height: mm(33),
-        overflow: 'hidden', background: '#DDE8EF', border: `${mm(.6)}px solid #fff`,
+        overflow: 'hidden', background: '#DDE8EF', border: `${mm(.6)} solid #fff`,
         boxShadow: '0 5px 14px rgba(23,78,114,.25)', zIndex: 2,
       }}>
         {photo
@@ -99,17 +102,17 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
       {/* Bloc d'identité compact et éditorial. */}
       <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(60), bottom: mm(5), color: '#16384F' }}>
         <div style={{ fontSize: mm(3.75), fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eleve.prenom} {eleve.nom}</div>
-        <div style={{ marginTop: mm(1.5), display: 'grid', gridTemplateColumns: `1fr ${mm(16)}px`, gap: mm(2), alignItems: 'center' }}>
+        <div style={{ marginTop: mm(1.5), display: 'grid', gridTemplateColumns: `1fr ${mm(16)}`, gap: mm(2), alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: mm(2.05), fontWeight: 750, color: '#F28C28' }}>{eleve.classe_nom}</div>
             <div style={{ marginTop: mm(1.7), fontSize: mm(2.15), fontWeight: 850, letterSpacing: mm(.08) }}>{eleve.matricule}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#174E72' }}>
-            <span aria-hidden="true" style={{ display: 'block', width: mm(13), height: mm(3.1), borderBottom: `${mm(.18)}px solid #174E72` }} />
+            <span aria-hidden="true" style={{ display: 'block', width: mm(13), height: mm(3.1), borderBottom: `${mm(.18)} solid #174E72` }} />
             <span style={{ marginTop: mm(.55), fontSize: mm(1.15), fontWeight: 800, color: '#7C8993', letterSpacing: mm(.05) }}>LE DIRECTEUR</span>
           </div>
         </div>
-        <div style={{ marginTop: mm(1.7), paddingTop: mm(1.1), borderTop: `${mm(.25)}px solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
+        <div style={{ marginTop: mm(1.7), paddingTop: mm(1.1), borderTop: `${mm(.25)} solid #CBD2D8`, display: 'flex', justifyContent: 'space-between', fontSize: mm(1.45), fontWeight: 750, color: '#6F7D88', letterSpacing: mm(.05) }}>
           <span>CARTE D'ÉLÈVE</span><span>2026—2027</span>
         </div>
         <div style={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', gap: mm(.7) }}>
@@ -121,8 +124,8 @@ export function CarteRecto({ eleve, echelle = ECHELLE }) {
 }
 
 // ── VERSO ────────────────────────────────────────────────────────────
-export function CarteVerso({ eleve, echelle = ECHELLE }) {
-  const mm = v => v * echelle
+export function CarteVerso({ eleve, echelle = ECHELLE, unite = 'px' }) {
+  const mm = unites(unite, echelle)
   // Même URL de vérification que le QR de la fiche d'inscription.
   // Le QR porte le matricule ET le nom, tous deux imprimés sur la carte.
   //
@@ -143,8 +146,8 @@ export function CarteVerso({ eleve, echelle = ECHELLE }) {
       color: C.texte, boxSizing: 'border-box',
     }}>
 
-      <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)}px solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
-      <div style={{ position: 'absolute', inset: `${mm(2)}px ${mm(2)}px auto`, height: mm(27), background: '#174E72' }} />
+      <div style={{ position: 'absolute', inset: mm(1.5), border: `${mm(.45)} solid #E4E8EC`, borderRadius: mm(2.1), pointerEvents: 'none', zIndex: 5 }} />
+      <div style={{ position: 'absolute', inset: `${mm(2)} ${mm(2)} auto`, height: mm(27), background: '#174E72' }} />
       <div style={{ position: 'absolute', left: mm(2), right: mm(2), top: mm(27), bottom: mm(2), background: '#F1F2F3' }} />
 
       <div style={{ position: 'absolute', top: mm(4.5), left: mm(5), right: mm(5), display: 'flex', alignItems: 'center', gap: mm(1.4), color: '#fff' }}>
@@ -158,7 +161,7 @@ export function CarteVerso({ eleve, echelle = ECHELLE }) {
       {/* QR central à cheval sur les deux zones, comme la photo du recto. */}
       <div style={{
         position: 'absolute', top: mm(17), left: mm(14), width: mm(26), height: mm(26),
-        background: '#fff', border: `${mm(.6)}px solid #fff`, padding: mm(1.2), boxSizing: 'border-box',
+        background: '#fff', border: `${mm(.6)} solid #fff`, padding: mm(1.2), boxSizing: 'border-box',
         boxShadow: '0 5px 14px rgba(23,78,114,.24)', zIndex: 2,
       }}>
         <QRCodeSVG value={lien} size={mm(22.4)} level="M" bgColor="#ffffff" fgColor="#174E72" />
@@ -172,7 +175,7 @@ export function CarteVerso({ eleve, echelle = ECHELLE }) {
           ['ANNÉE SCOLAIRE', '2026—2027'],
           ['GROUPE SANGUIN', eleve.groupe_sanguin || '—'],
         ].map(([label, valeur]) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${mm(1.4)}px 0`, borderBottom: `${mm(.2)}px solid #D5DBE0` }}>
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${mm(1.4)} 0`, borderBottom: `${mm(.2)} solid #D5DBE0` }}>
             <span style={{ fontSize: mm(1.45), color: '#74828D', fontWeight: 800, letterSpacing: mm(.07) }}>{label}</span>
             <span style={{ fontSize: mm(2.15), color: label === 'GROUPE SANGUIN' ? '#C62828' : '#16384F', fontWeight: 850 }}>{valeur}</span>
           </div>
@@ -187,8 +190,8 @@ export function CarteVerso({ eleve, echelle = ECHELLE }) {
           Carte strictement personnelle.
         </div>
         <div style={{
-          marginTop: mm(1.2), padding: `${mm(1.5)}px ${mm(1.2)}px`, borderRadius: mm(1.2),
-          background: '#FDF1E4', border: `${mm(.25)}px solid #F28C28`, textAlign: 'center',
+          marginTop: mm(1.2), padding: `${mm(1.5)} ${mm(1.2)}`, borderRadius: mm(1.2),
+          background: '#FDF1E4', border: `${mm(.25)} solid #F28C28`, textAlign: 'center',
         }}>
           <div style={{ fontSize: mm(1.4), color: '#8A5A22', fontWeight: 800, letterSpacing: mm(.05) }}>
             EN CAS DE PERTE, APPELER L'ÉCOLE
@@ -412,30 +415,10 @@ export default function CartesScolaires() {
     window.print()
   }
 
-  // 3 colonnes × 3 rangées = 9 cartes par feuille A4.
-  // 3 × 54 + 2 × 2 = 166 mm de large, 3 × 85,6 + 2 × 2 = 260,8 mm de haut,
-  // dans une zone utile de 190 × 277 mm après marges de 10 mm.
-  const PAR_PAGE = 9
-  const COLONNES = 3
-
-  const pages = []
-  for (let i = 0; i < filteredEleves.length; i += PAR_PAGE) {
-    pages.push(filteredEleves.slice(i, i + PAR_PAGE))
-  }
-
-  // Retournement sur le grand côté : le verso sort en miroir horizontal.
-  // On inverse donc l'ordre à l'intérieur de chaque rangée pour que chaque
-  // verso retombe derrière son propre recto. C'est le point que les planches
-  // recto-verso ratent le plus souvent.
-  const miroirRangees = liste => {
-    const out = []
-    for (let i = 0; i < liste.length; i += COLONNES) {
-      const rangee = liste.slice(i, i + COLONNES)
-      while (rangee.length < COLONNES) rangee.push(null)
-      out.push(...rangee.reverse())
-    }
-    return out
-  }
+  // La découpe en planches et l'ordre miroir des versos vivent dans
+  // `lib/carteScolaire` : ce sont des règles, pas du rendu, et elles se
+  // testent sans navigateur.
+  const pages = planches(filteredEleves)
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -445,43 +428,59 @@ export default function CartesScolaires() {
           navigateurs suppriment les aplats et la bande colorée disparaîtrait.
           La planche passe en millimètres réels — l'aperçu écran est réduit,
           le papier ne l'est pas. */}
+      {/* Impression.
+          `print-color-adjust: exact` est indispensable : sans lui les
+          navigateurs suppriment les aplats et la bande colorée disparaîtrait.
+
+          Toutes les longueurs viennent de `lib/carteScolaire`. La version
+          précédente les réécrivait ici en dur — `repeat(3, 54mm)`,
+          `190mm`, `277mm` — pendant que les cartes, elles, étaient rendues en
+          PIXELS. Les navigateurs ne garantissent pas 96 px par pouce en mode
+          impression : chaque carte sortait un peu plus haute que sa case, et
+          l'écart, multiplié par trois rangées, faisait déborder la dernière
+          hors de la feuille. C'était le débordement du verso.
+
+          Les cartes sont désormais rendues en millimètres, comme la grille. */}
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 10mm; }
-          html, body { margin: 0 !important; padding: 0 !important; }
+          /* Marge nulle sur la page : les marges sont DANS la feuille, en
+             padding. Une @page de 10 mm laissait 277 mm utiles à une feuille
+             qui en fait 297 : chaque planche débordait sur une page de plus. */
+          @page { size: A4 portrait; margin: 0; }
+          html, body { margin: 0 !important; padding: 0 !important;
+                       height: auto !important; overflow: visible !important; }
           body * { visibility: hidden !important; }
           html[data-print-mode="planche"] #planche-impression,
           html[data-print-mode="planche"] #planche-impression *,
           html[data-print-mode="carte"] #carte-impression,
           html[data-print-mode="carte"] #carte-impression * { visibility: visible !important; }
+
           #planche-impression {
-            position: absolute; inset: 0 auto auto 0; width: 190mm;
+            position: absolute; inset: 0 auto auto 0;
+            width: ${A4.largeur}mm;
           }
           #planche-impression .feuille {
-            width: 190mm; height: 277mm;
-            overflow: hidden;
-            page-break-after: always; break-after: page;
-            display: flex; align-items: flex-start; justify-content: center;
+            width: ${A4.largeur}mm; height: ${A4.hauteur}mm;
+            padding: ${MARGE_Y}mm ${MARGE_X}mm;
+            box-sizing: border-box; overflow: hidden;
+            display: block; margin: 0;
+            break-after: page; page-break-after: always;
+            break-inside: avoid; page-break-inside: avoid;
           }
+          /* Sans cela, la dernière feuille éjecte une page blanche. */
           #planche-impression .feuille:last-child {
-            page-break-after: auto; break-after: auto;
+            break-after: auto; page-break-after: auto;
           }
           #planche-impression .grille {
             display: grid;
-            grid-template-columns: repeat(3, 54mm);
-            grid-template-rows: repeat(3, 85.6mm);
-            gap: 2mm;
-            justify-content: center;
+            grid-template-columns: repeat(${COLONNES}, ${CARTE_L}mm);
+            grid-template-rows: repeat(${Math.round(PAR_PLANCHE / COLONNES)}, ${CARTE_H}mm);
+            gap: ${GOUTTIERE}mm;
+            justify-content: center; align-content: start;
           }
-          #carte-impression {
-            position: absolute; inset: 0 auto auto 0;
-            width: 190mm; height: 277mm;
-            display: flex; gap: 10mm; align-items: flex-start;
-          }
+          #planche-impression .feuille-cadre { height: auto; overflow: visible; margin: 0; }
+          #planche-impression .feuille-numero { display: none !important; }
           #planche-impression .carte {
-            /* Aucune dimension forcée : la carte fait déjà 54 × 85,6 mm,
-               contenu compris, grâce à l'échelle 96/25,4. La contraindre ici
-               étirerait la boîte sans redimensionner ce qu'elle contient. */
             box-shadow: none !important;
             border: 0.2mm solid #cbd5e1 !important;
             break-inside: avoid; page-break-inside: avoid;
@@ -492,13 +491,42 @@ export default function CartesScolaires() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          #carte-impression {
+            position: absolute; inset: 0 auto auto 0;
+            width: ${A4.largeur}mm; height: ${A4.hauteur}mm;
+            padding: ${MARGE_Y}mm ${MARGE_X}mm; box-sizing: border-box;
+            display: flex; gap: 10mm; align-items: flex-start;
+          }
         }
         @media screen {
           #carte-impression { display: none; }
-          #planche-impression .feuille { margin-bottom: 20px; }
+          /* L'aperçu montre la VRAIE feuille, réduite. Une planche dessinée
+             autrement que ce qui sort de l'imprimante ne prouve rien. */
+          #planche-impression .feuille {
+            width: ${A4.largeur}mm; height: ${A4.hauteur}mm;
+            padding: ${MARGE_Y}mm ${MARGE_X}mm;
+            box-sizing: border-box; background: #fff;
+            box-shadow: 0 6px 22px rgba(15,23,42,.16);
+            margin: 0 auto 14px; overflow: hidden;
+          }
           #planche-impression .grille {
-            display: grid; grid-template-columns: repeat(3, auto);
-            gap: 6px; justify-content: center;
+            display: grid;
+            grid-template-columns: repeat(${COLONNES}, ${CARTE_L}mm);
+            grid-template-rows: repeat(${Math.round(PAR_PLANCHE / COLONNES)}, ${CARTE_H}mm);
+            gap: ${GOUTTIERE}mm;
+            justify-content: center; align-content: start;
+          }
+          /* La réduction porte sur la feuille, et son cadre reprend la
+             hauteur réduite. Mettre l'échelle sur le conteneur laisserait un
+             vide de la hauteur pleine sous l'apercu : transform ne change
+             pas la place occupée dans le flux. */
+          #planche-impression .feuille { transform: scale(.58); transform-origin: top center; }
+          #planche-impression .feuille-cadre {
+            height: calc(${A4.hauteur}mm * .58); overflow: hidden; margin-bottom: 10px;
+          }
+          #planche-impression .feuille-numero {
+            font-size: 11px; font-weight: 800; color: #64748b;
+            text-align: center; margin: 0 0 4px;
           }
         }
       `}</style>
@@ -714,8 +742,8 @@ export default function CartesScolaires() {
 
       {selectedEleve && (
         <div id="carte-impression">
-          <CarteRecto eleve={selectedEleve} echelle={PX_MM} />
-          <CarteVerso eleve={selectedEleve} echelle={PX_MM} />
+          <CarteRecto eleve={selectedEleve} unite="mm" />
+          <CarteVerso eleve={selectedEleve} unite="mm" />
         </div>
       )}
 
@@ -743,7 +771,7 @@ export default function CartesScolaires() {
             <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
                 💡 {filteredEleves.length} carte(s) · {pages.length} planche(s) de 9 cartes,
-                soit {pages.length * 2} feuille(s) A4. Chaque recto est immédiatement suivi de
+                soit {nombreDeFeuilles(filteredEleves)} feuille(s) A4. Chaque recto est immédiatement suivi de
                 son verso, disposé en miroir pour un retournement sur le grand côté.
                 Réglez l'imprimante sur <b>recto-verso, bord long</b>, à 100 % sans mise à l'échelle.
               </div>
@@ -756,20 +784,26 @@ export default function CartesScolaires() {
               <div id="planche-impression">
                 {pages.map((page, n) => (
                   <Fragment key={`paire-${n}`}>
-                    <div className="feuille">
-                      <div className="grille">
-                        {page.map(el => (
-                          <CarteRecto key={el.id} eleve={el} echelle={PX_MM} />
-                        ))}
+                    <div className="feuille-cadre">
+                      <div className="feuille-numero no-print">Planche {n + 1} · recto</div>
+                      <div className="feuille">
+                        <div className="grille">
+                          {page.map(el => (
+                            <CarteRecto key={el.id} eleve={el} unite="mm" />
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="feuille">
-                      <div className="grille">
-                        {miroirRangees(page).map((el, i) => (
-                          el
-                            ? <CarteVerso key={el.id} eleve={el} echelle={PX_MM} />
-                            : <div key={`vide-${i}`} />
-                        ))}
+                    <div className="feuille-cadre">
+                      <div className="feuille-numero no-print">Planche {n + 1} · verso</div>
+                      <div className="feuille">
+                        <div className="grille">
+                          {miroirRangees(page).map((el, i) => (
+                            el
+                              ? <CarteVerso key={el.id} eleve={el} unite="mm" />
+                              : <div key={`vide-${i}`} />
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </Fragment>

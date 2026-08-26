@@ -211,17 +211,28 @@ console.log(`\n${G}── RESPONSIVE · l'écran le plus étroit fait ${LARGEUR_
 // `resize` ni rappel ResizeObserver (0 sur des compteurs bruts, passage
 // 390 → 430 px). La garde lit donc le branchement dans la source.
 {
-  const src = existsSync('src/pages/DocumentPrintStudio.jsx')
-    ? readFileSync('src/pages/DocumentPrintStudio.jsx', 'utf8') : ''
-  const bloc = src.match(/const useEchelleFeuille[\s\S]*?\n}/)?.[0] || ''
+  // Le crochet a quitté `DocumentPrintStudio` pour `lib/echelleApercu` : le
+  // certificat de scolarité en a besoin aussi, et deux copies auraient
+  // divergé. La garde suit le code — elle refuse de passer sur un fichier
+  // absent plutôt que de lire une chaîne vide et de se croire satisfaite.
+  const chemin = 'src/lib/echelleApercu.js'
+  if (!existsSync(chemin)) {
+    verifier('R7 · l’échelle reste reliée aux changements de largeur', false,
+      `— ${chemin} introuvable`)
+  }
+  const src = existsSync(chemin) ? readFileSync(chemin, 'utf8') : ''
+  const bloc = src.match(/export const useEchelleFeuille[\s\S]*?\n}/)?.[0] || ''
   const observateur = /new ResizeObserver/.test(bloc) && /\.observe\(\s*zone\s*\)/.test(bloc)
   const pivot  = /addEventListener\(\s*'orientationchange'/.test(bloc)
   const propre = /\.disconnect\(\)/.test(bloc)
              && /removeEventListener\(\s*'orientationchange'/.test(bloc)
+  const consommateurs = ['src/pages/DocumentPrintStudio.jsx', 'src/pages/CertificatScolarite.jsx']
+    .filter(f => /useEchelleFeuille\(/.test(existsSync(f) ? readFileSync(f, 'utf8') : ''))
   verifier('R7 · l’échelle reste reliée aux changements de largeur',
-    observateur && pivot && propre,
+    observateur && pivot && propre && consommateurs.length === 2,
     `— observateur:${observateur ? 'oui' : 'NON'} pivot:${pivot ? 'oui' : 'NON'}`
-    + ` démontage:${propre ? 'propre' : 'FUITE'}`)
+    + ` démontage:${propre ? 'propre' : 'FUITE'}`
+    + ` consommateurs:${consommateurs.length}/2`)
 }
 
 console.log(echecs === 0

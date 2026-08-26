@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { signature } from '../lib/identiteProfessionnelle'
 import { CHAMPS_ELEVE_LISTE } from '../lib/eleves'
+import { useEchelleFeuille } from '../lib/echelleApercu'
 
 export default function CertificatScolarite({ user = null }) {
   // Le signataire n'est pas « le Directeur » écrit en dur : c'est la personne
@@ -10,6 +11,9 @@ export default function CertificatScolarite({ user = null }) {
   const signataire = signature(user, { role: user?.role || 'directeur' })
   const [eleves, setEleves] = useState([])
   const [, setLoading] = useState(true)
+  // L'aperçu est mis à l'échelle pour tenir dans l'écran : la feuille reste
+  // du A4, seul son affichage rétrécit.
+  const { cadre, docRef, echelle, hauteurDoc } = useEchelleFeuille(760)
   const [selectedEleve, setSelectedEleve] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [motifDelivrance, setMotifDelivrance] = useState('Servir et valoir ce que de droit')
@@ -196,12 +200,23 @@ export default function CertificatScolarite({ user = null }) {
 
       {/* Certificat A4 officiel - une seule composition pour l'écran et le papier. */}
       {selectedEleve && (
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', overflowX: 'auto', padding: '0 8px 24px' }}>
+        <div ref={cadre} className="certificat-cadre" style={{
+          width: '100%', padding: '0 8px 24px', boxSizing: 'border-box',
+          // La hauteur suit la réduction : `transform` ne change pas la place
+          // occupée dans le flux, et sans cela l'aperçu laisserait sous lui un
+          // vide de la hauteur pleine. Le défilement horizontal disparaît —
+          // c'était lui, le débordement à l'écran.
+          height: echelle < 1 && hauteurDoc ? hauteurDoc * echelle + 24 : undefined,
+          overflow: 'hidden',
+        }}>
           <div
             id="certificat-print-area"
+            ref={docRef}
             style={{
               width: 760,
               height: 1075,
+              transform: echelle < 1 ? `scale(${echelle})` : undefined,
+              transformOrigin: 'top left',
               background: '#fff',
               padding: '46px 52px 38px',
               boxSizing: 'border-box',
@@ -290,18 +305,36 @@ export default function CertificatScolarite({ user = null }) {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 0; }
-          html, body { width: 210mm; height: 297mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          /* Une hauteur de 297mm sur html/body produisait la deuxieme page : un
+             document haut d'exactement une page, plus le moindre arrondi de
+             rendu, en reclame une seconde. On laisse la hauteur libre et on
+             borne la seule boite qui compte. */
+          html, body { width: 210mm; height: auto !important; margin: 0 !important;
+                       padding: 0 !important; background: #fff !important;
+                       overflow: hidden !important; }
           body * { visibility: hidden !important; }
           #certificat-print-area, #certificat-print-area * { visibility: visible !important; }
+          .certificat-cadre { height: auto !important; overflow: visible !important; }
           #certificat-print-area {
             position: absolute !important;
             inset: 0 auto auto 0 !important;
             box-shadow: none !important;
+            /* L'apercu ecran met la feuille a l'echelle. Sans cette remise a
+               zero, le tirage sortirait le certificat reduit, cale en haut a
+               gauche. */
+            transform: none !important;
             width: 210mm !important;
-            height: 297mm !important;
+            /* 296,8 et non 297 : deux dixiemes de millimetre de marge contre
+               les arrondis de rendu, qui suffisent a declencher une page
+               blanche. Invisible a l'oeil, decisif a l'impression. */
+            height: 296.8mm !important;
+            max-height: 296.8mm !important;
+            overflow: hidden !important;
             padding: 12.7mm 13.8mm 10mm !important;
             border-radius: 0 !important;
             border: 0 !important;
+            break-inside: avoid !important; page-break-inside: avoid !important;
+            break-after: avoid !important; page-break-after: avoid !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }

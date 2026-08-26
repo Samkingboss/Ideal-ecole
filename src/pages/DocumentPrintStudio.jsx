@@ -1,6 +1,7 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { A4, HAUTEUR_UTILE_MM, MM_EN_PX } from '../lib/pageA4'
+import { useEchelleFeuille } from '../lib/echelleApercu'
 
 // Moteur documentaire commun d'IDEAL.
 //
@@ -328,32 +329,9 @@ function repartir(hauteurs, hauteurUtilePx, espacementPx, sauts = new Set()) {
 // `zoom` serait plus court ; `transform` est le seul des deux que Firefox et
 // Safari traitent pareil, et le tirage annule la transformation de toute façon.
 
+// Le crochet vit dans `lib/echelleApercu` : le certificat de scolarité en a
+// besoin aussi, et deux copies auraient divergé.
 const A4_PX = A4.largeur * 96 / 25.4   // 210 mm à 96 dpi ≈ 794 px
-
-const useEchelleFeuille = () => {
-  const cadre  = useRef(null)   // largeur disponible
-  const docRef = useRef(null)   // le document à sa taille réelle
-  const [echelle, setEchelle] = useState(1)
-  const [hauteurDoc, setHauteurDoc] = useState(0)
-
-  useEffect(() => {
-    const zone = cadre.current
-    if (!zone) return
-    const mesurer = () => {
-      const dispo = zone.clientWidth
-      if (dispo) setEchelle(Math.min(1, dispo / A4_PX))   // jamais d'agrandissement
-      if (docRef.current) setHauteurDoc(docRef.current.scrollHeight)
-    }
-    mesurer()
-    const ro = new ResizeObserver(mesurer)
-    ro.observe(zone)
-    if (docRef.current) ro.observe(docRef.current)
-    window.addEventListener('orientationchange', mesurer)
-    return () => { ro.disconnect(); window.removeEventListener('orientationchange', mesurer) }
-  })
-
-  return { cadre, docRef, echelle, hauteurDoc }
-}
 
 function Feuille({ prov, titre, bandeau, page, total, etabliLe, mention, children }) {
   return (
