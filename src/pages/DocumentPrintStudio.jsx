@@ -460,6 +460,13 @@ export default function DocumentPrintStudio({
   // champs sont fournis : sans lui, les indices désigneraient le mauvais bloc.
   // Mémorisées : la répartition les lit dans un effet, et un `Set` reconstruit
   // à chaque rendu relancerait la mise en page sans fin.
+  // Mises de côté par la pagination, elles ne doivent pas disparaître pour
+  // autant : on les rend AU-DESSUS des feuilles, hors du document. Les avoir
+  // simplement filtrées les avait fait disparaître de l'écran — le bandeau
+  // « Informer les parents » n'était plus nulle part.
+  const commandesEcran = React.Children.toArray(children).filter(
+    e => React.isValidElement(e) && e.props?.className === 'no-print')
+
   const { sautsForces, mentions } = useMemo(() => {
     const decalage = champs?.length ? 1 : 0
     const utiles = React.Children.toArray(children).filter(
@@ -700,6 +707,7 @@ export default function DocumentPrintStudio({
               transformOrigin: 'top left',
               width: reduit ? `${A4_PX}px` : undefined,
             }}>
+            {pagine && commandesEcran}
             {!pagine ? (
               // Documents historiques : un seul tenant, en-tête et pied
               // compris. La feuille de style d'impression empêche désormais la

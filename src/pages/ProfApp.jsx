@@ -1345,8 +1345,12 @@ export default function ProfApp({ user, onLogout }) {
                        borderLeft: `4px solid ${selectionDevoirs.includes(String(d.id)) ? '#0284c7' : 'var(--border)'}`,
                        background: selectionDevoirs.includes(String(d.id)) ? 'rgba(2,132,199,.04)' : undefined }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', minHeight: 32 }}>
-                      <input type="checkbox" style={{ width: 17, height: 17 }}
+                    {/* La zone tactile est le LABEL entier, pas la case :
+                        17 px se ratent au pouce. 40 px de haut, le nom de la
+                        matiere compris, se touchent sans viser. */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                                    minHeight: 40, paddingRight: 6, margin: '-4px 0' }}>
+                      <input type="checkbox" style={{ width: 20, height: 20, flex: 'none' }}
                         checked={selectionDevoirs.includes(String(d.id))}
                         onChange={() => setSelectionDevoirs(sel => sel.includes(String(d.id))
                           ? sel.filter(x => x !== String(d.id))
