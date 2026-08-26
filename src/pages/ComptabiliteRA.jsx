@@ -1,15 +1,56 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   classeLabel, creerEcriturePaiement, downloadCsv, downloadJson, fcfa, filtrerEleves,
-  normalizeEtatComptable, prochainRecu, resteDu, syntheseComptable, totalPaye,
+  normalizeEtatComptable, previsionFinanciere, prochainRecu, resteDu, SALAIRES_PREVISIONNELS,
+  situationCaisse, syntheseComptable, totalPaye,
 } from '../lib/comptabiliteRA'
 import './ComptabiliteRA.css'
 
 const ONGLETS = [
   ['dashboard', "📊 Vue d'ensemble"], ['eleves', '💵 Élèves & encaissements'],
   ['recouvrement', '📲 Recouvrement'], ['charges', '📋 Charges'],
-  ['tresorerie', '📅 Trésorerie'], ['compta', '📒 SYSCOHADA'],
+  ['tresorerie', '📅 Trésorerie'], ['previsions', '📈 Prévisions'],
+  ['salaires', '👥 Salaires & paie'], ['compta', '📒 SYSCOHADA'],
 ]
+
+const BarresFinancieres = ({ lignes }) => {
+  const maximum = Math.max(1, ...lignes.flatMap(ligne => [ligne.entrees, ligne.sorties]))
+  return <div className="compta-ra__chart" role="img" aria-label="Entrées et sorties mensuelles prévues">
+    {lignes.map(ligne => <div className="compta-ra__chart-column" key={ligne.mois} title={`${ligne.mois} — entrées ${fcfa(ligne.entrees)}, sorties ${fcfa(ligne.sorties)}`}>
+      <div className="compta-ra__chart-bars"><i className="compta-ra__bar compta-ra__bar--in" style={{height:`${Math.max(3, ligne.entrees / maximum * 100)}%`}}/><i className="compta-ra__bar compta-ra__bar--out" style={{height:`${Math.max(3, ligne.sorties / maximum * 100)}%`}}/></div><small>{ligne.mois}</small>
+    </div>)}
+  </div>
+}
+
+const CourbeCaisse = ({ students }) => {
+  const mois = Array.from({length:6}, (_,index) => { const date = new Date(); date.setMonth(date.getMonth() - (5-index)); return date })
+  const valeurs = mois.map(date => (students || []).flatMap(s => s.history || []).filter(p => !p.cancelled && (() => {
+    const iso = p.le ? new Date(p.le) : null
+    return iso && !Number.isNaN(iso.getTime()) && iso.getMonth() === date.getMonth() && iso.getFullYear() === date.getFullYear()
+  })()).reduce((s,p) => s + Number(p.amount || 0), 0))
+  const maximum = Math.max(1, ...valeurs); const points = valeurs.map((valeur,index) => `${8 + index * 18.4},${92 - valeur / maximum * 78}`).join(' ')
+  return <div className="compta-ra__line-chart"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Évolution des encaissements des six derniers mois"><polyline points={points}/>{valeurs.map((valeur,index) => <circle key={index} cx={8 + index * 18.4} cy={92 - valeur / maximum * 78} r="1.8"><title>{fcfa(valeur)}</title></circle>)}</svg><div className="compta-ra__chart-labels">{mois.map(date => <small key={date.toISOString()}>{date.toLocaleDateString('fr-FR',{month:'short'})}</small>)}</div></div>
+}
+
+const classeDepuisInscription = libelle => {
+  const texte = String(libelle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  return ['ps','gs','cp1','cp2','ce1','ce2','cm1','cm2'].find(code => texte.includes(code)) || null
+}
+
+const synchroniserEleves = (etat, inscriptions = []) => {
+  const sources = new Set(etat.students.map(student => student.sourceInscription).filter(Boolean).map(String))
+  const matricules = new Set(etat.students.map(student => student.matricule).filter(Boolean))
+  const nouveaux = inscriptions.filter(inscription => {
+    if (inscription.statut !== 'validee' || !inscription.matricule || matricules.has(inscription.matricule) || sources.has(String(inscription.id))) return false
+    return Boolean(classeDepuisInscription(inscription.classe_demandee))
+  }).map(inscription => ({
+    id:`inscription-${inscription.id}`, matricule:inscription.matricule, nom:inscription.nom, prenom:inscription.prenom,
+    classe:classeDepuisInscription(inscription.classe_demandee), cantine:Boolean(inscription.cantine),
+    annee_scolaire:inscription.annee_scolaire || null, telephone:'', famille:String(inscription.nom || '').toUpperCase(),
+    plan:'trimestre', paye:0, history:[], reductions:[], dateDepart:null, motifDepart:'', sourceInscription:inscription.id,
+  }))
+  return { suivant: nouveaux.length ? { ...etat, students:[...etat.students, ...nouveaux] } : etat, nombre:nouveaux.length }
+}
 
 const Journal = ({ etat, enregistrer }) => {
   const [vue, setVue] = useState('journaux')
@@ -109,14 +150,38 @@ export default function ComptabiliteRA({ supabase, user }) {
   const [reduction, setReduction] = useState({ libelle: '', montant: '', type: 'montant' })
   const [depart, setDepart] = useState({ date: new Date().toISOString().slice(0, 10), motif: '' })
   const [famille, setFamille] = useState({ cle: '', montants: {} })
+  const [moisPaie, setMoisPaie] = useState(new Date().toISOString().slice(0,7))
   const [nouvelEleve, setNouvelEleve] = useState({ matricule:'', nom:'', prenom:'', classe:'cp1', cantine:false, plan:'trimestre', famille:'' })
   const importRef = useRef(null)
 
   const charger = useCallback(async () => {
     setChargement(true); setErreur('')
-    const { data, error } = await supabase.from('financement_params').select('state_json,updated_at').eq('id', 'main').maybeSingle()
-    if (error || !data) setErreur(error?.message || 'État comptable introuvable.')
-    else { setEtat(normalizeEtatComptable(data.state_json)); setVersion(data.updated_at) }
+    const [comptabilite, inscriptions] = await Promise.all([
+      supabase.from('financement_params').select('state_json,updated_at').eq('id', 'main').maybeSingle(),
+      supabase.from('inscriptions').select('id,matricule,nom,prenom,classe_demandee,cantine,statut,annee_scolaire'),
+    ])
+    if (comptabilite.error || !comptabilite.data) setErreur(comptabilite.error?.message || 'État comptable introuvable.')
+    else if (inscriptions.error) {
+      setEtat(normalizeEtatComptable(comptabilite.data.state_json)); setVersion(comptabilite.data.updated_at)
+      setErreur(`Comptabilité chargée, synchronisation des inscriptions impossible : ${inscriptions.error.message}`)
+    } else {
+      const base = normalizeEtatComptable(comptabilite.data.state_json)
+      const { suivant, nombre } = synchroniserEleves(base, inscriptions.data)
+      if (!nombre) { setEtat(base); setVersion(comptabilite.data.updated_at) }
+      else {
+        const updatedAt = new Date().toISOString()
+        let requete = supabase.from('financement_params').update({ state_json:suivant, updated_at:updatedAt }).eq('id','main')
+        if (comptabilite.data.updated_at) requete = requete.eq('updated_at', comptabilite.data.updated_at)
+        const sauvegarde = await requete.select('updated_at')
+        if (sauvegarde.error || !sauvegarde.data?.length) {
+          setEtat(base); setVersion(comptabilite.data.updated_at)
+          setErreur(sauvegarde.error?.message || 'La comptabilité a changé pendant la synchronisation. Actualisez pour réessayer.')
+        } else {
+          setEtat(suivant); setVersion(sauvegarde.data[0].updated_at)
+          setMessage(`${nombre} inscription(s) synchronisée(s) automatiquement.`)
+        }
+      }
+    }
     setChargement(false)
   }, [supabase])
 
@@ -170,6 +235,21 @@ export default function ComptabiliteRA({ supabase, user }) {
     const r = await sauverEtat(etat)
     if (r.ok) setMessage('Charges enregistrées.'); else setErreur(r.message)
   }
+  const modifierSalaire = (index, champ, valeur) => setEtat(courant => {
+    const salaires = (courant.salaires?.length ? courant.salaires : SALAIRES_PREVISIONNELS).map((poste,i) => i === index ? { ...poste, [champ]:champ === 'mensuel' ? Number(valeur) || 0 : valeur } : poste)
+    const masseAnnuelle = salaires.reduce((s,poste) => s + Number(poste.mensuel || 0), 0) * 12
+    return { ...courant, salaires, charges:courant.charges.map(charge => charge.id === 'salaires' ? { ...charge, montant:masseAnnuelle } : charge) }
+  })
+  const modifierPaie = (index, champ, valeur) => setEtat(courant => {
+    const base = courant.paies?.[moisPaie] || []
+    const lignes = salaires.map((poste,i) => ({ poste:poste.poste, base:Number(poste.mensuel || 0), primes:0, retenues:0, mode:'Espèces', statut:'En attente', ...(base[i] || {}) }))
+    lignes[index] = { ...lignes[index], [champ]:['primes','retenues'].includes(champ) ? Number(valeur) || 0 : valeur }
+    return { ...courant, paies:{ ...(courant.paies || {}), [moisPaie]:lignes } }
+  })
+  const enregistrerSalaires = async () => {
+    const r = await sauverEtat(etat)
+    if (r.ok) setMessage('Grille salariale et masse annuelle enregistrées.'); else setErreur(r.message)
+  }
   const enregistrer = async (suivant, confirmation) => {
     const r = await sauverEtat(normalizeEtatComptable(suivant))
     if (r.ok) { setMessage(confirmation); setErreur(''); return true }
@@ -195,22 +275,7 @@ export default function ComptabiliteRA({ supabase, user }) {
     await enregistrer(remplacerEleve(student, { dateDepart:null, motifDepart:'' }), 'Élève réactivé.')
   }
   const importerInscriptions = async () => {
-    setErreur(''); setMessage('')
-    const { data, error } = await supabase.from('inscriptions').select('id,matricule,nom,prenom,classe_demandee,cantine,statut,annee_scolaire')
-    if (error) { setErreur(error.message); return }
-    const existants = new Set(etat.students.map(s => s.matricule).filter(Boolean))
-    const codeClasse = libelle => {
-      const texte = String(libelle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-      return ['ps','gs','cp1','cp2','ce1','ce2','cm1','cm2'].find(code => texte.includes(code)) || null
-    }
-    const nouveaux = (data || []).filter(i => i.matricule && !existants.has(i.matricule)).map(i => ({ ...i, classe:codeClasse(i.classe_demandee) })).filter(i => i.classe).map(i => ({
-      id:Date.now() + Math.floor(Math.random() * 100000), matricule:i.matricule, nom:i.nom, prenom:i.prenom, classe:i.classe, cantine:Boolean(i.cantine),
-      annee_scolaire:i.annee_scolaire || null, telephone:'', famille:String(i.nom || '').toUpperCase(), plan:'trimestre', paye:0,
-      history:[], reductions:[], dateDepart:null, motifDepart:'', sourceInscription:i.id,
-    }))
-    if (!nouveaux.length) { setMessage('Toutes les inscriptions sont déjà présentes.'); return }
-    if (!window.confirm(`Importer ${nouveaux.length} nouvelle(s) inscription(s) dans la comptabilité ?`)) return
-    await enregistrer({ ...etat, students:[...etat.students, ...nouveaux] }, `${nouveaux.length} inscription(s) importée(s).`)
+    setMessage(''); await charger()
   }
   const annulerPaiement = async (student, payment) => {
     const courant = etat.students.find(s => s.id === student.id) || student
@@ -271,6 +336,13 @@ export default function ComptabiliteRA({ supabase, user }) {
   }
 
   const synthese = useMemo(() => syntheseComptable(etat), [etat])
+  const prevision = useMemo(() => previsionFinanciere(etat), [etat])
+  const caisse = useMemo(() => situationCaisse(etat), [etat])
+  const salaires = etat.salaires?.length ? etat.salaires : SALAIRES_PREVISIONNELS
+  const masseMensuelle = salaires.reduce((s,poste) => s + Number(poste.mensuel || 0), 0)
+  const lignesPaie = salaires.map((poste,index) => ({ poste:poste.poste, base:Number(poste.mensuel || 0), primes:0, retenues:0, mode:'Espèces', statut:'En attente', ...(etat.paies?.[moisPaie]?.[index] || {}) }))
+  const masseNette = lignesPaie.reduce((s,ligne) => s + Math.max(0, ligne.base + Number(ligne.primes || 0) - Number(ligne.retenues || 0)), 0)
+  const principauxDebiteurs = [...etat.students].filter(s => resteDu(s) > 0).sort((a,b) => resteDu(b)-resteDu(a)).slice(0,5)
   const classes = useMemo(() => [...new Set(etat.students.map(s => s.classe).filter(Boolean))], [etat.students])
   const eleves = useMemo(() => filtrerEleves(etat.students, recherche, classe, onglet === 'recouvrement'), [etat.students, recherche, classe, onglet])
   const tresorerie = synthese.encaisse - synthese.charges
@@ -295,19 +367,17 @@ export default function ComptabiliteRA({ supabase, user }) {
 
     {!chargement && onglet === 'dashboard' && <>
       <div className="compta-ra__kpis">
-        {[['Encaissements du jour', fcfa(synthese.encaisseJour)], ['Encaissements cumulés', fcfa(synthese.encaisse)],
-          ['Élèves suivis', synthese.eleves], ['Impayés connus', fcfa(synthese.impayes)], ['Opérations', synthese.operations]]
+        {[['Caisse disponible', fcfa(caisse.caisse)], ['Banque & mobile', fcfa(caisse.banque)],
+          ['Liquidités constatées', fcfa(caisse.liquidites)], ['À recouvrer', fcfa(caisse.impayes)],
+          ['Recouvrement urgent', fcfa(caisse.urgenceRecouvrement)], ['Encaissements du jour', fcfa(synthese.encaisseJour)]]
           .map(([label, value]) => <div className="compta-ra__kpi" key={label}><div className="compta-ra__kpi-label">{label}</div><div className="compta-ra__kpi-value">{value}</div></div>)}
       </div>
-      <div className="compta-ra__grid"><div className="compta-ra__panel"><h2>Situation financière</h2>
-        <div className="compta-ra__receipt-line"><span>Encaissements</span><b>{fcfa(synthese.encaisse)}</b></div>
-        <div className="compta-ra__receipt-line"><span>Charges annuelles</span><b>{fcfa(synthese.charges)}</b></div>
-        <div className="compta-ra__receipt-line"><span>Solde indicatif</span><b style={{ color: tresorerie >= 0 ? '#059669' : '#dc2626' }}>{fcfa(tresorerie)}</b></div>
-      </div><div className="compta-ra__panel"><h2>Contrôles rapides</h2>
-        <div className="compta-ra__receipt-line"><span>Élèves avec impayé</span><b>{etat.students.filter(s => resteDu(s) > 0).length}</b></div>
-        <div className="compta-ra__receipt-line"><span>Écritures comptables</span><b>{etat.ecritures.length}</b></div>
-        <div className="compta-ra__receipt-line"><span>Version serveur</span><b>{version ? new Date(version).toLocaleString('fr-FR') : '—'}</b></div>
-      </div></div>
+      <div className="compta-ra__alert" data-level={caisse.couverture >= 2 ? 'ok' : caisse.couverture >= 1 ? 'watch' : 'urgent'}><b>{caisse.couverture >= 2 ? '✓ Trésorerie confortable' : caisse.couverture >= 1 ? '⚠ Trésorerie à surveiller' : '⛔ Recouvrement prioritaire'}</b><span>Couverture actuelle : {caisse.couverture.toFixed(1)} mois de charges. {caisse.urgenceRecouvrement > 0 ? `${fcfa(caisse.urgenceRecouvrement)} à recouvrer rapidement pour couvrir un mois.` : 'Les liquidités couvrent au moins un mois de charges.'}</span></div>
+      <div className="compta-ra__grid"><div className="compta-ra__panel"><h2>Évolution des encaissements réels</h2><p className="compta-ra__subtitle">Six derniers mois, paiements confirmés uniquement.</p><CourbeCaisse students={etat.students}/></div>
+      <div className="compta-ra__panel"><h2>Prévision entrées / sorties</h2><p className="compta-ra__subtitle">Scénario annuel de {prevision.totalEleves} élèves.</p><BarresFinancieres lignes={prevision.mensuel}/><div className="compta-ra__legend"><span>● Entrées</span><span>● Sorties</span></div></div></div>
+      <div className="compta-ra__grid"><div className="compta-ra__panel"><h2>Situation et capacité</h2>
+        <div className="compta-ra__receipt-line"><span>Encaissements cumulés</span><b>{fcfa(synthese.encaisse)}</b></div><div className="compta-ra__receipt-line"><span>Charges moyennes mensuelles</span><b>{fcfa(caisse.chargesMensuelles)}</b></div><div className="compta-ra__receipt-line"><span>Opérations confirmées</span><b>{synthese.operations}</b></div><div className="compta-ra__receipt-line"><span>Version serveur</span><b>{version ? new Date(version).toLocaleString('fr-FR') : '—'}</b></div>
+      </div><div className="compta-ra__panel"><h2>Débiteurs prioritaires</h2>{principauxDebiteurs.map(student => <div className="compta-ra__receipt-line" key={student.id}><span>{student.prenom} {student.nom}<br/><small>{classeLabel(student.classe)} · {student.matricule}</small></span><b>{fcfa(resteDu(student))}</b></div>)}{!principauxDebiteurs.length && <div className="compta-ra__empty">Aucun impayé enregistré.</div>}</div></div>
     </>}
 
     {!chargement && ['eleves', 'recouvrement'].includes(onglet) && <div className="compta-ra__panel">
@@ -316,7 +386,7 @@ export default function ComptabiliteRA({ supabase, user }) {
         <select className="compta-ra__input" value={classe} onChange={e => setClasse(e.target.value)}><option value="toutes">Toutes les classes</option>{classes.map(id => <option key={id} value={id}>{classeLabel(id)}</option>)}</select>
         <button className="compta-ra__button" onClick={() => downloadCsv('situation-eleves.csv', [['Matricule','Nom','Classe','Payé','Reste'], ...eleves.map(s => [s.matricule,`${s.nom || ''} ${s.prenom || ''}`,classeLabel(s.classe),totalPaye(s),resteDu(s)])])}>⬇ CSV</button>
       </div>
-      {onglet === 'eleves' && <div className="compta-ra__dialog-actions"><button className="compta-ra__button compta-ra__button--primary" onClick={() => setModal({type:'nouvel-eleve'})}>+ Nouvel élève comptable</button><button className="compta-ra__button" onClick={() => setModal({type:'famille'})}>👨‍👩‍👧‍👦 Encaissement famille</button><button className="compta-ra__button" onClick={importerInscriptions}>📥 Importer les inscriptions</button></div>}
+      {onglet === 'eleves' && <div className="compta-ra__dialog-actions"><button className="compta-ra__button compta-ra__button--primary" onClick={() => setModal({type:'nouvel-eleve'})}>+ Nouvel élève comptable</button><button className="compta-ra__button" onClick={() => setModal({type:'famille'})}>👨‍👩‍👧‍👦 Encaissement famille</button><button className="compta-ra__button" onClick={importerInscriptions}>↻ Synchroniser les inscriptions</button></div>}
       <div className="compta-ra__table-wrap"><table className="compta-ra__table"><thead><tr><th>Élève</th><th>Classe</th><th className="compta-ra__right">Payé</th><th className="compta-ra__right">Reste</th><th></th></tr></thead><tbody>
         {eleves.map(student => <tr key={student.id || student.matricule}><td data-label="Élève"><b>{student.nom} {student.prenom}</b><br/><small>{student.matricule || 'Sans matricule'}</small></td>
           <td data-label="Classe">{classeLabel(student.classe)}</td><td data-label="Payé" className="compta-ra__right">{fcfa(totalPaye(student))}</td><td data-label="Reste" className="compta-ra__right">{fcfa(resteDu(student))}</td>
@@ -336,10 +406,23 @@ export default function ComptabiliteRA({ supabase, user }) {
     </div>}
 
     {!chargement && onglet === 'tresorerie' && <div className="compta-ra__grid"><div className="compta-ra__panel"><h2>Trésorerie constatée</h2>
-      <div className="compta-ra__receipt-line"><span>Total encaissé</span><b>{fcfa(synthese.encaisse)}</b></div><div className="compta-ra__receipt-line"><span>Charges</span><b>{fcfa(synthese.charges)}</b></div><div className="compta-ra__receipt-line"><span>Solde</span><b>{fcfa(tresorerie)}</b></div>
+      <div className="compta-ra__receipt-line"><span>Caisse</span><b>{fcfa(caisse.caisse)}</b></div><div className="compta-ra__receipt-line"><span>Banque &amp; mobile</span><b>{fcfa(caisse.banque)}</b></div><div className="compta-ra__receipt-line"><span>Liquidités</span><b>{fcfa(caisse.liquidites)}</b></div><div className="compta-ra__receipt-line"><span>Encaissements cumulés</span><b>{fcfa(synthese.encaisse)}</b></div><div className="compta-ra__receipt-line"><span>Solde annuel indicatif</span><b>{fcfa(tresorerie)}</b></div>
     </div><div className="compta-ra__panel"><h2>Prévisions conservées</h2><p className="compta-ra__subtitle">Les paramètres historiques restent stockés sans transformation dans le document comptable.</p>
       <div className="compta-ra__receipt-line"><span>Taux de recouvrement</span><b>{etat.tauxRed ?? etat.tauxRecouvrement ?? '—'}%</b></div><div className="compta-ra__receipt-line"><span>Part mensualisée</span><b>{etat.pctMensualise ?? '—'}%</b></div>
     </div></div>}
+
+    {!chargement && onglet === 'previsions' && <div className="compta-ra__panel"><div className="compta-ra__section-head"><div><h2>Prévision financière — scénario {prevision.totalEleves} élèves</h2><p className="compta-ra__subtitle">Projection distincte des encaissements réels · recouvrement {(prevision.tauxRecouvrement*100).toFixed(0)}% · cantine {(prevision.tauxCantine*100).toFixed(0)}%.</p></div></div>
+      <div className="compta-ra__kpis">{[['Élèves prévus',prevision.totalEleves],['Recettes scolarité',fcfa(prevision.recettesScolarite)],['Recettes cantine',fcfa(prevision.recettesCantine)],['Recettes totales',fcfa(prevision.recettes)],['Charges prévues',fcfa(prevision.charges)],['Résultat prévu',fcfa(prevision.resultat)]].map(([label,value]) => <div className="compta-ra__kpi" key={label}><div className="compta-ra__kpi-label">{label}</div><div className="compta-ra__kpi-value">{value}</div></div>)}</div>
+      <div className="compta-ra__grid"><div><h3>Flux mensuels prévisionnels</h3><BarresFinancieres lignes={prevision.mensuel}/><div className="compta-ra__legend"><span>● Entrées</span><span>● Sorties</span></div></div><div><h3>Effectifs de référence</h3>{Object.entries(prevision.effectifs).map(([id,nombre]) => <div className="compta-ra__receipt-line" key={id}><span>{classeLabel(id)}</span><b>{nombre} élèves</b></div>)}</div></div>
+      <div className="compta-ra__table-wrap"><table className="compta-ra__table"><thead><tr><th>Mois</th><th className="compta-ra__right">Entrées</th><th className="compta-ra__right">Sorties</th><th className="compta-ra__right">Solde</th><th className="compta-ra__right">Cumul</th></tr></thead><tbody>{prevision.mensuel.map(ligne => <tr key={ligne.mois}><td data-label="Mois">{ligne.mois}</td><td data-label="Entrées" className="compta-ra__right">{fcfa(ligne.entrees)}</td><td data-label="Sorties" className="compta-ra__right">{fcfa(ligne.sorties)}</td><td data-label="Solde" className="compta-ra__right">{fcfa(ligne.solde)}</td><td data-label="Cumul" className="compta-ra__right"><b>{fcfa(ligne.cumule)}</b></td></tr>)}</tbody></table></div>
+    </div>}
+
+    {!chargement && onglet === 'salaires' && <div className="compta-ra__panel compta-ra__salary-sheet"><div className="compta-ra__section-head"><div><h2>Détail des salaires</h2><p className="compta-ra__subtitle">La masse salariale annuelle alimente automatiquement le poste « Salaires du personnel » dans les charges.</p></div><button className="compta-ra__button" onClick={() => window.print()}>🖨️ Imprimer l’état de paie</button></div>
+      <div className="compta-ra__kpis"><div className="compta-ra__kpi"><div className="compta-ra__kpi-label">Postes</div><div className="compta-ra__kpi-value">{salaires.length}</div></div><div className="compta-ra__kpi"><div className="compta-ra__kpi-label">Masse mensuelle</div><div className="compta-ra__kpi-value">{fcfa(masseMensuelle)}</div></div><div className="compta-ra__kpi"><div className="compta-ra__kpi-label">Masse annuelle</div><div className="compta-ra__kpi-value">{fcfa(masseMensuelle*12)}</div></div></div>
+      <div className="compta-ra__table-wrap"><table className="compta-ra__table"><thead><tr><th>Poste / fonction</th><th className="compta-ra__right">Salaire mensuel</th><th className="compta-ra__right">Salaire annuel</th></tr></thead><tbody>{salaires.map((poste,index) => <tr key={poste.id || `${poste.poste}-${index}`}><td data-label="Poste"><input className="compta-ra__input" value={poste.poste || poste.label || ''} onChange={e => modifierSalaire(index,'poste',e.target.value)}/></td><td data-label="Mensuel"><input className="compta-ra__input compta-ra__right" type="number" min="0" value={poste.mensuel || 0} onChange={e => modifierSalaire(index,'mensuel',e.target.value)}/></td><td data-label="Annuel" className="compta-ra__right"><b>{fcfa(Number(poste.mensuel || 0)*12)}</b></td></tr>)}</tbody></table></div><div className="compta-ra__dialog-actions"><button className="compta-ra__button compta-ra__button--primary" onClick={enregistrerSalaires}>Enregistrer la grille salariale</button></div>
+      <div className="compta-ra__section-head compta-ra__payroll-head"><div><h2>État mensuel de paie</h2><p className="compta-ra__subtitle">Primes, retenues et règlement réellement préparé pour le mois.</p></div><label>Mois<input className="compta-ra__input" type="month" value={moisPaie} onChange={e => setMoisPaie(e.target.value)}/></label><div><small>Masse nette</small><div className="compta-ra__kpi-value">{fcfa(masseNette)}</div></div></div>
+      <div className="compta-ra__table-wrap"><table className="compta-ra__table"><thead><tr><th>Poste</th><th className="compta-ra__right">Base</th><th className="compta-ra__right">Primes</th><th className="compta-ra__right">Retenues</th><th className="compta-ra__right">Net</th><th>Mode</th><th>Statut</th></tr></thead><tbody>{lignesPaie.map((ligne,index) => { const net = Math.max(0, ligne.base + Number(ligne.primes || 0) - Number(ligne.retenues || 0)); return <tr key={`${moisPaie}-${index}`}><td data-label="Poste"><b>{ligne.poste}</b></td><td data-label="Base" className="compta-ra__right">{fcfa(ligne.base)}</td><td data-label="Primes"><input className="compta-ra__input compta-ra__right" type="number" min="0" value={ligne.primes || 0} onChange={e => modifierPaie(index,'primes',e.target.value)}/></td><td data-label="Retenues"><input className="compta-ra__input compta-ra__right" type="number" min="0" value={ligne.retenues || 0} onChange={e => modifierPaie(index,'retenues',e.target.value)}/></td><td data-label="Net" className="compta-ra__right"><b>{fcfa(net)}</b></td><td data-label="Mode"><select className="compta-ra__input" value={ligne.mode} onChange={e => modifierPaie(index,'mode',e.target.value)}><option>Espèces</option><option>Virement</option><option>Orange Money</option><option>Wave</option></select></td><td data-label="Statut"><select className="compta-ra__input" value={ligne.statut} onChange={e => modifierPaie(index,'statut',e.target.value)}><option>En attente</option><option>Payé</option></select></td></tr> })}</tbody></table></div><div className="compta-ra__dialog-actions"><button className="compta-ra__button compta-ra__button--primary" onClick={enregistrerSalaires}>Enregistrer l’état mensuel</button></div>
+    </div>}
 
     {!chargement && onglet === 'compta' && <Journal etat={etat} enregistrer={enregistrer} />}
 

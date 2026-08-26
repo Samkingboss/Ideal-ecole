@@ -29,6 +29,64 @@ const TARIFS = {
   maternelle: { inscription: 55000, fournitures: 50000, cotisation: 45000, scolarite: 625000, cantine: 243000 },
   primaire: { inscription: 60000, fournitures: 70000, cotisation: 45000, scolarite: 750000, cantine: 305000 },
 }
+
+export const EFFECTIFS_PREVISIONNELS = { ps:13, gs:20, cp1:22, cp2:18, ce1:7, ce2:4, cm1:3, cm2:3 }
+export const SALAIRES_PREVISIONNELS = [
+  ['Directeur',400000], ['Responsable administratif',150000], ['Conseillère de vie scolaire',75000],
+  ['Surveillant(e)',75000], ['Ménagères (× 3)',150000], ['Gardien',30000],
+  ['Maîtresse Français (Maternelle)',125000], ['Maîtresse Anglais (Maternelle)',125000],
+  ['Assistante Français (Maternelle)',75000], ['Assistante Anglais (Maternelle)',75000],
+  ['Maître Français (CP1-CP2)',125000], ['Maître Anglais (CP1-CP2)',125000],
+  ['Maître Français (CE1-CE2)',125000], ['Maître Anglais (CE1-CE2)',125000],
+  ['Maître Français (CM1-CM2)',125000], ['Maître Anglais (CM1-CM2)',125000],
+  ['Rémunération Associé',250000], ['Rémunération Directeur',100000],
+].map(([poste,mensuel], index) => ({ id:`poste-${index + 1}`, poste, mensuel }))
+
+const moisPrevision = ['Oct.','Nov.','Déc.','Jan.','Fév.','Mars','Avr.','Mai','Juin']
+export const previsionFinanciere = etat => {
+  const effectifsSauves = { ...EFFECTIFS_PREVISIONNELS, ...(etat.effectifs || {}) }
+  const totalSauve = Object.values(effectifsSauves).reduce((s,n) => s + Number(n || 0), 0)
+  const effectifs = totalSauve === 90 ? effectifsSauves : { ...EFFECTIFS_PREVISIONNELS }
+  const totalEleves = Object.values(effectifs).reduce((s,n) => s + Number(n || 0), 0)
+  const tauxRecouvrement = Number(etat.tauxRed ?? etat.tauxRecouvrement ?? 93) / 100
+  const tauxCantine = Number(etat.tauxCantine ?? 90) / 100
+  let recettesScolarite = 0; let recettesCantine = 0
+  Object.entries(effectifs).forEach(([classe,effectif]) => {
+    const tarif = TARIFS[['ps','gs'].includes(classe) ? 'maternelle' : 'primaire']
+    recettesScolarite += (tarif.inscription + tarif.fournitures + tarif.cotisation + tarif.scolarite) * Number(effectif || 0) * tauxRecouvrement
+    recettesCantine += tarif.cantine * Number(effectif || 0) * tauxCantine
+  })
+  const recettes = recettesScolarite + recettesCantine
+  const charges = (etat.charges || []).reduce((s,c) => s + Number(c.montant || 0), 0)
+    + (etat.cantineCharges || []).reduce((s,c) => s + Number(c.montant || Number(c.base || 0) * Number(c.multi || 1)), 0)
+  const repartitionEntrees = [.39,.055,.035,.17,.055,.07,.105,.07,.05]
+  const repartitionSorties = [.18,.075,.07,.105,.075,.105,.085,.075,.24]
+  let cumule = 0
+  const mensuel = moisPrevision.map((mois,index) => {
+    const entrees = recettes * repartitionEntrees[index]
+    const sorties = charges * repartitionSorties[index]
+    const solde = entrees - sorties; cumule += solde
+    return { mois, entrees, sorties, solde, cumule }
+  })
+  return { effectifs, totalEleves, tauxRecouvrement, tauxCantine, recettesScolarite, recettesCantine, recettes, charges, resultat:recettes-charges, mensuel }
+}
+
+export const situationCaisse = etat => {
+  const ecritures = etat.ecritures || []
+  const mouvementCompte = prefixe => ecritures.reduce((solde,e) => {
+    const montant = Number(e.montant || 0)
+    return solde + (String(e.compteDebit || '').startsWith(prefixe) ? montant : 0) - (String(e.compteCredit || '').startsWith(prefixe) ? montant : 0)
+  }, 0)
+  const caisse = mouvementCompte('57')
+  const banque = mouvementCompte('52')
+  const impayes = (etat.students || []).reduce((s,student) => s + resteDu(student), 0)
+  const chargesAnnuelles = (etat.charges || []).reduce((s,c) => s + Number(c.montant || 0), 0)
+  const chargesMensuelles = chargesAnnuelles / 12
+  const liquidites = caisse + banque
+  return { caisse, banque, liquidites, impayes, chargesMensuelles,
+    urgenceRecouvrement:Math.min(impayes, Math.max(0, chargesMensuelles-liquidites)),
+    couverture:chargesMensuelles > 0 ? liquidites / chargesMensuelles : 0 }
+}
 export const totalDu = student => {
   const explicite = Number(student.totalAnnuel || student.total || student.montantTotal || 0)
   if (explicite > 0) return explicite

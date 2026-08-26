@@ -23,7 +23,8 @@ verifier('C3 · la vue native est rendue dans le layout RA',
 verifier('C4 · les fonctions principales sont présentes',
   ['enregistrer_paiement', 'Recouvrement', 'Charges', 'Trésorerie', 'SYSCOHADA', 'Export CSV', 'Historique',
     'Encaissement famille', 'Réduction', 'contre-passation', 'Grand livre', 'Balance', 'Plan comptable',
-    'Nouvelle écriture', 'Justificatif', 'Importer les inscriptions', 'Nouvel élève comptable']
+    'Nouvelle écriture', 'Justificatif', 'Synchroniser les inscriptions', 'Nouvel élève comptable',
+    'Prévisions', 'Salaires & paie', 'Caisse disponible', 'Recouvrement urgent', 'Débiteurs prioritaires']
     .every(terme => composant.includes(terme)))
 verifier('C5/C6 · lecture et écriture RA passent par les surfaces existantes',
   /from\('financement_params'\)\.select/.test(composant)
@@ -39,6 +40,22 @@ verifier('C11 · aucun lien RA vers la page standalone', !/comptabilite\.html/.t
 verifier('C12 · retour Élèves/RH conservé dans le même état React',
   /setTab\('eleves'\)/.test(blocRa) && /setTab\('rh'\)/.test(blocRa)
   && /responsable_administratif/.test(app))
+verifier('C13 · synchronisation automatique, dédoublonnée et sans écriture dans les inscriptions',
+  /Promise\.all/.test(composant)
+  && /from\('inscriptions'\)\.select/.test(composant)
+  && /sourceInscription/.test(composant)
+  && /matricules\.has/.test(composant)
+  && /inscription\.statut !== 'validee'/.test(composant)
+  && /eq\('updated_at', comptabilite\.data\.updated_at\)/.test(composant)
+  && !/from\('inscriptions'\)\.(insert|update|delete|upsert)/.test(composant))
+verifier('C14 · cockpit caisse, prévision 90 élèves et masse salariale sont revenus',
+  /situationCaisse/.test(composant)
+  && /CourbeCaisse/.test(composant)
+  && /BarresFinancieres/.test(composant)
+  && /EFFECTIFS_PREVISIONNELS/.test(lire('src/lib/comptabiliteRA.js'))
+  && /totalSauve === 90/.test(lire('src/lib/comptabiliteRA.js'))
+  && /enregistrerSalaires/.test(composant)
+  && ['État mensuel de paie','Primes','Retenues','Masse nette'].every(terme => composant.includes(terme)))
 
-console.log(echecs ? `\n${echecs} garde(s) en échec.` : '\n12 contrôles au vert.')
+console.log(echecs ? `\n${echecs} garde(s) en échec.` : '\n14 contrôles au vert.')
 process.exit(echecs ? 1 : 0)
