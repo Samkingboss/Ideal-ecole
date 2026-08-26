@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PERIODES_AGENDA } from '../lib/periodeScolaire'
 // ─── Calendrier scolaire IDEAL 2026-2027 ───
 const JOURS_FERIES = [
   { date: '2027-01-20', label: 'Fete de l Armee' },
@@ -17,13 +18,11 @@ const VACANCES = [
   { debut: '2027-04-17', fin: '2027-04-25', label: 'Conge Periode 4' },
   { debut: '2027-06-26', fin: '2027-09-30', label: 'Grandes Vacances' },
 ]
-const PERIODES = [
-  { num: 1, debut: '2026-10-01', fin: '2026-11-13', color: '#1AAFE0', label: 'Periode 1 (T1)' },
-  { num: 2, debut: '2026-11-23', fin: '2026-12-18', color: '#8DC63F', label: 'Periode 2 (T1)' },
-  { num: 3, debut: '2027-01-04', fin: '2027-02-19', color: '#F7941D', label: 'Periode 3 (T2)' },
-  { num: 4, debut: '2027-03-01', fin: '2027-04-16', color: '#EC008C', label: 'Periode 4 (T2)' },
-  { num: 5, debut: '2027-04-26', fin: '2027-06-25', color: '#00B5B8', label: 'Periode 5 (T3)' },
-]
+// Les bornes de l'année vivaient ici, en dur, et `periodeScolaire.js` en
+// tenait une seconde copie pour dater les devoirs. Deux copies finissent par
+// diverger — c'est exactement le reproche fait à la table `periodes`. Il n'y
+// en a plus qu'une, et c'est celle-ci qu'écrit la migration.
+const PERIODES = PERIODES_AGENDA
 const EVENEMENTS = [
   { date: '2026-08-10', label: 'Reprise des formations des enseignants', icon: '🎓' },
   { date: '2026-10-01', label: 'Rentree scolaire 2026-2027', icon: '🏫' },

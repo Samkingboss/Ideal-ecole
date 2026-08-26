@@ -5,6 +5,7 @@ import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/eco
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
 import { lireDevoir, viseEleve } from '../lib/devoirs'
 import { texteWhatsApp } from '../lib/messageParent'
+import { libellePeriodeStockee } from '../lib/periodeScolaire'
 
 // Le cahier de devoirs imprimable.
 //
@@ -45,7 +46,7 @@ function CarteDevoir({ item }) {
             l'intégré. Ils situent le devoir dans l'année. */}
         <div style={{ background: '#ffffff', border: '1.5px solid #0284c7', color: '#0284c7',
                       padding: '6px 12px', borderRadius: 20, fontWeight: 800, fontSize: 11.5 }}>
-          {d.type}{d.periode ? ` · Période ${d.periode}` : ''}
+          {d.type}{libellePeriodeStockee(d.periode) ? ` · ${libellePeriodeStockee(d.periode)}` : ''}
         </div>
         {d.dateRendu && (
           <div style={{ background: '#ffffff', border: '1.5px solid #0284c7', color: '#0284c7', padding: '6px 14px', borderRadius: 10, fontWeight: 800, fontSize: 12 }}>
@@ -54,29 +55,11 @@ function CarteDevoir({ item }) {
         )}
       </div>
 
-      <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: 16, fontSize: 13.5, lineHeight: 1.7, color: '#334155', fontWeight: 600 }}>
-        <span style={{ color: '#0284c7', fontWeight: 900 }}>✦ Objectif du devoir : </span>
-        {d.objectif || '—'}
-      </div>
-
-      {/* L'énoncé — ce que l'élève doit faire. Absent de l'écran intégré. */}
-      {d.enonce && (
-        <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: 16, fontSize: 13.5,
-                      lineHeight: 1.7, color: '#334155', marginTop: 10, whiteSpace: 'pre-wrap' }}>
-          <span style={{ color: '#0284c7', fontWeight: 900 }}>✦ Ce qu’il faut faire : </span>
-          {d.enonce}
-        </div>
-      )}
-
-      {/* Le barème est TOUJOURS imprimé, avec un repli quand il est vide.
-          C'est la règle de l'ancien module : l'élève doit savoir sur quoi il
-          sera noté, et l'absence de barème est elle-même une information. */}
-      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 16px',
-                    borderRadius: 14, fontSize: 12.5, lineHeight: 1.6, color: '#78350f', marginTop: 10,
-                    whiteSpace: 'pre-wrap' }}>
-        <span style={{ fontWeight: 900 }}>✦ Barème : </span>
-        {d.bareme || 'Barème communiqué lors de la correction.'}
-      </div>
+      {/* Objectif, consigne et bareme ne sont PLUS repetes ici : ils sont sur
+          la page de garde, en entier. Les imprimer deux fois allongeait le
+          cahier sans rien apprendre, et poussait les fiches plus loin. Cette
+          section identifie le devoir et porte son cadre de correction ; les
+          feuilles suivent, une par page. */}
 
       {/* Le cadre de notation, rempli à la main. Le module n'a aucun circuit
           de note numérique : la feuille est faite pour être corrigée au stylo. */}
@@ -147,6 +130,86 @@ function FicheNonImprimable({ piece }) {
       <div style={{ fontWeight: 500, marginTop: 6, fontSize: 12 }}>
         Un PDF ne s’imprime pas depuis cette page : ouvrez-le et imprimez-le à part.
       </div>
+    </div>
+  )
+}
+
+// ── La page de garde ───────────────────────────────────────────────────────
+//
+// Elle occupe UNE feuille et se suffit à elle-même. Ce qui la précédait
+// n'était qu'un bandeau posé au-dessus des exercices : le nom de l'enfant, sa
+// classe, une date. Un cahier qui part à la maison doit dire, sans qu'on
+// tourne la page, ce qui est demandé, pour quand, sur quoi l'enfant sera noté
+// et combien de feuilles il doit rapporter.
+//
+// Un enfant reçoit UNE page de garde, qui résume TOUS ses devoirs
+// sélectionnés. Chaque devoir a ensuite sa section détaillée, suivie de ses
+// fiches en pleine page. C'est la logique demandée : une garde globale, puis
+// une section par devoir.
+function LignePorte({ etiquette, valeur }) {
+  if (!valeur) return null
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, lineHeight: 1.5 }}>
+      <span style={{ fontWeight: 900, color: '#0284c7', minWidth: 88, fontSize: 10, letterSpacing: '.05em', textTransform: 'uppercase' }}>{etiquette}</span>
+      <span style={{ color: '#0f172a', fontWeight: 600, overflowWrap: 'anywhere' }}>{valeur}</span>
+    </div>
+  )
+}
+
+function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe }) {
+  const total = devoirs.reduce((n, d) => n + lireDevoir(d).piecesJointes.length, 0)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* L'école et le titre — ce que lit le parent en premier. */}
+      <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '20px 24px' }}>
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '1.5px', opacity: .85 }}>
+          {NOM_ECOLE.toUpperCase()}
+        </div>
+        <div style={{ fontSize: 26, fontWeight: 900, marginTop: 6, lineHeight: 1.15 }}>
+          Cahier de devoirs de maison
+        </div>
+        <div style={{ fontSize: 12, marginTop: 8, opacity: .92 }}>
+          Remis le {editeLe} · {devoirs.length} devoir{devoirs.length > 1 ? 's' : ''}
+          {total > 0 && <> · {total} fiche{total > 1 ? 's' : ''} jointe{total > 1 ? 's' : ''}</>}
+        </div>
+      </div>
+
+      {/* À qui, et de qui. */}
+      <div style={{ background: '#e0f2fe', borderRadius: 16, padding: '16px 20px', display: 'grid', gap: 5 }}>
+        <LignePorte etiquette="Élève" valeur={eleve} />
+        <LignePorte etiquette="Classe" valeur={classe} />
+        <LignePorte etiquette="Enseignant" valeur={signataire?.nom
+          ? `${signataire.nom}${signataire.fonction ? ` — ${signataire.fonction}` : ''}` : null} />
+      </div>
+
+      {/* Un encart par devoir : tout ce que l'enfant et le parent doivent
+          savoir avant d'ouvrir les fiches. Rien n'est tronqué — un objectif
+          coupé ne sert à personne. */}
+      {devoirs.map((item, i) => {
+        const d = lireDevoir(item)
+        const n = d.piecesJointes.length
+        return (
+          <div key={item.id || i} style={{ border: '1.5px solid #bae6fd', borderRadius: 16, padding: '14px 18px', display: 'grid', gap: 5 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ background: '#0284c7', color: '#fff', padding: '5px 12px', borderRadius: 10,
+                             fontWeight: 900, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                {d.matiere || 'Devoir'}
+              </span>
+              <span style={{ border: '1.5px solid #0284c7', color: '#0284c7', padding: '4px 10px',
+                             borderRadius: 20, fontWeight: 800, fontSize: 10.5 }}>
+                {d.type}{libellePeriodeStockee(d.periode) ? ` · ${libellePeriodeStockee(d.periode)}` : ''}
+              </span>
+            </div>
+            <LignePorte etiquette="À rendre" valeur={dateLisible(d.dateRendu)} />
+            <LignePorte etiquette="Objectif" valeur={d.objectif} />
+            <LignePorte etiquette="Consigne" valeur={d.enonce} />
+            <LignePorte etiquette="Barème" valeur={d.bareme || 'Communiqué lors de la correction.'} />
+            <LignePorte etiquette="Fiches" valeur={n
+              ? `${n} feuille${n > 1 ? 's' : ''} jointe${n > 1 ? 's' : ''}`
+              : 'Aucune feuille jointe'} />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -263,17 +326,15 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
   })
 
   return (
+    // Pas d'`eleveInfo` : le moteur en ferait un bloc d'identification qui
+    // occuperait une feuille entiere avant la page de garde, en repetant ce
+    // qu'elle dit deja. Une page blanche de plus par tirage.
     <DocumentPrintStudio
       pagine
       nomFichier="Cahier_devoirs"
       type="pedagogie"
       documentTitle="CAHIER DE DEVOIRS DE MAISON"
       subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • DEVOIRS DE MAISON"
-      eleveInfo={{
-        nom: `PUBLIPOSTAGE · ${destinataires.length} ÉLÈVES`,
-        classe: laClasse,
-        date: aujourdhui,
-      }}
       onClose={onClose}
     >
       <div className="no-print" style={{ marginBottom: 18, padding: '12px 14px', background: '#f1f5f9', borderRadius: 12 }}>
@@ -296,15 +357,15 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
         // CHAQUE page, et le reporte sur celles qui n'en portent pas.
         const mention = nomComplet(eleve) + ' \u00b7 ' + laClasse
         return [
-          // Page de garde nominative -- une par enfant, et elle ouvre sa page.
-          <Bloc key={'g' + (eleve.id || iPage)} sautAvant={iPage > 0} mention={mention}>
-            <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '18px 24px' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1px', opacity: .85 }}>DEVOIRS DE MAISON \u2014 {laClasse.toUpperCase()}</div>
-              <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>{nomComplet(eleve)}</div>
-              <div style={{ fontSize: 12, marginTop: 4, opacity: .9 }}>
-                Remis le {aujourdhui} \u00b7 {devoirsEleve.length} devoir{devoirsEleve.length > 1 ? 's' : ''}
-              </div>
-            </div>
+          // La page de garde : une par enfant, elle ouvre sa feuille et se
+          // suffit a elle-meme.
+          <Bloc key={'g' + (eleve.id || iPage)} sautAvant mention={mention}>
+            <PageDeGarde eleve={nomComplet(eleve)} classe={laClasse} devoirs={devoirsEleve}
+                         signataire={signataire} editeLe={aujourdhui} />
+            {/* Le visa du parent appartient à la page de garde : c'est là
+                qu'on signe. Rendu en bloc séparé, il finissait seul sur une
+                feuille — une page blanche de plus par enfant. */}
+            <PiedDePage nominatif signataire={signataire} />
           </Bloc>,
           // Chaque devoir est une unite : le moteur ne coupe jamais une carte
           // en deux. Chaque fiche jointe est une unite a part, en pleine page.
@@ -321,9 +382,6 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
               )),
             ]
           }),
-          <Bloc key={'p' + (eleve.id || iPage)} mention={mention}>
-            <PiedDePage nominatif signataire={signataire} />
-          </Bloc>,
         ]
       })}
     </DocumentPrintStudio>

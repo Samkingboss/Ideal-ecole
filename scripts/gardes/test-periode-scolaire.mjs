@@ -11,7 +11,7 @@
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import {
   periodePourDate, periodesUtilisables, libellePeriode, calendrierEnBase,
-  PERIODES_PAR_DEFAUT, ANNEE_SCOLAIRE, MESSAGE_HORS_CALENDRIER,
+  PERIODES_PAR_DEFAUT, PERIODES_AGENDA, ANNEE_SCOLAIRE, MESSAGE_HORS_CALENDRIER,
 } from '../../src/lib/periodeScolaire.js'
 
 let echecs = 0
@@ -131,6 +131,55 @@ console.log(`\n${G}── DEVOIRS · la période se calcule, elle ne se tape pas
     periodesUtilisables(EN_BASE).length === PERIODES_PAR_DEFAUT.length)
   verifier('ANNÉE dès que la base porte l’année, elle gagne',
     calendrierEnBase([{ ordre: 1, annee_scolaire: ANNEE_SCOLAIRE, date_debut: '2026-10-01', date_fin: '2026-10-02' }]) === true)
+}
+
+// ── SOURCE · une seule copie des bornes, et le SQL la recopie ─────────────
+//
+// Les bornes vivaient à DEUX endroits : `AgendaCalendrier.jsx` pour l'agenda,
+// `periodeScolaire.js` pour dater les devoirs. Deux copies finissent par
+// diverger — c'est exactement le reproche fait à la table `periodes`, où le
+// même seed a laissé trois exemplaires.
+//
+// La migration écrit ces bornes en base. Si elle recopiait une AUTRE source,
+// l'agenda et les devoirs cesseraient de s'accorder le jour de l'exécution,
+// et personne ne le verrait avant le premier bulletin.
+{
+  const agenda = lire('src/pages/AgendaCalendrier.jsx')
+  verifier('SOURCE l’agenda ne tient plus sa propre copie',
+    /const PERIODES = PERIODES_AGENDA/.test(agenda)
+    && !/\{ num: 1, debut: '/.test(agenda))
+  verifier('SOURCE la forme agenda dérive de la liste unique',
+    PERIODES_AGENDA.length === PERIODES_PAR_DEFAUT.length
+    && PERIODES_AGENDA.every((p, i) => p.debut === PERIODES_PAR_DEFAUT[i].date_debut
+                                    && p.fin === PERIODES_PAR_DEFAUT[i].date_fin
+                                    && p.num === PERIODES_PAR_DEFAUT[i].ordre))
+
+  // Le SQL est comparé LIGNE À LIGNE à la bibliothèque. C'est le contrôle que
+  // réclamait la consigne : si la migration réécrit autre chose, on s'arrête.
+  const sql = lire('sql/periodes_annee_2026_2027.sql')
+  const inserees = [...sql.matchAll(/\('([^']+)',\s*'(\d{4}-\d{2}-\d{2})',\s*'(\d{4}-\d{2}-\d{2})',\s*(\d+),\s*'([^']+)'\)/g)]
+    .map(m => ({ nom: m[1], date_debut: m[2], date_fin: m[3], ordre: Number(m[4]), annee: m[5] }))
+  const attendues = PERIODES_PAR_DEFAUT
+  const ecarts = attendues.filter((a, i) => {
+    const b = inserees[i]
+    return !b || b.nom !== a.nom || b.date_debut !== a.date_debut
+        || b.date_fin !== a.date_fin || b.ordre !== a.ordre || b.annee !== ANNEE_SCOLAIRE
+  })
+  verifier('SOURCE le SQL insère exactement les bornes de la bibliothèque',
+    inserees.length === attendues.length && ecarts.length === 0,
+    ecarts.length ? R + ecarts.map(e => e.nom).join(', ') + F
+                  : `${inserees.length} périodes, 10 dates identiques`)
+
+  // AUTO-TEST : une borne décalée d'un jour doit être vue.
+  const fausse = inserees.map((x, i) => i === 0 ? { ...x, date_fin: '2026-11-14' } : x)
+  const vuFaux = attendues.some((a, i) => fausse[i] && fausse[i].date_fin !== a.date_fin)
+  verifier('SOURCE auto-test · un jour d’écart serait vu', vuFaux === true)
+
+  // Et le rollback ne doit toucher que l'année ajoutée.
+  const rb = lire('sql/periodes_rollback.sql')
+  verifier('SOURCE le rollback ne supprime que 2026-2027',
+    /delete from public\.periodes where annee_scolaire = '2026-2027'/.test(rb)
+    && !/delete from public\.periodes;/.test(rb))
 }
 
 console.log(echecs === 0
