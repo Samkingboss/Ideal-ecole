@@ -55,6 +55,41 @@ const PROF_SESSIONS = [
   { id: 'rh',         icon: '💼', label: 'Dossier RH & Demandes' },
 ]
 
+// Échanger deux pièces de place. Rendu d'une liste neuve : muter le tableau
+// d'état laisserait React croire que rien n'a changé.
+const permuter = (liste, a, b) => {
+  const copie = [...(liste || [])]
+  const t = copie[a]; copie[a] = copie[b]; copie[b] = t
+  return copie
+}
+
+// Une pièce jointe dans la liste de saisie : son rang, son nom, son aperçu,
+// et de quoi la remonter, la descendre ou la retirer AVANT d'enregistrer.
+// Sans ces trois boutons, un enseignant qui s'était trompé de photo devait
+// supprimer le devoir et tout ressaisir.
+function ListeFichier({ rang, nom, apercu, onMonter, onDescendre, onRetirer }) {
+  const bouton = (libelle, action, titre) => (
+    <button type="button" className="btn-sm" title={titre} disabled={!action}
+      onClick={action || undefined}
+      style={{ minHeight: 34, minWidth: 34, padding: '4px 8px', fontSize: 13,
+               opacity: action ? 1 : .3, cursor: action ? 'pointer' : 'default' }}>{libelle}</button>
+  )
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)',
+                  border: '1px solid var(--border)', borderRadius: 10, padding: '6px 8px' }}>
+      <span style={{ fontSize: 11, fontWeight: 900, color: '#0284c7', minWidth: 18 }}>{rang}.</span>
+      {apercu
+        ? <img src={apercu} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+        : <span style={{ fontSize: 16 }}>📎</span>}
+      <span style={{ flex: 1, fontSize: 12, fontWeight: 700, overflowWrap: 'anywhere', lineHeight: 1.3 }}>{nom}</span>
+      {bouton('↑', onMonter, 'Monter')}
+      {bouton('↓', onDescendre, 'Descendre')}
+      <button type="button" className="btn-sm" title="Retirer" onClick={onRetirer}
+        style={{ minHeight: 34, minWidth: 34, padding: '4px 8px', fontSize: 13, color: 'var(--red)' }}>✕</button>
+    </div>
+  )
+}
+
 export default function ProfApp({ user, onLogout }) {
   const [activeProfSession, setActiveProfSession] = useState('emploi')
   const [tab, setTab] = useState('edt')
@@ -104,7 +139,7 @@ export default function ProfApp({ user, onLogout }) {
   const DEVOIR_VIDE = {
     matiere: '', objectif: '', enonce: '', bareme: '',
     type: TYPE_PAR_DEFAUT, periode: '', aRendrePour: '',
-    fichiers: [], destinataire_mode: 'classe', eleve_ids: [], candidat_matricules: [],
+    fichiers: [], pieces_existantes: [], destinataire_mode: 'classe', eleve_ids: [], candidat_matricules: [],
   }
   const [newDevoir, setNewDevoir] = useState(DEVOIR_VIDE)
   const [devoirEdite, setDevoirEdite] = useState(null)
@@ -365,6 +400,8 @@ export default function ProfApp({ user, onLogout }) {
       periode: d.periode || '',
       aRendrePour: d.dateRendu || '',
       fichiers: [],
+      // Les pièces déjà en ligne, désormais retirables et réordonnables.
+      pieces_existantes: d.piecesJointes.map(f => ({ url: f.url, nom: f.nom })),
       destinataire_mode: d.destinataireMode,
       eleve_ids: d.eleveIds,
       // Transporté sans être modifiable : l'écran ne sait pas afficher un
@@ -421,10 +458,11 @@ export default function ProfApp({ user, onLogout }) {
       // Les pièces jointes déjà déposées sont conservées à la modification :
       // rouvrir un devoir pour corriger une date ne doit pas effacer ses
       // images.
-      const dejaLa = devoirEdite
-        ? (Array.isArray(devoirEdite.fichiers) ? devoirEdite.fichiers : [])
-        : []
-      const toutesPieces = [...dejaLa, ...fichiers]
+      // L'ordre enregistré est celui que l'enseignant a sous les yeux, et
+      // non celui, arbitraire, que Storage renvoie. Les pièces retirées à
+      // l'écran ne sont pas réécrites : `pieces_existantes` fait foi, et non
+      // ce que portait la ligne d'origine.
+      const toutesPieces = [...(newDevoir.pieces_existantes || []), ...fichiers]
 
       // ── L'auteur ────────────────────────────────────────────────────────
       //
@@ -1185,12 +1223,46 @@ export default function ProfApp({ user, onLogout }) {
                   <label className="form-label">
                     Exercices à joindre <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(photos ou PDF, plusieurs possibles — facultatif)</span>
                   </label>
+                  {/* Le choix AJOUTE, il ne remplace pas. Un enseignant qui
+                      revenait chercher une deuxieme fiche perdait la premiere
+                      sans que rien ne le lui dise. Le champ est vide apres
+                      chaque prise, sinon le navigateur refuse de reproposer le
+                      meme fichier. */}
                   <input id="devoir-fichier" className="form-input" type="file" multiple
                     accept="image/*,.pdf"
-                    onChange={e => setNewDevoir({ ...newDevoir, fichiers: [...e.target.files] })} />
+                    onChange={e => {
+                      const ajoutes = [...e.target.files]
+                      setNewDevoir(d => ({ ...d, fichiers: [...d.fichiers, ...ajoutes] }))
+                      e.target.value = ''
+                    }} />
+
+                  {/* Les pieces DEJA DEPOSEES, a la modification. Elles ne se
+                      retiraient pas : rouvrir un devoir pour remplacer une
+                      fiche obligeait a le supprimer et a tout ressaisir. */}
+                  {(newDevoir.pieces_existantes || []).length > 0 && (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)' }}>DEJA JOINTES</div>
+                      {newDevoir.pieces_existantes.map((f, k) => (
+                        <ListeFichier key={f.url || k} rang={k + 1} nom={f.nom || 'fiche ' + (k + 1)}
+                          apercu={f.url}
+                          onMonter={k > 0 ? () => setNewDevoir(d => ({ ...d, pieces_existantes: permuter(d.pieces_existantes, k, k - 1) })) : null}
+                          onDescendre={k < newDevoir.pieces_existantes.length - 1 ? () => setNewDevoir(d => ({ ...d, pieces_existantes: permuter(d.pieces_existantes, k, k + 1) })) : null}
+                          onRetirer={() => setNewDevoir(d => ({ ...d, pieces_existantes: d.pieces_existantes.filter((_, i) => i !== k) }))} />
+                      ))}
+                    </div>
+                  )}
+
                   {newDevoir.fichiers.length > 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                      {newDevoir.fichiers.length} fichier{newDevoir.fichiers.length > 1 ? 's' : ''} : {newDevoir.fichiers.map(f => f.name).join(', ')}
+                    <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)' }}>
+                        A ENVOYER — {newDevoir.fichiers.length} fichier{newDevoir.fichiers.length > 1 ? 's' : ''}
+                      </div>
+                      {newDevoir.fichiers.map((f, k) => (
+                        <ListeFichier key={f.name + k} rang={(newDevoir.pieces_existantes || []).length + k + 1} nom={f.name}
+                          onMonter={k > 0 ? () => setNewDevoir(d => ({ ...d, fichiers: permuter(d.fichiers, k, k - 1) })) : null}
+                          onDescendre={k < newDevoir.fichiers.length - 1 ? () => setNewDevoir(d => ({ ...d, fichiers: permuter(d.fichiers, k, k + 1) })) : null}
+                          onRetirer={() => setNewDevoir(d => ({ ...d, fichiers: d.fichiers.filter((_, i) => i !== k) }))} />
+                      ))}
                     </div>
                   )}
                 </div>
