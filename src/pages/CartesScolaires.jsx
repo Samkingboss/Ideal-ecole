@@ -3,10 +3,11 @@ import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 import { WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import { CHAMPS_ELEVE_AVEC_PHOTO } from '../lib/eleves'
+import { useEchelleFeuille } from '../lib/echelleApercu'
 import {
   CARTE_L, CARTE_H, COLONNES, PAR_PLANCHE, GOUTTIERE,
   A4, MARGE_X, MARGE_Y,
-  planches, miroirRangees, nombreDeFeuilles, unites,
+  planches, miroirRangees, nombreDeFeuilles, unites, tailleNom,
 } from '../lib/carteScolaire'
 
 // ─────────────────────────────────────────────────────────────────────
@@ -23,6 +24,8 @@ import {
 // l'écran, où l'on veut pouvoir réduire.
 // ─────────────────────────────────────────────────────────────────────
 const ECHELLE = 3.6     // px par mm à l'écran — 194 × 308 px
+// La largeur d'une feuille A4 en pixels CSS : la référence de la réduction.
+const A4_LARGEUR_PX = A4.largeur * 96 / 25.4   // ≈ 794 px
 
 const C = {
   marine:  '#1A2B4C',   // NAVY du Design System documentaire
@@ -101,7 +104,24 @@ export function CarteRecto({ eleve, echelle = ECHELLE, unite = 'px' }) {
 
       {/* Bloc d'identité compact et éditorial. */}
       <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(60), bottom: mm(5), color: '#16384F' }}>
-        <div style={{ fontSize: mm(3.75), fontWeight: 900, lineHeight: 1.05, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eleve.prenom} {eleve.nom}</div>
+        {/* Le nom ne se tronque JAMAIS. Il était rendu sur une ligne avec
+            `text-overflow: ellipsis` : un élève réel sortait « Akotsi
+            Abatsogad… » sur sa carte officielle. Une carte d'identité
+            scolaire qui ampute le nom qu'elle porte ne vaut rien.
+            `tailleNom` choisit le cran — une ligne s'il tient, deux sinon,
+            taille réduite d'un pas au besoin. */}
+        {(() => {
+          const nom = tailleNom(`${eleve.prenom || ''} ${eleve.nom || ''}`)
+          return (
+            <div style={{
+              fontSize: mm(nom.taille), fontWeight: 900, lineHeight: 1.08,
+              // Une césure au milieu d'un nom propre serait pire que deux
+              // lignes : on coupe entre les mots, jamais dans un mot, sauf
+              // pour un mot seul plus large que la carte.
+              overflowWrap: 'break-word', hyphens: 'none',
+            }}>{nom.texte}</div>
+          )
+        })()}
         <div style={{ marginTop: mm(1.5), display: 'grid', gridTemplateColumns: `1fr ${mm(16)}`, gap: mm(2), alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: mm(2.05), fontWeight: 750, color: '#F28C28' }}>{eleve.classe_nom}</div>
@@ -418,6 +438,15 @@ export default function CartesScolaires() {
   // La découpe en planches et l'ordre miroir des versos vivent dans
   // `lib/carteScolaire` : ce sont des règles, pas du rendu, et elles se
   // testent sans navigateur.
+  // L'aperçu de planche suit la largeur disponible. Une échelle figée à 0,58
+  // donnait 460 px de feuille sur un téléphone de 360 : l'utilisateur voyait
+  // une grande zone blanche et une colonne de cartes sur la droite, sans
+  // pouvoir contrôler sa planche avant de l'imprimer.
+  //
+  // Seul l'APERÇU est mis à l'échelle. La feuille reste du 210 × 297 mm et
+  // les cartes du 53,98 × 85,60 mm : `transform` est annulé en impression.
+  const { cadre, docRef, echelle } = useEchelleFeuille(A4_LARGEUR_PX)
+
   const pages = planches(filteredEleves)
 
   return (
@@ -519,11 +548,21 @@ export default function CartesScolaires() {
           /* La réduction porte sur la feuille, et son cadre reprend la
              hauteur réduite. Mettre l'échelle sur le conteneur laisserait un
              vide de la hauteur pleine sous l'apercu : transform ne change
-             pas la place occupée dans le flux. */
-          #planche-impression .feuille { transform: scale(.58); transform-origin: top center; }
-          #planche-impression .feuille-cadre {
-            height: calc(${A4.hauteur}mm * .58); overflow: hidden; margin-bottom: 10px;
+             pas la place occupée dans le flux.
+
+             Le facteur vient de la largeur réellement disponible, mesurée —
+             une valeur figée ne peut pas convenir à la fois à un téléphone
+             de 360 px et à un écran de bureau. */
+          #planche-impression .feuille {
+            transform: scale(var(--apercu, 1)); transform-origin: top left;
           }
+          #planche-impression .feuille-cadre {
+            height: calc(${A4.hauteur}mm * var(--apercu, 1));
+            overflow: hidden; margin-bottom: 10px;
+          }
+          /* La modale ne doit jamais offrir de défilement horizontal : c'est
+             exactement ce qui rendait l'aperçu incontrôlable. */
+          #planche-impression { max-width: 100%; overflow-x: hidden; }
           #planche-impression .feuille-numero {
             font-size: 11px; font-weight: 800; color: #64748b;
             text-align: center; margin: 0 0 4px;
@@ -781,7 +820,9 @@ export default function CartesScolaires() {
                   auraient sorti tous les rectos avant tous les versos, et des
                   la dixieme carte l'imprimante aurait accole le recto de la
                   feuille 2 au verso de la feuille 1. */}
-              <div id="planche-impression">
+              <div ref={cadre} style={{ width: '100%', overflowX: 'hidden' }}>
+              <div id="planche-impression" ref={docRef}
+                   style={{ '--apercu': echelle }}>
                 {pages.map((page, n) => (
                   <Fragment key={`paire-${n}`}>
                     <div className="feuille-cadre">
@@ -808,6 +849,7 @@ export default function CartesScolaires() {
                     </div>
                   </Fragment>
                 ))}
+              </div>
               </div>
             </div>
 

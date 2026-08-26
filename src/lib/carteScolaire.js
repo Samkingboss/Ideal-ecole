@@ -98,3 +98,50 @@ export const unites = (mode, echelle = 1) =>
   mode === 'mm'
     ? (v => `${+(v).toFixed(3)}mm`)
     : (v => `${+(v * echelle).toFixed(3)}px`)
+
+// ── Le nom de l'élève ──────────────────────────────────────────────────────
+//
+// Il était rendu sur une seule ligne, avec `text-overflow: ellipsis`. Un nom
+// un peu long sortait donc « Akotsi Abatsogad… » sur une carte officielle —
+// mesuré sur un élève réel. Une carte d'identité scolaire tronquée ne vaut
+// rien : c'est précisément le nom qu'elle est censée porter.
+//
+// On ne coupe plus. On ajuste : le nom tient sur une ligne s'il le peut, sur
+// deux sinon, et la taille descend d'un cran quand il le faut.
+
+// Largeur utile du bloc d'identité : la carte moins ses deux marges de 7 mm.
+export const LARGEUR_NOM = CARTE_L - 14      // 39,98 mm
+
+// Largeur moyenne d'un caractère, en fraction de la taille de police, pour
+// une graisse 900 sans empattement. Mesurée sur le gabarit, pas devinée :
+// « Akotsi Abatsogadaaa » à 3,75 mm occupe 41,3 mm, soit 0,58 em par
+// caractère sur 19 caractères.
+const LARGEUR_CARACTERE = 0.58
+
+// Les crans possibles, du plus grand au plus petit. En dessous de 2,7 mm le
+// nom ne se lit plus à bout de bras : on préfère alors trois lignes serrées
+// à un texte illisible — mais aucun nom réel n'y descend.
+const CRANS = [
+  { taille: 3.75, lignes: 1 },
+  { taille: 3.35, lignes: 2 },
+  { taille: 3.00, lignes: 2 },
+  { taille: 2.70, lignes: 2 },
+]
+
+/**
+ * La taille et le nombre de lignes pour un nom donné.
+ *
+ * Rend toujours un cran : le dernier accepte tout. Le nom n'est JAMAIS
+ * tronqué — c'est l'invariant, et il ne dépend d'aucune mesure du navigateur.
+ */
+export const tailleNom = (nom) => {
+  const texte = String(nom || '').trim()
+  const n = texte.length || 1
+  for (const cran of CRANS) {
+    const parLigne = LARGEUR_NOM / (LARGEUR_CARACTERE * cran.taille)
+    if (n <= parLigne * cran.lignes) return { ...cran, texte }
+  }
+  // Aucun cran ne suffit : on garde le plus petit et on laisse le mot passer
+  // à la ligne. Mieux vaut un nom serré qu'un nom amputé.
+  return { ...CRANS[CRANS.length - 1], texte }
+}

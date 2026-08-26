@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { signature } from '../lib/identiteProfessionnelle'
 import { CHAMPS_ELEVE_LISTE } from '../lib/eleves'
 import { useEchelleFeuille } from '../lib/echelleApercu'
+import { texteCertificat, lieuEtDate } from '../lib/certificatTexte'
+import { ANNEE_SCOLAIRE } from '../lib/periodeScolaire'
 
 export default function CertificatScolarite({ user = null }) {
   // Le signataire n'est pas « le Directeur » écrit en dur : c'est la personne
@@ -17,7 +19,9 @@ export default function CertificatScolarite({ user = null }) {
   const [selectedEleve, setSelectedEleve] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [motifDelivrance, setMotifDelivrance] = useState('Servir et valoir ce que de droit')
-  const dateFormatee = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  // La date part au module de rédaction sous sa forme ISO : c'est lui qui
+  // écrit toutes les dates du certificat, d'une seule main.
+  const dateISO = new Date().toISOString().slice(0, 10)
 
   useEffect(() => {
     loadEleves()
@@ -100,20 +104,8 @@ export default function CertificatScolarite({ user = null }) {
     window.print()
   }
 
-  const formatDateFr = (dateStr) => {
-    if (!dateStr) return ''
-    try {
-      const texte = String(dateStr).trim()
-      const fr = texte.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-      const d = fr
-        ? new Date(Number(fr[3]), Number(fr[2]) - 1, Number(fr[1]))
-        : new Date(texte)
-      if (Number.isNaN(d.getTime())) return texte.toLowerCase().includes('invalid') ? 'Non renseignée' : texte
-      return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    } catch {
-      return dateStr
-    }
-  }
+  // `formatDateFr` a disparu : `dateEnLettres` du module de rédaction écrit
+  // désormais toutes les dates du certificat.
 
   return (
     <div style={{ padding: 20, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -250,40 +242,48 @@ export default function CertificatScolarite({ user = null }) {
               <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, color: '#64748B', letterSpacing: 1 }}>ANNÉE SCOLAIRE 2026 - 2027</div>
             </section>
 
-            <section style={{ marginTop: 26, fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 16.5, lineHeight: 1.55, color: '#263B4B' }}>
-              <p style={{ margin: 0 }}>Je soussigné, {signataire.fonction} de l'École Internationale Bilingue IDEAL, certifie que :</p>
+            {/* La rédaction vit dans `lib/certificatTexte` : un document
+                institutionnel s'énonce, il ne se remplit pas comme un
+                formulaire. Et une rédaction se teste — la version précédente
+                écrivait « né le 15 avril 2018 à null » quand le lieu de
+                naissance manquait, sur un document officiel. */}
+            {(() => {
+              const t = texteCertificat({
+                eleve: selectedEleve,
+                directeur: { civilite: 'M.', nom: signataire.nom, fonction: signataire.fonction },
+                anneeScolaire: ANNEE_SCOLAIRE,
+                ecole: 'École Internationale Bilingue IDEAL',
+              })
+              const identite = `${selectedEleve.prenom || ''} ${selectedEleve.nom || ''}`.trim()
+              const suite = t.corps.startsWith(identite) ? t.corps.slice(identite.length) : ` — ${t.corps}`
+              return (
+                <section style={{ marginTop: 26, fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 16.5, lineHeight: 1.62, color: '#263B4B' }}>
+                  <p style={{ margin: 0 }}>{t.entete}</p>
 
-              <div style={{ margin: '16px 0', padding: '15px 24px', background: '#F3F6F8', borderLeft: '5px solid #174E72' }}>
-                <div style={{ fontFamily: 'system-ui, sans-serif', fontSize: 12, fontWeight: 850, color: '#7B8792', letterSpacing: 1.4 }}>ÉLÈVE</div>
-                <div style={{ marginTop: 5, fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 24, lineHeight: 1.15, fontWeight: 700, color: '#174E72', textTransform: 'uppercase', overflowWrap: 'anywhere' }}>
-                  {selectedEleve.prenom} {selectedEleve.nom}
-                </div>
-                <div style={{ marginTop: 13, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px 30px', fontFamily: 'system-ui, sans-serif' }}>
-                  {[
-                    ['Matricule', selectedEleve.matricule],
-                    ['Classe fréquentée', selectedEleve.classe_nom],
-                    ['Né(e) le', `${formatDateFr(selectedEleve.date_naissance)} à ${selectedEleve.lieu_naissance}`],
-                    ['Nationalité', selectedEleve.nationalite || 'Malienne'],
-                  ].map(([label, valeur]) => (
-                    <div key={label}>
-                      <div style={{ fontSize: 11, color: '#7B8792', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .8 }}>{label}</div>
-                      <div style={{ marginTop: 3, fontSize: 14, lineHeight: 1.25, color: '#20394B', fontWeight: 800 }}>{valeur}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                  {/* Le nom reste mis en valeur : c'est ce qu'on cherche des
+                      yeux sur un certificat. Mais il ne remplace plus la
+                      phrase — il l'ouvre. */}
+                  <p style={{
+                    margin: '18px 0 0', padding: '16px 24px',
+                    background: '#F3F6F8', borderLeft: '5px solid #174E72',
+                    lineHeight: 1.6, textAlign: 'justify',
+                  }}>
+                    <span style={{ fontSize: 21, fontWeight: 700, color: '#174E72' }}>{identite}</span>{suite}
+                  </p>
 
-              <p style={{ margin: 0 }}>
-                est régulièrement inscrit(e) dans notre établissement et fréquente les cours de la classe indiquée ci-dessus durant l'année scolaire 2026 - 2027.
-              </p>
-              <p style={{ margin: '12px 0 0' }}>
-                En foi de quoi, le présent certificat lui est délivré pour <strong style={{ color: '#174E72' }}>{motifDelivrance.toLowerCase()}</strong>.
-              </p>
-            </section>
+                  <p style={{ margin: '18px 0 0' }}>{t.formule}</p>
+                  {motifDelivrance && (
+                    <p style={{ margin: '10px 0 0', fontSize: 14.5, color: '#536575' }}>
+                      Délivré à la demande de l’intéressé, pour {motifDelivrance.toLowerCase()}.
+                    </p>
+                  )}
+                </section>
+              )
+            })()}
 
             <section style={{ marginTop: 22, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 70, alignItems: 'end' }}>
               <div style={{ fontSize: 14, color: '#536575', lineHeight: 1.6 }}>
-                Fait à Bamako,<br />le <strong style={{ color: '#17364D' }}>{dateFormatee}</strong>
+                {lieuEtDate('Bamako', dateISO)}
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 12, fontWeight: 850, color: '#17364D', letterSpacing: 1, textTransform: 'uppercase' }}>{signataire.fonction}</div>

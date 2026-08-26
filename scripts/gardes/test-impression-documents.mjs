@@ -13,8 +13,9 @@ import { readFileSync, existsSync } from 'node:fs'
 import {
   CR80, CARTE_L, CARTE_H, COLONNES, RANGEES, PAR_PLANCHE, GOUTTIERE,
   A4, MARGE_X, MARGE_Y, grilleL, grilleH, plancheTient,
-  planches, miroirRangees, nombreDeFeuilles, unites,
+  planches, miroirRangees, nombreDeFeuilles, unites, tailleNom, LARGEUR_NOM,
 } from '../../src/lib/carteScolaire.js'
+import { texteCertificat, dateEnLettres, lieuEtDate } from '../../src/lib/certificatTexte.js'
 
 let echecs = 0
 const V = '\x1b[0;32m', R = '\x1b[0;31m', G = '\x1b[0;90m', F = '\x1b[0m'
@@ -198,6 +199,128 @@ console.log(`\n${G}── IMPRESSION · planches, certificat, effectifs   [INV-U
     /nowrap/.test(defaut) === true && /white-space:normal/.test(defaut) === false)
 }
 
+// ── N1 · le nom d'un élève n'est JAMAIS tronqué ──────────────────────────
+//
+// Mesuré sur un élève réel : la carte officielle sortait « Akotsi
+// Abatsogad… ». Une carte d'identité scolaire qui ampute le nom qu'elle
+// porte ne vaut rien.
+{
+  const src = lire('src/pages/CartesScolaires.jsx')
+  verifier('N1 aucune ellipse ne subsiste sur la carte',
+    !/textOverflow: 'ellipsis'/.test(src) && !/whiteSpace: 'nowrap'[^}]*prenom/.test(src))
+  verifier('N1 le nom passe par le calcul de cran', /tailleNom\(/.test(src))
+
+  // AUTO-TEST : le défaut d'origine doit être reconnaissable.
+  const defaut = "whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'"
+  verifier('N1 auto-test · l’ellipse d’origine serait vue',
+    /textOverflow: 'ellipsis'/.test(defaut) === true)
+
+  // Le cran doit TOUJOURS exister, et le nom réel tenir sans coupe.
+  const noms = ['Alex SANVI', 'Aminata DIARRA', 'Akotsi Abatsogadaaa',
+                'Marie-Christine ABOUBAKARY-TRAORÉ',
+                'Jean-Baptiste de la Villemarqué du Plessis', 'X', '']
+  const sansCran = noms.filter(n => {
+    const c = tailleNom(n)
+    return !c || !c.taille || !c.lignes
+  })
+  verifier('N1 chaque nom reçoit un cran', sansCran.length === 0, `${noms.length} noms`)
+
+  // Le nom réel qui sortait tronqué : il doit tenir en deux lignes.
+  const reel = tailleNom('Akotsi Abatsogadaaa')
+  verifier('N1 « Akotsi Abatsogadaaa » tient sans coupe',
+    reel.lignes === 2 && reel.taille < 3.75 && reel.texte === 'Akotsi Abatsogadaaa',
+    `${reel.taille} mm × ${reel.lignes} lignes`)
+  verifier('N1 un nom court garde la grande taille',
+    tailleNom('Alex SANVI').taille === 3.75 && tailleNom('Alex SANVI').lignes === 1)
+
+  // La capacité doit rester cohérente avec la largeur du bloc.
+  const cap = n => LARGEUR_NOM / (0.58 * tailleNom(n).taille) * tailleNom(n).lignes
+  const debordent = noms.filter(n => n.length > cap(n))
+  verifier('N1 aucun nom ne dépasse la capacité de son cran',
+    debordent.length === 0, debordent.length ? R + debordent.join(' · ') + F : '')
+}
+
+// ── N2 · l’aperçu de planche tient dans son conteneur ────────────────────
+{
+  const src = lire('src/pages/CartesScolaires.jsx')
+  verifier('N2 l’échelle d’aperçu est mesurée, pas figée',
+    /useEchelleFeuille\(A4_LARGEUR_PX\)/.test(src) && !/scale\(\.58\)/.test(src),
+    'une valeur figée ne convient pas à la fois à 360 px et au bureau')
+  verifier('N2 la feuille suit la variable mesurée',
+    /transform: scale\(var\(--apercu, 1\)\)/.test(src)
+    && /height: calc\(\$\{A4\.hauteur\}mm \* var\(--apercu, 1\)\)/.test(src))
+  verifier('N2 aucun défilement horizontal possible',
+    /#planche-impression \{ max-width: 100%; overflow-x: hidden; \}/.test(src))
+  // LA cause du défaut, trouvée en mesurant et invisible à la lecture.
+  // Une feuille de 794 px dans un conteneur de 360 ne se centre pas :
+  // `margin: auto` se résout à zéro en débordement, la boîte statique occupe
+  // 0…794 et son centre tombe à 397. Réduire autour de ce centre plaçait la
+  // feuille visible à 217…577, hors du conteneur. Mesuré AVANT correctif :
+  // 3 cartes sur 9 accessibles. APRÈS : 9 sur 9, feuille de 0 à 360.
+  verifier('N2 la réduction est ancrée au bord gauche',
+    /transform-origin: top left/.test(src) && !/transform-origin: top center/.test(src),
+    'top center décalait la feuille réduite hors du conteneur')
+  verifier('N2 l’impression garde les millimètres réels',
+    /#planche-impression \.feuille \{\s*width: \$\{A4\.largeur\}mm; height: \$\{A4\.hauteur\}mm/.test(src),
+    'la réduction ne concerne que l’écran')
+}
+
+// ── T1 · le certificat s’énonce, et ne dit jamais « null » ───────────────
+{
+  const directeur = { civilite: 'M.', nom: 'Samuel MOGADZI', fonction: 'Directeur' }
+  const cas = [
+    ['fille complète', { prenom: 'Aminata', nom: 'DIARRA', sexe: 'F', date_naissance: '2018-04-15',
+                         lieu_naissance: 'Bamako', matricule: '26-27 A002', classe_nom: 'CP1 Bilingue' }],
+    ['garçon sans lieu', { prenom: 'Alex', nom: 'SANVI', sexe: 'M', date_naissance: '2017-09-03',
+                           lieu_naissance: null, matricule: '26-27 A007', classe_nom: 'CP2' }],
+    ['sexe inconnu', { prenom: 'Akotsi', nom: 'Abatsogadaaa', date_naissance: '2018-01-20',
+                       matricule: '26-27 A011', classe_nom: 'CP1' }],
+    ['tout manque', { prenom: 'X', nom: 'Y' }],
+    ['champs pollués', { prenom: 'Z', nom: 'W', date_naissance: 'null',
+                         lieu_naissance: 'undefined', matricule: '   ', classe_nom: null }],
+  ]
+  const interdits = /\b(null|undefined|NaN|Invalid Date)\b/i
+  const fautifs = cas.filter(([, e]) => {
+    const t = texteCertificat({ eleve: e, directeur, anneeScolaire: '2026-2027' })
+    const tout = `${t.entete} ${t.corps} ${t.formule}`
+    return interdits.test(tout) || /\s,|,\s*\.|\s{2,}|à\s*\./.test(tout)
+  }).map(([n]) => n)
+  verifier('T1 aucun champ vide ne transparaît dans la phrase',
+    fautifs.length === 0, fautifs.length ? R + fautifs.join(', ') + F : `${cas.length} cas`)
+
+  // AUTO-TEST : le défaut d'origine — l'interpolation nue — doit être vu.
+  const defaut = `15 avril 2018 à ${null}`
+  verifier('T1 auto-test · « à null » serait vu', interdits.test(defaut) === true, defaut)
+
+  const f = texteCertificat({ eleve: cas[0][1], directeur, anneeScolaire: '2026-2027' })
+  verifier('T1 la formule consacrée est présente',
+    /pour servir et valoir ce que de droit\.$/.test(f.formule))
+  verifier('T1 le signataire est nommé et qualifié',
+    /Je soussigné, M\. Samuel MOGADZI, agissant en qualité de Directeur/.test(f.entete))
+  verifier('T1 accord au féminin', /née le/.test(f.corps) && /est régulièrement inscrite/.test(f.corps))
+  const m = texteCertificat({ eleve: cas[1][1], directeur, anneeScolaire: '2026-2027' })
+  verifier('T1 accord au masculin', /né le/.test(m.corps) && /est régulièrement inscrit /.test(m.corps))
+  verifier('T1 sans lieu, la phrase ne garde pas « à »',
+    !/ à ,/.test(m.corps) && /né le 3 septembre 2017, portant/.test(m.corps))
+  const n = texteCertificat({ eleve: cas[2][1], directeur, anneeScolaire: '2026-2027' })
+  verifier('T1 sexe inconnu : aucune parenthèse d’accord',
+    !/\(e\)/.test(n.corps), 'une parenthèse dans un acte dit que l’école ne sait pas')
+  verifier('T1 la virgule ferme les appositions',
+    /portant le matricule 26-27 A002, est régulièrement inscrite/.test(f.corps))
+
+  verifier('T1 les dates s’écrivent en lettres',
+    dateEnLettres('2018-04-15') === '15 avril 2018'
+    && dateEnLettres(null) === null && dateEnLettres('n’importe quoi') === null)
+  verifier('T1 le lieu et la date de délivrance sont formés',
+    lieuEtDate('Bamako', '2026-08-26') === 'Fait à Bamako, le 26 août 2026')
+
+  const src = lire('src/pages/CertificatScolarite.jsx')
+  verifier('T1 le composant passe par le module de rédaction',
+    /texteCertificat\(\{/.test(src) && /lieuEtDate\('Bamako', dateISO\)/.test(src))
+  verifier('T1 l’interpolation nue du lieu a disparu',
+    !/\$\{selectedEleve\.lieu_naissance\}/.test(src))
+}
+
 // ── MESURES NAVIGATEUR, consignées ────────────────────────────────────────
 //
 // Prises sur un banc d'essai qui rendait les VRAIS composants de carte dans
@@ -216,6 +339,21 @@ console.log(`\n${G}── IMPRESSION · planches, certificat, effectifs   [INV-U
 //   recto   A001 A002 A003 │ A004 A005 A006 │ A007 A008 A009
 //   verso   A003 A002 A001 │ A006 A005 A004 │ A009 A008 A007
 //   planche 3, incomplète : A019 A020 A021 → A021 A020 A019
+//
+// APERÇU DE PLANCHE · quatre largeurs de conteneur
+//   360 px  échelle 0,454  feuille 0→360   9/9 cartes accessibles
+//   375 px  échelle 0,472  feuille 0→375   9/9
+//   390 px  échelle 0,491  feuille 0→390   9/9
+//   430 px  échelle 0,542  feuille 0→430   9/9
+//   Avant correction de l'origine : 3/9 aux trois premières largeurs.
+//
+// CONTENU DES CARTES · 42 cartes, 0 élément hors de sa carte
+//   recto  « Akotsi Abatsogadaaa » en entier, 12,66 px (cran 3,35 mm),
+//          text-overflow: clip, white-space: normal, non coupé
+//          matricule 26-27 A002 · CP1 Bilingue · LE DIRECTEUR · 2026—2027
+//   verso  MATRICULE · ANNÉE SCOLAIRE · GROUPE SANGUIN O+ · QR entier
+//          « EN CAS DE PERTE, APPELER L'ÉCOLE » + numéro, tout dans la carte
+//   aucune ellipse sur les 42 cartes
 //
 // EFFECTIFS · quatre largeurs, libellés sur 1 ou 2 lignes, 0 débordement
 //   360 px  grille 336  blocs 107  1/2/2 lignes
