@@ -1,4 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/administration", "destination": "/index.html" },
+    { "source": "/administration/:module*", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/sw.js",

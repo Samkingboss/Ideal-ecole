@@ -106,12 +106,22 @@ const DEFAULT_POSTES = [
 
 const fmtFCFA = n => (parseInt(n, 10) || 0).toLocaleString('fr-FR') + ' FCFA'
 
+const ROUTES_ADMINISTRATION = {
+  '/administration/cartes-scolaires': 'cartes',
+  '/administration/certificats-scolarite': 'certificat',
+  '/administration/effectifs': 'liste',
+  '/administration/cantine': 'cantine',
+  '/administration/budget-cuisine': 'budget-cuisine',
+}
+const moduleAdministrationDepuisUrl = () => ROUTES_ADMINISTRATION[window.location.pathname] || null
+
 export default function DirecteurApp({ user, onLogout }) {
   const [tab, setTab] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search)
     return urlParams.get('tab') || 'dashboard'
   })
   const [stats, setStats] = useState({ profs:0, eleves:0, checkpoints:0 })
+  const [moduleAdministration, setModuleAdministration] = useState(moduleAdministrationDepuisUrl)
   const [profs, setProfs] = useState([])
   const [eleves, setEleves] = useState([])
   const [inscriptions, setInscriptions] = useState([])
@@ -299,6 +309,33 @@ export default function DirecteurApp({ user, onLogout }) {
   const [chargement, setChargement] = useState(true)
   const [blocsEnEchec, setBlocsEnEchec] = useState([])
   const [erreurGlobale, setErreurGlobale] = useState('')
+
+  useEffect(() => {
+    const suivreNavigation = () => setModuleAdministration(moduleAdministrationDepuisUrl())
+    window.addEventListener('popstate', suivreNavigation)
+    return () => window.removeEventListener('popstate', suivreNavigation)
+  }, [])
+
+  const ouvrirModuleAdministration = (event, chemin) => {
+    event.preventDefault()
+    window.history.pushState({}, '', chemin)
+    setModuleAdministration(ROUTES_ADMINISTRATION[chemin] || null)
+    setTab('eleves')
+    window.scrollTo({ top:0, behavior:'auto' })
+  }
+
+  const ouvrirAccueilAdministration = event => {
+    if (event) event.preventDefault()
+    window.history.pushState({}, '', '/administration')
+    setModuleAdministration(null)
+    setTab('eleves')
+    window.scrollTo({ top:0, behavior:'auto' })
+  }
+  const ouvrirSessionAdministration = session => {
+    window.history.pushState({}, '', '/administration')
+    setModuleAdministration(null)
+    setTab(session)
+  }
 
   // Une notification système peut ouvrir l'application après sa fermeture.
   // Sa cible voyage alors dans l'URL, puisque le service worker ne partage pas
@@ -806,21 +843,21 @@ export default function DirecteurApp({ user, onLogout }) {
         <div style={{ display: 'flex', background: 'var(--card)', borderBottom: '2px solid var(--border)', padding: '6px 12px', gap: 8, position: 'sticky', top: 51, zIndex: 99, overflowX: 'auto', WebkitOverflowScrolling: 'touch', whiteSpace: 'nowrap' }}>
           <button 
             className={`top-nav-item ${activeSession === 'eleves' ? 'active' : ''}`}
-            onClick={() => setTab('eleves')}
+            onClick={() => ouvrirSessionAdministration('eleves')}
             style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
             🎓 1. Gestion Élèves
           </button>
           <button 
             className={`top-nav-item ${activeSession === 'rh' ? 'active' : ''}`}
-            onClick={() => setTab('rh')}
+            onClick={() => ouvrirSessionAdministration('rh')}
             style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
             💼 2. RH & Paie
           </button>
           <button 
             className={`top-nav-item ${activeSession === 'compta' ? 'active' : ''}`}
-            onClick={() => setTab('compta')}
+            onClick={() => ouvrirSessionAdministration('compta')}
             style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
             💰 3. Comptabilité
@@ -866,6 +903,7 @@ export default function DirecteurApp({ user, onLogout }) {
           {/* ════════════════ SESSION 1 : GESTION ÉLÈVES ════════════════ */}
           {activeSession === 'eleves' && (
             <div>
+              {!moduleAdministration && <>
               <div style={{ marginBottom: 20 }}>
                 <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🎓 Session : Gestion Élèves</h1>
                 <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gestion complète des élèves : inscriptions, dossiers numériques, cartes scolaires et certificats de scolarité.</p>
@@ -880,52 +918,49 @@ export default function DirecteurApp({ user, onLogout }) {
                     <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>{nbInscrits} nouvelles demandes</div>
                   </div>
                 </a>
-                <div 
-                  onClick={() => setSubTabEleve('cartes')}
-                  style={{ background: subTabEleve === 'cartes' ? 'linear-gradient(135deg,#059669,#047857)' : 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(16,185,129,0.25)', cursor: 'pointer' }}
-                >
+                <a href="/administration/cartes-scolaires" onClick={event => ouvrirModuleAdministration(event, '/administration/cartes-scolaires')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#10b981,#059669)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(16,185,129,0.25)', cursor:'pointer' }}>
                   <div style={{ fontSize: 26, marginBottom: 6 }}>💳</div>
                   <div style={{ fontWeight: 900, fontSize: 15 }}>Cartes Scolaires</div>
                   <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Génération &amp; impression PDF</div>
-                </div>
-                <div 
-                  onClick={() => setSubTabEleve('certificat')}
-                  style={{ background: subTabEleve === 'certificat' ? 'linear-gradient(135deg,#1d4ed8,#1e40af)' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(59,130,246,0.25)', cursor: 'pointer' }}
-                >
+                </a>
+                <a href="/administration/certificats-scolarite" onClick={event => ouvrirModuleAdministration(event, '/administration/certificats-scolarite')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#3b82f6,#1d4ed8)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(59,130,246,0.25)', cursor:'pointer' }}>
                   <div style={{ fontSize: 26, marginBottom: 6 }}>📜</div>
                   <div style={{ fontWeight: 900, fontSize: 15 }}>Certificat de Scolarité</div>
                   <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Format portrait A4 officiel</div>
-                </div>
-                <div 
-                  onClick={() => setSubTabEleve('liste')}
-                  style={{ background: subTabEleve === 'liste' ? 'linear-gradient(135deg,#d97706,#b45309)' : 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(245,158,11,0.25)', cursor: 'pointer' }}
-                >
+                </a>
+                <a href="/administration/effectifs" onClick={event => ouvrirModuleAdministration(event, '/administration/effectifs')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(245,158,11,0.25)', cursor:'pointer' }}>
                   <div style={{ fontSize: 26, marginBottom: 6 }}>🎒</div>
                   <div style={{ fontWeight: 900, fontSize: 15 }}>Fiches &amp; Effectifs</div>
                   <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>{nbEleves} élèves actifs</div>
-                </div>
-                <div 
-                  onClick={() => setSubTabEleve('cantine')}
-                  style={{ background: subTabEleve === 'cantine' ? 'linear-gradient(135deg,#155e75,#0d2a3b)' : 'linear-gradient(135deg,#0d2a3b,#155e75)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(13,42,59,0.3)', cursor: 'pointer' }}
-                >
+                </a>
+                <a href="/administration/cantine" onClick={event => ouvrirModuleAdministration(event, '/administration/cantine')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#0d2a3b,#155e75)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(13,42,59,0.3)', cursor:'pointer' }}>
                   <div style={{ fontSize: 26, marginBottom: 6 }}>🥗</div>
-                  <div style={{ fontWeight: 900, fontSize: 15 }}>Cantine &amp; Budget Cuisine</div>
-                  <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Synchronisé Cuisinière</div>
-                </div>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>Cantine</div><div style={{ fontSize:11, opacity:.9, marginTop:2 }}>Inscriptions &amp; allergies</div>
+                </a>
+                <a href="/administration/budget-cuisine" onClick={event => ouvrirModuleAdministration(event, '/administration/budget-cuisine')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#7bc142,#4d8f22)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(123,193,66,0.28)', cursor:'pointer' }}>
+                  <div style={{ fontSize:26, marginBottom:6 }}>🧾</div><div style={{ fontWeight:900, fontSize:15 }}>Budget cuisine</div><div style={{ fontSize:11, opacity:.9, marginTop:2 }}>Marché &amp; justificatifs</div>
+                </a>
               </div>
 
-              {/* Contenu dynamique du module actif dans Gestion Élèves */}
-              {subTabEleve === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
-              {subTabEleve === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} user={user} />}
+              </>}
 
-              {subTabEleve === 'cantine' && (
+              {moduleAdministration && <div style={{ marginBottom:20 }}>
+                <a href="/administration" onClick={ouvrirAccueilAdministration} style={{ display:'inline-flex', alignItems:'center', gap:6, color:'var(--accent)', fontWeight:800, fontSize:13, textDecoration:'none', marginBottom:14 }}>← Administration &amp; Gestion</a>
+              </div>}
+
+              {/* Pages métier dédiées : les composants existants sont réutilisés sans duplication. */}
+              {moduleAdministration === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
+              {moduleAdministration === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} user={user} />}
+
+              {['cantine','budget-cuisine'].includes(moduleAdministration) && (
                 <div>
                   <div style={{ marginBottom: 20 }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🥗 Suivi Cantine, Inscriptions &amp; Budget de la Cuisine</h2>
-                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Panneau de gestion partagé avec la Cuisinière : allocation budgétaire, validation des achats du marché et suivi des allergies.</p>
+                    <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>{moduleAdministration === 'cantine' ? '🥗 Cantine — Inscriptions & Allergies' : '🧾 Budget cuisine — Marché & Justificatifs'}</h2>
+                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{moduleAdministration === 'cantine' ? 'Suivi des inscriptions cantine, allergies médicales et restrictions alimentaires.' : 'Allocation budgétaire, achats du marché et justificatifs transmis par la Cuisinière.'}</p>
                   </div>
 
                   {/* Section Budget & Fiche d'Utilisation du Marché */}
+                  {moduleAdministration === 'budget-cuisine' && <>
                   <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid #7bc142' }}>
                     <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                       <span>💵 Gestion du Budget &amp; Justificatif des Dépenses de la Cuisine</span>
@@ -1087,7 +1122,10 @@ export default function DirecteurApp({ user, onLogout }) {
                     </div>
                   </div>
 
+                  </>}
+
                   {/* Section Inscriptions Cantine & Allergies */}
+                  {moduleAdministration === 'cantine' && (
                   <div className="card" style={{ padding: '1.2rem' }}>
                     <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800, color: '#0d2a3b' }}>🎒 Synchronisation des Inscriptions Cantine &amp; Allergies Élèves</h3>
                     <div style={{ overflowX: 'auto' }}>
@@ -1148,10 +1186,10 @@ export default function DirecteurApp({ user, onLogout }) {
                       </table>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
-              {subTabEleve === 'dossiers' && <InscriptionsValidation inscriptions={inscriptions} directeur={user} onValidated={loadData} inscriptionCiblee={inscriptionCiblee} />}
-              {subTabEleve === 'liste' && <FichesEffectifs eleves={eleves} classes={classes} onCertificat={() => setSubTabEleve('certificat')} onCarte={() => setSubTabEleve('cartes')} />}
+              {moduleAdministration === 'liste' && <FichesEffectifs eleves={eleves} classes={classes} onCertificat={() => { window.history.pushState({}, '', '/administration/certificats-scolarite'); setModuleAdministration('certificat') }} onCarte={() => { window.history.pushState({}, '', '/administration/cartes-scolaires'); setModuleAdministration('cartes') }} />}
             </div>
           )}
 

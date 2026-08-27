@@ -14,7 +14,7 @@ const verifier = (nom, condition) => {
 const blocRa = directeur.match(/if \(user\.role === 'responsable_administratif'\)[\s\S]*?INTERFACE DIRECTEUR/)?.[0] || ''
 
 verifier('C1 · le clic Comptabilité reste dans le document React',
-  /setTab\('compta'\)/.test(blocRa) && !/href="\/comptabilite\.html"/.test(blocRa))
+  /(setTab|ouvrirSessionAdministration)\('compta'\)/.test(blocRa) && !/href="\/comptabilite\.html"/.test(blocRa))
 verifier('C2 · le module reçoit le client de la session existante',
   /<ComptabiliteRA supabase=\{supabase\} user=\{user\}/.test(blocRa)
   && !/createClient|storageKey/.test(composant))
@@ -38,7 +38,7 @@ verifier('C10 · garde responsive sans débordement global',
   && /max-height:calc\(100vh - 32px\)/.test(css))
 verifier('C11 · aucun lien RA vers la page standalone', !/comptabilite\.html/.test(blocRa))
 verifier('C12 · retour Élèves/RH conservé dans le même état React',
-  /setTab\('eleves'\)/.test(blocRa) && /setTab\('rh'\)/.test(blocRa)
+  /(setTab|ouvrirSessionAdministration)\('eleves'\)/.test(blocRa) && /(setTab|ouvrirSessionAdministration)\('rh'\)/.test(blocRa)
   && /responsable_administratif/.test(app))
 verifier('C13 · synchronisation automatique, dédoublonnée et sans écriture dans les inscriptions',
   /Promise\.all/.test(composant)
