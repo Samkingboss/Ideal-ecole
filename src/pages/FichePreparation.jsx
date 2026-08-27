@@ -7,6 +7,7 @@ import { notifierPreparation } from '../lib/notifications'
 import { signature } from '../lib/identiteProfessionnelle'
 import { messageEchecLisible } from '../lib/notifications'
 import FrisePreparation from '../components/FrisePreparation'
+import FichesCahiers from './FichesCahiers'
 import { remarquesParSection, remarquesGenerales, nbCorrectionsOuvertes, cleEtape } from '../lib/remarques'
 
 // Fiche de préparation d'une notion.
@@ -176,6 +177,7 @@ export default function FichePreparation({
   // seule source : aucune copie n'est faite pour l'affichage.
   const [statut, setStatut] = useState(null)
   const [historique, setHistorique] = useState([])
+  const [fichesCahiersOuvertes, setFichesCahiersOuvertes] = useState(false)
 
   // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -697,6 +699,9 @@ export default function FichePreparation({
             <div style={{ fontSize: 13, fontWeight: 900, color: '#166534' }}>
               ✅ Préparation validée par la direction
             </div>
+            <button type="button" className="btn-sm" onClick={() => setFichesCahiersOuvertes(true)} style={{ marginTop: 9, background: '#15803d', color: '#fff' }}>
+              🗒️ Générer les fiches des élèves
+            </button>
           </div>
         )}
 
@@ -1047,6 +1052,12 @@ export default function FichePreparation({
         </div>
 
       </div>
+      {fichesCahiersOuvertes && <FichesCahiers
+        preparation={{ status: statut, matiere: creneau.matiere, date_cours: dateCours, contenu: fiche }}
+        creneau={creneau}
+        user={user}
+        onFerme={() => setFichesCahiersOuvertes(false)}
+      />}
     </div>
   )
 }
