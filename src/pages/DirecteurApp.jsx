@@ -154,6 +154,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [posteDraft, setPosteDraft] = useState([])
   const [demandesRH, setDemandesRH] = useState([])
   const [demandeRHDetail, setDemandeRHDetail] = useState(null)
+  const [personnelRHSelectionne, setPersonnelRHSelectionne] = useState(null)
 
   // Demande désignée par une notification. La cloche transmet son identifiant ;
   // l'écran déroule jusqu'à elle et l'encadre quelques secondes. Sans cela, le
@@ -165,7 +166,10 @@ export default function DirecteurApp({ user, onLogout }) {
   useEffect(() => {
     if (!demandeCiblee) return
     const demande = demandesRH.find(d => String(d.id) === String(demandeCiblee))
-    if (demande) setDemandeRHDetail(demande)
+    if (demande) {
+      setDemandeRHDetail(demande)
+      setPersonnelRHSelectionne(demande.user_id)
+    }
     // On laisse le temps à la session RH de se rendre avant de chercher la ligne.
     const t = setTimeout(() => {
       const el = document.getElementById(`demande-${demandeCiblee}`) || document.getElementById(`preparation-${demandeCiblee}`)
@@ -1205,7 +1209,7 @@ export default function DirecteurApp({ user, onLogout }) {
                   notifications que la direction, il doit donc voir les demandes
                   et pouvoir y répondre. Sa cloche menait jusqu'ici à cet écran
                   où il n'y en avait aucune trace. */}
-              <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
+              {false && <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📑 Demandes RH du personnel</h3>
                   <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)' }}>
@@ -1258,9 +1262,10 @@ export default function DirecteurApp({ user, onLogout }) {
                     )}
                   </div>
                 ))}
-              </div>
+              </div>}
 
               {/* KPI Masse Salariale */}
+              <h2 style={{ fontSize: 16, fontWeight: 900, color: 'var(--dark)', margin: '0 0 10px' }}>📊 Vue financière globale</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
                 <div style={{ background: 'rgba(142,68,173,0.08)', borderRadius: 14, padding: '16px', textAlign: 'center', border: '1px solid rgba(142,68,173,0.2)' }}>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}><Kpi v={stats.profs} echec={blocsEnEchec.includes('personnel')} /></div>
@@ -1276,21 +1281,17 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* 📂 DOSSIERS DU PERSONNEL */}
               <div className="card" style={{ marginBottom: 20, padding: '1.2rem', borderLeft: '4px solid #8e44ad' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>📂 Dossiers du Personnel Enseignant &amp; Administratif</h3>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Fiches individuelles, informations renseignées, codes d'accès et classes attribuées</div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>👥 Personnel enseignant</h3>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Sélectionnez un enseignant pour consulter sa fiche et toutes ses demandes RH.</div>
                   </div>
-                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setNewProf({ prenom: '', nom: '', role: 'professeur', langue: 'fr', code_acces: '', plafond_salaire: 180000, classe_ids: [] }); setShowModal('prof') }}>
-                    + Nouveau Dossier Personnel
-                  </button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
                   {(profs || []).map((p, i) => (
-                    <div key={p.id || i} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px', position: 'relative' }}>
+                    <button key={p.id || i} type="button" onClick={() => setPersonnelRHSelectionne(p.id)} style={{ background: personnelRHSelectionne === p.id ? 'rgba(0,168,224,0.08)' : 'var(--bg)', border: personnelRHSelectionne === p.id ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius: 12, padding: '14px', position: 'relative', textAlign: 'left', cursor: 'pointer', color: 'inherit', font: 'inherit' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                         <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#8e44ad,#6c3483)', color: '#fff', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
                           {(p.prenom?.[0] || '') + (p.nom?.[0] || '')}
@@ -1301,18 +1302,6 @@ export default function DirecteurApp({ user, onLogout }) {
                             Rôle: <b style={{ color: 'var(--accent)' }}>{libelleFonction(p)}</b> {p.langue ? `(${p.langue.toUpperCase()})` : ''}
                           </div>
                         </div>
-                      </div>
-
-                      {/* Le code d'accès a quitté `users` : il vit dans
-                          `users_secrets`, hors de portée de la clé anonyme.
-                          Il n'est donc plus affichable ici — et c'est le but.
-                          Il se montre une seule fois, à la création du compte.
-                          Un code perdu ne se retrouve pas : il se remplace. */}
-                      <div style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 8 }}>
-                        🔑 Code d'accès : <b style={{ fontFamily: 'monospace', letterSpacing: 2 }}>••••••••</b>
-                        <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>
-                          Communiqué une seule fois, à la création du compte.
-                        </span>
                       </div>
 
                       {p.role === 'professeur' && (
@@ -1330,19 +1319,10 @@ export default function DirecteurApp({ user, onLogout }) {
                       )}
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 11 }}>
-                        {/* Le plafond salarial ne figure plus dans une liste
-                            générale : il reste modifiable au formulaire, mais
-                            n'est plus renvoyé aux lecteurs non habilités. */}
                         <span style={{ color: 'var(--muted)' }}>{p.role ? fmtRole(p.role) : ''}</span>
-                        <button
-                          className="btn-sm"
-                          style={{ background: 'rgba(142,68,173,0.1)', color: '#8e44ad', border: '1px solid #8e44ad', padding: '3px 8px', fontSize: 10 }}
-                          onClick={() => alert(`Dossier de ${p.prenom} ${p.nom}\n- Rôle: ${fmtRole(p.role)}\n- Statut: ${p.actif ? 'Actif' : 'Inactif'}\n\nLe code d'accès n'est plus consultable. En cas de perte, il faut en attribuer un nouveau.`)}
-                        >
-                          👁️ Voir Fiche
-                        </button>
+                        <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{(demandesRH || []).filter(d => String(d.user_id) === String(p.id)).length} demande(s) →</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                   {(profs || []).length === 0 && (
                     <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center', padding: '2rem' }}>
@@ -1350,15 +1330,33 @@ export default function DirecteurApp({ user, onLogout }) {
                     </div>
                   )}
                 </div>
+                {personnelRHSelectionne && (() => {
+                  const personne = (profs || []).find(p => String(p.id) === String(personnelRHSelectionne))
+                  if (!personne) return null
+                  const demandes = (demandesRH || []).filter(d => String(d.user_id) === String(personne.id))
+                  return <div style={{ marginTop: 18, paddingTop: 18, borderTop: '2px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                      <div><h4 style={{ margin: 0, fontSize: 16 }}>{personne.prenom} {personne.nom}</h4><div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{libelleFonction(personne)}{personne.langue ? ` · ${personne.langue.toUpperCase()}` : ''} · {personne.actif ? 'Actif' : 'Inactif'}</div></div>
+                      <button className="btn-sm" onClick={() => setPersonnelRHSelectionne(null)}>Fermer</button>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 8 }}>Demandes RH ({demandes.length})</div>
+                    {demandes.length === 0 ? <div style={{ fontSize: 12, color: 'var(--muted)', padding: '12px 0' }}>Aucune demande enregistrée pour cet enseignant.</div> : demandes.map(d => (
+                      <div key={d.id} id={`demande-${d.id}`} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><b style={{ fontSize: 13 }}>{d.type}</b><span style={{ fontSize: 10, fontWeight: 800, color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)' }}>{d.statut}</span></div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{d.date_soumission ? new Date(d.date_soumission).toLocaleString('fr-FR') : ''}{d.details?.montant ? ` · ${Number(d.details.montant).toLocaleString('fr-FR')} F` : ''}</div>
+                        {d.details?.motif && <div style={{ fontSize: 12, marginTop: 5 }}>« {d.details.motif} »</div>}
+                        {d.reponse_direction && <div style={{ fontSize: 12, marginTop: 5 }}><b>Réponse :</b> {d.reponse_direction}</div>}
+                        {d.statut === 'En attente' && <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><button className="btn-sm" style={{ background: 'var(--green)', color: '#fff' }} onClick={async () => { const r = prompt("Commentaire d'approbation :", 'Approuvé'); if (r !== null) await repondreDemande(d, 'Approuvée', r) }}>✓ Approuver</button><button className="btn-sm" style={{ background: 'var(--red)', color: '#fff' }} onClick={async () => { const r = prompt('Motif du refus :', 'Refusé'); if (r) await repondreDemande(d, 'Refusée', r) }}>✖ Refuser</button></div>}
+                      </div>
+                    ))}
+                  </div>
+                })()}
               </div>
 
               {/* Grille Salariale complète */}
               <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div style={{ marginBottom: 14 }}>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel des Postes &amp; Salaires</h3>
-                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setPosteDraft(postes.map(p => ({ ...p }))); setShowModal('postes') }}>
-                    ✏️ Éditer les Postes
-                  </button>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -1600,6 +1598,16 @@ export default function DirecteurApp({ user, onLogout }) {
                 <div style={{ fontSize: 28, fontWeight: 900, color: '#8e44ad' }}><Kpi v={stats.profs} echec={blocsEnEchec.includes('personnel')} /></div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 2 }}>Employés actifs</div>
               </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 20, padding: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel des Postes &amp; Salaires</h3>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{(postes || []).length} postes · {fcfa(masseSalariale)} par mois</div>
+              </div>
+              <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setPosteDraft(postes.map(p => ({ ...p }))); setShowModal('postes') }}>
+                ✏️ Éditer les Postes
+              </button>
             </div>
 
             {/* Demandes RH en attente */}
