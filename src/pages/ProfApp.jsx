@@ -126,6 +126,7 @@ export default function ProfApp({ user, onLogout }) {
   // Une correction demandée doit se retrouver sans dépendre d'une
   // notification ni de la bonne semaine de l'emploi du temps.
   const [prepFiltre, setPrepFiltre] = useState('a_corriger')
+  const [prepCiblee, setPrepCiblee] = useState(null)
   const [newPrepa, setNewPrepa] = useState({ classe_id: '', date_cours: new Date().toISOString().slice(0, 10), heure_cours: '08:00', file: null })
   
   // Devoirs states
@@ -700,6 +701,34 @@ export default function ProfApp({ user, onLogout }) {
   // Combien de ses préparations attendent une correction de sa part.
   const prepsACorriger = preparations.filter(p => p.status === 'a_corriger').length
 
+  const naviguerDepuisNotification = (cible, ref) => {
+    if (['preparation', 'mespreps'].includes(cible)) {
+      setActiveProfSession('pedagogie')
+      setTab('mespreps')
+      setPrepFiltre('a_corriger')
+      setPrepCiblee(ref || null)
+      return
+    }
+    setTab(cible)
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const cible = params.get('notificationTab')
+    if (!cible) return
+    naviguerDepuisNotification(cible, params.get('notificationRef'))
+    params.delete('notificationTab'); params.delete('notificationRef')
+    const reste = params.toString()
+    window.history.replaceState({}, '', `${window.location.pathname}${reste ? `?${reste}` : ''}${window.location.hash}`)
+  }, [])
+
+  useEffect(() => {
+    if (!prepCiblee || tab !== 'mespreps') return
+    const timer = setTimeout(() => document.getElementById(`preparation-prof-${prepCiblee}`)?.scrollIntoView({ behavior:'smooth', block:'center' }), 250)
+    const fin = setTimeout(() => setPrepCiblee(null), 6000)
+    return () => { clearTimeout(timer); clearTimeout(fin) }
+  }, [prepCiblee, preparations, tab])
+
   const classEleves = getClasseEleves()
 
   return (
@@ -713,7 +742,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <NotificationCenter user={user} role="prof" onNavigateTab={setTab} />
+          <NotificationCenter user={user} role="prof" onNavigateTab={naviguerDepuisNotification} />
           <span className="role-badge role-professeur">{user.langue === 'en' ? 'English' : 'Français'}</span>
           <button className="btn-logout" onClick={onLogout}>Déconnexion</button>
         </div>
@@ -914,9 +943,11 @@ export default function ProfApp({ user, onLogout }) {
                     const st = statutDePrep(p.status)
                     const aCorriger = p.status === 'a_corriger'
                     return (
-                      <div key={p.id} className="card" style={{
+                      <div key={p.id} id={`preparation-prof-${p.id}`} className="card" style={{
                         padding: 15,
                         borderLeft: `4px solid ${aCorriger ? '#b45309' : st.couleur}`,
+                        background: String(prepCiblee) === String(p.id) ? 'rgba(0,168,224,0.12)' : undefined,
+                        outline: String(prepCiblee) === String(p.id) ? '2px solid var(--accent)' : undefined,
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 900, fontSize: 14, color: '#0d2a3b' }}>

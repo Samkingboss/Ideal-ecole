@@ -452,6 +452,21 @@ export const ACTIONS = {
   migration:           'migration',
 }
 
+/** Instant de la dernière soumission qui exige une nouvelle lecture Direction. */
+export function momentDerniereSoumission(prep) {
+  const historique = Array.isArray(prep?.historique_statuts) ? prep.historique_statuts : []
+  const instants = historique
+    .filter(entree => [ACTIONS.depot, ACTIONS.modification].includes(entree?.action))
+    .map(entree => Date.parse(entree?.le || ''))
+    .filter(Number.isFinite)
+  if (instants.length) return Math.max(...instants)
+  const depot = Date.parse(prep?.heure_depot || '')
+  return Number.isFinite(depot) ? depot : 0
+}
+
+export const trierPreparationsParActivite = preparations => [...(preparations || [])]
+  .sort((a, b) => momentDerniereSoumission(b) - momentDerniereSoumission(a))
+
 /**
  * L'ancien statut, extrait du commentaire d'une entrée de migration.
  *

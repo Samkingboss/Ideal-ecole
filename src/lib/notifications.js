@@ -197,6 +197,25 @@ export async function notifierPreparation(preparationId) {
   return data || { cree: false }
 }
 
+// Retour de la Direction vers l'enseignant propriétaire. Le client ne choisit
+// jamais la cible : la RPC la relit dans `preparations.user_id`.
+export async function notifierCorrectionPreparation(preparationId) {
+  if (!preparationId) {
+    derniereErreur = { etape: 'enregistrement', message: 'preparation_sans_identifiant' }
+    return false
+  }
+  const { data, error } = await supabase.rpc('notifier_correction_preparation', {
+    p_preparation_id: preparationId,
+  })
+  if (error) {
+    console.error('Notification de correction refusée :', error.message)
+    derniereErreur = { etape:'enregistrement', message:error.message, code:error.code, details:error.details }
+    return false
+  }
+  derniereErreur = null
+  return data || { cree:false }
+}
+
 // ── Pourquoi la dernière notification a échoué ────────────────────────────
 //
 // Le message « la notification a échoué » ne disait pas pourquoi, et la raison

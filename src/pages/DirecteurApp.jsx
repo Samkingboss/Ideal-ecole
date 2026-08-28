@@ -8,7 +8,7 @@ import {
   avantagesDe, ancienneteAnnees, pointsMaxAnnee,
 } from '../lib/points'
 import { lireJournal } from '../lib/audit'
-import { pushNotification } from '../lib/notifications'
+import { notifierCorrectionPreparation, pushNotification } from '../lib/notifications'
 import AffectationsMatieres from './AffectationsMatieres'
 import ActivitePersonnel from './ActivitePersonnel'
 import CartesScolaires from './CartesScolaires'
@@ -18,7 +18,7 @@ import InscriptionsValidation from './InscriptionsValidation'
 import { FicheAlimentaire } from './CuisiniereApp'
 import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
-import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER, dateDeCours, heureDeCours, momentDeDepot } from '../lib/preparations'
+import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER, dateDeCours, heureDeCours, momentDeDepot, trierPreparationsParActivite } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
@@ -156,6 +156,12 @@ export default function DirecteurApp({ user, onLogout }) {
   const [demandeRHDetail, setDemandeRHDetail] = useState(null)
   const [personnelRHSelectionne, setPersonnelRHSelectionne] = useState(null)
 
+  const rechargerPreparations = async () => {
+    const { data, error } = await supabase.from('preparations')
+      .select('*, users(prenom, nom), classes(nom)')
+    if (!error) setPreparations(trierPreparationsParActivite(data || []))
+  }
+
   // Demande désignée par une notification. La cloche transmet son identifiant ;
   // l'écran déroule jusqu'à elle et l'encadre quelques secondes. Sans cela, le
   // clic ouvrait la session RH et déposait le directeur en haut de la page,
@@ -288,11 +294,14 @@ export default function DirecteurApp({ user, onLogout }) {
       setLoading(false)
       return
     }
-    await pushNotification(prepDetail.user_id, {
-      titre: decision === 'valider' ? '✅ Préparation validée' : '↩️ Préparation à corriger',
-      message: prepAvis.commentaire.trim() || `Votre préparation a été validée avec la note de ${note}/20.`,
-      type: 'preparation', tabTarget: 'preparation', ref: prepDetail.id,
-    })
+    const notification = decision === 'corriger'
+      ? await notifierCorrectionPreparation(prepDetail.id)
+      : await pushNotification(prepDetail.user_id, {
+          titre: '✅ Préparation validée',
+          message: prepAvis.commentaire.trim() || `Votre préparation a été validée avec la note de ${note}/20.`,
+          type: 'preparation', tabTarget: 'mespreps', ref: prepDetail.id,
+        })
+    if (!notification) alert('Décision enregistrée, mais la notification enseignant n’a pas pu être enregistrée.')
     setPrepDetail(null)
     setDemandeCiblee(null)
     await loadData()
@@ -369,6 +378,14 @@ export default function DirecteurApp({ user, onLogout }) {
   useEffect(() => { 
     loadData() 
   }, [])
+
+  useEffect(() => {
+    if (user.role !== 'directeur') return undefined
+    const canal = supabase.channel(`preparations-direction-${user.id}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'preparations' }, rechargerPreparations)
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [user.id, user.role])
 
   const loadData = async () => {
     setChargement(true)
@@ -478,7 +495,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
       setDisciplines(disc)
       if (param) setJoursOuvresGlobal(param.jours_ouvres);
-      setPreparations(prep)
+      setPreparations(trierPreparationsParActivite(prep))
 
       setEleves(allCombinedEleves)
       setInscriptions(inscs)
@@ -1874,9 +1891,10 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
               {(() => {
+                const recentes = trierPreparationsParActivite(preparations)
                 const visibles = prepFiltre === 'a_controler'
-                  ? preparations.filter(p => A_CONTROLER.includes(p.status))
-                  : preparations
+                  ? recentes.filter(p => A_CONTROLER.includes(p.status))
+                  : recentes
                 return visibles.length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>
                   {prepFiltre === 'a_controler'
