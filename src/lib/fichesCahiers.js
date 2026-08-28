@@ -61,8 +61,8 @@ export function genererFichesCahiers({ preparation, eleves, classeNom, enseignan
   })
 }
 
-export const paginerFiches = (fiches, parPage = 2) => {
-  const taille = Math.max(1, Number(parPage) || 2)
+export const paginerFiches = (fiches, parPage = 1) => {
+  const taille = Math.max(1, Number(parPage) || 1)
   const pages = []
   for (let i = 0; i < fiches.length; i += taille) pages.push(fiches.slice(i, i + taille))
   return pages

@@ -68,7 +68,15 @@ const permuter = (liste, a, b) => {
 // et de quoi la remonter, la descendre ou la retirer AVANT d'enregistrer.
 // Sans ces trois boutons, un enseignant qui s'était trompé de photo devait
 // supprimer le devoir et tout ressaisir.
-function ListeFichier({ rang, nom, apercu, onMonter, onDescendre, onRetirer }) {
+function ListeFichier({ rang, nom, apercu, fichier, onMonter, onDescendre, onRetirer }) {
+  const [apercuLocal, setApercuLocal] = useState(null)
+  useEffect(() => {
+    if (!fichier || !String(fichier.type || '').startsWith('image/')) { setApercuLocal(null); return }
+    const url = URL.createObjectURL(fichier)
+    setApercuLocal(url)
+    return () => URL.revokeObjectURL(url)
+  }, [fichier])
+  const sourceApercu = apercu || apercuLocal
   const bouton = (libelle, action, titre) => (
     <button type="button" className="btn-sm" title={titre} disabled={!action}
       onClick={action || undefined}
@@ -79,8 +87,8 @@ function ListeFichier({ rang, nom, apercu, onMonter, onDescendre, onRetirer }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)',
                   border: '1px solid var(--border)', borderRadius: 10, padding: '6px 8px' }}>
       <span style={{ fontSize: 11, fontWeight: 900, color: '#0284c7', minWidth: 18 }}>{rang}.</span>
-      {apercu
-        ? <img src={apercu} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+      {sourceApercu
+        ? <img src={sourceApercu} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
         : <span style={{ fontSize: 16 }}>📎</span>}
       <span style={{ flex: 1, fontSize: 12, fontWeight: 700, overflowWrap: 'anywhere', lineHeight: 1.3 }}>{nom}</span>
       {bouton('↑', onMonter, 'Monter')}
@@ -1361,6 +1369,7 @@ export default function ProfApp({ user, onLogout }) {
                       </div>
                       {newDevoir.fichiers.map((f, k) => (
                         <ListeFichier key={f.name + k} rang={(newDevoir.pieces_existantes || []).length + k + 1} nom={f.name}
+                          fichier={f}
                           onMonter={k > 0 ? () => setNewDevoir(d => ({ ...d, fichiers: permuter(d.fichiers, k, k - 1) })) : null}
                           onDescendre={k < newDevoir.fichiers.length - 1 ? () => setNewDevoir(d => ({ ...d, fichiers: permuter(d.fichiers, k, k + 1) })) : null}
                           onRetirer={() => setNewDevoir(d => ({ ...d, fichiers: d.fichiers.filter((_, i) => i !== k) }))} />

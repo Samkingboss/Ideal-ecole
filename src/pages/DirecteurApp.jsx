@@ -844,8 +844,8 @@ export default function DirecteurApp({ user, onLogout }) {
   // ═══════════════════════════════════════════════════════════════════
   // INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF (3 SESSIONS DISTINCTES)
   // ═══════════════════════════════════════════════════════════════════
+  const masseSalariale = (postes || []).reduce((s, p) => s + (p.mensuel || 0), 0)
   if (user.role === 'responsable_administratif') {
-    const masseSalariale = (postes || []).reduce((s, p) => s + (p.mensuel || 0), 0)
     const nbInscrits = eleves.filter(e => e.is_inscription).length
     const nbEleves = eleves.filter(e => !e.is_inscription).length
 

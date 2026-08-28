@@ -162,8 +162,11 @@ function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* L'école et le titre — ce que lit le parent en premier. */}
       <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '20px 24px' }}>
-        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '1.5px', opacity: .85 }}>
-          {NOM_ECOLE.toUpperCase()}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <img src="/logo-ideal.png" alt="Logo IDEAL" style={{ width: 118, height: 44, objectFit: 'contain', background: '#fff', borderRadius: 10, padding: '5px 8px' }} />
+          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '1.5px', opacity: .9 }}>
+            {NOM_ECOLE.toUpperCase()}<br />ÉCOLE INTERNATIONALE BILINGUE
+          </div>
         </div>
         <div style={{ fontSize: 26, fontWeight: 900, marginTop: 6, lineHeight: 1.15 }}>
           Cahier de devoirs de maison

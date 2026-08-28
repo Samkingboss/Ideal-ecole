@@ -16,11 +16,19 @@ function Fiche({ fiche }) {
   const maternelle = fiche.template === 'maternelle'
   return <article className={`fiche-cahier ${maternelle ? 'fiche-cahier--maternelle' : 'fiche-cahier--primaire'}`}>
     <header className="fiche-cahier__header">
-      <div className="fiche-cahier__marque">IDEAL · École Internationale Bilingue</div>
-      <h2>{maternelle ? `🌈 LA JOURNÉE D’APPRENTISSAGE DE ${fiche.prenom.toUpperCase()}` : `FICHE D’APPRENTISSAGE DE ${fiche.prenom.toUpperCase()}`}</h2>
-      <div className="fiche-cahier__meta">{fiche.date} · {fiche.classe} · {fiche.matiere}</div>
+      <div className="fiche-cahier__identite-ecole">
+        <img src="/logo-ideal.png" alt="Logo IDEAL" />
+        <div><div className="fiche-cahier__marque">IDEAL</div><div className="fiche-cahier__sous-marque">École Internationale Bilingue</div></div>
+        <h2>{maternelle ? 'MA JOURNÉE D’APPRENTISSAGE' : 'FICHE D’APPRENTISSAGE'}</h2>
+      </div>
+      <div className="fiche-cahier__meta">
+        <div className="fiche-cahier__eleve"><span>Élève</span><strong>{fiche.prenom} {fiche.nom}</strong></div>
+        <div><span>Classe</span><strong>{fiche.classe}</strong></div>
+        <div><span>Date</span><strong>{fiche.date}</strong></div>
+        <div><span>Matière</span><strong>{fiche.matiere}</strong></div>
+      </div>
     </header>
-    <section><h3>{fiche.absent ? 'Apprentissages de la journée' : maternelle ? `${fiche.prenom} a découvert` : fiche.introduction}</h3>{fiche.absent && <p>{fiche.introduction}</p>}{fiche.objectif && <p>{fiche.objectif}</p>}</section>
+    <section><h3>{fiche.absent ? 'Apprentissages de la journée' : 'Aujourd’hui, j’ai appris'}</h3>{fiche.absent && <p>{fiche.introduction}</p>}{fiche.objectif && <p>{fiche.objectif}</p>}</section>
     {!fiche.absent && fiche.activites.length > 0 && <section><h3>{maternelle ? 'Nous avons fait' : 'Ce que nous avons travaillé'}</h3><ul>{fiche.activites.map((a,i)=><li key={i}>{a}</li>)}</ul></section>}
     {fiche.progression && <section><h3>Repère dans le programme</h3><p>{fiche.progression}</p></section>}
     {fiche.trace && <section><h3>{maternelle ? 'À refaire à la maison' : 'À revoir à la maison'}</h3><p>{fiche.trace}</p></section>}
@@ -75,7 +83,7 @@ export default function FichesCahiers({ preparation, creneau, user, onFerme }) {
     classeNom: classe?.nom || creneau?.groupe,
     enseignant: nomEnseignant(user), observations, presences, note,
   }), [preparation, eleves, selection, classe, creneau?.groupe, user, observations, presences, note])
-  const pages = useMemo(() => paginerFiches(fiches, 2), [fiches])
+  const pages = useMemo(() => paginerFiches(fiches, 1), [fiches])
 
   return <div className="fiches-cahiers-overlay">
     <style>{`
@@ -84,15 +92,15 @@ export default function FichesCahiers({ preparation, creneau, user, onFerme }) {
       .fiches-cahiers-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.fiches-cahiers-actions button{min-height:40px}
       .fiches-cahiers-eleves{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;max-height:150px;overflow:auto}
       .fiches-cahiers-eleves label{display:flex;gap:7px;align-items:center;font-size:12px;font-weight:700}
-      .fiche-cahier-page{width:100%;max-width:210mm;min-height:297mm;margin:0 auto 14px;background:#fff;padding:8mm;box-sizing:border-box;display:grid;grid-template-rows:1fr 1fr;gap:6mm;box-shadow:0 4px 20px #0d2a3b22;page-break-after:always}
-      .fiche-cahier{border:1px dashed #8ca1af;border-radius:10px;padding:7mm;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column}
-      .fiche-cahier__header{border-bottom:3px solid #00a8e0;padding-bottom:7px}.fiche-cahier__marque{font-size:9px;font-weight:900;letter-spacing:.08em;color:#64748b}.fiche-cahier h2{font-size:18px;margin:5px 0}.fiche-cahier__meta{font-size:10px;color:#64748b}.fiche-cahier section{margin-top:8px}.fiche-cahier h3{font-size:11px;text-transform:uppercase;color:#087eaf;margin:0 0 3px}.fiche-cahier p,.fiche-cahier li{font-size:11px;line-height:1.35;margin:0}.fiche-cahier ul{margin:0;padding-left:18px}.fiche-cahier footer{margin-top:auto;padding-top:7px;font-size:9px;color:#64748b;border-top:1px solid #dbe4ea}
+      .fiche-cahier-page{width:100%;max-width:210mm;min-height:297mm;margin:0 auto 14px;background:#fff;padding:10mm;box-sizing:border-box;display:block;box-shadow:0 4px 20px #0d2a3b22;break-after:page;page-break-after:always}
+      .fiche-cahier{height:277mm;border:1px solid #bad7e6;border-radius:12px;padding:10mm;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column}
+      .fiche-cahier__header{border-bottom:3px solid #00a8e0;padding-bottom:6mm}.fiche-cahier__identite-ecole{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4mm}.fiche-cahier__identite-ecole img{width:31mm;height:13mm;object-fit:contain;object-position:left center}.fiche-cahier__marque{font-size:13px;font-weight:950;letter-spacing:.08em;color:#0d2a3b}.fiche-cahier__sous-marque{font-size:8px;font-weight:800;letter-spacing:.04em;color:#64748b}.fiche-cahier h2{font-size:19px;margin:0;text-align:right;color:#0d2a3b}.fiche-cahier__meta{margin-top:6mm;padding:4mm;background:#eef8fc;border:1px solid #cae8f3;border-radius:9px;display:grid;grid-template-columns:1.4fr 1fr;gap:3mm 7mm}.fiche-cahier__meta div{display:grid;gap:1mm}.fiche-cahier__meta span{font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#087eaf}.fiche-cahier__meta strong{font-size:12px;color:#0d2a3b}.fiche-cahier__eleve strong{font-size:15px}.fiche-cahier section{margin-top:8mm;padding:5mm 6mm;border-left:1.2mm solid #00a8e0;background:#f8fcfe;border-radius:0 8px 8px 0}.fiche-cahier h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#087eaf;margin:0 0 3mm}.fiche-cahier p,.fiche-cahier li{font-size:12px;line-height:1.55;margin:0}.fiche-cahier ul{margin:0;padding-left:5mm}.fiche-cahier footer{margin-top:auto;padding-top:4mm;font-size:9px;color:#64748b;border-top:1px solid #dbe4ea;display:flex;justify-content:space-between}.fiche-cahier footer::after{content:'IDEAL · École Internationale Bilingue';font-weight:800}
       .fiche-cahier--maternelle{border-color:#ffb67d}.fiche-cahier--maternelle .fiche-cahier__header{border-color:#ff914d}.fiche-cahier--maternelle h3{color:#c65d16}.fiche-cahier__observation{background:#f0fdf4;padding:6px;border-radius:7px}
-      @media(max-width:600px){.fiches-cahiers-overlay{padding:8px;overflow-x:hidden}.fiches-cahiers-outils,.fiche-cahier-page,.fiche-cahier{min-width:0}.fiches-cahiers-actions>*{flex:1 1 140px}.fiche-cahier-page{min-height:0;padding:7px;gap:8px;display:block}.fiche-cahier{min-height:420px;margin-bottom:8px;padding:14px}.fiche-cahier h2{font-size:15px;overflow-wrap:anywhere}}
-      @media print{body *{visibility:hidden!important}.fiches-cahiers-overlay,.fiches-cahiers-overlay *{visibility:visible!important}.fiches-cahiers-overlay{position:absolute;inset:0;padding:0;background:#fff;overflow:visible}.fiches-cahiers-outils{display:none!important}.fiche-cahier-page{width:210mm;height:297mm;min-height:297mm;margin:0;box-shadow:none;padding:8mm;page-break-after:always}.fiche-cahier{overflow:hidden}.fiche-cahier-page:last-child{page-break-after:auto}@page{size:A4 portrait;margin:0}}
+      @media(max-width:600px){.fiches-cahiers-overlay{padding:8px;overflow-x:hidden}.fiches-cahiers-outils,.fiche-cahier-page,.fiche-cahier{min-width:0}.fiches-cahiers-actions>*{flex:1 1 140px}.fiche-cahier-page{min-height:0;padding:7px;display:block}.fiche-cahier{height:auto;min-height:620px;margin-bottom:8px;padding:14px}.fiche-cahier__identite-ecole{grid-template-columns:auto 1fr}.fiche-cahier__identite-ecole h2{grid-column:1/-1;text-align:left}.fiche-cahier h2{font-size:15px;overflow-wrap:anywhere}}
+      @media print{body *{visibility:hidden!important}.fiches-cahiers-overlay,.fiches-cahiers-overlay *{visibility:visible!important}.fiches-cahiers-overlay{position:absolute;inset:0;padding:0;background:#fff;overflow:visible}.fiches-cahiers-outils{display:none!important}.fiche-cahier-page{width:210mm;height:297mm;min-height:297mm;margin:0;box-shadow:none;padding:10mm;break-after:page;page-break-after:always}.fiche-cahier{height:277mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.fiche-cahier-page:last-child{break-after:auto;page-break-after:auto}@page{size:A4 portrait;margin:0}}
     `}</style>
     <div className="fiches-cahiers-outils">
-      <div><b>Fiches cahiers · {classe?.nom || creneau?.groupe}</b><div style={{fontSize:12,color:'#64748b'}}>{fiches.length} fiche(s) · {pages.length} page(s) A4 · 2 fiches par page</div></div>
+      <div><b>Fiches cahiers · {classe?.nom || creneau?.groupe}</b><div style={{fontSize:12,color:'#64748b'}}>{fiches.length} fiche(s) · {pages.length} page(s) A4 · 1 fiche par élève et par page</div></div>
       {etat === 'chargement' && <div>Chargement des élèves…</div>}
       {etat === 'erreur' && <div style={{color:'#b91c1c'}}>{erreur}</div>}
       {etat === 'ok' && <>

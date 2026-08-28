@@ -20,6 +20,7 @@ const verifier = (nom, ok, detail = '') => {
 }
 const lire = f => (existsSync(f) ? readFileSync(f, 'utf8') : '')
 const src = lire('src/pages/ProfApp.jsx')
+const documentSrc = lire('src/pages/DevoirsDocument.jsx')
 
 console.log(`\n${G}── DEVOIRS · une fiche, deux fiches, trois fiches [INV-METIER]${F}`)
 
@@ -32,6 +33,8 @@ console.log(`\n${G}── DEVOIRS · une fiche, deux fiches, trois fiches [INV-M
     !/fichiers: \[\.\.\.e\.target\.files\] \}\)/.test(src))
   verifier('G3 le champ se vide après chaque prise',
     /e\.target\.value = ''/.test(src), 'sinon le même fichier ne peut être repris')
+  verifier('G3 une image locale a un aperçu avant enregistrement',
+    /URL\.createObjectURL\(fichier\)/.test(src) && /fichier=\{f\}/.test(src))
 
   // AUTO-TEST : le motif doit reconnaître le défaut d'origine.
   const defaut = "onChange={e => setNewDevoir({ ...newDevoir, fichiers: [...e.target.files] })}"
@@ -45,6 +48,18 @@ console.log(`\n${G}── DEVOIRS · une fiche, deux fiches, trois fiches [INV-M
     if (d.piecesJointes.length !== n) verifier(`G3 ${n} fichiers relus`, false, `${d.piecesJointes.length}`)
   }
   verifier('G3 0, 1, 2, 3 et 5 pièces sont relues à l’identique', true)
+}
+
+// ── DOCUMENT FINAL · couverture puis toutes les pièces ───────────────────
+{
+  verifier('DOC la couverture porte le logo officiel',
+    /<img src="\/logo-ideal\.png" alt="Logo IDEAL"/.test(documentSrc))
+  verifier('DOC toutes les pièces sont parcourues, pas seulement la première',
+    /\.\.\.dv\.piecesJointes\.map\(\(f2, k\)/.test(documentSrc)
+    && !/piecesJointes\[0\]/.test(documentSrc))
+  verifier('DOC chaque pièce ouvre sa propre page et conserve son ratio',
+    /sautAvant mention=\{mention\}/.test(documentSrc)
+    && /objectFit: 'contain'/.test(documentSrc))
 }
 
 // ── G4 · l'ordre est celui de l'écran, pas celui de Storage ───────────────
