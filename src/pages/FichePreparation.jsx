@@ -461,7 +461,23 @@ export default function FichePreparation({
       e => e.sequence < creneau.sequence || e.sequence >= creneau.sequence + nb
     )
     if (enTrop.length) {
-      await supabase.from('preparations').delete().in('id', enTrop.map(e => e.id))
+      const { data: nettoyage, error: erreurNettoyage } = await supabase.rpc(
+        'nettoyer_sequences_preparation',
+        {
+          p_ids: enTrop.map(e => e.id),
+          p_date_cours: dateCours,
+          p_sequence_debut: creneau.sequence,
+          p_nb_sequences: nb,
+        }
+      )
+      if (erreurNettoyage || nettoyage?.restantes !== 0) {
+        setEnCours(false)
+        const detail = erreurNettoyage
+          ? [erreurNettoyage.code, erreurNettoyage.message, erreurNettoyage.details].filter(Boolean).join(' — ')
+          : `${nettoyage?.restantes ?? 'inconnu'} séquence(s) restante(s)`
+        setMessage({ type: 'err', texte: `Préparation enregistrée, mais nettoyage incomplet : ${detail}` })
+        return
+      }
     }
 
     // On relit ce qui est réellement en base avant de rendre la main. Sans
