@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import PerformancesDirecteur from './PerformancesDirecteur'
 import AgendaCalendrier from './AgendaCalendrier'
@@ -155,11 +155,25 @@ export default function DirecteurApp({ user, onLogout }) {
   const [demandesRH, setDemandesRH] = useState([])
   const [demandeRHDetail, setDemandeRHDetail] = useState(null)
   const [personnelRHSelectionne, setPersonnelRHSelectionne] = useState(null)
+  const prepRefreshEnVol = useRef(false)
+  const prepRefreshEnAttente = useRef(false)
 
   const rechargerPreparations = async () => {
-    const { data, error } = await supabase.from('preparations')
-      .select('*, users(prenom, nom), classes(nom)')
-    if (!error) setPreparations(trierPreparationsParActivite(data || []))
+    if (prepRefreshEnVol.current) {
+      prepRefreshEnAttente.current = true
+      return
+    }
+    prepRefreshEnVol.current = true
+    try {
+      do {
+        prepRefreshEnAttente.current = false
+        const { data, error } = await supabase.from('preparations')
+          .select('*, users(prenom, nom), classes(nom)')
+        if (!error) setPreparations(trierPreparationsParActivite(data || []))
+      } while (prepRefreshEnAttente.current)
+    } finally {
+      prepRefreshEnVol.current = false
+    }
   }
 
   // Demande désignée par une notification. La cloche transmet son identifiant ;
@@ -382,10 +396,17 @@ export default function DirecteurApp({ user, onLogout }) {
 
   useEffect(() => {
     if (user.role !== 'directeur') return undefined
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') rechargerPreparations()
+    }
+    document.addEventListener('visibilitychange', auRetour)
     const canal = supabase.channel(`preparations-direction-${user.id}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'preparations' }, rechargerPreparations)
       .subscribe()
-    return () => { supabase.removeChannel(canal) }
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour)
+      supabase.removeChannel(canal)
+    }
   }, [user.id, user.role])
 
   const loadData = async () => {

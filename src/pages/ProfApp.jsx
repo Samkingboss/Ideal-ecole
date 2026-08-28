@@ -14,7 +14,7 @@ import DevoirsDocument from './DevoirsDocument'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import { signatureLigne } from '../lib/identiteProfessionnelle'
 import AccordionCard from '../components/ui/AccordionCard'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { messageLisible } from '../lib/chargement'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -175,9 +175,49 @@ export default function ProfApp({ user, onLogout }) {
   const [discGravite, setDiscGravite] = useState('mineure')
   const [discMotif, setDiscMotif] = useState('')
   const [discLoading, setDiscLoading] = useState(false)
+  const prepRefreshEnVol = useRef(false)
+  const prepRefreshEnAttente = useRef(false)
+
+  const rechargerMesPreparations = async () => {
+    if (!user?.id) return
+    if (prepRefreshEnVol.current) {
+      prepRefreshEnAttente.current = true
+      return
+    }
+    prepRefreshEnVol.current = true
+    try {
+      do {
+        prepRefreshEnAttente.current = false
+        const { data, error } = await supabase.from('preparations')
+          .select('id, date_cours, sequence, matiere, groupe, status, historique_statuts, heure_depot')
+          .eq('user_id', user.id).order('heure_depot', { ascending: false })
+        if (!error) setPreparations(data || [])
+      } while (prepRefreshEnAttente.current)
+    } finally {
+      prepRefreshEnVol.current = false
+    }
+  }
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { loadProgramme() }, [selectedClasse])
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') rechargerMesPreparations()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+    const canal = supabase.channel(`preparations-prof-${user.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'preparations',
+        filter: `user_id=eq.${user.id}`,
+      }, rechargerMesPreparations)
+      .subscribe()
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour)
+      supabase.removeChannel(canal)
+    }
+  }, [user?.id])
 
   // Les devoirs de la classe ouverte, et d'elle seule.
   useEffect(() => {

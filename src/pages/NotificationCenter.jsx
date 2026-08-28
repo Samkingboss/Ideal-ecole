@@ -99,10 +99,32 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     }
     document.addEventListener('visibilitychange', auRetour)
 
+    // Le polling reste le filet des reseaux instables, mais une notification
+    // venant d'un autre compte ne doit pas attendre son prochain tour. Un seul
+    // canal par cloche, filtre sur l'app notifications, puis garde sur les
+    // seules boites que cet utilisateur lit deja.
+    const activeRole = role || user?.role || 'prof'
+    const keysEcoutees = new Set([
+      `notifs_${activeRole}`,
+      user?.role ? `notifs_${user.role}` : null,
+      'notifs_global',
+      user?.id ? `notifs_${user.id}` : null,
+    ].filter(Boolean))
+    const canal = supabase.channel(`notifications-${user?.id || 'anonyme'}-${activeRole}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'app_state',
+        filter: `app=eq.${APP_NOTIFS}`,
+      }, payload => {
+        const key = payload.new?.key || payload.old?.key
+        if (keysEcoutees.has(key)) relire()
+      })
+      .subscribe()
+
     return () => {
       arrete = true
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', auRetour)
+      supabase.removeChannel(canal)
     }
   }, [user?.id, role])
 
