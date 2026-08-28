@@ -59,6 +59,17 @@ test('R2 · compteurs et retard restent inchangés',()=>{
   assert.match(direction,/A_CONTROLER\.includes\(p\.status\)/)
   assert.match(direction,/ponctualiteAuDepot\(prep\)/)
 })
+test('H1 · une validation ouvre immédiatement l’historique',()=>{
+  assert.match(direction,/decision === 'valider'\) setPrepFiltre\('historique'\)/)
+})
+test('H2 · seules les fiches validées sont archivées',()=>{
+  assert.match(preparations,/filter\(prep => prep\?\.status === STATUTS\.validee\.code\)/)
+  assert.match(direction,/trierPreparationsValidees\(preparations\)/)
+})
+test('H3 · les validations récentes précèdent les anciennes',()=>{
+  assert.match(preparations,/entree\?\.action === ACTIONS\.validation/)
+  assert.match(preparations,/momentDerniereValidation\(b\) - momentDerniereValidation\(a\)/)
+})
 
-console.log(echecs ? `\n${echecs} garde(s) en échec.` : '\n12 gardes notification/tri au vert.')
+console.log(echecs ? `\n${echecs} garde(s) en échec.` : '\nGardes notification, tri et historique au vert.')
 process.exit(echecs ? 1 : 0)

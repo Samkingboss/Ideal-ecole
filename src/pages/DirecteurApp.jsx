@@ -18,7 +18,7 @@ import InscriptionsValidation from './InscriptionsValidation'
 import { FicheAlimentaire } from './CuisiniereApp'
 import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
-import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER, dateDeCours, heureDeCours, momentDeDepot, trierPreparationsParActivite } from '../lib/preparations'
+import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER, dateDeCours, heureDeCours, momentDeDepot, trierPreparationsParActivite, trierPreparationsValidees } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
@@ -305,6 +305,7 @@ export default function DirecteurApp({ user, onLogout }) {
     setPrepDetail(null)
     setDemandeCiblee(null)
     await loadData()
+    if (decision === 'valider') setPrepFiltre('historique')
     setLoading(false)
   }
   const [pointsConfig, setPointsConfig] = useState(CONFIG_DEFAUT)
@@ -1879,6 +1880,7 @@ export default function DirecteurApp({ user, onLogout }) {
                     qu'un raccourci. */}
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[['a_controler', `À contrôler (${preparations.filter(p => A_CONTROLER.includes(p.status)).length})`],
+                    ['historique', `Historique (${preparations.filter(p => p.status === 'validee').length})`],
                     ['toutes', `Toutes (${preparations.length})`]].map(([id, libelle]) => (
                     <button key={id} onClick={() => setPrepFiltre(id)} style={{
                       padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
@@ -1894,14 +1896,18 @@ export default function DirecteurApp({ user, onLogout }) {
                 const recentes = trierPreparationsParActivite(preparations)
                 const visibles = prepFiltre === 'a_controler'
                   ? recentes.filter(p => A_CONTROLER.includes(p.status))
-                  : recentes
+                  : prepFiltre === 'historique'
+                    ? trierPreparationsValidees(preparations)
+                    : recentes
                 return visibles.length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>
                   {prepFiltre === 'a_controler'
                     ? (preparations.length
                         ? 'Aucune préparation n’attend votre décision. ✓'
                         : 'Aucune préparation de cours enregistrée.')
-                    : 'Aucune préparation de cours enregistrée.'}
+                    : prepFiltre === 'historique'
+                      ? 'Aucune préparation validée dans l’historique.'
+                      : 'Aucune préparation de cours enregistrée.'}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>

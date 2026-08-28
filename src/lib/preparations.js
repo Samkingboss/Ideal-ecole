@@ -467,6 +467,20 @@ export function momentDerniereSoumission(prep) {
 export const trierPreparationsParActivite = preparations => [...(preparations || [])]
   .sort((a, b) => momentDerniereSoumission(b) - momentDerniereSoumission(a))
 
+/** Instant où la Direction a archivé la fiche en la validant. */
+export function momentDerniereValidation(prep) {
+  const historique = Array.isArray(prep?.historique_statuts) ? prep.historique_statuts : []
+  const instants = historique
+    .filter(entree => entree?.action === ACTIONS.validation)
+    .map(entree => Date.parse(entree?.le || ''))
+    .filter(Number.isFinite)
+  return instants.length ? Math.max(...instants) : momentDerniereSoumission(prep)
+}
+
+export const trierPreparationsValidees = preparations => [...(preparations || [])]
+  .filter(prep => prep?.status === STATUTS.validee.code)
+  .sort((a, b) => momentDerniereValidation(b) - momentDerniereValidation(a))
+
 /**
  * L'ancien statut, extrait du commentaire d'une entrée de migration.
  *
