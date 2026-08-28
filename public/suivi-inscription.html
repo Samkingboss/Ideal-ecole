@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Suivi d’inscription — IDEAL</title>
+  <style>
+    :root{--bleu:#174e72;--accent:#00a8e0;--vert:#16825d;--orange:#e97b1f;--texte:#17364d;--muted:#6f7f8a;--bord:#d9e6ec;--fond:#eef6f9}
+    *{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font-family:Inter,Arial,sans-serif;min-height:100vh}
+    header{background:linear-gradient(125deg,#102f43,var(--bleu));color:#fff;padding:22px 18px;border-bottom:4px solid var(--accent)}
+    .marque{max-width:760px;margin:auto}.marque b{font-size:22px;letter-spacing:.06em}.marque div{font-size:12px;opacity:.8;margin-top:3px}
+    main{max-width:760px;margin:28px auto;padding:0 16px 50px}.carte{background:#fff;border:1px solid var(--bord);border-radius:18px;box-shadow:0 8px 30px rgba(23,78,114,.09);overflow:hidden}
+    .etat{padding:28px;text-align:center}.icone{font-size:42px;margin-bottom:10px}.etat h1{font-size:21px;margin:0 0 8px}.etat p{font-size:13px;color:var(--muted);line-height:1.55;margin:0}
+    .bandeau{padding:24px 26px;background:linear-gradient(120deg,#e8f8fd,#fff);border-bottom:1px solid var(--bord)}
+    .pastille{display:inline-block;padding:6px 11px;border-radius:999px;background:#fff4e8;color:#9a4c0b;font-size:11px;font-weight:900;border:1px solid #f3c18d}
+    .pastille.validee{background:#eaf8f0;color:#11633f;border-color:#9ed4b9}.bandeau h1{font-size:25px;margin:13px 0 4px}.bandeau p{margin:0;color:var(--muted);font-size:13px}
+    .corps{padding:24px 26px}.grille{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.info{padding:13px;background:#f7fafb;border:1px solid #e4edf1;border-radius:10px}.label{font-size:9px;font-weight:900;letter-spacing:.08em;color:#81909a;text-transform:uppercase}.valeur{font-size:14px;font-weight:800;margin-top:5px;word-break:break-word}
+    .etapes{margin-top:22px;border-top:1px solid var(--bord);padding-top:18px}.etape{display:flex;gap:11px;align-items:flex-start;margin:12px 0;color:var(--muted);font-size:13px}.point{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;background:#dce8ed;color:#fff;font-size:11px;font-weight:900}.faite{color:var(--texte)}.faite .point{background:var(--vert)}
+    footer{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;line-height:1.6}@media(max-width:520px){.grille{grid-template-columns:1fr}.bandeau,.corps{padding:20px}.bandeau h1{font-size:21px}}
+    @media print{body{background:#fff}header{box-shadow:none}.carte{box-shadow:none}main{margin-top:15px}}
+  </style>
+</head>
+<body>
+  <header><div class="marque"><b>IDEAL</b><div>École Internationale Bilingue · Suivi d’inscription</div></div></header>
+  <main>
+    <section id="chargement" class="carte"><div class="etat"><div class="icone">⏳</div><h1>Consultation du dossier</h1><p>Vérification sécurisée du lien de suivi…</p></div></section>
+    <section id="dossier" class="carte" hidden>
+      <div class="bandeau">
+        <span id="statut" class="pastille"></span>
+        <h1 id="enfant"></h1>
+        <p>Suivi du dossier d’inscription</p>
+      </div>
+      <div class="corps">
+        <div class="grille">
+          <div class="info"><div class="label">Classe demandée</div><div id="classe" class="valeur"></div></div>
+          <div class="info"><div class="label">Année scolaire</div><div id="annee" class="valeur"></div></div>
+          <div class="info"><div class="label">Référence</div><div id="matricule" class="valeur"></div></div>
+          <div class="info"><div class="label">Date de dépôt</div><div id="depot" class="valeur"></div></div>
+        </div>
+        <div class="etapes" aria-label="Étapes du dossier">
+          <div class="etape faite"><span class="point">✓</span><div><b>Dossier reçu</b><br>Le dossier a bien été enregistré par l’école.</div></div>
+          <div id="etude" class="etape"><span class="point">2</span><div><b>Étude du dossier</b><br>Vérification par la Direction.</div></div>
+          <div id="validation" class="etape"><span class="point">3</span><div><b>Validation définitive</b><br>Confirmée après contrôle et signature de la Direction.</div></div>
+        </div>
+      </div>
+    </section>
+    <footer>Ce lien donne uniquement accès à l’état minimal du dossier. Aucune coordonnée familiale, pièce justificative ou signature n’est affichée.</footer>
+  </main>
+  <script>
+    const SUPABASE_URL='https://jircuneixzwsmtktxrkh.supabase.co'
+    const P1='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+    const P2='eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0'
+    const P3='MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls'
+    const ANON_KEY=[P1,P2,P3].join('.')
+    const texte=(id,valeur,repli='—')=>{document.getElementById(id).textContent=valeur||repli}
+    const erreur=()=>{document.getElementById('chargement').innerHTML='<div class="etat"><div class="icone">🔒</div><h1>Lien non valide</h1><p>Ce lien est inconnu, incomplet, expiré ou révoqué. Demandez un nouveau lien à l’école.</p></div>'}
+
+    addEventListener('load',async()=>{
+      const token=new URLSearchParams(location.hash.slice(1)).get('token')||''
+      if(!/^[0-9a-f]{64}$/.test(token)){erreur();return}
+      try{
+        const reponse=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lire_suivi_inscription`,{
+          method:'POST',cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer',
+          headers:{apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`,'Content-Type':'application/json','Cache-Control':'no-store'},
+          body:JSON.stringify({p_token:token})
+        })
+        if(!reponse.ok){erreur();return}
+        const data=await reponse.json()
+        if(!data||data.ok!==true){erreur();return}
+        document.getElementById('chargement').hidden=true
+        document.getElementById('dossier').hidden=false
+        const validee=data.statut==='validee'
+        texte('statut',data.statut_public)
+        document.getElementById('statut').classList.toggle('validee',validee)
+        texte('enfant',`${data.prenom||''} ${String(data.nom||'').toUpperCase()}`.trim())
+        texte('classe',data.classe_demandee)
+        texte('annee',data.annee_scolaire)
+        texte('matricule',data.matricule,'En cours d’attribution')
+        texte('depot',data.date_depot?new Date(data.date_depot).toLocaleDateString('fr-FR'):'')
+        document.getElementById('etude').classList.add('faite')
+        if(validee){document.getElementById('validation').classList.add('faite');document.querySelector('#validation .point').textContent='✓'}
+      }catch(_){erreur()}
+    })
+  </script>
+</body>
+</html>

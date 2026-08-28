@@ -914,6 +914,7 @@
     let currentFacingMode = 'user';
     let signaturePad = null;
     let lastSavedMatricule = null;
+    let lastSavedSuiviToken = null;
     let lastSavedData = null; // Pour génération PDF
 
     // =============================================
@@ -959,6 +960,7 @@
         finalPhotoDataUrl = null;
         signaturePad = null;
         lastSavedMatricule = null;
+        lastSavedSuiviToken = null;
         lastSavedData = null;
 
         if (prefillData) prefillWizard(prefillData);
@@ -1470,7 +1472,7 @@
                 fichiers: { photo_chemin: photoChemin, signature_chemin: signatureChemin, documents },
             };
 
-            const { data: retour, error: rpcErr } = await _supa.rpc('creer_inscription', {
+            const { data: retour, error: rpcErr } = await _supa.rpc('creer_inscription_avec_suivi', {
                 p_dossier: dossier
             });
 
@@ -1497,7 +1499,7 @@
                     ? messages[code]
                     : "Le dossier n'a pas pu être enregistré. Aucune donnée n'a été créée — vous pouvez réessayer.");
             }
-            if (!retour || retour.ok !== true || !retour.matricule) {
+            if (!retour || retour.ok !== true || !retour.matricule || !retour.suivi_token) {
                 console.error('creer_inscription — réponse inattendue :', retour);
                 throw new Error("Dossier non enregistré : réponse inattendue du serveur. Réessayez.");
             }
@@ -1510,6 +1512,7 @@
             //    `lastSavedData` alimente le partage WhatsApp et la fiche PDF :
             //    on y remet à plat exactement les clés qu'ils lisent.
             lastSavedMatricule = matricule;
+            lastSavedSuiviToken = retour.suivi_token;
             lastSavedData = {
                 ...dossier.eleve,
                 ...dossier.dossier,
@@ -1602,10 +1605,9 @@
         const qrBox = document.createElement('div');
         qrBox.style.cssText = 'background:white; padding:.85rem; border-radius:14px; box-shadow:0 0 30px rgba(134,59,255,.3);';
         qrWrapper.appendChild(qrBox);
-        // `showSuccessScreen` ne reçoit que le matricule : le nom se lit sur le
-        // dossier qui vient d'être enregistré.
-        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}`
-                       + `&nom=${encodeURIComponent((lastSavedData && lastSavedData.nom) || '')}`;
+        // QR de suivi du dépôt. Le QR de la carte scolaire continue d'utiliser
+        // exclusivement `/fiche.html` dans son workflow propre et gelé.
+        const ficheUrl = `${window.location.origin}/suivi-inscription.html#token=${encodeURIComponent(lastSavedSuiviToken || '')}`;
         new QRCode(qrBox, {
             text: ficheUrl,
             width: 160,
@@ -1635,7 +1637,7 @@
 
         const r1 = data.responsable1 || {};
         const num = normalizeWhatsApp(r1.whatsapp || r1.tel1);
-        const ficheUrl = `${window.location.origin}/fiche.html?matricule=${encodeURIComponent(matricule)}&nom=${encodeURIComponent(data.nom || '')}`;
+        const ficheUrl = `${window.location.origin}/suivi-inscription.html#token=${encodeURIComponent(lastSavedSuiviToken || '')}`;
         const eleve = `${data.prenom || ''} ${(data.nom || '').toUpperCase()}`.trim();
         const parent = `${r1.prenom || ''} ${r1.nom || ''}`.trim();
 
