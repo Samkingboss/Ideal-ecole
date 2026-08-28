@@ -5,6 +5,49 @@ export const classeLabel = classe => ({
   ce1: 'CE1', ce2: 'CE2', cm1: 'CM1', cm2: 'CM2',
 })[classe] || classe || 'Classe non renseignée'
 
+const normaliserNomClasse = valeur => String(valeur || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/\s+bilingue\s*$/i, '').replace(/[^a-z0-9]/g, '')
+
+export const trouverClasseCanonique = (libelle, classes = []) => {
+  const cible = normaliserNomClasse(libelle)
+  return (classes || []).find(classe => normaliserNomClasse(classe?.nom) === cible) || null
+}
+
+export const synchroniserEleves = (etat, inscriptions = [], classes = []) => {
+  const courant = normalizeEtatComptable(etat)
+  const sources = new Set(courant.students.map(student => student.sourceInscription).filter(Boolean).map(String))
+  const matricules = new Set(courant.students.map(student => student.matricule).filter(Boolean))
+  const nouveaux = inscriptions.filter(inscription => {
+    if (inscription.statut !== 'validee' || !inscription.matricule || matricules.has(inscription.matricule) || sources.has(String(inscription.id))) return false
+    return Boolean(trouverClasseCanonique(inscription.classe_demandee, classes))
+  }).map(inscription => {
+    const classe = trouverClasseCanonique(inscription.classe_demandee, classes)
+    return {
+      id:`inscription-${inscription.id}`, matricule:inscription.matricule, nom:inscription.nom, prenom:inscription.prenom,
+      classe:classe.nom, classe_id:classe.id, cantine:Boolean(inscription.cantine),
+      annee_scolaire:inscription.annee_scolaire || null, telephone:'', famille:String(inscription.nom || '').toUpperCase(),
+      plan:'trimestre', paye:0, history:[], reductions:[], dateDepart:null, motifDepart:'', sourceInscription:inscription.id,
+    }
+  })
+  return { suivant: nouveaux.length ? { ...courant, students:[...courant.students, ...nouveaux] } : courant, nombre:nouveaux.length }
+}
+
+export const salairesDepuisPostes = postes => (Array.isArray(postes) ? postes : []).map(poste => ({
+  id: poste.id, poste: poste.label || poste.poste || '', mensuel: Number(poste.mensuel || 0),
+}))
+
+export const protegerMutationSalariale = (courant, suivant, role) => {
+  if (role !== 'responsable_administratif') return suivant
+  const chargeSalariale = (courant.charges || []).find(charge => charge.id === 'salaires')
+  return {
+    ...suivant,
+    salaires: courant.salaires,
+    paies: courant.paies,
+    charges: (suivant.charges || []).map(charge => charge.id === 'salaires' && chargeSalariale ? chargeSalariale : charge),
+  }
+}
+
 export const normalizeEtatComptable = raw => {
   const etat = raw && typeof raw === 'object' ? raw : {}
   return {
@@ -31,17 +74,6 @@ const TARIFS = {
 }
 
 export const EFFECTIFS_PREVISIONNELS = { ps:13, gs:20, cp1:22, cp2:18, ce1:7, ce2:4, cm1:3, cm2:3 }
-export const SALAIRES_PREVISIONNELS = [
-  ['Directeur',400000], ['Responsable administratif',150000], ['Conseillère de vie scolaire',75000],
-  ['Surveillant(e)',75000], ['Ménagères (× 3)',150000], ['Gardien',30000],
-  ['Maîtresse Français (Maternelle)',125000], ['Maîtresse Anglais (Maternelle)',125000],
-  ['Assistante Français (Maternelle)',75000], ['Assistante Anglais (Maternelle)',75000],
-  ['Maître Français (CP1-CP2)',125000], ['Maître Anglais (CP1-CP2)',125000],
-  ['Maître Français (CE1-CE2)',125000], ['Maître Anglais (CE1-CE2)',125000],
-  ['Maître Français (CM1-CM2)',125000], ['Maître Anglais (CM1-CM2)',125000],
-  ['Rémunération Associé',250000], ['Rémunération Directeur',100000],
-].map(([poste,mensuel], index) => ({ id:`poste-${index + 1}`, poste, mensuel }))
-
 const moisPrevision = ['Oct.','Nov.','Déc.','Jan.','Fév.','Mars','Avr.','Mai','Juin']
 export const previsionFinanciere = etat => {
   const effectifsSauves = { ...EFFECTIFS_PREVISIONNELS, ...(etat.effectifs || {}) }

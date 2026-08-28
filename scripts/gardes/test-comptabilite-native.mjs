@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 const lire = fichier => readFileSync(fichier, 'utf8')
 const directeur = lire('src/pages/DirecteurApp.jsx')
 const composant = lire('src/pages/ComptabiliteRA.jsx')
+const metier = lire('src/lib/comptabiliteRA.js')
 const css = lire('src/pages/ComptabiliteRA.css')
 const app = lire('src/App.jsx')
 let echecs = 0
@@ -43,9 +44,10 @@ verifier('C12 · retour Élèves/RH conservé dans le même état React',
 verifier('C13 · synchronisation automatique, dédoublonnée et sans écriture dans les inscriptions',
   /Promise\.all/.test(composant)
   && /from\('inscriptions'\)\.select/.test(composant)
-  && /sourceInscription/.test(composant)
-  && /matricules\.has/.test(composant)
-  && /inscription\.statut !== 'validee'/.test(composant)
+  && /sourceInscription/.test(metier)
+  && /matricules\.has/.test(metier)
+  && /inscription\.statut !== 'validee'/.test(metier)
+  && /trouverClasseCanonique/.test(metier)
   && /eq\('updated_at', comptabilite\.data\.updated_at\)/.test(composant)
   && !/from\('inscriptions'\)\.(insert|update|delete|upsert)/.test(composant))
 verifier('C14 · cockpit caisse, prévision 90 élèves et masse salariale sont revenus',
@@ -54,7 +56,7 @@ verifier('C14 · cockpit caisse, prévision 90 élèves et masse salariale sont 
   && /BarresFinancieres/.test(composant)
   && /EFFECTIFS_PREVISIONNELS/.test(lire('src/lib/comptabiliteRA.js'))
   && /totalSauve === 90/.test(lire('src/lib/comptabiliteRA.js'))
-  && /enregistrerSalaires/.test(composant)
+  && /salairesDepuisPostes\(postes\)/.test(composant)
   && ['État mensuel de paie','Primes','Retenues','Masse nette'].every(terme => composant.includes(terme)))
 
 console.log(echecs ? `\n${echecs} garde(s) en échec.` : '\n14 contrôles au vert.')

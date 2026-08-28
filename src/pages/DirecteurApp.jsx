@@ -588,6 +588,7 @@ export default function DirecteurApp({ user, onLogout }) {
   }
 
   const savePostes = async () => {
+    if (user.role !== 'directeur') { setMsg('Modification des postes et salaires réservée au Directeur.'); return }
     const cleaned = posteDraft
       .filter(p => (p.label || '').trim())
       .map(p => ({
@@ -1384,7 +1385,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
           {/* ════════════════ SESSION 3 : COMPTABILITÉ ════════════════ */}
           {activeSession === 'compta' && (
-            <ComptabiliteRA supabase={supabase} user={user} />
+            <ComptabiliteRA supabase={supabase} user={user} classes={classes} postes={postes} />
           )}
 
         </div>
