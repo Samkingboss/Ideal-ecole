@@ -100,7 +100,7 @@ function EmploiDuTempsStandard({ user }) {
 
     const groupes = [...new Set(aff.map(a => a.groupe))]
     const { data: edt, error: e2 } = await supabase
-      .from('emploi_du_temps').select('groupe, jour, sequence, matiere').in('groupe', groupes)
+      .from('emploi_du_temps').select('id, groupe, jour, sequence, matiere').in('groupe', groupes)
     if (e2) { setErreur('Chargement impossible : ' + e2.message); setChargement(false); return }
 
     // On ne garde que les créneaux dont la matière lui a été confiée.

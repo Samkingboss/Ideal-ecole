@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
@@ -103,6 +103,18 @@ const dateLisible = iso =>
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
+const identiteCreneau = creneau => creneau.id
+  ? `edt:${creneau.id}`
+  : `maternelle:${creneau.groupe}:${creneau.matiere}:${creneau.heure_debut}`
+
+const cleBrouillon = (userId, dateCours, creneauCle) =>
+  `ideal_brouillon_preparation:${userId}:${dateCours}:${creneauCle}`
+
+const lireLocal = cle => {
+  try { return JSON.parse(localStorage.getItem(cle) || 'null') }
+  catch { return null }
+}
+
 /**
  * La phrase qui accompagne l'entrée de dépôt dans l'historique.
  *
@@ -158,6 +170,8 @@ export default function FichePreparation({
   const [fiche, setFiche]         = useState(vide())
   const [enCours, setEnCours]     = useState(false)
   const [message, setMessage]     = useState(null)
+  const [etatBrouillon, setEtatBrouillon] = useState(null)
+  const [conflitBrouillon, setConflitBrouillon] = useState(null)
   // existantes : liste des rows déjà en base pour cette notion (une par séquence)
   const [existantes, setExistantes] = useState([])
   // avancement du manuel avant ce cours (null tant qu'il n'est pas connu)
@@ -178,13 +192,59 @@ export default function FichePreparation({
   const [statut, setStatut] = useState(null)
   const [historique, setHistorique] = useState([])
   const [fichesCahiersOuvertes, setFichesCahiersOuvertes] = useState(false)
+  const creneauCle = identiteCreneau(creneau)
+  const brouillonCle = cleBrouillon(user.id, dateCours, creneauCle)
+  const ficheRef = useRef(fiche)
+  const hydrateRef = useRef(false)
+  const versionRef = useRef(null)
+  const minuterieRef = useRef(null)
+
+  useEffect(() => { ficheRef.current = fiche }, [fiche])
+
+  const sauverLocal = useCallback((contenu = ficheRef.current) => {
+    if (lectureSeule) return
+    localStorage.setItem(brouillonCle, JSON.stringify({
+      contenu, version: versionRef.current, updatedAt: new Date().toISOString(),
+    }))
+    setEtatBrouillon('Enregistré sur cet appareil · synchronisation en attente')
+  }, [brouillonCle, lectureSeule])
+
+  const sauverServeur = useCallback(async (contenu = ficheRef.current, version = versionRef.current) => {
+    if (lectureSeule) return false
+    const { data, error } = await supabase.rpc('sauver_brouillon_preparation', {
+      p_date_cours: dateCours,
+      p_creneau_cle: creneauCle,
+      p_contenu: contenu,
+      p_version_attendue: version,
+    })
+    if (error) {
+      console.error('Autosave préparation refusé', {
+        code: error.code, message: error.message, details: error.details, hint: error.hint,
+        dateCours, creneauCle,
+      })
+      setEtatBrouillon(`Brouillon local conservé · serveur : ${error.code || 'ERREUR'} — ${error.message}`)
+      return false
+    }
+    if (data?.conflit) {
+      setConflitBrouillon({ contenu: data.contenu, version: data.version })
+      setEtatBrouillon('Conflit détecté : aucune version n’a été écrasée')
+      return false
+    }
+    versionRef.current = data.version
+    localStorage.setItem(brouillonCle, JSON.stringify({
+      contenu, version: data.version, updatedAt: data.updated_at,
+    }))
+    setEtatBrouillon('Brouillon enregistré sur cet appareil et sur le serveur ✓')
+    return true
+  }, [brouillonCle, creneauCle, dateCours, lectureSeule])
 
   // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
     let annule = false
+    hydrateRef.current = false
     ;(async () => {
-      const { data, error } = await supabase
-        .from('preparations')
+      const [officiel, distant] = await Promise.all([
+        supabase.from('preparations')
         // `status` et `historique_statuts` manquaient à cette liste. La
         // direction écrivait sa remarque dans l'historique, l'écran ne la
         // demandait jamais, et l'enseignante lisait « à corriger » sans savoir
@@ -193,13 +253,31 @@ export default function FichePreparation({
         .eq('user_id', user.id)
         .eq('date_cours', dateCours)
         .eq('sequence', creneau.sequence)
-        .maybeSingle()
+          .maybeSingle(),
+        lectureSeule
+          ? Promise.resolve({ data: null, error: null })
+          : supabase.rpc('lire_brouillon_preparation', {
+              p_date_cours: dateCours, p_creneau_cle: creneauCle,
+            }),
+      ])
 
-      if (annule || error) return
-      if (!data) return
+      if (annule) return
+      const data = officiel.data
+      const local = lectureSeule ? null : lireLocal(brouillonCle)
+      const serveur = distant.data
+      versionRef.current = serveur?.version ?? local?.version ?? null
 
-      const contenu = migrer(data.contenu)
+      // Une version serveur plus récente gagne. À version égale, le local
+      // contient éventuellement les frappes faites depuis la dernière synchro.
+      const repris = serveur && Number(serveur.version) > Number(local?.version ?? -1)
+        ? serveur.contenu
+        : local?.contenu || serveur?.contenu
+      const contenu = migrer(repris || data?.contenu)
       setFiche(contenu)
+      if (repris) setEtatBrouillon('Brouillon repris automatiquement ✓')
+      hydrateRef.current = true
+
+      if (!data) return
       setStatut(data.status || null)
       setHistorique(Array.isArray(data.historique_statuts) ? data.historique_statuts : [])
       if (contenu.programme?.cle) setCleManuel(contenu.programme.cle)
@@ -219,7 +297,45 @@ export default function FichePreparation({
       }
     })()
     return () => { annule = true }
-  }, [user.id, dateCours, creneau.sequence])
+  }, [user.id, dateCours, creneau.sequence, brouillonCle, creneauCle, lectureSeule])
+
+  // Chaque changement est durable immédiatement en local, puis regroupé en
+  // une seule écriture serveur après 1,5 s. Aucun flux de soumission ou de
+  // notification n'est appelé ici.
+  useEffect(() => {
+    if (!hydrateRef.current || lectureSeule) return
+    sauverLocal(fiche)
+    clearTimeout(minuterieRef.current)
+    minuterieRef.current = setTimeout(() => sauverServeur(fiche), 1500)
+    return () => clearTimeout(minuterieRef.current)
+  }, [fiche, lectureSeule, sauverLocal, sauverServeur])
+
+  useEffect(() => {
+    if (lectureSeule) return undefined
+    const avantSortie = () => sauverLocal()
+    const changementVisibilite = () => {
+      if (document.visibilityState === 'hidden') sauverLocal()
+    }
+    const retourReseau = () => sauverServeur()
+    const autreOnglet = event => {
+      if (event.key !== brouillonCle || !event.newValue) return
+      const autre = lireLocal(brouillonCle)
+      if (autre && JSON.stringify(autre.contenu) !== JSON.stringify(ficheRef.current)) {
+        setConflitBrouillon({ contenu: autre.contenu, version: autre.version })
+        setEtatBrouillon('Conflit multi-onglets détecté : aucune version n’a été écrasée')
+      }
+    }
+    window.addEventListener('pagehide', avantSortie)
+    document.addEventListener('visibilitychange', changementVisibilite)
+    window.addEventListener('online', retourReseau)
+    window.addEventListener('storage', autreOnglet)
+    return () => {
+      window.removeEventListener('pagehide', avantSortie)
+      document.removeEventListener('visibilitychange', changementVisibilite)
+      window.removeEventListener('online', retourReseau)
+      window.removeEventListener('storage', autreOnglet)
+    }
+  }, [brouillonCle, lectureSeule, sauverLocal, sauverServeur])
 
   // ── Position dans le manuel ────────────────────────────────────────────────
   //
@@ -328,6 +444,11 @@ export default function FichePreparation({
   // Ainsi le moteur de points compte N préparations sans modification.
 
   async function enregistrer() {
+    // La dernière frappe est sécurisée avant toute validation. Cette sauvegarde
+    // reste un brouillon : elle n'écrit ni dans `preparations`, ni dans les
+    // notifications. La soumission explicite continue juste après.
+    sauverLocal(fiche)
+    await sauverServeur(fiche)
     if (leconManquante) {
       setMessage({ type: 'err', texte: `Choisissez la leçon du manuel de ${creneau.matiere} que ce cours traite.` })
       return
@@ -506,6 +627,21 @@ export default function FichePreparation({
       setEnCours(false)
       setMessage({ type: 'err', texte: `Enregistré, mais ${survivantes.length} séquence(s) de l'ancienne durée n'ont pas pu être supprimées. Signalez-le à la direction.` })
       return
+    }
+
+    // Les lignes officielles ont été relues et confirmées. C'est seulement à
+    // cet instant que le brouillon peut disparaître. Un échec de suppression
+    // conserve la copie locale afin de ne jamais perdre la saisie.
+    const { error: erreurSuppressionBrouillon } = await supabase.rpc(
+      'supprimer_brouillon_preparation',
+      { p_date_cours: dateCours, p_creneau_cle: creneauCle }
+    )
+    if (!erreurSuppressionBrouillon) {
+      clearTimeout(minuterieRef.current)
+      localStorage.removeItem(brouillonCle)
+      versionRef.current = null
+      setEtatBrouillon(null)
+      setConflitBrouillon(null)
     }
 
     // La soumission et l'enregistrement forment une seule action. Une fois les
@@ -1033,6 +1169,33 @@ export default function FichePreparation({
         ))}
 
         {/* ── Message ── */}
+        {!lectureSeule && etatBrouillon && (
+          <div role="status" style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 10, fontSize: 12,
+            background: conflitBrouillon ? '#fffbeb' : 'rgba(26,175,224,.10)',
+            color: conflitBrouillon ? '#92400e' : 'var(--muted)',
+          }}>
+            {etatBrouillon}
+            {conflitBrouillon && (
+              <div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+                <button type="button" className="btn-sm" onClick={() => {
+                  versionRef.current = conflitBrouillon.version
+                  setFiche(migrer(conflitBrouillon.contenu))
+                  setConflitBrouillon(null)
+                  setEtatBrouillon('Version de l’autre onglet reprise')
+                }}>Reprendre l’autre version</button>
+                <button type="button" className="btn-sm" onClick={() => {
+                  const version = conflitBrouillon.version
+                  setConflitBrouillon(null)
+                  versionRef.current = version
+                  sauverLocal(ficheRef.current)
+                  sauverServeur(ficheRef.current, version)
+                }}>Conserver ma version</button>
+              </div>
+            )}
+          </div>
+        )}
+
         {message && (
           <div style={{
             marginTop: 12, padding: '9px 12px', borderRadius: 10,
