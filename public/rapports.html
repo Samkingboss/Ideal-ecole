@@ -435,7 +435,13 @@ function weekBoundsISO(iso){
  * Les champs factuels sont recalculés à chaque synchronisation ; les champs
  * de jugement (appréciation, conseils) restent à la main du conseiller.
  */
-async function loadPointageForCurrent(){
+// `preremplirMotif` : le motif et la précision sont-ils encore à proposer ?
+//
+// Vrai par défaut, car les deux appels explicites — le bouton « Synchroniser
+// toute la semaine » et le changement de semaine — DEMANDENT ce pré-remplissage.
+// `openEditor` est le seul à le refuser, et seulement quand le conseiller a
+// déjà enregistré un rapport pour la semaine affichée.
+async function loadPointageForCurrent({ preremplirMotif = true } = {}){
   const badge=document.getElementById('pointage-badge');
   const synth=document.getElementById('synthese-sources');
   const iso=document.getElementById('ed-week').value;
@@ -521,7 +527,21 @@ async function loadPointageForCurrent(){
   });
   document.getElementById('ed-retard-matin').value=rm;
   document.getElementById('ed-retard-soir').value=rs;
-  if(abs>0){
+  // Ces deux champs étaient repris à chaque ouverture de l'éditeur, sur deux
+  // conditions qui confondaient « pas encore renseigné » et « renseigné à
+  // cette valeur-là » :
+  //
+  //   · une précision effacée volontairement était vue comme vide, donc
+  //     recomposée à partir du pointage — l'effacement ne tenait jamais ;
+  //   · un motif remis à « — Aucun / RAS » était vu comme non choisi, donc
+  //     remplacé par « maladie » ou « autre » — ce choix-là ne tenait jamais.
+  //
+  // Les quatre autres champs de cette fonction — retards, punitions,
+  // incidents — sont écrits SANS condition : ils sont dérivés du pointage et
+  // se recalculent à l'identique, ce qui les faisait paraître « persistants »
+  // alors qu'ils n'étaient simplement jamais lus depuis le rapport. Le motif,
+  // lui, n'existe que dans le rapport enregistré.
+  if(abs>0 && preremplirMotif){
     const mt=motifs.join(' ; ');
     if(!document.getElementById('ed-motif').value) document.getElementById('ed-motif').value=mt||(abs+' absence(s)');
     if(document.getElementById('ed-motif-type').value==='ras') document.getElementById('ed-motif-type').value=/malad/i.test(mt)?'maladie':'autre';
@@ -842,7 +862,23 @@ function openEditor(key){
   g('ed-general', r.general||'');
   g('ed-maison', r.maison||'');
   showScreen('screen-edit','Rapport hebdomadaire',CURRENT.name);
-  loadPointageForCurrent(); // remonte les retards/absences du pointage
+  // Le motif et la précision appartiennent au conseiller dès qu'il a
+  // enregistré le rapport de la semaine affichée — y compris quand il a
+  // choisi « RAS » ou laissé la précision vide. Tant qu'aucun rapport n'existe
+  // pour cette semaine, le pointage les propose comme avant.
+  //
+  // La marque `dataset.auto` déjà en place pour `ed-meilleure` et `ed-faible`
+  // ne pouvait pas servir ici : elle vit sur l'élément du DOM et disparaît au
+  // rechargement, c'est-à-dire exactement au moment où le défaut se voyait.
+  // Le rapport enregistré, lui, survit.
+  //
+  // Une première version comparait aussi `r.week` à la semaine affichée. Cette
+  // comparaison ne pouvait jamais être fausse — l'éditeur ouvre précisément
+  // sur `r.week` — SAUF pour un rapport ancien enregistré avant l'existence de
+  // ce champ : là, elle aurait rouvert l'écrasement au lieu de l'empêcher.
+  // Changer de semaine passe de toute façon par `reloadPointage()`, qui
+  // pré-remplit comme demandé.
+  loadPointageForCurrent({ preremplirMotif: !(r.motifType || r.motif) });
 }
 
 function collectReport(){
