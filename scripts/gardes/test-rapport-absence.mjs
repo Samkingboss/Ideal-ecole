@@ -1,29 +1,30 @@
-// Gardes : le motif d'absence et sa précision survivent au rechargement.
+// Gardes : un rapport hebdomadaire enregistré fait autorité.
 //
-// ── Le défaut ────────────────────────────────────────────────────────────
+// ── Le défaut, tel qu'il se voyait ───────────────────────────────────────
 //
-// `loadPointageForCurrent` reprenait ces deux champs à CHAQUE ouverture de
-// l'éditeur, sur deux conditions qui confondaient « pas encore renseigné » et
-// « renseigné à cette valeur-là » :
+// À l'ouverture d'un rapport enregistré, les valeurs correctes s'affichaient
+// pendant une à deux secondes, puis disparaissaient. `openEditor` hydrate les
+// champs depuis le rapport, puis lance `loadPointageForCurrent()` SANS
+// l'attendre : la réponse du pointage arrive après, et réécrivait les champs
+// par-dessus. Quand le pointage ne renvoyait rien pour la semaine, un rapport
+// portant 12 et 7 minutes de retard revenait à 0 / 0.
 //
-//   · précision vide      → recomposée depuis le pointage
-//   · motif « ras »       → remplacé par « maladie » ou « autre »
+// ── Pourquoi la première correction ne suffisait pas ─────────────────────
 //
-// Un conseiller qui effaçait une précision, ou qui remettait le motif à
-// « — Aucun / RAS », retrouvait l'ancienne valeur au rechargement suivant.
+// Elle protégeait le motif et sa précision seulement, sur l'idée que les
+// autres champs étaient « dérivés du pointage et recalculés à l'identique ».
+// C'était une supposition, et elle était fausse : une lecture vide n'est pas
+// un recalcul identique, c'est un zéro. Pire, la garde d'alors EXIGEAIT que
+// les retards restent écrits sans condition — elle verrouillait le défaut.
 //
-// Les quatre autres champs de la même fonction — retards, punitions,
-// incidents — sont écrits SANS condition. Ils sont dérivés du pointage et se
-// recalculent à l'identique : ils paraissaient persister alors qu'ils
-// n'étaient simplement jamais lus depuis le rapport. Cette asymétrie explique
-// pourquoi « les autres champs s'enregistrent » tout en laissant ces deux-là
-// se perdre.
+// La frontière ne se trace pas champ par champ. Elle se trace entre « ce
+// rapport n'existe pas encore » et « ce rapport existe ».
 //
 // ── Comment ces gardes mesurent ──────────────────────────────────────────
 //
-// Elles n'imitent pas le code : elles l'EXTRAIENT du fichier et le font
-// tourner sur un DOM factice. Une garde qui recopierait la logique serait
-// verte quel que soit l'état de la page.
+// Elles n'imitent pas le code : elles l'EXTRAIENT de `public/rapports.html` et
+// le font tourner sur un DOM factice, dans l'ordre réel — hydratation, puis
+// application tardive du pointage.
 import { readFileSync, existsSync } from 'node:fs'
 
 let echecs = 0
@@ -34,143 +35,176 @@ const verifier = (nom, ok, detail = '') => {
 }
 const src = existsSync('public/rapports.html') ? readFileSync('public/rapports.html', 'utf8') : ''
 
-console.log(`\n${G}── RAPPORT HEBDO · motif d'absence et précision   [INV-UI, INV-CONT]${F}`)
+console.log(`\n${G}── RAPPORT HEBDO · le rapport enregistré fait autorité   [INV-UI, INV-CONT]${F}`)
 
 // ── Extraction des fragments réels ───────────────────────────────────────
-const gate   = (src.match(/loadPointageForCurrent\(\{\s*preremplirMotif:\s*([\s\S]*?)\s*\}\)/) || [])[1]
-const bloc   = (src.match(/if\(abs>0 && preremplirMotif\)\{([\s\S]*?)\n  \}/) || [])[1]
-const hydType = (src.match(/g\('ed-motif-type',\s*([^;]+)\);/) || [])[1]
-const hydMotif = (src.match(/g\('ed-motif',\s*([^;]+)\);/) || [])[1]
-const collecte = /motifType:v\('ed-motif-type'\),\s*motif:v\('ed-motif'\),/.test(src)
+const pris = re => (src.match(re) || [])[1]
+const hydRetards = [pris(/(g\('ed-retard-matin',[^;]+;)/), pris(/(g\('ed-retard-soir',[^;]+;)/)]
+const hydMotifs  = [pris(/(g\('ed-motif-type',[^;]+;)/),   pris(/(g\('ed-motif',[^;]+;)/)]
+// La frontière et l'écriture encadrée peuvent MANQUER — c'est précisément
+// l'état fautif. Les remplacer par ce que le code fait alors réellement permet
+// aux recettes de REPRODUIRE l'écrasement au lieu de s'arrêter avant.
+//
+//   · pas de `preremplir:` dans openEditor  → `loadPointageForCurrent()` sans
+//     argument, donc le défaut `= true` : la synchronisation écrit ;
+//   · pas de `poser`                        → écriture directe dans le champ.
+const gatePresent = pris(/loadPointageForCurrent\(\{\s*preremplir:\s*([\s\S]*?)\s*\}\)/)
+const gate       = gatePresent || 'true'
+const poserSrc   = pris(/const poser=(\(id,valeur\)=>\{[^\n]*\});/)
+  || '(id,valeur)=>{ const el=document.getElementById(id); if(el)el.value=valeur; }'
+const appliRetards = pris(/(  poser\('ed-retard-matin', rm\);\n  poser\('ed-retard-soir', rs\);)/)
+  || pris(/(  document\.getElementById\('ed-retard-matin'\)\.value=rm;\n  document\.getElementById\('ed-retard-soir'\)\.value=rs;)/)
+const blocMotif  = pris(/(if\(abs>0[^)]*\)\{[\s\S]*?\n  \})/)
 
-const extraitComplet = !!gate && !!bloc && !!hydType && !!hydMotif && collecte
-verifier('E0 · les quatre fragments sont extraits du fichier',
-  extraitComplet,
-  `— gate:${gate ? 'oui' : 'NON'} bloc:${bloc ? 'oui' : 'NON'} hydratation:${hydType && hydMotif ? 'oui' : 'NON'} collecte:${collecte ? 'oui' : 'NON'}`)
+// Seuls les fragments SANS lesquels on ne peut rien simuler sont bloquants.
+const complet = [...hydRetards, ...hydMotifs, appliRetards, blocMotif].every(Boolean)
+verifier('E0 · les fragments réels sont extraits de la page', complet,
+  `— frontière:${gatePresent ? 'présente' : 'ABSENTE'} retards:${appliRetards ? 'oui' : 'NON'} motif:${blocMotif ? 'oui' : 'NON'}`)
 
-// Sans les fragments, les cycles tourneraient sur un code absent et R1 à R4
-// répondraient vert en n'exerçant rien. C'est arrivé lors de la campagne de
-// mutation : la suppression pure du correctif faisait échouer E0 seule pendant
-// que les quatre recettes annonçaient un succès. On s'arrête ici : une garde
-// qui ne peut pas conclure ne doit pas conclure.
-if (!extraitComplet) {
-  console.log(`\n  ${R}Le code attendu est introuvable dans public/rapports.html :${F}`)
-  console.log(`  ${R}les recettes R1 à R4 n'exerceraient rien. Aucun verdict rendu.${F}\n`)
+// Sans les fragments, les recettes tourneraient sur du vide et répondraient
+// vert en n'exerçant rien. Une garde qui ne peut pas conclure ne conclut pas.
+if (!complet) {
+  console.log(`\n  ${R}Le code attendu est introuvable dans public/rapports.html.${F}`)
+  console.log(`  ${R}Aucun verdict rendu — les recettes n'exerceraient rien.${F}\n`)
   process.exit(1)
 }
 
-// ── DOM factice, réduit à ce que les fragments touchent ──────────────────
-const faireDom = () => {
-  const champs = new Map([['ed-motif', { value: '' }], ['ed-motif-type', { value: '' }]])
-  return { getElementById: id => champs.get(id) || null, _champs: champs }
-}
-
-// Un cycle complet : ouverture de l'éditeur → synchronisation du pointage →
-// relecture des champs, avec le code de la page.
+// ── Un cycle d'ouverture complet, avec le code de la page ────────────────
 const cycle = (rapport, pointage) => {
-  const document = faireDom()
+  const champs = new Map([['ed-retard-matin', { value: '' }], ['ed-retard-soir', { value: '' }],
+                          ['ed-motif-type', { value: '' }], ['ed-motif', { value: '' }]])
+  const document = { getElementById: id => champs.get(id) || null }
   const g = (id, v) => { const el = document.getElementById(id); if (el) el.value = v }
-  const r = rapport
 
-  // 1 · hydratation depuis le rapport enregistré
-  g('ed-motif-type', eval(hydType))
-  g('ed-motif', eval(hydMotif))
+  const key = 'el:X'
+  const REPORTS = rapport ? { [key]: rapport } : {}
+  const r = REPORTS[key] || {}
 
-  // 2 · décision de pré-remplissage, telle qu'écrite dans openEditor
-  const preremplirMotif = eval(gate)
+  // T2 · hydratation depuis le rapport enregistré
+  eval(hydRetards[0]); eval(hydRetards[1]); eval(hydMotifs[0]); eval(hydMotifs[1])
+  const apresHydratation = lire(document)
 
-  // 3 · synchronisation du pointage
-  const abs = pointage.abs, motifs = pointage.motifs || []
-  if (abs > 0 && preremplirMotif) eval(bloc)
+  // T3 · décision, telle qu'écrite dans openEditor
+  const preremplir = eval(gate)
+  const poser = eval(poserSrc)
 
-  // 4 · ce que la sauvegarde relira
-  const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
-  return { motifType: v('ed-motif-type'), motif: v('ed-motif'), preremplirMotif }
+  // T5 · application tardive du pointage
+  const rm = pointage.rm, rs = pointage.rs, abs = pointage.abs, motifs = pointage.motifs || []
+  eval(appliRetards)
+  if (abs > 0) eval(blocMotif)
+
+  return { avant: apresHydratation, apres: lire(document), preremplir }
 }
+function lire(document) {
+  const v = id => { const el = document.getElementById(id); return el ? String(el.value).trim() : '' }
+  return { retardMatin: v('ed-retard-matin'), retardSoir: v('ed-retard-soir'),
+           motifType: v('ed-motif-type'), motif: v('ed-motif') }
+}
+const identique = o => JSON.stringify(o.avant) === JSON.stringify(o.apres)
+const RAPPORT = { retardMatin: 12, retardSoir: 7, motifType: 'maladie', motif: 'Certificat médical remis' }
+const POINTAGE_VIDE = { rm: 0, rs: 0, abs: 0, motifs: [] }
+const POINTAGE_AUTRE = { rm: 3, rs: 45, abs: 2, motifs: ['grippe'] }
 
-const POINTAGE = { abs: 1, motifs: ['maladie déclarée'] }
-
-// ── R1 · « Maladie » choisi puis enregistré ──────────────────────────────
+// ── T1 · rapport existant, ouvert et laissé en place ─────────────────────
 {
-  const o = cycle({ motifType: 'maladie', motif: 'fièvre' }, POINTAGE)
-  verifier('R1 · « Maladie » enregistré reste sélectionné',
-    o.motifType === 'maladie', `— ${o.motifType}`)
+  const o = cycle(RAPPORT, POINTAGE_VIDE)
+  verifier('T1 · rapport existant : rien ne bouge après le pointage',
+    identique(o), `— ${o.apres.retardMatin}/${o.apres.retardSoir} · ${o.apres.motifType}`)
 }
 
-// ── R2 · précision saisie ────────────────────────────────────────────────
-{
-  const o = cycle({ motifType: 'maladie', motif: 'Certificat médical remis' }, POINTAGE)
-  verifier('R2 · la précision saisie revient à l’identique',
-    o.motif === 'Certificat médical remis', `— « ${o.motif} »`)
-}
-
-// ── R3 · changement de motif, y compris le retour à RAS ──────────────────
-{
-  const a = cycle({ motifType: 'autre', motif: 'Certificat médical remis' }, POINTAGE)
-  // Le cas dur : « — Aucun / RAS » était systématiquement remplacé, car la
-  // synchronisation lisait cette valeur comme « pas encore choisi ».
-  const b = cycle({ motifType: 'ras', motif: 'Certificat médical remis' }, POINTAGE)
-  verifier('R3 · un motif changé persiste, RAS compris',
-    a.motifType === 'autre' && b.motifType === 'ras', `— autre:${a.motifType} ras:${b.motifType}`)
-}
-
-// ── R4 · effacement volontaire de la précision ───────────────────────────
-{
-  const o = cycle({ motifType: 'maladie', motif: '' }, POINTAGE)
-  verifier('R4 · une précision effacée reste effacée',
-    o.motif === '', `— « ${o.motif} »`)
-}
-
-// ── P1 · le pré-remplissage d'origine est CONSERVÉ au premier passage ────
+// ── T2/T3 · réouverture et rechargement complet ──────────────────────────
 //
-// Sans cette garde, on aurait pu « corriger » en supprimant purement la
-// proposition automatique, ce qui aurait fait perdre un service réel.
+// Les deux passent par le même chemin : `REPORTS` est rempli depuis le
+// serveur, puis `openEditor`. Ce qui les distingue à l'écran ne les distingue
+// pas dans le code — c'est bien pour cela que le défaut se voyait dans les
+// deux cas.
 {
-  const o = cycle({}, POINTAGE)
-  verifier('P1 · sans rapport enregistré, le pointage propose toujours',
-    o.preremplirMotif === true && o.motifType === 'maladie' && o.motif === 'maladie déclarée',
-    `— ${o.motifType} / « ${o.motif} »`)
+  const o = cycle(RAPPORT, POINTAGE_AUTRE)
+  verifier('T2/T3 · même un pointage DIFFÉRENT ne réécrit rien',
+    identique(o), `— ${o.apres.retardMatin}/${o.apres.retardSoir}`)
 }
 
-// ── P2 · un rapport ancien, sans champ `week`, est protégé aussi ─────────
+// ── T4 · rapport jamais enregistré : le pointage propose toujours ────────
 {
-  const o = cycle({ motifType: 'ras', motif: '' }, POINTAGE)
-  verifier('P2 · rapport ancien (sans `week`) : rien n’est écrasé',
-    o.motifType === 'ras' && o.motif === '', `— ${o.motifType} / « ${o.motif} »`)
+  // Deux branches à exercer : la justification du pointage devient « maladie »
+  // quand elle contient ce mot, « autre » sinon. Une première version de cette
+  // garde attendait « maladie » pour une justification « grippe » — l'attente
+  // était fausse, pas le code.
+  const o = cycle(null, POINTAGE_AUTRE)
+  const m = cycle(null, { rm: 3, rs: 45, abs: 2, motifs: ['maladie déclarée'] })
+  verifier('T4 · rapport neuf : le pointage pré-remplit encore',
+    o.preremplir === true && o.apres.retardMatin === '3' && o.apres.retardSoir === '45'
+      && o.apres.motifType === 'autre' && o.apres.motif === 'grippe'
+      && m.apres.motifType === 'maladie',
+    `— ${o.apres.retardMatin}/${o.apres.retardSoir} · ${o.apres.motifType}/« ${o.apres.motif} » · branche maladie:${m.apres.motifType}`)
 }
 
-// ── P3 · aucune absence : la synchronisation ne touche à rien ────────────
-{
-  const o = cycle({ motifType: 'ras', motif: '' }, { abs: 0, motifs: [] })
-  verifier('P3 · sans absence, aucun des deux champs n’est touché',
-    o.motifType === 'ras' && o.motif === '')
-}
-
-// ── N1 · les champs DÉRIVÉS restent écrits sans condition ────────────────
+// ── T5 · le bouton « Synchroniser toute la semaine » recalcule ───────────
 //
-// Retards, punitions et incidents se recalculent depuis la base à chaque
-// synchronisation. Les enfermer dans la même condition serait une régression.
+// Il appelle `reloadPointage()` sans argument : c'est le défaut `= true` qui
+// lui répond. Une demande explicite doit toujours aboutir.
 {
-  const derives = ['ed-retard-matin', 'ed-retard-soir', 'ed-punitions', 'ed-incidents']
-  const conditionnes = derives.filter(id => {
-    const m = src.match(new RegExp(`^.*getElementById\\('${id}'\\)\\.value=.*$`, 'm'))
-    return m && /preremplirMotif/.test(m[0])
-  })
-  verifier('N1 · les champs dérivés restent inconditionnels',
-    conditionnes.length === 0, conditionnes.length ? `— ${conditionnes.join(', ')}` : `— ${derives.length} champs`)
-}
-
-// ── N2 · les deux entrées explicites de synchronisation pré-remplissent ──
-//
-// Le bouton « Synchroniser toute la semaine » et le changement de semaine
-// appellent `reloadPointage()` sans argument : c'est le défaut `= true` qui
-// doit leur répondre.
-{
-  const defautVrai = /preremplirMotif = true \} = \{\} *\)/.test(src)
+  const defautVrai = /preremplir = true \} = \{\} *\)/.test(src)
   const alias = /window\.reloadPointage=loadPointageForCurrent;/.test(src)
-  const appels = (src.match(/reloadPointage\(\)/g) || []).length
-  verifier('N2 · le bouton et le changement de semaine pré-remplissent encore',
-    defautVrai && alias && appels >= 2, `— défaut:${defautVrai ? 'true' : 'ABSENT'} appels:${appels}`)
+  // Compter `reloadPointage()` dans tout le fichier comptait aussi les
+  // mentions en commentaire — la garde serait restée verte avec deux phrases
+  // et zéro gestionnaire. On ne compte que les attributs HTML réels.
+  const appels = (src.match(/on(?:change|click)="reloadPointage\(\)"/g) || []).length
+  verifier('T5 · la synchronisation explicite recalcule encore',
+    defautVrai && alias && appels >= 2, `— défaut:${defautVrai ? 'true' : 'ABSENT'} gestionnaires:${appels}`)
+}
+
+// ── T6 · un pointage VIDE ne remet jamais un rapport à zéro ──────────────
+//
+// C'est le cas qui a été observé en production : lecture sans ligne pour la
+// semaine, donc rm = rs = 0.
+{
+  const o = cycle(RAPPORT, POINTAGE_VIDE)
+  verifier('T6 · pointage vide : aucune remise à zéro',
+    o.apres.retardMatin === '12' && o.apres.retardSoir === '7',
+    `— ${o.apres.retardMatin}/${o.apres.retardSoir}`)
+}
+
+// ── T7 · « — Aucun / RAS » choisi volontairement ─────────────────────────
+{
+  const o = cycle({ ...RAPPORT, motifType: 'ras' }, POINTAGE_AUTRE)
+  verifier('T7 · un motif remis à RAS reste RAS', o.apres.motifType === 'ras', `— ${o.apres.motifType}`)
+}
+
+// ── T8 · précision effacée volontairement ────────────────────────────────
+{
+  const o = cycle({ ...RAPPORT, motif: '' }, POINTAGE_AUTRE)
+  verifier('T8 · une précision effacée reste effacée', o.apres.motif === '', `— « ${o.apres.motif} »`)
+}
+
+// ── N1 · aucune écriture de champ ne contourne la frontière ──────────────
+//
+// La garde précédente demandait l'INVERSE — que les retards restent écrits
+// sans condition. Elle verrouillait le défaut. Elle demande maintenant que
+// toute écriture passe par `poser`, ou vive dans un bloc `if(preremplir)`.
+{
+  const corps = (src.match(/async function loadPointageForCurrent[\s\S]*?\nwindow\.reloadPointage/) || [''])[0]
+  const lignes = corps.split('\n')
+  const fautives = []
+  let dansBlocPreremplir = 0
+  for (const l of lignes) {
+    if (/if\(preremplir\)\{/.test(l)) dansBlocPreremplir = 1
+    else if (dansBlocPreremplir && /^  \}/.test(l)) dansBlocPreremplir = 0
+    if (!/\.value=/.test(l)) continue
+    if (/const poser=/.test(l)) continue          // la frontière elle-même
+    if (/poser\(/.test(l)) continue                // écriture encadrée
+    if (dansBlocPreremplir) continue               // bloc explicitement gardé
+    fautives.push(l.trim().slice(0, 60))
+  }
+  verifier('N1 · aucune écriture de champ hors de la frontière',
+    fautives.length === 0, fautives.length ? `\n      ${fautives.join('\n      ')}` : '')
+}
+
+// ── N2 · la frontière est bien branchée sur l'existence du rapport ───────
+{
+  const surLExistence = !!gatePresent && /!REPORTS\[key\]/.test(gatePresent)
+  verifier('N2 · la frontière lit l’existence du rapport enregistré',
+    surLExistence, `— ${gatePresent || 'AUCUNE FRONTIÈRE : appel automatique sans condition'}`)
 }
 
 console.log(echecs === 0

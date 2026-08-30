@@ -435,15 +435,35 @@ function weekBoundsISO(iso){
  * Les champs factuels sont recalculés à chaque synchronisation ; les champs
  * de jugement (appréciation, conseils) restent à la main du conseiller.
  */
-// `preremplirMotif` : le motif et la précision sont-ils encore à proposer ?
+// `preremplir` : cette synchronisation a-t-elle le droit d'écrire dans les
+// champs du rapport ?
+//
+// UN RAPPORT DÉJÀ ENREGISTRÉ FAIT AUTORITÉ. Le pointage l'informe — le bandeau
+// de synthèse dit toujours ce que les sources contiennent — mais il ne le
+// réécrit pas.
 //
 // Vrai par défaut, car les deux appels explicites — le bouton « Synchroniser
-// toute la semaine » et le changement de semaine — DEMANDENT ce pré-remplissage.
-// `openEditor` est le seul à le refuser, et seulement quand le conseiller a
-// déjà enregistré un rapport pour la semaine affichée.
-async function loadPointageForCurrent({ preremplirMotif = true } = {}){
+// toute la semaine » et le changement de semaine — DEMANDENT ce recalcul.
+// `openEditor` est le seul à le refuser, et seulement quand un rapport existe.
+//
+// ── Pourquoi une frontière unique et non une protection par champ ─────────
+//
+// Une première correction n'avait protégé que le motif et sa précision, au
+// motif que les autres champs seraient « dérivés du pointage et recalculés à
+// l'identique ». C'était une supposition, et elle était fausse : quand le
+// pointage ne renvoie rien pour la semaine — lecture vide, semaine sans
+// saisie — `rm` et `rs` valent 0, et un rapport portant 12 et 7 minutes
+// revenait à 0/0 une à deux secondes après son affichage correct.
+//
+// La frontière ne se trace pas champ par champ. Elle se trace entre
+// « ce rapport n'existe pas encore » et « ce rapport existe ».
+async function loadPointageForCurrent({ preremplir = true } = {}){
   const badge=document.getElementById('pointage-badge');
   const synth=document.getElementById('synthese-sources');
+
+  // Toute écriture dans un champ du rapport passe par ici. Sur un rapport
+  // existant, `poser` ne fait rien : c'est le seul point à vérifier.
+  const poser=(id,valeur)=>{ if(!preremplir)return; const el=document.getElementById(id); if(el)el.value=valeur; };
   const iso=document.getElementById('ed-week').value;
   const {monday,friday}=weekBoundsISO(iso);
 
@@ -525,8 +545,8 @@ async function loadPointageForCurrent({ preremplirMotif = true } = {}){
     rs += soir;
     if(p.statut==='absent'){ abs++; if(p.justification) motifs.push(p.justification); }
   });
-  document.getElementById('ed-retard-matin').value=rm;
-  document.getElementById('ed-retard-soir').value=rs;
+  poser('ed-retard-matin', rm);
+  poser('ed-retard-soir', rs);
   // Ces deux champs étaient repris à chaque ouverture de l'éditeur, sur deux
   // conditions qui confondaient « pas encore renseigné » et « renseigné à
   // cette valeur-là » :
@@ -541,16 +561,16 @@ async function loadPointageForCurrent({ preremplirMotif = true } = {}){
   // se recalculent à l'identique, ce qui les faisait paraître « persistants »
   // alors qu'ils n'étaient simplement jamais lus depuis le rapport. Le motif,
   // lui, n'existe que dans le rapport enregistré.
-  if(abs>0 && preremplirMotif){
+  if(abs>0){
     const mt=motifs.join(' ; ');
-    if(!document.getElementById('ed-motif').value) document.getElementById('ed-motif').value=mt||(abs+' absence(s)');
-    if(document.getElementById('ed-motif-type').value==='ras') document.getElementById('ed-motif-type').value=/malad/i.test(mt)?'maladie':'autre';
+    if(!document.getElementById('ed-motif').value) poser('ed-motif', mt||(abs+' absence(s)'));
+    if(document.getElementById('ed-motif-type').value==='ras') poser('ed-motif-type', /malad/i.test(mt)?'maladie':'autre');
   }
   sources.push({ ok:presences.length>0, libelle:'Pointage (professeurs, conseiller)',
     detail:presences.length? `${presences.length} jour(s) · ${rm} min le matin · ${rs} min au départ${abs?` · ${abs} absence(s)`:''}` : 'aucun pointage cette semaine' });
 
   // ── Comportement : incidents relevés par professeurs et surveillants ──
-  document.getElementById('ed-punitions').value=incidents.filter(i=>i.sanction_type).length;
+  poser('ed-punitions', incidents.filter(i=>i.sanction_type).length);
   if(incidents.length){
     const txt=incidents.map(i=>{
       const j=new Date(i.date_incident+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
@@ -558,9 +578,9 @@ async function loadPointageForCurrent({ preremplirMotif = true } = {}){
       const par=auteurs.length? `relevé par ${auteurs.join(' et ')}` : 'relevé par l’équipe';
       return `${j} — ${i.motif||'incident'} (gravité ${i.gravite||'—'}, ${par}${i.points_perdus?`, −${i.points_perdus} pts`:''})`;
     }).join('\n');
-    document.getElementById('ed-incidents').value=txt;
+    poser('ed-incidents', txt);
   } else {
-    document.getElementById('ed-incidents').value='';
+    poser('ed-incidents', '');
   }
   sources.push({ ok:true, libelle:'Incidents (professeurs, surveillants)',
     detail:incidents.length? `${incidents.length} incident(s) relevé(s)` : 'aucun incident — semaine sereine' });
@@ -637,11 +657,13 @@ async function loadPointageForCurrent({ preremplirMotif = true } = {}){
   // Écriture unique : on ne remplace jamais ce que le conseiller a saisi
   // lui-même, mais une synchronisation explicite doit pouvoir rafraîchir.
   const champHaut=document.getElementById('ed-meilleure'), champBas=document.getElementById('ed-faible');
-  if(prouesse && (!champHaut.value || champHaut.dataset.auto==='1')){
-    champHaut.value=prouesse; champHaut.dataset.auto='1';
-  }
-  if(!champBas.value || champBas.dataset.auto==='1'){
-    champBas.value=aAmeliorer||''; champBas.dataset.auto=aAmeliorer?'1':'';
+  if(preremplir){
+    if(prouesse && (!champHaut.value || champHaut.dataset.auto==='1')){
+      champHaut.value=prouesse; champHaut.dataset.auto='1';
+    }
+    if(!champBas.value || champBas.dataset.auto==='1'){
+      champBas.value=aAmeliorer||''; champBas.dataset.auto=aAmeliorer?'1':'';
+    }
   }
 
   // ── Devoirs donnés à la classe pendant la semaine ──
@@ -655,7 +677,7 @@ async function loadPointageForCurrent({ preremplirMotif = true } = {}){
     const champ=document.getElementById('ed-devoir-venir');
     if(!champ.value){
       const ech=new Date(aVenir.dueDate+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-      champ.value=`${aVenir.subject||'Devoir'} — ${aVenir.objectives||aVenir.content||''} (pour ${ech})`.replace(/\s+—\s+\(/,' (');
+      poser('ed-devoir-venir', `${aVenir.subject||'Devoir'} — ${aVenir.objectives||aVenir.content||''} (pour ${ech})`.replace(/\s+—\s+\(/,' ('));
     }
   }
   sources.push({ ok:dansSemaine.length>0||!!aVenir, libelle:'Devoirs (enseignants)',
@@ -670,7 +692,7 @@ async function loadPointageForCurrent({ preremplirMotif = true } = {}){
       const j=new Date(m.date_manque+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
       return `${j} — ${m.type_manque||'manquement'}${m.matiere?` en ${m.matiere}`:''}${m.observation?` : ${m.observation}`:''}`;
     }).join('\n');
-    if(champ && !champ.value) champ.value=txt;
+    if(champ && !champ.value) poser('ed-general', txt);
   }
   sources.push({ ok:manquements.length>0, libelle:'Manquements (personnel encadrant)',
     detail:manquements.length? `${manquements.length} manquement(s) signalé(s)` : 'aucun manquement signalé' });
@@ -862,23 +884,26 @@ function openEditor(key){
   g('ed-general', r.general||'');
   g('ed-maison', r.maison||'');
   showScreen('screen-edit','Rapport hebdomadaire',CURRENT.name);
-  // Le motif et la précision appartiennent au conseiller dès qu'il a
-  // enregistré le rapport de la semaine affichée — y compris quand il a
-  // choisi « RAS » ou laissé la précision vide. Tant qu'aucun rapport n'existe
-  // pour cette semaine, le pointage les propose comme avant.
+
+  // ── Un rapport enregistré fait autorité ─────────────────────────────────
   //
-  // La marque `dataset.auto` déjà en place pour `ed-meilleure` et `ed-faible`
-  // ne pouvait pas servir ici : elle vit sur l'élément du DOM et disparaît au
-  // rechargement, c'est-à-dire exactement au moment où le défaut se voyait.
-  // Le rapport enregistré, lui, survit.
+  // L'éditeur hydrate d'abord les champs depuis le rapport, puis lançait
+  // TOUJOURS la synchronisation du pointage. Cet appel n'est pas attendu : sa
+  // réponse arrive une à deux secondes plus tard et réécrivait les champs par
+  //-dessus l'affichage correct. Le conseiller voyait ses valeurs, puis les
+  // voyait disparaître — les retards revenant à 0 quand le pointage ne
+  // renvoyait rien pour la semaine.
   //
-  // Une première version comparait aussi `r.week` à la semaine affichée. Cette
-  // comparaison ne pouvait jamais être fausse — l'éditeur ouvre précisément
-  // sur `r.week` — SAUF pour un rapport ancien enregistré avant l'existence de
-  // ce champ : là, elle aurait rouvert l'écrasement au lieu de l'empêcher.
-  // Changer de semaine passe de toute façon par `reloadPointage()`, qui
-  // pré-remplit comme demandé.
-  loadPointageForCurrent({ preremplirMotif: !(r.motifType || r.motif) });
+  // La correction précédente ne protégeait que le motif et sa précision. La
+  // frontière n'est pas là : elle est entre un rapport qui n'existe pas encore
+  // et un rapport qui existe.
+  //
+  // La synchronisation est toujours lancée — le bandeau de synthèse doit dire
+  // ce que les sources contiennent — mais elle n'écrit dans aucun champ quand
+  // un rapport est déjà enregistré. Le bouton « Synchroniser toute la
+  // semaine » et le changement de semaine, eux, la lancent sans argument :
+  // c'est une demande explicite, et le défaut `= true` y répond.
+  loadPointageForCurrent({ preremplir: !REPORTS[key] });
 }
 
 function collectReport(){
