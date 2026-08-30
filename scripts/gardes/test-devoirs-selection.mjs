@@ -119,14 +119,24 @@ console.log(`\n${G}── DEVOIRS · ce qui entre dans un document        [INV-M
     /devoirsList=\{devoirsSelectionnes\(devoirs, selectionDevoirs\)\}/.test(src))
   verifier('G1b le défaut d’origine a disparu',
     !/devoirsList=\{devoirs\}/.test(src))
-  verifier('G1b le bouton se désactive sans sélection',
-    /disabled=\{selectionDevoirs\.length === 0\}/.test(src))
 
-  // AUTO-TEST : les trois motifs doivent savoir dire non.
-  const defaut = 'devoirsList={devoirs}\n disabled={devoirs.length === 0}'
+  // Cette garde exigeait `disabled={selectionDevoirs.length === 0}`. Elle
+  // testait l'IMPLÉMENTATION du refus, pas l'invariant — et cette
+  // implémentation ÉTAIT le défaut : un bouton désactivé avale le clic sans
+  // rien dire, et l'enseignant conclut que l'impression est cassée.
+  //
+  // L'invariant à tenir est « une sélection vide n'ouvre aucun document ».
+  // Son versant comportemental — message affiché, document non ouvert — est
+  // exercé par `test-impression-devoirs.mjs`, qui exécute le handler réel.
+  const refusExplicite = /if \(selectionDevoirs\.length === 0\) \{[\s\S]{0,400}?return/.test(src)
+  verifier('G1b une sélection vide n’ouvre aucun document', refusExplicite)
+
+  // AUTO-TEST : les motifs doivent savoir dire non.
+  const defaut = 'devoirsList={devoirs}\n onClick={() => setShowDevoirsModal(true)}'
   verifier('G1b auto-test · reconnaît le défaut réintroduit',
     /devoirsList=\{devoirs\}/.test(defaut) === true
-    && /devoirsList=\{devoirsSelectionnes\(devoirs, selectionDevoirs\)\}/.test(defaut) === false)
+    && /devoirsList=\{devoirsSelectionnes\(devoirs, selectionDevoirs\)\}/.test(defaut) === false
+    && /if \(selectionDevoirs\.length === 0\) \{[\s\S]{0,400}?return/.test(defaut) === false)
 }
 
 // ── Fuseau ────────────────────────────────────────────────────────────────

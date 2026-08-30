@@ -489,6 +489,19 @@ export default function DocumentPrintStudio({
   // formulaire de saisie sortaient avec le document, serrés dans une colonne
   // large comme un téléphone.
   const imprimer = () => {
+    try {
+      lancerImpression()
+    } catch (e) {
+      // Une panne d'impression sans message est indiscernable d'un bouton
+      // mort : l'utilisateur clique, rien ne vient, et il n'a aucun moyen de
+      // savoir s'il doit réessayer ou prévenir quelqu'un.
+      console.error('[moteur documentaire] impression impossible', e)
+      alert('L’impression n’a pas pu démarrer : ' + (e?.message || 'cause inconnue')
+          + '\n\nRéessayez, ou utilisez le bouton « Image JPEG ».')
+    }
+  }
+
+  const lancerImpression = () => {
     if (onPrint) { onPrint(); return }
     const doc = document.getElementById('ideal-document')
     if (!doc) { window.print(); return }

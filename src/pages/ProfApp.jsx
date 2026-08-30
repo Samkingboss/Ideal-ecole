@@ -1103,14 +1103,34 @@ export default function ProfApp({ user, onLogout }) {
                   SÉLECTION, et il le dit. Sans sélection il ne s'active pas —
                   un document vide se voit tout de suite, vingt-cinq pages
                   d'archives ne se voient qu'au moment de les distribuer. */}
+              {/* Le bouton était `disabled` tant qu'aucun devoir n'était coché.
+                  Un bouton désactivé n'explique rien : le navigateur avale le
+                  clic, il ne se passe RIEN — pas de message, pas de raison. Et
+                  comme la sélection par défaut est « aujourd'hui », tout jour
+                  sans devoir à rendre laissait l'enseignant devant un bouton
+                  inerte, avec toutes les raisons de croire l'impression
+                  cassée.
+                  Le bouton reste cliquable et dit ce qui manque. La règle de
+                  fond ne change pas : une sélection vide n'imprime rien —
+                  c'est elle qui évite les vingt-cinq pages d'archives. */}
               <button
-                onClick={() => setShowDevoirsModal(true)}
-                disabled={selectionDevoirs.length === 0}
+                onClick={() => {
+                  if (selectionDevoirs.length === 0) {
+                    alert('Aucun devoir n’est coché.\n\n'
+                        + 'Cochez les devoirs à imprimer, ou utilisez « Aujourd’hui », '
+                        + '« Cette semaine » ou « Tout sélectionner » au-dessus de la liste.')
+                    return
+                  }
+                  setShowDevoirsModal(true)
+                }}
+                title={selectionDevoirs.length === 0
+                  ? 'Cochez au moins un devoir avant d’imprimer'
+                  : `Imprimer ${selectionDevoirs.length} devoir(s)`}
                 style={{ background: selectionDevoirs.length === 0 ? 'var(--bg)' : 'linear-gradient(135deg, #0284c7, #0078b4)',
                          color: selectionDevoirs.length === 0 ? 'var(--muted)' : '#fff',
                          border: selectionDevoirs.length === 0 ? '1px solid var(--border)' : 'none',
                          padding: '11px 18px', borderRadius: 12, fontWeight: 800, fontSize: 13,
-                         cursor: selectionDevoirs.length === 0 ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
+                         cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 🖨️ Imprimer {selectionDevoirs.length > 0 ? `${selectionDevoirs.length} devoir${selectionDevoirs.length > 1 ? 's' : ''}` : 'la sélection'}
               </button>
