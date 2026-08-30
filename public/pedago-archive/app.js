@@ -1397,50 +1397,38 @@ function clearHomeworkContent() {
 //   `eleves` + `inscriptions`). Un prof ne voit que les élèves des
 //   classes qui lui sont affectées (table `prof_classes`). La
 //   direction et les conseillers voient toutes les classes.
-// • Devoirs et logo : partagés via la table `app_state`.
+// • Logo : réglage d'affichage local à l'appareil. L'archive n'écrit plus
+//   rien dans `app_state` (voir plus bas).
 // ═══════════════════════════════════════════════════════════════
 (function(){
     const SB_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
     const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
-    // Les élèves puis les devoirs ont quitté le navigateur : seul le logo, qui
-    // reste un réglage d'affichage, continue d'être partagé par app_state.
-    // Y pousser encore `ideal_homeworks` écraserait la copie de sécurité des
-    // treize devoirs avec un tableau vide.
-    const KEYS = ['ideal_logo'];
-    const last = {};
 
-    function parseVal(raw) { try { return JSON.parse(raw); } catch(e) { return raw; } }
-
-    // Push : devoirs et logo vers app_state
-    setInterval(() => {
-        KEYS.forEach(k => {
-            const v = localStorage.getItem(k);
-            if (v !== null && v !== last[k]) {
-                last[k] = v;
-                fetch(SB_URL + '/rest/v1/app_state', {
-                    method: 'POST',
-                    headers: { ...H, Prefer: 'resolution=merge-duplicates' },
-                    body: JSON.stringify({ app: 'pedago', key: k, value: parseVal(v), updated_at: new Date().toISOString() })
-                }).catch(() => {});
-            }
-        });
-    }, 2500);
+    // ── Le partage du logo par `app_state` a été retiré ────────────────────
+    //
+    // Une minuterie poussait `ideal_logo` toutes les 2,5 secondes, et la
+    // lecture demandait TOUTE la clé `pedago` — élèves et devoirs compris —
+    // pour n'en retenir que le logo et jeter le reste.
+    //
+    // Ces deux accès se faisaient avec la clé publique et sans session : ils
+    // comptaient parmi les raisons qui obligeaient à laisser `app_state`
+    // ouverte à `anon`. Or ils ne servaient rien de vérifiable :
+    //
+    //   · la table ne contient AUCUNE ligne `pedago/ideal_logo` — la
+    //     synchronisation n'a jamais rien produit ;
+    //   · le logo est un réglage d'affichage, pas une donnée métier ;
+    //   · il a déjà un repli (`/logo-ideal.png`) et voyage dans l'export /
+    //     import de l'archive ;
+    //   · la minuterie coûtait 1 440 requêtes par heure et par onglet ouvert,
+    //     sur un forfait que l'enseignant paie lui-même.
+    //
+    // L'archive ne touche plus `app_state`. Le reste de son chargement —
+    // périmètre de classes, élèves — est inchangé.
 
     (async () => {
         try {
-            // 1) Devoirs + logo partagés
-            const r = await fetch(SB_URL + '/rest/v1/app_state?app=eq.pedago&select=key,value', { headers: H });
-            if (r.ok) {
-                (await r.json()).forEach(({ key, value }) => {
-                    if (!KEYS.includes(key)) return;
-                    const nv = typeof value === 'string' ? value : JSON.stringify(value);
-                    last[key] = nv;
-                    localStorage.setItem(key, nv);
-                });
-            }
-
-            // 2) Périmètre de classes selon le rôle de l'utilisateur connecté
+            // Périmètre de classes selon le rôle de l'utilisateur connecté
             let user = null;
             try { user = JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch(e) {}
             const role = user && user.role;

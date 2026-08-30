@@ -1526,63 +1526,20 @@
                 responsable2: r2Data,
             };
 
-            // Emission notification temps réel à la Direction
-            try {
-                const notifObj = {
-                    id: Date.now(),
-                    titre: `✍️ Inscription à vérifier et signer : ${dossier.eleve.prenom} ${dossier.eleve.nom}`,
-                    message: `Dossier ${matricule} — ${dossier.eleve.classe_demandee || 'Classe N/A'} — signature de la Direction requise`,
-                    date: new Date().toISOString(),
-                    lu: false,
-                    type: 'inscription',
-                    tabTarget: 'eleves',
-                    ref: retour.inscription_id
-                };
-                // Convention de src/lib/notifications.js, que cette page ne peut
-                // pas importer : elle est servie en statique, hors du bundle.
-                //
-                // Trois défauts corrigés ici. `app` fait partie de la clé
-                // primaire composite (app, key) et ne peut être nulle : sans
-                // elle, chaque envoi était refusé en 400 et la direction n'a
-                // jamais été prévenue d'une seule inscription. La lecture doit
-                // filtrer sur `app` autant que sur `key`, sinon `maybeSingle`
-                // lèvera dès qu'une autre application portera la même clé.
-                //
-                // Et surtout : chaque file est lue puis réécrite séparément.
-                // L'ancien code lisait la file du directeur et écrivait cette
-                // même liste dans les deux — les notifications propres au
-                // responsable administratif étaient effacées à chaque
-                // inscription.
-                const APP_NOTIFS = 'notifications';
-                for (const cible of ['directeur', 'responsable_administratif']) {
-                    const cle = `notifs_${cible}`;
-                    const { data: actuel } = await _supa.from('app_state')
-                        .select('value').eq('app', APP_NOTIFS).eq('key', cle).maybeSingle();
-                    const liste = Array.isArray(actuel?.value) ? actuel.value : [];
-                    const { error: errNotif } = await _supa.from('app_state').upsert({
-                        app: APP_NOTIFS,
-                        key: cle,
-                        value: [notifObj, ...liste.filter(n => n.id !== notifObj.id)].slice(0, 50),
-                        updated_at: new Date().toISOString(),
-                    }, { onConflict: 'app,key' });
-                    if (errNotif) console.error('Notification non transmise à', cible, ':', errNotif.message);
-                }
+            // La notification de dépôt est émise PAR LE SERVEUR, dans
+            // `creer_inscription_avec_suivi`, au moment même où l'inscription
+            // est créée.
+            //
+            // Cette page l'écrivait elle-même : elle lisait la boîte de la
+            // direction puis la réécrivait entière, sans session — c'est-à-dire
+            // avec la clé publique que porte le navigateur de n'importe quel
+            // visiteur. C'était l'unique raison de laisser `app_state` ouverte
+            // à `anon` en écriture, et donc l'unique raison pour laquelle la
+            // grille des salaires y était modifiable par quiconque.
+            //
+            // Le navigateur n'écrit plus l'état. Il dépose un dossier ; le
+            // serveur décide qui prévenir, et le fait sous verrou.
 
-                // Déclenche également le Web Push serveur : la Direction est
-                // avertie même si l'application est fermée.
-                const paramsPush = new URLSearchParams({
-                    notificationTab: notifObj.tabTarget,
-                    notificationRef: notifObj.ref
-                });
-                const { error: errPush } = await _supa.rpc('emettre_notification_push', {
-                    p_cibles: ['directeur', 'responsable_administratif'],
-                    p_titre: notifObj.titre,
-                    p_message: notifObj.message,
-                    p_url: `/?${paramsPush.toString()}`,
-                    p_tag: `ideal-inscription-${notifObj.ref}`
-                });
-                if (errPush) console.error('Web Push non mis en file :', errPush.message);
-            } catch (eNotif) { console.error("Notif error:", eNotif); }
 
             showSuccessScreen(matricule);
 

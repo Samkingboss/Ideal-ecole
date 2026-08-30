@@ -67,24 +67,66 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
       if (statSync(p).isDirectory()) parcourir(p)
       else if (e.endsWith('.sql')) sql.push(p) } }
   parcourir('sql')
+  // ── Ce que cette garde protège désormais ────────────────────────────
+  //
+  // La règle « aucune politique d'écriture, quelle qu'elle soit » appartenait
+  // à la phase où `app_state` n'était écrite que par des chemins anonymes.
+  // Cette phase est close : la direction a arbitré que le personnel CONNECTÉ
+  // doit pouvoir écrire, sous prédicat `ideal_role() is not null`. Maintenir
+  // l'ancienne règle interdirait la migration décidée — et une garde qui
+  // interdit ce qui a été décidé finit par être contournée, pas respectée.
+  //
+  // Ce qui reste interdit, et qui est le vrai danger :
+  //   · toute écriture accordée à `anon` ou à `public` ;
+  //   · une politique d'écriture pour `authenticated` SANS prédicat — un
+  //     `with check (true)` rendrait le rôle aussi large que `anon`.
   const ECRITURE = '(insert|update|delete|all)'
   const fautifs = []
   for (const f of sql) {
-    const src = lire(f).split('\n').filter(l => !/^\s*--/.test(l)).join('\n')
+    // Les commentaires de FIN DE LIGNE comptaient aussi. Un `drop policy … ;
+    // -- UPDATE {anon} using (true)` laissait le mot `anon` migrer, après
+    // découpage sur `;`, dans l'instruction SUIVANTE — qui se retrouvait
+    // accusée d'ouvrir l'écriture à `anon` alors qu'elle vise
+    // `authenticated`. On retire les deux formes.
+    const src = lire(f)
+      .replace(/--[^\n]*/g, '')
+      .split('\n').join('\n')
+
+    // Seule exception, nommée et étroite : un fichier de rollback qui porte
+    // l'avertissement explicite de réouverture. Son objet EST de rouvrir, et
+    // il le dit à qui l'ouvre. Un `grant` à `anon` glissé ailleurs reste
+    // fautif — c'est ce que cette exception ne couvre pas.
+    const estRollbackAssume = /_rollback\.sql$/.test(f)
+      && /CE ROLLBACK RÉOUVRE APP_STATE À ANON/.test(lire(f))
+
     // Les instructions, une par une : un `;` sépare, et l'on ne veut pas
     // qu'un `grant` inoffensif d'un bout du fichier se marie au mot
     // `app_state` d'un autre bout.
     for (const inst of src.split(';')) {
       if (!/\bapp_state\b/i.test(inst)) continue
-      const grantEcriture = new RegExp(`grant\\s+[^;]*\\b${ECRITURE}\\b[^;]*\\bon\\b[^;]*\\bapp_state\\b`, 'is')
-      // Une politique de LECTURE n'élargit pas l'écriture. Le premier motif
-      // signalait toute politique portant `to authenticated`, quelle que soit
-      // sa commande : il aurait interdit d'ouvrir la lecture de sa propre
-      // boîte de notifications au personnel connecté, ce qui n'a rien à voir
-      // avec ce que cette garde protège.
-      const politique = /create\s+policy/i.test(inst)
-        && new RegExp(`\\bfor\\s+${ECRITURE}\\b`, 'is').test(inst)
-      if (grantEcriture.test(inst) || politique) fautifs.push(`${f} · ${inst.trim().split('\n')[0].slice(0, 46)}`)
+
+      // `public` désigne ici un RÔLE, pas le schéma. Sans la garde `(?!\s*\.)`,
+      // le qualifiant `public.ideal_role()` d'un prédicat parfaitement sain
+      // faisait passer la politique pour une ouverture à tous.
+      const viseAnon = /\b(to|from)\s+[^;]*\b(anon|public)\b(?!\s*\.)/is.test(inst)
+      const estGrant = /\bgrant\b/i.test(inst)
+      const estPolitique = /create\s+policy/i.test(inst)
+      const porteEcriture = new RegExp(`\\b${ECRITURE}\\b`, 'is').test(inst)
+
+      // 1 · écriture ouverte à anon ou public, par grant ou par politique
+      if ((estGrant || estPolitique) && porteEcriture && viseAnon && !estRollbackAssume) {
+        fautifs.push(`${f} · ouvre l'écriture à anon/public · ${inst.trim().split('\n')[0].slice(0, 40)}`)
+        continue
+      }
+
+      // 2 · politique d'écriture pour authenticated sans prédicat réel
+      if (estPolitique && new RegExp(`\\bfor\\s+${ECRITURE}\\b`, 'is').test(inst)) {
+        const sansPredicat = /with\s+check\s*\(\s*true\s*\)/is.test(inst)
+          || /using\s*\(\s*true\s*\)/is.test(inst)
+        if (sansPredicat && !estRollbackAssume) {
+          fautifs.push(`${f} · politique d'écriture sans prédicat · ${inst.trim().split('\n')[0].slice(0, 40)}`)
+        }
+      }
     }
   }
   verifier('A2 · aucun script n’élargit l’écriture sur app_state',

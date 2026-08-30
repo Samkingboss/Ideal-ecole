@@ -371,8 +371,24 @@ input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inhe
 // ══════════════════ CONFIG SUPABASE ══════════════════
 const SB_URL='https://jircuneixzwsmtktxrkh.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
+// La page parlait en `anon` même pour un directeur connecté : son client
+// ignorait `storageKey: 'ideal-auth'`, et ses `fetch` portaient la clé publique
+// en guise de jeton. Elle lisait et écrivait donc `app_state` sans session —
+// l'une des raisons qui obligeaient à laisser cette table ouverte à `anon`.
+//
+// On ne crée pas un second mécanisme d'authentification : on reprend celui du
+// portail, exactement comme `public/comptabilite.html` le fait déjà.
+const _supa=supabase.createClient(SB_URL,SB_KEY,{
+  auth:{ storageKey:'ideal-auth', persistSession:true, autoRefreshToken:true, detectSessionInUrl:false },
+});
+
+// `H` reste un objet, car six appels le répandent par `{...H}`. C'est son
+// `Authorization` qui change : jeton de session quand il y en a une, clé
+// publique sinon — auquel cas le serveur refusera, et c'est ce qu'on veut.
 const H={apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'};
-const _supa=supabase.createClient(SB_URL,SB_KEY);
+const porterLaSession=(session)=>{H.Authorization='Bearer '+((session&&session.access_token)||SB_KEY);return !!(session&&session.access_token);};
+const adopterSession=async()=>{const{data}=await _supa.auth.getSession();return porterLaSession(data&&data.session);};
+_supa.auth.onAuthStateChange((_e,session)=>porterLaSession(session));
 
 const CLASS_ORDER=['Petite Section','PS','Moyenne Section','MS','Grande Section','GS','CP1','CP2','CE1','CE2','CM1','CM2'];
 const CLASS_COLORS=['#8DC63F','#00B5B8','#F7941D','#1AAFE0','#EC008C','#ED1C24','#7E57C2','#00897B','#5C6BC0','#26A69A','#66BB6A','#EF5350'];
@@ -1028,7 +1044,11 @@ async function sendToIdeal(){
 }
 
 // ══════════════════ INIT ══════════════════
-loadAll();
+// Rien ne part avant que la session soit portée : une requête émise pendant
+// que le jeton n'est pas encore lu repartirait en `anon` et échouerait une
+// fois `app_state` fermée. L'absence de session n'interrompt pas la page —
+// c'est le serveur qui refuse, et ses refus sont déjà affichés.
+(async()=>{ await adopterSession(); loadAll(); })();
 </script>
 <script>
 // Déconnexion depuis une page hors portail : on efface la session locale
