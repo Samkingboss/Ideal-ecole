@@ -24,7 +24,7 @@ import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir, auteurAuthentifie } from '../lib/devoirs'
 import { classerDevoirs, devoirsSelectionnes, selectionRaccourci, aujourdHuiISO } from '../lib/devoirsSelection'
 import { coursDisponibles, coursDeReference, SANS_COURS, LIBELLE_SANS_COURS } from '../lib/coursAssocie'
-import { periodePourDate, periodesUtilisables, libellePeriode, calendrierEnBase, MESSAGE_HORS_CALENDRIER } from '../lib/periodeScolaire'
+import { periodePourDate, periodesUtilisables, libellePeriode, MESSAGE_HORS_CALENDRIER } from '../lib/periodeScolaire'
 import { pdfEnImages, estFichierPdf } from '../lib/pdfEnImages'
 
 const RECREE_CHECKS = [
@@ -1199,43 +1199,16 @@ export default function ProfApp({ user, onLogout }) {
                       {TYPES_DEVOIR.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  {/* La période ne se choisit plus : elle se déduit de la date
-                      de remise, par le calendrier scolaire. C'était le seul
-                      champ du formulaire qu'aucun référentiel ne contredisait
-                      — un devoir de novembre pouvait porter « Période 5 ».
+                  {/* Le champ « Période » a été retiré.
+                      Il n'était pas saisissable : il affichait la période
+                      déduite de la date de remise, dans une boîte qui
+                      ressemblait à un champ. Cliquer dessus ne proposait rien,
+                      et l'enseignant y cherchait un choix qui n'existe pas.
 
-                      La date de remise fait foi, et non la date de création :
-                      un devoir donné le 30 novembre et rendu le 2 décembre
-                      appartient à la période où il est ÉVALUÉ. */}
-                  <div>
-                    <label className="form-label">Période</label>
-                    {(() => {
-                      const per = periodePourDate(newDevoir.aRendrePour, periodes)
-                      if (!newDevoir.aRendrePour) return (
-                        <div className="form-input" style={{ display: 'flex', alignItems: 'center', color: 'var(--muted)', fontSize: 13, background: 'var(--bg)' }}>
-                          Indiquez la date de remise
-                        </div>
-                      )
-                      if (!per) return (
-                        <div className="form-input" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
-                                                             background: 'rgba(237,28,36,.07)', color: 'var(--red)', fontWeight: 700, lineHeight: 1.3 }}>
-                          {MESSAGE_HORS_CALENDRIER}
-                        </div>
-                      )
-                      return (
-                        <div className="form-input" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)', fontWeight: 800, fontSize: 13 }}>
-                          <span style={{ color: '#0284c7' }}>✓</span> {libellePeriode(per)}
-                          {/* Tant que la table `periodes` ne porte pas l'année en
-                              cours, le calcul s'appuie sur le calendrier intégré —
-                              celui que l'agenda affiche déjà. On le dit plutôt que
-                              de laisser croire à une source unique. */}
-                          <span style={{ fontWeight: 500, color: 'var(--muted)', fontSize: 11 }}>
-                            détectée{calendrierEnBase(periodes) ? '' : ' · calendrier intégré'}
-                          </span>
-                        </div>
-                      )
-                    })()}
-                  </div>
+                      LA DÉDUCTION, ELLE, RESTE. La période est toujours
+                      calculée à l'enregistrement à partir de la date de
+                      remise, et le cahier l'imprime comme avant. C'est la
+                      boîte qui disparaît, pas la donnée. */}
                 </div>
 
                 <div>
@@ -1288,6 +1261,19 @@ export default function ProfApp({ user, onLogout }) {
                     </>
                   })()}
                 </div>
+
+                {/* Une date de remise hors calendrier scolaire enregistre une
+                    période nulle, et le cahier s'imprime alors sans période.
+                    Ce message vivait dans la boîte « Période » qui vient
+                    d'être retirée. Le supprimer avec elle aurait rendu la
+                    panne muette : il se lit maintenant sous la date, et
+                    seulement quand il a lieu d'être. */}
+                {newDevoir.aRendrePour && !periodePourDate(newDevoir.aRendrePour, periodes) && (
+                  <div style={{ fontSize: 12, background: 'rgba(237,28,36,.07)', color: 'var(--red)',
+                                fontWeight: 700, lineHeight: 1.35, padding: '9px 12px', borderRadius: 10 }}>
+                    {MESSAGE_HORS_CALENDRIER}
+                  </div>
+                )}
 
                 <div>
                   <label className="form-label">Objectif du devoir</label>
@@ -1574,11 +1560,24 @@ export default function ProfApp({ user, onLogout }) {
                       cahier imprimé, validé et gelé, n'est pas touché. */}
                   {(() => {
                     const cours = coursDeReference(coursPrepares, lireDevoir(d).preparationId)
-                    return cours ? (
-                      <div style={{ fontSize: 12, color: '#0284c7', marginTop: 6, fontWeight: 700 }}>
-                        <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>COURS ASSOCIÉ · </span>{cours.intitule}
+                    // Un devoir libre n'affiche RIEN. Les quatorze devoirs déjà
+                    // en base sont tous libres : leur coller « Devoir libre »
+                    // ajouterait une ligne à chaque carte pour ne rien
+                    // apprendre. L'absence de mention dit déjà l'absence de
+                    // cours.
+                    if (!cours) return null
+                    return (
+                      <div style={{ marginTop: 8, padding: '8px 11px', background: '#f0f9ff',
+                                    borderLeft: '3px solid #0284c7', borderRadius: '0 8px 8px 0' }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7',
+                                      letterSpacing: '.06em', textTransform: 'uppercase' }}>
+                          Exercices de maison du cours
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
+                          {cours.intitule}
+                        </div>
                       </div>
-                    ) : null
+                    )
                   })()}
                   {d.description && (
                     <div style={{ fontSize: 14, color: '#0f172a', marginTop: 6, fontWeight: 600 }}>
