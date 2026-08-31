@@ -29,71 +29,10 @@ const dateLisible = iso => {
   return isNaN(d) ? iso : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// Un devoir, rendu à l'identique dans les deux modes.
-function CarteDevoir({ item }) {
-  // La lecture passe par la couche unique : un devoir historique porte son
-  // type, sa période, son énoncé et son barème, et le papier doit les montrer.
-  const d = lireDevoir(item)
-  const pieces = d.piecesJointes
-
-  return (
-    <div style={{ background: '#e0f2fe', borderRadius: 24, padding: '22px 24px', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ background: '#0284c7', color: '#ffffff', padding: '8px 16px', borderRadius: 12, fontWeight: 900, fontSize: 14, textTransform: 'uppercase', letterSpacing: '1px' }}>
-          📖 {d.matiere}
-        </div>
-        {/* Type et période, imprimés par l'ancien module et perdus par
-            l'intégré. Ils situent le devoir dans l'année. */}
-        <div style={{ background: '#ffffff', border: '1.5px solid #0284c7', color: '#0284c7',
-                      padding: '6px 12px', borderRadius: 20, fontWeight: 800, fontSize: 11.5 }}>
-          {d.type}{libellePeriodeStockee(d.periode) ? ` · ${libellePeriodeStockee(d.periode)}` : ''}
-        </div>
-        {d.dateRendu && (
-          <div style={{ background: '#ffffff', border: '1.5px solid #0284c7', color: '#0284c7', padding: '6px 14px', borderRadius: 10, fontWeight: 800, fontSize: 12 }}>
-            ⏰ À rendre pour le <b>{dateLisible(d.dateRendu)}</b>
-          </div>
-        )}
-      </div>
-
-      {/* Objectif, consigne et bareme ne sont PLUS repetes ici : ils sont sur
-          la page de garde, en entier. Les imprimer deux fois allongeait le
-          cahier sans rien apprendre, et poussait les fiches plus loin. Cette
-          section identifie le devoir et porte son cadre de correction ; les
-          feuilles suivent, une par page. */}
-
-      {/* Le cadre de notation, rempli à la main. Le module n'a aucun circuit
-          de note numérique : la feuille est faite pour être corrigée au stylo. */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-        <div style={{ background: '#ffffff', border: '2px solid #0284c7', borderRadius: 14,
-                      padding: '12px 18px', minWidth: 120, textAlign: 'center' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7', letterSpacing: '.06em' }}>NOTE</div>
-          <div style={{ fontSize: 17, fontWeight: 900, color: '#94a3b8', marginTop: 4 }}>…… / 20</div>
-        </div>
-        <div style={{ background: '#ffffff', border: '1px solid #bae6fd', borderRadius: 14,
-                      padding: '12px 16px', flex: '1 1 220px' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7', letterSpacing: '.06em' }}>
-            APPRÉCIATION DE L’ENSEIGNANT
-          </div>
-          <div style={{ borderBottom: '1px dotted #94a3b8', height: 17, marginTop: 9 }} />
-          <div style={{ borderBottom: '1px dotted #94a3b8', height: 17, marginTop: 7 }} />
-        </div>
-      </div>
-
-      {/* Les fiches ne sont plus posees DANS la carte : chacune occupe sa
-          propre page, en pleine hauteur. `maxHeight: 340` les reduisait a
-          90 mm -- une fiche A4 photographiee sortait au format timbre-poste,
-          illisible pour un enfant de CP.
-
-          La carte n'annonce donc plus que leur nombre ; les pages suivent. */}
-      {pieces.length > 0 && (
-        <div style={{ marginTop: 12, fontSize: 12, fontWeight: 800, color: '#0284c7' }}>
-          📎 {pieces.length} fiche{pieces.length > 1 ? 's' : ''} jointe{pieces.length > 1 ? 's' : ''}
-          <span style={{ fontWeight: 500, color: '#64748b' }}> — page{pieces.length > 1 ? 's' : ''} suivante{pieces.length > 1 ? 's' : ''}</span>
-        </div>
-      )}
-    </div>
-  )
-}
+// `CarteDevoir` a été retiré : il ne portait plus que le cadre de correction
+// et le rappel des fiches jointes, tous deux passés sur la page de garde. Un
+// composant qui n'a plus de contenu propre n'a plus de raison d'exister — le
+// laisser aurait laissé croire qu'une seconde présentation du devoir existe.
 
 // Une fiche jointe occupe exactement la hauteur utile d'une page, ratio
 // conserve.
@@ -159,7 +98,7 @@ function LignePorte({ etiquette, valeur }) {
 function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe }) {
   const total = devoirs.reduce((n, d) => n + lireDevoir(d).piecesJointes.length, 0)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* L'école et le titre — ce que lit le parent en premier. */}
       <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '20px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -208,8 +147,32 @@ function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe }) {
             <LignePorte etiquette="Consigne" valeur={d.enonce} />
             <LignePorte etiquette="Barème" valeur={d.bareme || 'Communiqué lors de la correction.'} />
             <LignePorte etiquette="Fiches" valeur={n
-              ? `${n} feuille${n > 1 ? 's' : ''} jointe${n > 1 ? 's' : ''}`
+              ? `${n} feuille${n > 1 ? 's' : ''} jointe${n > 1 ? 's' : ''} — page${n > 1 ? 's' : ''} suivante${n > 1 ? 's' : ''}`
               : 'Aucune feuille jointe'} />
+
+            {/* Le cadre de correction, rempli à la main : le module n'a aucun
+                circuit de note numérique.
+                Il vivait dans un bloc à part, qui n'entrait plus sur la page
+                de garde et se retrouvait donc SEUL sur la feuille suivante —
+                une page presque vide entre la couverture et la première
+                fiche. Il appartient à son devoir, et la place ne manquait pas
+                ici : il y descend, sous le devoir qu'il sert à corriger.
+                Un cadre par devoir : avec deux devoirs, deux notes. */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+              <div style={{ background: '#ffffff', border: '2px solid #0284c7', borderRadius: 14,
+                            padding: '10px 16px', minWidth: 118, textAlign: 'center' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7', letterSpacing: '.06em' }}>NOTE</div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: '#94a3b8', marginTop: 3 }}>…… / 20</div>
+              </div>
+              <div style={{ background: '#ffffff', border: '1px solid #bae6fd', borderRadius: 14,
+                            padding: '10px 14px', flex: '1 1 220px' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0284c7', letterSpacing: '.06em' }}>
+                  APPRÉCIATION DE L’ENSEIGNANT
+                </div>
+                <div style={{ borderBottom: '1px dotted #94a3b8', height: 16, marginTop: 8 }} />
+                <div style={{ borderBottom: '1px dotted #94a3b8', height: 16, marginTop: 6 }} />
+              </div>
+            </div>
           </div>
         )
       })}
@@ -219,7 +182,7 @@ function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe }) {
 
 function PiedDePage({ nominatif, signataire }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28, paddingTop: 10, gap: 20 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 18, paddingTop: 10, gap: 20 }}>
       <div style={{ background: '#ffffff', borderRadius: 16, padding: '14px 20px', border: '1px solid #bae6fd', flex: 1 }}>
         <div style={{ fontSize: 12, fontWeight: 900, color: '#0284c7' }}>💡 RECOMMANDATION AUX PARENTS :</div>
         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
@@ -376,12 +339,14 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
           </Bloc>,
           // Chaque devoir est une unite : le moteur ne coupe jamais une carte
           // en deux. Chaque fiche jointe est une unite a part, en pleine page.
+          // Plus aucun bloc entre la page de garde et les fiches. Le bloc
+          // `CarteDevoir` ne portait plus que le cadre de correction et un
+          // rappel du nombre de fiches — les deux sont maintenant sur la page
+          // de garde. Le garder aurait maintenu une feuille intermédiaire
+          // presque vide dans chaque dossier.
           ...devoirsEleve.flatMap((item, idx) => {
             const dv = lireDevoir(item)
             return [
-              <Bloc key={'d' + (eleve.id || iPage) + '-' + idx} mention={mention} dossier={dossier}>
-                <CarteDevoir item={item} />
-              </Bloc>,
               ...dv.piecesJointes.map((f2, k) => (
                 <Bloc key={'f' + (eleve.id || iPage) + '-' + idx + '-' + k} sautAvant mention={mention} dossier={dossier}>
                   {estPdf(f2) ? <FicheNonImprimable piece={f2} /> : <FichePleinePage piece={f2} />}

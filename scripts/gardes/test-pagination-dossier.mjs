@@ -160,10 +160,17 @@ const lu = r => r.map(f => `${f.page}/${f.total}`).join(' ')
 
 // ── N2 · le publipostage déclare bien l'identité de chaque dossier ───────
 {
+  // Cette garde exigeait « au moins trois blocs ». C'était un nombre FIGÉ, pas
+  // un invariant : la suppression du bloc intermédiaire — un progrès — l'a
+  // fait rougir alors que rien n'était cassé. Ce qui doit être vrai, c'est que
+  // TOUS les blocs du publipostage portent leur dossier, quel qu'en soit le
+  // nombre.
+  const blocs = (devoirs.match(/<Bloc key=\{/g) || []).length
   const porte = (devoirs.match(/dossier=\{dossier\}/g) || []).length
   const identite = /const dossier = 'el:' \+ \(eleve\.id/.test(devoirs)
   verifier('N2 · chaque bloc du publipostage porte son dossier',
-    porte >= 3 && identite, `— ${porte} bloc(s), identité:${identite ? 'élève' : 'ABSENTE'}`)
+    blocs > 0 && porte === blocs && identite,
+    `— ${porte}/${blocs} bloc(s), identité:${identite ? 'élève' : 'ABSENTE'}`)
 }
 
 // ── N3 · le bandeau de service reste sur la PREMIÈRE feuille du lot ──────
