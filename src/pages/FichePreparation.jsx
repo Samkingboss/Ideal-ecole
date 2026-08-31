@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase'
 import { SEQUENCES, DUREE_SEQUENCE } from '../lib/sequences'
 import { manuelsPour, avancement, leconParNumero, leconsDe, aDesUnites, pagesDe, situationDe, libelleUnite } from '../lib/programmes'
 import { statutAuDepot, situationDepot, chargerDelai, ajouterHistorique, ACTIONS, evenementDepot } from '../lib/preparations'
+// La garde d'identité déjà en place sur les devoirs. On la réutilise plutôt
+// que d'en écrire une seconde : deux gardes finissent par diverger.
+import { auteurAuthentifie } from '../lib/devoirs'
 import { notifierPreparation } from '../lib/notifications'
 import { signature } from '../lib/identiteProfessionnelle'
 import { messageEchecLisible } from '../lib/notifications'
@@ -223,7 +226,17 @@ export default function FichePreparation({
         code: error.code, message: error.message, details: error.details, hint: error.hint,
         dateCours, creneauCle,
       })
-      setEtatBrouillon(`Brouillon local conservé · serveur : ${error.code || 'ERREUR'} — ${error.message}`)
+      // 42501 sur cette RPC ne veut dire qu'une chose : l'appel est parti sans
+      // session, la fonction étant retirée à `anon` et accordée à
+      // `authenticated`. Afficher le code brut laissait l'enseignante devant
+      // « permission denied » sans savoir que c'est sa session qui a expiré.
+      //
+      // On n'interroge PAS le serveur pour le confirmer : cette sauvegarde se
+      // déclenche à la frappe, et un appel d'identité par frappe coûterait
+      // plus cher que le message qu'il apporterait.
+      setEtatBrouillon(error.code === '42501'
+        ? 'Brouillon conservé sur cet appareil · votre session a expiré : reconnectez-vous pour le synchroniser'
+        : `Brouillon local conservé · serveur : ${error.code || 'ERREUR'} — ${error.message}`)
       return false
     }
     if (data?.conflit) {
@@ -463,6 +476,38 @@ export default function FichePreparation({
     }
     setEnCours(true)
     setMessage(null)
+
+    // ── Qui écrit ? Le serveur le dit, pas le stockage local ──────────────
+    //
+    // `user.id` vient de `localStorage` : il dit qui l'écran CROIT être
+    // connecté. Quand la session Auth a disparu, la requête part en `anon` —
+    // et `preparations` étant inscriptible par `anon`, la ligne s'écrivait
+    // quand même, portant un `user_id` que le serveur n'avait jamais vérifié.
+    // L'enseignante lisait « votre préparation est enregistrée », ce qui était
+    // vrai, à côté de deux « permission denied » qu'elle ne pouvait pas
+    // relier.
+    //
+    // Rien n'est perdu : la saisie repart dans le brouillon local avant le
+    // refus, et s'y retrouvera après reconnexion.
+    const auteur = await auteurAuthentifie(supabase)
+    if (!auteur.id) {
+      sauverLocal()
+      setEnCours(false)
+      setMessage({ type: 'err', texte:
+        'Votre session a expiré : rien n’a été envoyé au serveur. Votre saisie est '
+        + 'conservée sur cet appareil. Reconnectez-vous, rouvrez cette fiche, puis '
+        + 'enregistrez de nouveau.' })
+      return
+    }
+    if (auteur.id !== user.id) {
+      sauverLocal()
+      setEnCours(false)
+      setMessage({ type: 'err', texte:
+        'La session active sur cet appareil n’est pas la vôtre. Votre saisie est '
+        + 'conservée ici ; déconnectez-vous, reconnectez-vous avec votre identifiant, '
+        + 'puis enregistrez de nouveau.' })
+      return
+    }
 
     const nb       = fiche.nb_sequences || 1
     const maintenant = new Date().toISOString()

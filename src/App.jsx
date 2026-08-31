@@ -1,5 +1,6 @@
 import React, { Component, useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import LoginPage from './pages/LoginPage'
 import DirecteurApp from './pages/DirecteurApp'
 import ProfApp from './pages/ProfApp'
@@ -9,6 +10,33 @@ import CuisiniereApp from './pages/CuisiniereApp'
 import SignalementIncident from './pages/SignalementIncident'
 import { posteEnAnglais, useEnglishInterface } from './lib/interfaceLanguage'
 import './App.css'
+
+// ── Faut-il rendre la main à l'écran de connexion ? ──────────────────────────
+//
+// Une règle, un seul endroit. `getSession()` peut échouer pour deux raisons
+// qui n'appellent pas la même réponse :
+//
+//   TRANSPORT — réseau coupé, délai dépassé, serveur momentanément muet. La
+//   session existe peut-être encore ; on ne déconnecte pas. L'enseignante
+//   continue de travailler, et les écritures protégées refuseront proprement
+//   si le jeton manque vraiment.
+//
+//   DÉFINITIF — jeton de rafraîchissement invalide, expiré, révoqué, ou
+//   session absente. Plus rien ne partira en `authenticated` : laisser l'écran
+//   afficher quelqu'un de connecté est précisément le défaut d'origine.
+//
+// La frontière n'est pas devinée à partir d'un message : c'est celle que le
+// SDK trace lui-même. Dans `_callRefreshToken`, il ne supprime la session que
+// `if (!isAuthRetryableFetchError(error))`. On lit la même fonction que lui.
+//
+// Toute erreur hors de cette classe — y compris inconnue — est traitée comme
+// définitive : sans session, la requête suivante part en `anon`, et il vaut
+// mieux une reconnexion de trop qu'un écran qui ment.
+// Non exportée : ce fichier exporte un composant, et y ajouter un export
+// ordinaire casse le rafraîchissement à chaud de Vite. La garde l'extrait du
+// source et l'exécute — elle vérifie le code livré, pas une copie.
+const sessionPerdue = (session, error) =>
+  !session && !(error && isAuthRetryableFetchError(error))
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -114,7 +142,52 @@ export default function App() {
         }
       } catch(e) {}
     }
-    setLoading(false)
+
+    // ── La session AFFICHÉE doit être la session RÉELLE ───────────────────
+    //
+    // `ideal_user` n'était qu'un drapeau posé dans le stockage local, sans
+    // aucun lien avec la session Supabase Auth. Quand celle-ci disparaissait —
+    // jeton de rafraîchissement expiré, rafraîchissement manqué — le drapeau
+    // survivait : l'écran continuait d'afficher l'enseignante connectée, et
+    // toutes ses requêtes partaient en `anon`. Elle lisait « permission
+    // denied » sans comprendre, et sa préparation s'écrivait quand même, en
+    // anonyme, portant un identifiant que le serveur n'avait jamais vérifié.
+    //
+    // `getSession()` lit le stockage, mais tente un rafraîchissement si le
+    // jeton d'accès a expiré : hors connexion, cet appel échoue. C'est
+    // `sessionPerdue` qui distingue cette panne d'une session réellement
+    // morte — voir sa définition en tête de fichier.
+    let annule = false
+    ;(async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (annule) return
+      if (sessionPerdue(data?.session, error)) {
+        localStorage.removeItem('ideal_user')
+        setUser(null)
+      }
+      setLoading(false)
+    })()
+    return () => { annule = true }
+  }, [])
+
+  // ── Rester synchronisé pendant la session ─────────────────────────────
+  //
+  // Un jeton peut expirer pendant que l'écran est ouvert, et un autre onglet
+  // peut se déconnecter : le SDK diffuse l'événement d'un onglet à l'autre.
+  //
+  // `INITIAL_SESSION` est volontairement ignoré : l'effet ci-dessus décide
+  // seul de l'état de départ. Deux décideurs pour le même instant, c'est un
+  // nettoyage incohérent en attente.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((evenement, session) => {
+      if (evenement === 'INITIAL_SESSION') return
+      if (evenement !== 'SIGNED_OUT' && session) return
+      localStorage.removeItem('ideal_user')
+      // Réglé à `null` seulement s'il ne l'est pas déjà : React abandonne le
+      // rendu quand l'état ne change pas, ce qui coupe toute boucle.
+      setUser(u => (u === null ? u : null))
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
@@ -146,7 +219,17 @@ export default function App() {
     localStorage.setItem('ideal_user', JSON.stringify(propre))
     setUser(propre)
   }
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // La session Auth d'abord. Sans cet appel, elle survivait à la
+    // déconnexion : l'appareil restait porteur d'un jeton valide, et
+    // l'écran de connexion s'affichait par-dessus une session ouverte.
+    //
+    // `signOut()` déclenche `SIGNED_OUT`, donc le nettoyage ci-dessus se
+    // rejoue. Les deux gestes sont idempotents — retirer une clé absente et
+    // remettre `null` sur `null` ne font rien — il n'y a donc pas deux
+    // nettoyages qui se contredisent, mais le même, deux fois.
+    try { await supabase.auth.signOut() }
+    catch (e) { console.error('Déconnexion Auth incomplète :', e?.message || e) }
     localStorage.removeItem('ideal_user')
     setUser(null)
   }
