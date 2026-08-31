@@ -359,10 +359,14 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
         // Le nom voyage avec chaque unite : le moteur le pose en pied de
         // CHAQUE page, et le reporte sur celles qui n'en portent pas.
         const mention = nomComplet(eleve) + ' \u00b7 ' + laClasse
+        // L'identite du dossier, distincte du libelle affiche : deux enfants
+        // homonymes d'une meme classe portent la meme mention, jamais le meme
+        // dossier. C'est elle qui fait repartir la numerotation a 1.
+        const dossier = 'el:' + (eleve.id ?? ('rang-' + iPage))
         return [
           // La page de garde : une par enfant, elle ouvre sa feuille et se
           // suffit a elle-meme.
-          <Bloc key={'g' + (eleve.id || iPage)} sautAvant mention={mention}>
+          <Bloc key={'g' + (eleve.id || iPage)} sautAvant mention={mention} dossier={dossier}>
             <PageDeGarde eleve={nomComplet(eleve)} classe={laClasse} devoirs={devoirsEleve}
                          signataire={signataire} editeLe={aujourdhui} />
             {/* Le visa du parent appartient à la page de garde : c'est là
@@ -375,11 +379,11 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
           ...devoirsEleve.flatMap((item, idx) => {
             const dv = lireDevoir(item)
             return [
-              <Bloc key={'d' + (eleve.id || iPage) + '-' + idx} mention={mention}>
+              <Bloc key={'d' + (eleve.id || iPage) + '-' + idx} mention={mention} dossier={dossier}>
                 <CarteDevoir item={item} />
               </Bloc>,
               ...dv.piecesJointes.map((f2, k) => (
-                <Bloc key={'f' + (eleve.id || iPage) + '-' + idx + '-' + k} sautAvant mention={mention}>
+                <Bloc key={'f' + (eleve.id || iPage) + '-' + idx + '-' + k} sautAvant mention={mention} dossier={dossier}>
                   {estPdf(f2) ? <FicheNonImprimable piece={f2} /> : <FichePleinePage piece={f2} />}
                 </Bloc>
               )),

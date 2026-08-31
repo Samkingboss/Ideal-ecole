@@ -247,10 +247,16 @@ function Pied({ prov, page, total, etabliLe, mention }) {
 // L'unité que la pagination ne coupe jamais. Un document paginé se compose de
 // blocs ; le moteur les répartit sur les feuilles sans en scinder aucun.
 
-// `sautAvant` et `mention` ne changent RIEN au rendu du bloc : ils sont lus
-// par le moteur avant la répartition. Un bloc les reçoit et les ignore.
-export function Bloc({ titre, numero, children, style, sautAvant, mention, ...reste }) {
-  void sautAvant; void mention; void reste
+// `sautAvant`, `mention` et `dossier` ne changent RIEN au rendu du bloc : ils
+// sont lus par le moteur avant la répartition. Un bloc les reçoit et les ignore.
+//
+// `dossier` identifie le DESTINATAIRE d'un publipostage — l'identifiant de
+// l'élève, pas son nom affiché. C'est ce qui permet de numéroter les pages par
+// dossier. Grouper sur `mention` aurait suffi dans presque tous les cas, mais
+// aurait fusionné les dossiers de deux homonymes d'une même classe : une
+// fusion silencieuse d'élèves, que ce projet s'interdit.
+export function Bloc({ titre, numero, children, style, sautAvant, mention, dossier, ...reste }) {
+  void sautAvant; void mention; void dossier; void reste
   const prov = React.useContext(ProvenanceContext)
   return (
     <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid', ...style }}>
@@ -333,7 +339,11 @@ function repartir(hauteurs, hauteurUtilePx, espacementPx, sauts = new Set()) {
 // besoin aussi, et deux copies auraient divergé.
 const A4_PX = A4.largeur * 96 / 25.4   // 210 mm à 96 dpi ≈ 794 px
 
-function Feuille({ prov, titre, bandeau, page, total, etabliLe, mention, children }) {
+// `page` numérote DANS le dossier ; `premiere` dit si cette feuille ouvre le
+// document. Les deux se confondaient — le bandeau de service se lisait sur
+// `page === 1` — et la numérotation par dossier aurait alors fait réapparaître
+// ce bandeau au début de chaque dossier. Deux notions distinctes, deux props.
+function Feuille({ prov, titre, bandeau, page, total, premiere, etabliLe, mention, children }) {
   return (
     <div className="feuille" style={{
       width: `${A4.largeur}mm`,
@@ -354,7 +364,7 @@ function Feuille({ prov, titre, bandeau, page, total, etabliLe, mention, childre
       position: 'relative',
     }}>
       <BordureDouble prov={prov} />
-      <EnTete prov={prov} titre={titre} bandeau={page === 1 ? bandeau : null} />
+      <EnTete prov={prov} titre={titre} bandeau={premiere ? bandeau : null} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4mm' }}>
         {children}
       </div>
@@ -445,17 +455,19 @@ export default function DocumentPrintStudio({
   const commandesEcran = React.Children.toArray(children).filter(
     e => React.isValidElement(e) && e.props?.className === 'no-print')
 
-  const { sautsForces, mentions } = useMemo(() => {
+  const { sautsForces, mentions, dossiers } = useMemo(() => {
     const decalage = champs?.length ? 1 : 0
     const utiles = React.Children.toArray(children).filter(
       e => e && !(React.isValidElement(e) && e.props?.className === 'no-print'))
     const sauts = new Set(
       utiles.flatMap((e, i) => (React.isValidElement(e) && e.props?.sautAvant) ? [i + decalage] : []))
-    const m = {}
+    const m = {}, d = {}
     utiles.forEach((e, i) => {
-      if (React.isValidElement(e) && e.props?.mention) m[i + decalage] = e.props.mention
+      if (!React.isValidElement(e)) return
+      if (e.props?.mention) m[i + decalage] = e.props.mention
+      if (e.props?.dossier != null) d[i + decalage] = String(e.props.dossier)
     })
-    return { sautsForces: sauts, mentions: m }
+    return { sautsForces: sauts, mentions: m, dossiers: d }
   }, [children, champs])
 
   const mesureRef = useRef(null)
@@ -481,6 +493,48 @@ export default function DocumentPrintStudio({
     })
     setPages(repartir(hauteurs, utile, 4 * MM_EN_PX, sautsForces))
   }, [pagine, children, meta, eleveInfo, sautsForces])
+
+  // ── Numérotation par dossier ──────────────────────────────────────────────
+  //
+  // « page 4 sur 30 » n'a aucun sens au bas du dossier d'un enfant : la
+  // famille reçoit cinq feuilles, pas trente. Un publipostage de six élèves à
+  // cinq pages chacun doit produire six fois « page 1 sur 5 ».
+  //
+  // Rien de nouveau n'est mesuré. Chaque bloc porte déjà l'identité de son
+  // destinataire, et le moteur la REPORTE déjà sur les feuilles qui n'en
+  // portent pas — c'est ce qui met le nom de l'enfant au bas de la page 3 de
+  // son cahier. On groupe les feuilles consécutives d'un même dossier, et l'on
+  // numérote à l'intérieur du groupe.
+  //
+  // Un document sans destinataire — un état de paie, un reçu, une fiche de
+  // classe — n'a qu'un seul groupe : sa numérotation est exactement celle
+  // d'avant.
+  const feuilles = useMemo(() => {
+    if (!pages) return null
+
+    // Le report, écrit une fois : la valeur portée par le premier bloc de la
+    // feuille qui en porte une, sinon la dernière connue avant elle.
+    const reporte = (table, indices) => indices.map(i => table[i]).find(Boolean)
+      ?? [...Array(indices[0] ?? 0).keys()].reverse().map(i => table[i]).find(Boolean)
+
+    const brut = pages.map(indices => {
+      const mention = reporte(mentions, indices)
+      // L'identité prime sur le libellé : deux homonymes d'une même classe
+      // portent la même mention mais deux dossiers distincts.
+      return { mention, dossier: reporte(dossiers, indices) ?? mention ?? null }
+    })
+
+    const numerotees = new Array(brut.length)
+    let debut = 0
+    for (let i = 0; i <= brut.length; i++) {
+      if (i === brut.length || brut[i].dossier !== brut[debut].dossier) {
+        const total = i - debut
+        for (let k = debut; k < i; k++) numerotees[k] = { ...brut[k], page: k - debut + 1, total }
+        debut = i
+      }
+    }
+    return numerotees
+  }, [pages, mentions, dossiers])
 
   // ── Impression ────────────────────────────────────────────────────────────
   //
@@ -703,7 +757,7 @@ export default function DocumentPrintStudio({
               // Documents historiques : un seul tenant, en-tête et pied
               // compris. La feuille de style d'impression empêche désormais la
               // coupure au milieu d'un bloc ou d'une ligne de tableau.
-              <Feuille {...commun} page={1} total={1}>
+              <Feuille {...commun} page={1} total={1} premiere>
                 <Identification prov={prov} champs={champs} />
                 {children}
               </Feuille>
@@ -720,9 +774,10 @@ export default function DocumentPrintStudio({
                    fiches, sans bloc porteur, garde le nom de l'enfant à qui
                    elles appartiennent. Sans report, la page 2 d'un cahier
                    n'aurait plus de destinataire. */
-                <Feuille key={p} {...commun} page={p + 1} total={pages.length}
-                         mention={indices.map(i => mentions[i]).find(Boolean)
-                           ?? [...Array(indices[0] ?? 0).keys()].reverse().map(i => mentions[i]).find(Boolean)}>
+                <Feuille key={p} {...commun}
+                         page={feuilles[p].page} total={feuilles[p].total}
+                         premiere={p === 0}
+                         mention={feuilles[p].mention}>
                   {indices.map(i => (
                     <div key={i} data-bloc="">{unites[i]}</div>
                   ))}
