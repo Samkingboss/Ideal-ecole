@@ -4,7 +4,7 @@ import {
   normalizeEtatComptable, previsionFinanciere, prochainRecu, protegerMutationSalariale, resteDu,
   salairesDepuisPostes, situationCaisse, syntheseComptable, synchroniserEleves, totalPaye,
 } from '../lib/comptabiliteRA'
-import { lienWhatsApp, NOM_ECOLE } from '../lib/ecole'
+import { lienWhatsAppEcole, NOM_ECOLE } from '../lib/ecole'
 import './ComptabiliteRA.css'
 
 const ONGLETS = [
