@@ -5,6 +5,7 @@ import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/eco
 import { signature, signatureLigne } from '../lib/identiteProfessionnelle'
 import { lireDevoir, viseEleve } from '../lib/devoirs'
 import { texteWhatsApp } from '../lib/messageParent'
+import { titreDocumentDevoirs } from '../lib/devoirsSelection'
 import { libellePeriodeStockee } from '../lib/periodeScolaire'
 
 // Le cahier de devoirs imprimable.
@@ -95,23 +96,24 @@ function LignePorte({ etiquette, valeur }) {
   )
 }
 
-function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe }) {
+function PageDeGarde({ eleve, classe, devoirs, signataire, editeLe, titre }) {
   const total = devoirs.reduce((n, d) => n + lireDevoir(d).piecesJointes.length, 0)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* L'école et le titre — ce que lit le parent en premier. */}
       <div style={{ background: '#0284c7', color: '#fff', borderRadius: 20, padding: '20px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <img src="/logo-ideal.png" alt="Logo IDEAL" style={{ width: 118, height: 44, objectFit: 'contain', background: '#fff', borderRadius: 10, padding: '5px 8px' }} />
-          {/* Une seule fois. Le logo dit déjà « IDEAL » ; l'écrire à côté,
-              puis répéter « École Internationale Bilingue » en dessous,
-              faisait dire trois fois la même chose au même endroit. */}
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1.2px', opacity: .92, lineHeight: 1.25 }}>
-            {NOM_ECOLE.toUpperCase()}
-          </div>
+        {/* Le logo a été retiré d'ici. Il figure déjà dans l'en-tête du moteur,
+            en haut de la même feuille : deux fois le même sigle à dix
+            centimètres d'écart. Le nom de l'école reste — c'est lui que le
+            parent lit — et occupe seul la ligne, sans l'indentation qui le
+            calait à droite d'une image absente. */}
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1.2px', opacity: .92, lineHeight: 1.25 }}>
+          {NOM_ECOLE.toUpperCase()}
         </div>
+        {/* Ce n'est pas un cahier : c'est une fiche que l'enfant COLLE dans
+            son cahier. Le titre promettait l'objet dans lequel elle finit. */}
         <div style={{ fontSize: 26, fontWeight: 900, marginTop: 6, lineHeight: 1.15 }}>
-          Cahier de devoirs de maison
+          {titre}
         </div>
         <div style={{ fontSize: 12, marginTop: 8, opacity: .92 }}>
           Remis le {editeLe} · {devoirs.length} devoir{devoirs.length > 1 ? 's' : ''}
@@ -222,6 +224,8 @@ function PiedDePage({ nominatif, signataire }) {
 
 export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], user = null, onClose }) {
   const [messagesOuverts, setMessagesOuverts] = useState(false)
+  // Position dans la file « toute la classe ». `null` : file non lancée.
+  const [fileParents, setFileParents] = useState(null)
 
   const list = devoirsList || []
 
@@ -241,7 +245,7 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
 
   if (list.length === 0) {
     return (
-      <DocumentPrintStudio type="pedagogie" documentTitle="CAHIER DE DEVOIRS DE MAISON" onClose={onClose}
+      <DocumentPrintStudio type="pedagogie" documentTitle="DEVOIRS DE MAISON" onClose={onClose}
         subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • DEVOIRS DE MAISON">
         <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: 14 }}>
           Aucun devoir enregistré pour {laClasse}. Ajoutez-en un avant d’imprimer.
@@ -300,24 +304,101 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
     // qu'elle dit deja. Une page blanche de plus par tirage.
     <DocumentPrintStudio
       pagine
-      nomFichier="Cahier_devoirs"
+      nomFichier="Devoirs_de_maison"
       type="pedagogie"
-      documentTitle="CAHIER DE DEVOIRS DE MAISON"
+      documentTitle={titreDocumentDevoirs(list)}
       subTitlePill="📖 PROGRAMME PÉDAGOGIQUE • DEVOIRS DE MAISON"
       onClose={onClose}
     >
-      <div className="no-print" style={{ marginBottom: 18, padding: '12px 14px', background: '#f1f5f9', borderRadius: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>{destinataires.length} fiche(s) nominative(s) prête(s)</span>
-          <button className="btn-sm" onClick={() => setMessagesOuverts(!messagesOuverts)} style={{ background: '#16a34a', color: '#fff', padding: '8px 13px' }}>📲 Informer les parents via l’école</button>
+      {/* ── Informer les parents ──────────────────────────────────────────
+          C'était un petit bouton vert au bout d'une ligne grise, à côté d'un
+          compteur de fiches : l'enseignante ne le voyait pas. C'est pourtant
+          la seule action de cet écran qui atteint les familles.
+
+          Le publipostage ne change pas : un message PAR enfant, vers le
+          WhatsApp officiel de l'école, que la vie scolaire relaie. Aucun
+          numéro de parent n'entre jamais dans un lien, et deux familles ne
+          peuvent pas se voir. */}
+      <div className="no-print" style={{ marginBottom: 18, border: '2px solid #16a34a',
+                                         borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ background: '#16a34a', color: '#fff', padding: '12px 15px' }}>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>📲 Informer les parents</div>
+          <div style={{ fontSize: 12, opacity: .95, marginTop: 2 }}>
+            {destinataires.length} message{destinataires.length > 1 ? 's' : ''} personnalisé{destinataires.length > 1 ? 's' : ''} à préparer · un par enfant
+          </div>
         </div>
-        {messagesOuverts && <div style={{ marginTop: 10, display: 'grid', gap: 7 }}>
-          <div style={{ fontSize: 11, color: '#475569' }}>Chaque bouton ouvre un message personnalisé vers le WhatsApp officiel de l’école ({WHATSAPP_ECOLE_LISIBLE}). La vie scolaire le transmet ensuite au parent concerné.</div>
-          {destinataires.map(e => <a key={e.id} href={lienWhatsAppEcole(messagePour(e))} target="_blank" rel="noreferrer"
-            style={{ display: 'block', textDecoration: 'none', background: '#fff', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 9, padding: '8px 10px', fontSize: 12, fontWeight: 800 }}>
-            📤 Message pour {nomComplet(e)}
-          </a>)}
-        </div>}
+
+        <div style={{ padding: '13px 15px', background: '#f0fdf4', display: 'grid', gap: 11 }}>
+          <div style={{ fontSize: 11.5, color: '#166534', lineHeight: 1.5 }}>
+            Chaque message part vers le WhatsApp officiel de l’école ({WHATSAPP_ECOLE_LISIBLE}),
+            qui le transmet à la famille. Aucun numéro de parent n’apparaît, et deux familles
+            ne se voient jamais.
+          </div>
+
+          {/* ── Toute la classe ─────────────────────────────────────────────
+              Le navigateur bloque l'ouverture de vingt onglets d'un coup, et
+              l'on ne contourne pas cette protection : on ouvre UNE
+              conversation par clic. Chaque clic est un geste de
+              l'utilisatrice, donc jamais bloqué, et le lien reste un vrai
+              lien — pas un `window.open` déguisé. */}
+          {destinataires.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#475569', fontWeight: 700 }}>
+              Aucun enfant concerné par les devoirs sélectionnés.
+            </div>
+          ) : fileParents === null ? (
+            <button onClick={() => setFileParents(0)} style={{
+              background: '#166534', color: '#fff', border: 'none', borderRadius: 11,
+              padding: '13px 16px', fontWeight: 900, fontSize: 14, cursor: 'pointer',
+              boxShadow: '0 3px 10px rgba(22,101,52,.28)',
+            }}>
+              👥 Toute la classe — préparer les {destinataires.length} messages
+            </button>
+          ) : fileParents < destinataires.length ? (
+            <div style={{ display: 'grid', gap: 9 }}>
+              <div style={{ fontSize: 12, fontWeight: 900, color: '#166534' }}>
+                Message {fileParents + 1} sur {destinataires.length}
+              </div>
+              <div style={{ height: 7, background: '#dcfce7', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.round(fileParents / destinataires.length * 100)}%`,
+                              background: '#16a34a', transition: 'width .2s' }} />
+              </div>
+              <a href={lienWhatsAppEcole(messagePour(destinataires[fileParents]))}
+                 target="_blank" rel="noreferrer"
+                 onClick={() => setFileParents(fileParents + 1)}
+                 style={{ display: 'block', textAlign: 'center', textDecoration: 'none',
+                          background: '#16a34a', color: '#fff', borderRadius: 11,
+                          padding: '13px 16px', fontWeight: 900, fontSize: 14 }}>
+                📤 Ouvrir le message pour {nomComplet(destinataires[fileParents])}
+              </a>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn-sm" onClick={() => setFileParents(fileParents + 1)}>Passer cet enfant</button>
+                <button className="btn-sm" onClick={() => setFileParents(null)}>Arrêter</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: '#166534' }}>
+                ✓ Les {destinataires.length} messages ont été ouverts.
+              </span>
+              <button className="btn-sm" onClick={() => setFileParents(0)}>Reprendre depuis le début</button>
+            </div>
+          )}
+
+          {/* Les envois un par un restent disponibles : une enseignante qui ne
+              veut prévenir qu'une famille n'a pas à dérouler toute la file. */}
+          {destinataires.length > 0 && (
+            <button className="btn-sm" onClick={() => setMessagesOuverts(!messagesOuverts)}
+                    style={{ justifySelf: 'start' }}>
+              {messagesOuverts ? '▾ Masquer' : '▸ Choisir'} un enfant en particulier
+            </button>
+          )}
+          {messagesOuverts && <div style={{ display: 'grid', gap: 7 }}>
+            {destinataires.map(e => <a key={e.id} href={lienWhatsAppEcole(messagePour(e))} target="_blank" rel="noreferrer"
+              style={{ display: 'block', textDecoration: 'none', background: '#fff', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 9, padding: '8px 10px', fontSize: 12, fontWeight: 800 }}>
+              📤 Message pour {nomComplet(e)}
+            </a>)}
+          </div>}
+        </div>
       </div>
 
       {destinataires.flatMap((eleve, iPage) => {
@@ -334,7 +415,8 @@ export default function DevoirsDocument({ devoirsList, classeNom, eleves = [], u
           // suffit a elle-meme.
           <Bloc key={'g' + (eleve.id || iPage)} sautAvant mention={mention} dossier={dossier}>
             <PageDeGarde eleve={nomComplet(eleve)} classe={laClasse} devoirs={devoirsEleve}
-                         signataire={signataire} editeLe={aujourdhui} />
+                         signataire={signataire} editeLe={aujourdhui}
+                         titre={titreDocumentDevoirs(devoirsEleve)} />
             {/* Le visa du parent appartient à la page de garde : c'est là
                 qu'on signe. Rendu en bloc séparé, il finissait seul sur une
                 feuille — une page blanche de plus par enfant. */}

@@ -111,6 +111,32 @@ export const devoirsSelectionnes = (devoirs, idsSelectionnes) => {
   return (devoirs || []).filter(d => ids.has(String(d?.id)))
 }
 
+/**
+ * Le titre de la fiche imprimée, déduit des devoirs qu'elle porte.
+ *
+ * Le document s'appelait « CAHIER DE DEVOIRS DE MAISON ». Or ce n'est pas un
+ * cahier : c'est une fiche que l'enfant COLLE dans son cahier. Le nom promettait
+ * l'objet dans lequel elle finit, pas ce qu'elle est.
+ *
+ * « du jour » n'est pas décoratif : il n'est écrit que si tous les devoirs
+ * portés se rendent LE MÊME JOUR. Deux échéances différentes, ou aucune date,
+ * et la fiche s'en tient à « DEVOIRS DE MAISON ». Un titre qui affirme une
+ * chose que les données ne disent pas est un titre faux.
+ */
+export const titreDocumentDevoirs = (devoirs) => {
+  const liste = Array.isArray(devoirs) ? devoirs : []
+  const datees = liste
+    .map(d => String(d?.date_rendu || d?.dateRendu || '').slice(0, 10))
+    .filter(Boolean)
+  // « du jour » exige DEUX choses : que tous les devoirs portent une date, et
+  // qu'il n'y en ait qu'une. Comparer la taille de l'ensemble au nombre de
+  // devoirs comptait deux devoirs de même échéance comme deux jours.
+  const memeJour = liste.length > 0
+    && datees.length === liste.length
+    && new Set(datees).size === 1
+  return memeJour ? 'DEVOIRS DE MAISON DU JOUR' : 'DEVOIRS DE MAISON'
+}
+
 /** Les identifiants proposés par les raccourcis de sélection. */
 export const selectionRaccourci = (devoirs, quoi, aujourdhui = aujourdHuiISO()) => {
   const c = classerDevoirs(devoirs, aujourdhui)

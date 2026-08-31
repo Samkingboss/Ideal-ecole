@@ -52,8 +52,16 @@ console.log(`\n${G}── DEVOIRS · une fiche, deux fiches, trois fiches [INV-M
 
 // ── DOCUMENT FINAL · couverture puis toutes les pièces ───────────────────
 {
-  verifier('DOC la couverture porte le logo officiel',
-    /<img src="\/logo-ideal\.png" alt="Logo IDEAL"/.test(documentSrc))
+  // Le logo est bien sur la feuille — mais UNE seule fois, posé par l'en-tête
+  // du moteur. Il figurait aussi dans la bande bleue de la couverture : deux
+  // fois le même sigle à dix centimètres d'écart. Cette garde exigeait le
+  // second ; elle vérifie maintenant l'invariant réel — la feuille porte le
+  // logo, et la couverture ne le redouble pas.
+  const moteurSrc = existsSync('src/pages/DocumentPrintStudio.jsx')
+    ? readFileSync('src/pages/DocumentPrintStudio.jsx', 'utf8') : ''
+  verifier('DOC la feuille porte le logo officiel, une seule fois',
+    /<img src="\/logo-ideal\.png"/.test(moteurSrc)
+    && !/<img src="\/logo-ideal\.png"/.test(documentSrc))
   verifier('DOC toutes les pièces sont parcourues, pas seulement la première',
     /\.\.\.dv\.piecesJointes\.map\(\(f2, k\)/.test(documentSrc)
     && !/piecesJointes\[0\]/.test(documentSrc))

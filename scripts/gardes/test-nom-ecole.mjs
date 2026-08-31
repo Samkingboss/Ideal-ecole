@@ -167,9 +167,11 @@ console.log(`\n${G}── NOM OFFICIEL DE L’ÉCOLE   [INV-UI, INV-CONT]${F}`)
 // ── N10 · la duplication retirée du cahier ne revient pas ────────────────
 {
   const doc = sansCommentaires(lire('src/pages/DevoirsDocument.jsx'))
-  const bloc = (doc.match(/<img src="\/logo-ideal\.png"[\s\S]{0,600}?<\/div>\s*<\/div>/) || [''])[0]
-  const mentions = (bloc.match(/NOM_ECOLE|ÉCOLE INTERNATIONALE BILINGUE/g) || []).length
-  verifier('N10 · une seule mention du nom à côté du logo du cahier',
+  // Même correction qu'en T8 : l'ancre était le logo, retiré de la bande
+  // bleue. Sans lui la garde ne lisait plus rien et annonçait « 0 mention ».
+  const bande = (doc.match(/background: '#0284c7', color: '#fff'[\s\S]*?\{titre\}/) || [''])[0]
+  const mentions = (bande.match(/NOM_ECOLE|ÉCOLE INTERNATIONALE BILINGUE/g) || []).length
+  verifier('N10 · une seule mention du nom en tête de la couverture',
     mentions === 1, `— ${mentions} mention(s)`)
 }
 
