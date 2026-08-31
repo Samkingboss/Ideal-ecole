@@ -16,6 +16,8 @@
 // proposition est ajoutée si et seulement si sa donnée existe, et la phrase
 // reste grammaticale dans tous les cas.
 
+import { NOM_ECOLE } from './ecole.js'
+
 const propre = (v) => {
   const t = String(v ?? '').trim()
   // « null » et « undefined » arrivent bel et bien jusqu'ici quand une
@@ -158,7 +160,7 @@ export const texteCertificat = ({ eleve = {}, responsables = [], directeur = {},
   const civilite = propre(directeur.civilite)
   const signataire = propre(directeur.nom)
   const qualite = propre(directeur.fonction) || 'Directeur'
-  const etablissement = propre(ecole) || 'École Internationale Bilingue IDEAL'
+  const etablissement = propre(ecole) || NOM_ECOLE
   const entete = 'Je soussigné'
     + (signataire ? `, ${[civilite, signataire].filter(Boolean).join(' ')}` : '')
     + `, agissant en qualité de ${qualite} de l’${etablissement},`

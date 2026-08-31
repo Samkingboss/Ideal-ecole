@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { NOM_ECOLE } from '../lib/ecole'
 
 export default function DossierPersonnel({ user, profInfo, roleLabel = 'Enseignant' }) {
   const [loading, setLoading] = useState(false)
@@ -624,7 +625,7 @@ export default function DossierPersonnel({ user, profInfo, roleLabel = 'Enseigna
 
               <div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                  ÉCOLE INTERNATIONALE BILINGUE IDEAL
+                  {NOM_ECOLE.toUpperCase()}
                 </div>
                 <div style={{ fontSize: 32, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
                   FICHE INDIVIDUELLE DU DOSSIER RH

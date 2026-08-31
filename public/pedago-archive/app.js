@@ -1008,7 +1008,7 @@ function carteMessageHTML(d, destinataires, dimsLogo) {
             <img src="${idealLogoSrc()}" width="${logo.l}" height="${logo.h}"
                  style="width:${logo.l}px;height:${logo.h}px;display:block;margin:0 auto;background:#fff;border-radius:14px;padding:10px 18px;box-sizing:content-box;">
             <div style="color:#fff; font-size:27px; font-weight:800; margin-top:16px; letter-spacing:-.4px;">Devoir de maison</div>
-            <div style="color:#bcd8e8; font-size:12px; letter-spacing:1.6px; margin-top:5px; font-weight:600;">ÉCOLE INTERNATIONALE BILINGUE IDEAL · BAMAKO</div>
+            <div style="color:#bcd8e8; font-size:12px; letter-spacing:1.6px; margin-top:5px; font-weight:600;">IDEAL ÉCOLE INTERNATIONALE BILINGUE · BAMAKO</div>
             <div style="display:inline-block; background:#F7941D; color:#fff; font-weight:800; font-size:15px; padding:9px 22px; border-radius:22px; margin-top:16px;">
                 À rendre le ${d.dueDate}
             </div>

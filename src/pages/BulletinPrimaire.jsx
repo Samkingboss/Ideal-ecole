@@ -1,5 +1,6 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { NOM_ECOLE } from '../lib/ecole'
 
 // Mock data pour la démonstration (Trimestre 2)
 const studentData = {
@@ -61,7 +62,7 @@ export default function BulletinPrimaire() {
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 22, color: '#0d2a3b', fontWeight: 900 }}>📊 Bulletin Trimestriel Officiel</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Relevé de notes et bilan académique de l'élève aux standards de l'École Internationale Bilingue IDEAL.</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Relevé de notes et bilan académique de l'élève aux standards d’{NOM_ECOLE}.</p>
         </div>
         <button
           onClick={() => window.print()}
@@ -97,7 +98,7 @@ export default function BulletinPrimaire() {
 
           <div>
             <div style={{ fontSize: 26, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              ÉCOLE INTERNATIONALE BILINGUE IDEAL
+              {NOM_ECOLE.toUpperCase()}
             </div>
             <div style={{ fontSize: 34, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
               BULLETIN TRIMESTRIEL D'ÉVALUATION
@@ -222,7 +223,7 @@ export default function BulletinPrimaire() {
             🏅 EXCELLENCE ACADÉMIQUE BILINGUE ACCRÉDITÉE
           </div>
           <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-            ÉCOLE INTERNATIONALE BILINGUE IDEAL — Bamako, Mali
+            {NOM_ECOLE.toUpperCase()} — Bamako, Mali
           </div>
         </div>
       </div>

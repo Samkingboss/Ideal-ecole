@@ -1601,7 +1601,7 @@
         const message =
 `Bonjour ${parent || 'cher parent'},
 
-Nous vous confirmons la bonne réception du dossier d'inscription de ${eleve} à l'École Internationale Bilingue IDEAL pour l'année scolaire ${data.annee_scolaire || ''}.
+Nous vous confirmons la bonne réception du dossier d'inscription de ${eleve} à IDEAL École Internationale Bilingue pour l'année scolaire ${data.annee_scolaire || ''}.
 
 ⏳ Son inscription est actuellement en cours d'étude par la Direction. Elle sera définitive après vérification et signature du directeur.
 
@@ -1834,8 +1834,8 @@ Merci de votre confiance.
         doc.setTextColor(...BLEU);
         doc.setFontSize(13.5);
         doc.setFont('helvetica', 'bold');
-        doc.text('ÉCOLE INTERNATIONALE', textX, 19);
-        doc.text('BILINGUE IDEAL', textX, 26.5);
+        doc.text('IDEAL ÉCOLE', textX, 19);
+        doc.text('INTERNATIONALE BILINGUE', textX, 26.5);
 
         // Le filet s'arrête avant le cadre photo, qui descend jusqu'à 49 mm.
         doc.setDrawColor(...BLEU);
@@ -1940,8 +1940,8 @@ Merci de votre confiance.
         // ── DROIT À L'IMAGE ──────────────────────────────────
         y = section("5. Droit à l'image & Autorisation", y);
         const droitTexte = data.droit_image
-            ? `Je soussigné(e), ${nomParent || 'le responsable légal'}, autorise l'École Internationale Bilingue IDEAL à photographier et/ou filmer l'élève ${nomComplet} dans le cadre des activités pédagogiques et scolaires, et à utiliser ces supports pour la communication officielle de l'établissement.`
-            : `Je soussigné(e), ${nomParent || 'le responsable légal'}, N'AUTORISE PAS l'École Internationale Bilingue IDEAL à diffuser l'image de l'élève ${nomComplet}.`;
+            ? `Je soussigné(e), ${nomParent || 'le responsable légal'}, autorise IDEAL École Internationale Bilingue à photographier et/ou filmer l'élève ${nomComplet} dans le cadre des activités pédagogiques et scolaires, et à utiliser ces supports pour la communication officielle de l'établissement.`
+            : `Je soussigné(e), ${nomParent || 'le responsable légal'}, N'AUTORISE PAS IDEAL École Internationale Bilingue à diffuser l'image de l'élève ${nomComplet}.`;
         const droitLines = doc.splitTextToSize(droitTexte, W - ML - MR - 8);
         const droitH = droitLines.length * 3.6 + 7;
 
@@ -2083,7 +2083,7 @@ Merci de votre confiance.
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(...GRIS_T);
-        doc.text('\u00c9cole Internationale Bilingue IDEAL  \u2022  Faladi\u00e9 Sema, Bamako, Mali',
+        doc.text('IDEAL \u00c9cole Internationale Bilingue  \u2022  Faladi\u00e9 Sema, Bamako, Mali',
                  ML + 33, PIED_Y + 9);
         doc.text(`Matricule : ${matricule}`, W - MR, PIED_Y + 9, { align: 'right' });
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
-import { WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
+import { WHATSAPP_ECOLE_LISIBLE, NOM_ECOLE } from '../lib/ecole'
 import { CHAMPS_ELEVE_AVEC_PHOTO } from '../lib/eleves'
 import { useEchelleFeuille } from '../lib/echelleApercu'
 import {
@@ -578,7 +578,7 @@ export default function CartesScolaires() {
             <span>💳 Cartes Scolaires Officielles &amp; Badges Élèves</span>
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-            Génération et impression des cartes d'identité scolaires de l'École Internationale Bilingue IDEAL.
+            Génération et impression des cartes d'identité scolaires d’{NOM_ECOLE}.
           </p>
         </div>
 

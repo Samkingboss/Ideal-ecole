@@ -1,7 +1,7 @@
 {
   "name": "IDEAL ÉcoleApp — École Internationale Bilingue",
   "short_name": "IDEAL",
-  "description": "Plateforme de gestion de l'École Internationale Bilingue IDEAL, Bamako : inscriptions, comptabilité, pédagogie, rapports.",
+  "description": "Plateforme de gestion d'IDEAL École Internationale Bilingue, Bamako : inscriptions, comptabilité, pédagogie, rapports.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -2,6 +2,7 @@ import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { A4, HAUTEUR_UTILE_MM, MM_EN_PX } from '../lib/pageA4'
 import { useEchelleFeuille } from '../lib/echelleApercu'
+import { NOM_ECOLE } from '../lib/ecole'
 
 // Moteur documentaire commun d'IDEAL.
 //
@@ -196,7 +197,7 @@ function EnTete({ prov, titre, bandeau }) {
           <div style={{
             fontSize: '4.3mm', fontWeight: 900, color: prov.accent,
             letterSpacing: '.07em', textTransform: 'uppercase', lineHeight: 1.1,
-          }}>École Internationale Bilingue IDEAL</div>
+          }}>{NOM_ECOLE}</div>
           <div style={{
             fontSize: '6mm', fontWeight: 900, color: '#0f172a',
             letterSpacing: '.01em', lineHeight: 1.15, marginTop: '1.2mm',
@@ -232,7 +233,7 @@ function Pied({ prov, page, total, etabliLe, mention }) {
             à personne. */}
         {mention && <><span style={{ fontWeight: 900, color: prov.accent }}>{mention}</span><br /></>}
         <span style={{ fontWeight: 900, color: prov.accent, letterSpacing: '.05em' }}>
-          École Internationale Bilingue IDEAL — Bamako, Mali
+          {NOM_ECOLE} — Bamako, Mali
         </span>
         <br />{prov.service}
         {total > 1 && <> · page {page} sur {total}</>}

@@ -9,6 +9,7 @@ import { messageEchecLisible } from '../lib/notifications'
 import FrisePreparation from '../components/FrisePreparation'
 import FichesCahiers from './FichesCahiers'
 import { remarquesParSection, remarquesGenerales, nbCorrectionsOuvertes, cleEtape } from '../lib/remarques'
+import { NOM_ECOLE } from '../lib/ecole'
 
 // Fiche de préparation d'une notion.
 //
@@ -720,7 +721,7 @@ export default function FichePreparation({
         @media print{body{padding:0}}
       </style></head><body>
       <h1>Fiche de préparation</h1>
-      <div class="sub">École Internationale Bilingue IDEAL · Bamako</div>
+      <div class="sub">${NOM_ECOLE} · Bamako</div>
       <div class="meta">
         <div><b>Matière :</b> ${creneau.matiere}</div><div><b>Classe :</b> ${creneau.groupe}</div>
         <div><b>Date :</b> ${dateLisible(dateCours)}</div>

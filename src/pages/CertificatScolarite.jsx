@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { CHAMPS_ELEVE_LISTE } from '../lib/eleves'
 import { useEchelleFeuille } from '../lib/echelleApercu'
 import { texteCertificat, lieuEtDate } from '../lib/certificatTexte'
-import { DIRECTEUR } from '../lib/ecole'
+import { DIRECTEUR, NOM_ECOLE } from '../lib/ecole'
 import { ANNEE_SCOLAIRE } from '../lib/periodeScolaire'
 
 // Le composant ne reçoit plus `user` : il ne s'en sert pas. Le signataire
@@ -284,7 +284,7 @@ export default function CertificatScolarite() {
                 responsables: selectedEleve.responsables,
                 motif: motifDelivrance,
                 anneeScolaire: ANNEE_SCOLAIRE,
-                ecole: 'École Internationale Bilingue IDEAL',
+                ecole: NOM_ECOLE,
               })
               const identite = `${selectedEleve.prenom || ''} ${selectedEleve.nom || ''}`.trim()
               const suite = t.corps.startsWith(identite) ? t.corps.slice(identite.length) : ` — ${t.corps}`
@@ -328,7 +328,7 @@ export default function CertificatScolarite() {
             </section>
 
             <footer style={{ position: 'absolute', left: 52, right: 52, bottom: 38, paddingTop: 14, borderTop: '1px solid #D5DEE6', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#7B8792', fontWeight: 700 }}>
-              <span>École Internationale Bilingue IDEAL</span>
+              <span>{NOM_ECOLE}</span>
               <span>Réf. {selectedEleve.matricule} / 2026-2027</span>
             </footer>
           </div>

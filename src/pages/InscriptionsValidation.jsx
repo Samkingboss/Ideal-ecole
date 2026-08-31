@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { etatDossier, libelleEtat, etatPiece, LIBELLE_CONTEXTE } from '../lib/dossierPieces'
 import { supabase } from '../lib/supabase'
+import { lienWhatsApp, NOM_ECOLE } from '../lib/ecole'
 
 const telephoneWA = valeur => {
   let n = String(valeur || '').replace(/\D/g, '')
@@ -107,8 +108,13 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
 
   const ouvrirWhatsApp = (inscription, parent) => {
     const numero = telephoneWA(parent?.whatsapp || parent?.tel1)
+<<<<<<< ours
     const texte = `Bonjour ${parent?.prenom || 'cher parent'},\n\nL'inscription de ${inscription.prenom} ${String(inscription.nom || '').toUpperCase()} à l'École Internationale Bilingue IDEAL est désormais validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\nÉcole Internationale Bilingue IDEAL — Bamako`
     window.open(numero ? `https://wa.me/${numero}?text=${encodeURIComponent(texte)}` : `https://wa.me/?text=${encodeURIComponent(texte)}`, '_blank')
+=======
+    const texte = `Bonjour ${parent?.prenom || 'cher parent'},\n\nL'inscription de ${inscription.prenom} ${String(inscription.nom || '').toUpperCase()} à ${NOM_ECOLE} est désormais validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\n${NOM_ECOLE} — Bamako`
+    window.open(lienWhatsApp(numero, texte), '_blank')
+>>>>>>> theirs
   }
 
   const valider = async () => {

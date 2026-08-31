@@ -31,13 +31,19 @@ export const lienWhatsAppEcole = message =>
 
 // ── Identité ─────────────────────────────────────────────────────────────────
 //
-// Dix-sept variantes du nom circulent sur les documents officiels. Celle-ci est
-// la forme du moteur documentaire, la seule cohérente du dépôt. La forme
-// canonique définitive reste une décision de la direction : tant qu'elle n'est
-// pas rendue, ce module fixe une référence unique plutôt que d'en ajouter une
-// dix-huitième.
+// Dix-sept variantes du nom circulaient sur les documents officiels. La
+// direction a tranché le 31/08/2026 : la marque vient EN TÊTE.
+//
+//     IDEAL École Internationale Bilingue
+//
+// et non « École Internationale Bilingue IDEAL ». L'ordre compte : c'est le
+// nom officiel de l'établissement, pas une description suivie d'un sigle.
+//
+// Cette constante est la source. Tout document qui affiche le nom doit la
+// lire, jamais le réécrire — c'est la réécriture qui avait produit les dix-sept
+// variantes.
 
-export const NOM_ECOLE = 'École Internationale Bilingue IDEAL'
+export const NOM_ECOLE = 'IDEAL École Internationale Bilingue'
 export const VILLE     = 'Bamako'
 export const ADRESSE   = 'Faladié Sema, Bamako, Mali'
 

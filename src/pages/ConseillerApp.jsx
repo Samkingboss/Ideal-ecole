@@ -4,6 +4,7 @@ import { messageLisible } from '../lib/chargement'
 import AgendaCalendrier from './AgendaCalendrier'
 import NotificationCenter from './NotificationCenter'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
+import { NOM_ECOLE } from '../lib/ecole'
 
 const dateLocale = () => new Intl.DateTimeFormat('fr-CA', {
   timeZone: 'Africa/Bamako', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -526,7 +527,7 @@ export default function ConseillerApp({ user, onLogout }) {
             </div>
 
             <div className="print-header" style={{textAlign:'center', marginBottom:40}}>
-              <h2 style={{fontSize:28, fontWeight:900, letterSpacing:'-1px', margin:0}}>ÉCOLE INTERNATIONALE BILINGUE IDEAL</h2>
+              <h2 style={{fontSize:28, fontWeight:900, letterSpacing:'-1px', margin:0}}>{NOM_ECOLE.toUpperCase()}</h2>
               <div style={{fontSize:12, textTransform:'uppercase', letterSpacing:2, color:'var(--muted)', marginTop:5, marginBottom:15}}>Rapport d'Assiduité Trimestriel</div>
               <p style={{margin:0, fontSize:15}}>Classe : <strong>{classes.find(c=>c.id===selectedClass)?.nom}</strong> | Période : <strong>{TRIMESTRES[selectedTrimester].label}</strong></p>
             </div>

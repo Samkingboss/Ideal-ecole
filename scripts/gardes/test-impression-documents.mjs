@@ -430,8 +430,14 @@ console.log(`\n${G}── IMPRESSION · planches, certificat, effectifs   [INV-U
     !/M\. Directeur/.test(t.entete), 'le document affichait « M. Directeur IDEAL »')
 
   const src = lire('src/pages/CertificatScolarite.jsx')
+  // Ce motif exigeait la ligne d'import MOT POUR MOT : « { DIRECTEUR } » et
+  // rien d'autre. Ajouter NOM_ECOLE au même import — la source canonique du
+  // nom de l'école, exactement la même discipline — l'a fait rougir alors que
+  // l'invariant tenait. Ce qui compte est que DIRECTEUR vienne de lib/ecole,
+  // pas qu'il y voyage seul.
+  const importeDirecteur = /import \{[^}]*\bDIRECTEUR\b[^}]*\} from '\.\.\/lib\/ecole'/.test(src)
   verifier('T3 le composant lit la source canonique',
-    /import \{ DIRECTEUR \} from '\.\.\/lib\/ecole'/.test(src) && /directeur: DIRECTEUR/.test(src))
+    importeDirecteur && /directeur: DIRECTEUR/.test(src))
   verifier('T3 aucun nom de directeur en dur dans l’écran',
     !/Samuel MOGADZI/.test(src), 'une seule copie, dans lib/ecole')
 

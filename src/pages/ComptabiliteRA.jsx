@@ -4,6 +4,7 @@ import {
   normalizeEtatComptable, previsionFinanciere, prochainRecu, protegerMutationSalariale, resteDu,
   salairesDepuisPostes, situationCaisse, syntheseComptable, synchroniserEleves, totalPaye,
 } from '../lib/comptabiliteRA'
+import { lienWhatsApp, NOM_ECOLE } from '../lib/ecole'
 import './ComptabiliteRA.css'
 
 const ONGLETS = [
@@ -445,7 +446,7 @@ export default function ComptabiliteRA({ supabase, user, classes = [], postes = 
       <div className="compta-ra__dialog-actions"><button type="button" className="compta-ra__button" onClick={() => setModal(null)}>Annuler</button><button className="compta-ra__button compta-ra__button--primary">Ajouter</button></div>
     </form></div></div>}
 
-    {modal?.type === 'recu' && <div className="compta-ra__modal"><div className="compta-ra__dialog compta-ra__receipt" role="dialog" aria-modal="true"><div className="compta-ra__receipt-head"><b>ÉCOLE INTERNATIONALE BILINGUE IDEAL</b><h2>Reçu de paiement</h2></div>
+    {modal?.type === 'recu' && <div className="compta-ra__modal"><div className="compta-ra__dialog compta-ra__receipt" role="dialog" aria-modal="true"><div className="compta-ra__receipt-head"><b>{NOM_ECOLE.toUpperCase()}</b><h2>Reçu de paiement</h2></div>
       <div className="compta-ra__receipt-line"><span>Reçu</span><b>{modal.payment.receiptId}</b></div><div className="compta-ra__receipt-line"><span>Élève</span><b>{modal.student.prenom} {modal.student.nom}</b></div><div className="compta-ra__receipt-line"><span>Motif</span><b>{modal.payment.motif}</b></div><div className="compta-ra__receipt-line"><span>Montant</span><b>{fcfa(modal.payment.amount)}</b></div><div className="compta-ra__receipt-line"><span>Mode</span><b>{modal.payment.mode}</b></div><div className="compta-ra__receipt-line"><span>Encaissé par</span><b>{modal.payment.par_nom || '—'}</b></div>
       <div className="compta-ra__dialog-actions"><button className="compta-ra__button" onClick={() => setModal(null)}>Fermer</button><button className="compta-ra__button compta-ra__button--primary" onClick={() => window.print()}>🖨️ Imprimer</button></div></div></div>}
   </section>
