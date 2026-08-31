@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { genererFichesCahiers, paginerFiches } from '../lib/fichesCahiers'
+import { MANUELS } from '../lib/programmes'
 
 const normaliser = valeur => String(valeur || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 const nomEnseignant = user => [user?.prenom, user?.nom].filter(Boolean).join(' ')
@@ -14,22 +15,36 @@ const classeEquivalent = (nom, groupe) => {
 
 function Fiche({ fiche }) {
   const maternelle = fiche.template === 'maternelle'
-  return <article className={`fiche-cahier ${maternelle ? 'fiche-cahier--maternelle' : 'fiche-cahier--primaire'}`}>
+  // La langue est portée par la fiche, décidée sur le manuel de la matière.
+  // Elle ne sert QU'à la typographie : rien d'autre n'en dépend.
+  const langue = fiche.langue === 'en' ? 'en' : 'fr'
+  return <article className={`fiche-cahier ${maternelle ? 'fiche-cahier--maternelle' : 'fiche-cahier--primaire'} fiche-cahier--${langue}`} lang={langue}>
     <header className="fiche-cahier__header">
       <div className="fiche-cahier__identite-ecole">
         <img src="/logo-ideal.png" alt="Logo IDEAL" />
         <div><div className="fiche-cahier__marque">IDEAL</div><div className="fiche-cahier__sous-marque">École Internationale Bilingue</div></div>
-        <h2>{maternelle ? 'MA JOURNÉE D’APPRENTISSAGE' : 'FICHE D’APPRENTISSAGE'}</h2>
+        {/* Le même titre au primaire et en maternelle. La maternelle portait
+            « MA JOURNÉE D'APPRENTISSAGE », une formulation adressée à
+            l'enfant — mais la fiche est lue par le parent, et deux noms pour
+            un même document rendaient la pile illisible à la maison quand
+            deux enfants d'une même famille n'ont pas le même niveau. */}
+        <h2>FICHE DE LEÇON DU JOUR</h2>
       </div>
       <div className="fiche-cahier__meta">
         <div className="fiche-cahier__eleve"><span>Élève</span><strong>{fiche.prenom} {fiche.nom}</strong></div>
         <div><span>Classe</span><strong>{fiche.classe}</strong></div>
-        <div><span>Date</span><strong>{fiche.date}</strong></div>
+        {/* « 2026-08-25 » n'est pas une date pour un parent. */}
+        <div><span>Date</span><strong>{fiche.dateLisible || fiche.date}</strong></div>
         <div><span>Matière</span><strong>{fiche.matiere}</strong></div>
       </div>
     </header>
     <section><h3>{fiche.absent ? 'Apprentissages de la journée' : 'Aujourd’hui, j’ai appris'}</h3>{fiche.absent && <p>{fiche.introduction}</p>}{fiche.objectif && <p>{fiche.objectif}</p>}</section>
     {!fiche.absent && fiche.activites.length > 0 && <section><h3>{maternelle ? 'Nous avons fait' : 'Ce que nous avons travaillé'}</h3><ul>{fiche.activites.map((a,i)=><li key={i}>{a}</li>)}</ul></section>}
+    {/* L'essentiel, en rouge : ce qu'un parent doit repérer sans lire le reste.
+        Le texte vient de l'étape « Clôture » de la préparation — dont l'aide à
+        l'enseignant dit « Ce qu'on retient » — ou, à défaut, de l'objectif de
+        la notion. Jamais d'une phrase fabriquée : sans source, pas de zone. */}
+    {fiche.essentiel && <section className="fiche-cahier__essentiel"><h3>Ce que l’enfant doit retenir</h3><p>{fiche.essentiel}</p></section>}
     {fiche.progression && <section><h3>Repère dans le programme</h3><p>{fiche.progression}</p></section>}
     {fiche.trace && <section><h3>{maternelle ? 'À refaire à la maison' : 'À revoir à la maison'}</h3><p>{fiche.trace}</p></section>}
     {fiche.observation && <section className="fiche-cahier__observation"><h3>Pour {fiche.prenom}</h3><p>{fiche.observation}</p></section>}
@@ -81,6 +96,11 @@ export default function FichesCahiers({ preparation, creneau, user, onFerme }) {
     preparation,
     eleves: eleves.filter(e => selection.includes(e.id)),
     classeNom: classe?.nom || creneau?.groupe,
+    // Le groupe de l'emploi du temps, et le registre des manuels : c'est de
+    // leur croisement que sort la langue de la leçon. Le registre est passé,
+    // pas importé par la bibliothèque, qui doit rester exécutable seule.
+    groupe: creneau?.groupe,
+    manuels: MANUELS,
     enseignant: nomEnseignant(user), observations, presences, note,
   }), [preparation, eleves, selection, classe, creneau?.groupe, user, observations, presences, note])
   const pages = useMemo(() => paginerFiches(fiches, 1), [fiches])
@@ -95,6 +115,25 @@ export default function FichesCahiers({ preparation, creneau, user, onFerme }) {
       .fiche-cahier-page{width:100%;max-width:210mm;min-height:297mm;margin:0 auto 14px;background:#fff;padding:10mm;box-sizing:border-box;display:block;box-shadow:0 4px 20px #0d2a3b22;break-after:page;page-break-after:always}
       .fiche-cahier{height:277mm;border:1px solid #bad7e6;border-radius:12px;padding:10mm;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column}
       .fiche-cahier__header{border-bottom:3px solid #00a8e0;padding-bottom:6mm}.fiche-cahier__identite-ecole{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4mm}.fiche-cahier__identite-ecole img{width:31mm;height:13mm;object-fit:contain;object-position:left center}.fiche-cahier__marque{font-size:13px;font-weight:950;letter-spacing:.08em;color:#0d2a3b}.fiche-cahier__sous-marque{font-size:8px;font-weight:800;letter-spacing:.04em;color:#64748b}.fiche-cahier h2{font-size:19px;margin:0;text-align:right;color:#0d2a3b}.fiche-cahier__meta{margin-top:6mm;padding:4mm;background:#eef8fc;border:1px solid #cae8f3;border-radius:9px;display:grid;grid-template-columns:1.4fr 1fr;gap:3mm 7mm}.fiche-cahier__meta div{display:grid;gap:1mm}.fiche-cahier__meta span{font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#087eaf}.fiche-cahier__meta strong{font-size:12px;color:#0d2a3b}.fiche-cahier__eleve strong{font-size:15px}.fiche-cahier section{margin-top:8mm;padding:5mm 6mm;border-left:1.2mm solid #00a8e0;background:#f8fcfe;border-radius:0 8px 8px 0}.fiche-cahier h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#087eaf;margin:0 0 3mm}.fiche-cahier p,.fiche-cahier li{font-size:12px;line-height:1.55;margin:0}.fiche-cahier ul{margin:0;padding-left:5mm}.fiche-cahier footer{margin-top:auto;padding-top:4mm;font-size:9px;color:#64748b;border-top:1px solid #dbe4ea;display:flex;justify-content:space-between}.fiche-cahier footer::after{content:'IDEAL · École Internationale Bilingue';font-weight:800}
+      /* ── Typographie selon la langue de la leçon ──────────────────────────
+         Ces règles ne s'appliquent QU'À la fiche de leçon du jour. Le cahier de
+         devoirs de maison passe par le moteur documentaire et ne lit rien d'ici.
+
+         FRANCAIS — la variable --police-lecon-fr est le SEUL point de bascule.
+         Tant qu'aucune cursive scolaire n'est disponible dans le projet, elle
+         n'est pas definie et la fiche garde la police lisible actuelle. Poser
+         une cursive decorative au hasard serait pire que pas de cursive : la
+         valeur generique CSS cursive donne Comic Sans ici, Apple Chancery la,
+         rien ailleurs, et l'impression n'est pas previsible.
+
+         ANGLAIS — script imprimé, net, sans ligature : la police du portail,
+         déjà chargée, sans dépendance nouvelle. */
+      .fiche-cahier--fr{font-family:var(--police-lecon-fr, inherit)}
+      .fiche-cahier--en{font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-variant-ligatures:none}
+      /* ── L'essentiel de la leçon, en rouge ─────────────────────────────── */
+      .fiche-cahier__essentiel{background:#fef2f2;border-left:1.2mm solid #dc2626;border-radius:0 8px 8px 0}
+      .fiche-cahier__essentiel h3{color:#b91c1c}
+      .fiche-cahier__essentiel p{color:#7f1d1d;font-weight:800;font-size:13px}
       .fiche-cahier--maternelle{border-color:#ffb67d}.fiche-cahier--maternelle .fiche-cahier__header{border-color:#ff914d}.fiche-cahier--maternelle h3{color:#c65d16}.fiche-cahier__observation{background:#f0fdf4;padding:6px;border-radius:7px}
       @media(max-width:600px){.fiches-cahiers-overlay{padding:8px;overflow-x:hidden}.fiches-cahiers-outils,.fiche-cahier-page,.fiche-cahier{min-width:0}.fiches-cahiers-actions>*{flex:1 1 140px}.fiche-cahier-page{min-height:0;padding:7px;display:block}.fiche-cahier{height:auto;min-height:620px;margin-bottom:8px;padding:14px}.fiche-cahier__identite-ecole{grid-template-columns:auto 1fr}.fiche-cahier__identite-ecole h2{grid-column:1/-1;text-align:left}.fiche-cahier h2{font-size:15px;overflow-wrap:anywhere}}
       @media print{body *{visibility:hidden!important}.fiches-cahiers-overlay,.fiches-cahiers-overlay *{visibility:visible!important}.fiches-cahiers-overlay{position:absolute;inset:0;padding:0;background:#fff;overflow:visible}.fiches-cahiers-outils{display:none!important}.fiche-cahier-page{width:210mm;height:297mm;min-height:297mm;margin:0;box-shadow:none;padding:10mm;break-after:page;page-break-after:always}.fiche-cahier{height:277mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid}.fiche-cahier-page:last-child{break-after:auto;page-break-after:auto}@page{size:A4 portrait;margin:0}}
