@@ -126,6 +126,11 @@ export const lireDevoir = (ligne) => {
   return {
     id: ligne?.id,
     classeId: ligne?.classe_id,
+    // Le cours préparé auquel ce devoir se rattache, quand il y en a un.
+    // FACULTATIF par construction : un devoir libre porte `null`, et reste un
+    // devoir entier. Les quatorze devoirs déjà en base n'ont pas cette clé —
+    // ils lisent donc `null`, sans rien changer pour eux.
+    preparationId: (typeof c.preparation_id === 'string' && c.preparation_id.trim()) || null,
     groupe: ligne?.groupe || c.grade || null,
     matiere: ligne?.matiere || c.subject || null,
     // `description` est la colonne ; `objectives` son équivalent historique.
@@ -268,6 +273,13 @@ export const contenuCanonique = (saisie) => ({
   // définitivement le candidat de son ciblage. Quatre devoirs en base visent
   // `ins:IDEAL-2027-008` et l'auraient perdu à la première retouche.
   candidat_matricules: saisie.destinataireMode === 'choix' ? (saisie.candidatMatricules || []) : [],
+  // Le cours préparé de référence. `contenu` est une colonne JSON qui porte
+  // déjà des clés libres : aucune migration n'est nécessaire pour ce lien.
+  //
+  // On enregistre l'IDENTIFIANT, jamais l'intitulé : celui-ci se relit sur la
+  // préparation. Le recopier ici en ferait une deuxième vérité, qui vieillirait
+  // dès la première correction du titre de la leçon.
+  preparation_id: (typeof saisie.preparationId === 'string' && saisie.preparationId.trim()) || null,
 })
 
 // ── Règles ─────────────────────────────────────────────────────────────────

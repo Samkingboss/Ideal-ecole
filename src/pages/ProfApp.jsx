@@ -23,6 +23,7 @@ import { statutDe as statutDePrep, libelleStatut as libelleStatutPrep } from '..
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import { CHAMPS_DEVOIR, TYPES_DEVOIR, TYPE_PAR_DEFAUT, contenuCanonique, refusDeSaisie, lireDevoir, auteurAuthentifie } from '../lib/devoirs'
 import { classerDevoirs, devoirsSelectionnes, selectionRaccourci, aujourdHuiISO } from '../lib/devoirsSelection'
+import { coursDisponibles, coursDeReference, SANS_COURS, LIBELLE_SANS_COURS } from '../lib/coursAssocie'
 import { periodePourDate, periodesUtilisables, libellePeriode, calendrierEnBase, MESSAGE_HORS_CALENDRIER } from '../lib/periodeScolaire'
 import { pdfEnImages, estFichierPdf } from '../lib/pdfEnImages'
 
@@ -150,6 +151,8 @@ export default function ProfApp({ user, onLogout }) {
     matiere: '', objectif: '', enonce: '', bareme: '',
     type: TYPE_PAR_DEFAUT, periode: '', aRendrePour: '',
     fichiers: [], pieces_existantes: [], destinataire_mode: 'classe', eleve_ids: [], candidat_matricules: [],
+    // Le cours de référence, FACULTATIF. Vide = devoir libre.
+    preparation_id: SANS_COURS,
   }
   const [newDevoir, setNewDevoir] = useState(DEVOIR_VIDE)
   const [devoirEdite, setDevoirEdite] = useState(null)
@@ -208,6 +211,38 @@ export default function ProfApp({ user, onLogout }) {
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { loadProgramme() }, [selectedClasse])
+
+  // ── Les cours préparés proposables au rattachement d'un devoir ───────────
+  //
+  // Requête à part, et pour deux raisons. `contenu` porte la fiche entière —
+  // on ne la ramène pas pour toute l'année, d'où la borne. Et la liste déjà
+  // chargée pour « Mes préparations » ne demande pas `contenu` : y toucher
+  // alourdirait un écran qui n'en a pas besoin.
+  //
+  // Le filtre serveur porte sur l'enseignant SEUL. Le groupe se compare côté
+  // client, sans accents ni casse : `preparations.groupe` vient de l'emploi du
+  // temps et le nom de classe peut s'en écarter (« PS » contre « Petite
+  // Section »). Un filtre serveur strict masquerait des cours réels.
+  //
+  // `null` n'est pas `[]` : une lecture refusée ne doit pas se lire « aucun
+  // cours préparé ».
+  const [coursPrepares, setCoursPrepares] = useState([])
+  useEffect(() => {
+    if (tab !== 'devoirs' || !user?.id) return undefined
+    let annule = false
+    ;(async () => {
+      const { data, error } = await supabase.from('preparations')
+        .select('id, user_id, date_cours, sequence, matiere, groupe, status, contenu')
+        .eq('user_id', user.id)
+        .order('date_cours', { ascending: false })
+        .limit(60)
+      if (annule) return
+      // Ni `data || []` : le motif confond une erreur avec un vide, et le
+      // cliquet le compte à juste titre. Ici l'erreur a déjà sa branche.
+      setCoursPrepares(error ? null : (Array.isArray(data) ? data : []))
+    })()
+    return () => { annule = true }
+  }, [tab, user?.id])
 
   useEffect(() => {
     if (!user?.id) return undefined
@@ -457,6 +492,7 @@ export default function ProfApp({ user, onLogout }) {
       // Transporté sans être modifiable : l'écran ne sait pas afficher un
       // candidat, mais il ne doit pas l'effacer pour autant.
       candidat_matricules: d.candidatMatricules,
+      preparation_id: d.preparationId || SANS_COURS,
     })
     setDevoirErreur('')
     setRechercheEleve('')
@@ -579,6 +615,7 @@ export default function ProfApp({ user, onLogout }) {
           destinataireMode: newDevoir.destinataire_mode,
           eleveIds: newDevoir.eleve_ids,
           candidatMatricules: newDevoir.candidat_matricules || [],
+          preparationId: newDevoir.preparation_id,
         }),
         fichiers: toutesPieces,
         fichier_url: toutesPieces[0]?.url || null,
@@ -1216,6 +1253,42 @@ export default function ProfApp({ user, onLogout }) {
                   )}
                 </div>
 
+                {/* ── Cours associé ────────────────────────────────────────
+                    FACULTATIF, et volontairement placé APRÈS la matière : le
+                    rattachement est une aide, pas une contrainte. Choisir un
+                    cours ne change JAMAIS la matière du devoir — un enseignant
+                    qui a fait Écriture peut donner un devoir libre de Maths. */}
+                <div>
+                  <label className="form-label">
+                    Cours associé <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(facultatif)</span>
+                  </label>
+                  {coursPrepares === null ? (
+                    <div style={{ fontSize: 12, color: '#b45309', fontWeight: 700 }}>
+                      Vos cours préparés n’ont pas pu être lus. Le devoir reste enregistrable sans cours associé.
+                    </div>
+                  ) : (() => {
+                    const liste = coursDisponibles(coursPrepares, {
+                      userId: user?.id, groupe: selectedClasse?.nom, matiere: newDevoir.matiere,
+                    })
+                    return <>
+                      <select className="form-select" value={newDevoir.preparation_id}
+                        onChange={e => setNewDevoir({ ...newDevoir, preparation_id: e.target.value })}>
+                        <option value={SANS_COURS}>{LIBELLE_SANS_COURS}</option>
+                        {liste.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.intitule} · {c.date}{c.statut && c.statut !== 'validee' ? ` · ${c.statut}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                        {liste.length === 0
+                          ? 'Aucun cours préparé pour cette classe parmi vos 60 derniers. Le devoir reste libre.'
+                          : 'Vos cours, les plus récents d’abord. La matière du devoir n’est pas modifiée par ce choix.'}
+                      </div>
+                    </>
+                  })()}
+                </div>
+
                 <div>
                   <label className="form-label">Objectif du devoir</label>
                   <textarea className="form-input" rows={3}
@@ -1494,6 +1567,19 @@ export default function ProfApp({ user, onLogout }) {
                       </span>
                     )}
                   </div>
+                  {/* Le cours de référence, LU sur la préparation liée — jamais
+                      un texte recopié dans le devoir. Si la préparation n'est
+                      plus lisible, la ligne disparaît et le devoir reste entier.
+                      Cet affichage est celui de l'ÉCRAN de l'enseignant ; le
+                      cahier imprimé, validé et gelé, n'est pas touché. */}
+                  {(() => {
+                    const cours = coursDeReference(coursPrepares, lireDevoir(d).preparationId)
+                    return cours ? (
+                      <div style={{ fontSize: 12, color: '#0284c7', marginTop: 6, fontWeight: 700 }}>
+                        <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>COURS ASSOCIÉ · </span>{cours.intitule}
+                      </div>
+                    ) : null
+                  })()}
                   {d.description && (
                     <div style={{ fontSize: 14, color: '#0f172a', marginTop: 6, fontWeight: 600 }}>
                       <span style={{ color: '#64748b', fontWeight: 800, fontSize: 11 }}>OBJECTIF · </span>{d.description}
