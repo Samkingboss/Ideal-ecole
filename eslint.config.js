@@ -26,4 +26,18 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Les fonctions serveur Vercel tournent sous Node, pas dans un
+    // navigateur : `process` et `Buffer` y sont légitimes. Sans ce bloc,
+    // eslint les signalait comme des variables inconnues — cinq erreurs
+    // qui auraient poussé à relever le plafond du cliquet pour du bruit.
+    files: ['api/**/*.js'],
+    languageOptions: { globals: globals.node },
+    rules: {
+      // Une fonction serverless exporte son gestionnaire par défaut : la
+      // règle de Fast Refresh, pensée pour les composants React, n'a
+      // aucun sens ici.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

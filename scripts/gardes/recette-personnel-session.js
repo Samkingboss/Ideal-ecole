@@ -21,7 +21,7 @@
       headers: { apikey: CLE, Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' },
       body: JSON.stringify(corps),
     })
-    let j = {}; try { j = JSON.parse(await r.text()) || {} } catch {}
+    let j = {}; try { j = JSON.parse(await r.text()) || {} } catch { /* corps non JSON */ }
     return { status: r.status, code: j.code || '', message: j.message || '' }
   }
 

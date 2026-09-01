@@ -40,9 +40,20 @@ garde "L10 · generer_code_acces non exécutable" "http 'rpc/generer_code_acces'
 
 titre "RÉSEAU · l'authentification répond   [INV-SEC-05]"
 
-# Fonction en lecture seule par construction : son corps ne contient qu'un SELECT.
-garde "L6 · code inconnu → null, jamais d'exception" \
-  "rpc authentifier_par_code '{\"p_code\":\"CODEQUINEXISTEPAS\"}'" "null"
+# RECALIBRÉE en Phase 1, avec l'accord du directeur.
+#
+# Elle vérifiait qu'un code inconnu rendait `null` plutôt qu'une exception.
+# C'était juste tant que la fonction servait de repli de connexion. Le repli
+# a été retiré de LoginPage — Supabase Auth fait seul autorité — et la
+# fonction a été révoquée de public, anon et authenticated.
+#
+# La garde encodait donc l'état qu'on venait de corriger : elle rougissait
+# sur la fermeture. Elle vérifie désormais LA FERMETURE elle-même, ce qui
+# est la propriété qu'on tient à ne pas perdre. Si quelqu'un rouvrait cette
+# porte, l'ancien code en clair de `users_secrets` redeviendrait un chemin
+# de connexion parallèle à Auth.
+garde "L6 · authentifier_par_code reste fermée à tous" \
+  "rpc authentifier_par_code '{\"p_code\":\"CODEQUINEXISTEPAS\"}' | grep -o '42501' | head -1" "42501"
 
 titre "RÉSEAU · intégrité des données   [INV-SEC-04, INV-CONT-03]"
 

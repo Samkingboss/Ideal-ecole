@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Activer mon accès — IDEAL</title>
+  <style>
+    :root{--bleu:#174e72;--accent:#00a8e0;--vert:#16825d;--rouge:#b3261e;--texte:#17364d;--muted:#6f7f8a;--bord:#d9e6ec;--fond:#eef6f9}
+    *{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font-family:Inter,Arial,sans-serif;min-height:100vh}
+    header{background:linear-gradient(125deg,#102f43,var(--bleu));color:#fff;padding:22px 18px;border-bottom:4px solid var(--accent)}
+    .marque{max-width:560px;margin:auto}.marque b{font-size:22px;letter-spacing:.06em}.marque div{font-size:12px;opacity:.8;margin-top:3px}
+    main{max-width:560px;margin:28px auto;padding:0 16px 50px}
+    .carte{background:#fff;border:1px solid var(--bord);border-radius:18px;box-shadow:0 8px 30px rgba(23,78,114,.09);overflow:hidden}
+    .etat{padding:30px;text-align:center}.icone{font-size:42px;margin-bottom:10px}
+    .etat h1{font-size:21px;margin:0 0 8px}.etat p{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+    .corps{padding:26px}
+    label{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;color:#81909a;text-transform:uppercase;margin-bottom:6px}
+    input{width:100%;padding:13px;border:1px solid var(--bord);border-radius:10px;font-size:16px;font-family:inherit;color:var(--texte);background:#fbfdfe}
+    input:focus{outline:2px solid var(--accent);outline-offset:1px}
+    .champ{margin-bottom:18px}
+    .aide{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.5}
+    button{width:100%;padding:14px;border:0;border-radius:10px;background:var(--bleu);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .erreur{background:#fdecea;border:1px solid #f3bdb7;color:var(--rouge);padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:18px;line-height:1.5}
+    footer{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;line-height:1.6}
+  </style>
+</head>
+<body>
+  <header><div class="marque"><b>IDEAL</b><div>École Internationale Bilingue · Activation d’accès</div></div></header>
+  <main>
+
+    <section id="chargement" class="carte">
+      <div class="etat"><div class="icone">⏳</div><h1>Vérification du lien</h1><p>Un instant…</p></div>
+    </section>
+
+    <section id="formulaire" class="carte" hidden>
+      <div class="corps">
+        <h1 style="font-size:20px;margin:0 0 6px">Choisissez votre mot de passe</h1>
+        <p class="aide" style="margin:0 0 22px">
+          Il sera connu de vous seul. La direction ne peut ni le voir ni le retrouver.
+        </p>
+        <div id="erreur" class="erreur" hidden></div>
+        <form id="form" autocomplete="off">
+          <div class="champ">
+            <label for="mdp">Nouveau mot de passe</label>
+            <input id="mdp" type="password" autocomplete="new-password" minlength="10" required>
+            <div class="aide">10 caractères au minimum. Aucune majuscule ni chiffre imposés — choisissez quelque chose que vous retiendrez.</div>
+          </div>
+          <div class="champ">
+            <label for="mdp2">Confirmation</label>
+            <input id="mdp2" type="password" autocomplete="new-password" minlength="10" required>
+          </div>
+          <button id="envoyer" type="submit">Activer mon accès</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="succes" class="carte" hidden>
+      <div class="etat">
+        <div class="icone">✅</div>
+        <h1>Votre accès IDEAL est activé.</h1>
+        <p>Vous pouvez maintenant vous connecter avec votre identifiant et le mot de passe que vous venez de choisir.</p>
+      </div>
+    </section>
+
+    <section id="invalide" class="carte" hidden>
+      <div class="etat">
+        <div class="icone">🔒</div>
+        <h1>Ce lien n’est plus valable.</h1>
+        <p>Demandez-en un nouveau à la direction.</p>
+      </div>
+    </section>
+
+    <footer>IDEAL École Internationale Bilingue — Bamako, Mali</footer>
+  </main>
+
+  <script>
+  // ── Le jeton vit dans le FRAGMENT, jamais dans la query string ───────
+  //
+  // Un fragment n'est pas transmis au serveur : absent des journaux
+  // d'accès, absent de l'en-tête Referer. Même choix que
+  // `suivi-inscription.html`.
+  (function () {
+    const $ = (id) => document.getElementById(id)
+    const montrer = (id) => {
+      for (const s of ['chargement', 'formulaire', 'succes', 'invalide']) $(s).hidden = (s !== id)
+    }
+
+    const cle = new URLSearchParams(location.hash.slice(1)).get('token') || ''
+
+    // Le jeton quitte la barre d'adresse dès qu'il est lu : il ne reste
+    // ni dans l'historique du navigateur, ni visible par-dessus l'épaule.
+    // Il n'est JAMAIS écrit dans la page.
+    try { history.replaceState(null, '', location.pathname) } catch (e) { /* sans conséquence */ }
+
+    if (!/^[0-9a-f]{64}$/.test(cle)) { montrer('invalide'); return }
+    montrer('formulaire')
+
+    const erreur = (texte) => { $('erreur').textContent = texte; $('erreur').hidden = false }
+
+    $('form').addEventListener('submit', async (ev) => {
+      ev.preventDefault()
+      $('erreur').hidden = true
+
+      const mdp = $('mdp').value
+      if (mdp.length < 10) { erreur('Le mot de passe doit compter au moins 10 caractères.'); return }
+      if (mdp !== $('mdp2').value) { erreur('Les deux mots de passe ne sont pas identiques.'); return }
+
+      $('envoyer').disabled = true
+      $('envoyer').textContent = 'Activation…'
+
+      let reponse
+      try {
+        reponse = await (await fetch('/api/personnel-activer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: cle, mot_de_passe: mdp }),
+        })).json()
+      } catch (e) {
+        // Une coupure réseau n'est pas un lien mort : le dire, sinon la
+        // personne renonce et redemande un lien pour rien.
+        erreur('Impossible de joindre le serveur. Vérifiez votre connexion, puis réessayez.')
+        $('envoyer').disabled = false
+        $('envoyer').textContent = 'Activer mon accès'
+        return
+      }
+
+      if (reponse && reponse.ok) { montrer('succes'); return }
+
+      if (reponse && reponse.raison === 'mot_de_passe_trop_court') {
+        erreur('Le mot de passe doit compter au moins 10 caractères.')
+        $('envoyer').disabled = false
+        $('envoyer').textContent = 'Activer mon accès'
+        return
+      }
+
+      if (reponse && reponse.raison === 'lien_consomme_sans_effet') {
+        erreur("Le mot de passe n'a pas pu être enregistré et ce lien est désormais épuisé. Demandez-en un nouveau à la direction.")
+        return
+      }
+
+      // Inconnu, expiré, déjà utilisé, révoqué : une seule réponse.
+      montrer('invalide')
+    })
+  })()
+  </script>
+</body>
+</html>

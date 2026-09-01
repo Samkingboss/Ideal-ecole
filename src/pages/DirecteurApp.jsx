@@ -8,6 +8,7 @@ import {
   avantagesDe, ancienneteAnnees, pointsMaxAnnee,
 } from '../lib/points'
 import { lireJournal } from '../lib/audit'
+import { lienWhatsApp } from '../lib/ecole'
 import { notifierCorrectionPreparation, pushNotification } from '../lib/notifications'
 import AffectationsMatieres from './AffectationsMatieres'
 import ActivitePersonnel from './ActivitePersonnel'
@@ -131,7 +132,10 @@ export default function DirecteurApp({ user, onLogout }) {
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
-  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', code_acces:'', plafond_salaire: 180000, classe_ids: [] })
+  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
+  // Statut d'acces par membre, lu par RPC gardee « directeur ». Ne contient
+  // aucune empreinte de jeton : seulement un libelle et une echeance.
+  const [etatsAcces, setEtatsAcces] = useState({})
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
   const [newEvenement, setNewEvenement] = useState({ titre:'', date_event:'', description:'' })
   const [loading, setLoading] = useState(false)
@@ -392,6 +396,19 @@ export default function DirecteurApp({ user, onLogout }) {
 
   useEffect(() => { 
     loadData() 
+  }, [])
+
+  // Les statuts d'acces vivent hors du lot du tableau de bord : leur echec
+  // ne doit pas faire tomber l'ecran. Sans eux, les cartes affichent
+  // « Acces non envoye » — un defaut d'information, pas une panne. Ils sont
+  // rafraichis explicitement apres une creation ou un envoi de lien.
+  useEffect(() => {
+    supabase.rpc('lire_etat_acces_personnel').then(({ data, error }) => {
+      if (error || !Array.isArray(data)) return
+      const parId = {}
+      for (const ligne of data) parId[ligne.user_id] = ligne
+      setEtatsAcces(parId)
+    })
   }, [])
 
   useEffect(() => {
@@ -696,69 +713,161 @@ export default function DirecteurApp({ user, onLogout }) {
     })
     .sort((a, b) => b.calc.total - a.calc.total)
 
-  const generateCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    let code = ''
-    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
-    return code
-  }
+  // `generateCode()` vivait ici. Il tirait huit caracteres avec
+  // `Math.random()`, generateur non cryptographique dont l'etat interne se
+  // reconstruit a partir de quelques sorties — et le directeur voyait le
+  // resultat en clair a l'ecran. Plus aucun secret n'est fabrique dans le
+  // navigateur : l'identite naît cote serveur, le mot de passe est choisi
+  // par le membre lui-meme.
 
+  // ── Creation d'un membre : passe par la route serveur ─────────────────
+  //
+  // Creer une identite Supabase Auth exige une cle serveur, qui ne peut pas
+  // vivre dans un navigateur. `/api/personnel-creer` verifie le role reel
+  // de l'appelant aupres de la base — jamais le role annonce par le client —
+  // puis cree l'identite et rattache le profil, en compensant si le second
+  // temps echoue.
+  //
+  // Il n'existe aucun chemin de MODIFICATION dans cet ecran : `newProf.id`
+  // n'est renseigne nulle part. `saveProf` a toujours ete une creation, et
+  // le reste.
   const saveProf = async () => {
     setLoading(true)
     try {
-      const code = newProf.code_acces || generateCode()
       const fonctionMaternelle = FONCTIONS_MATERNELLE[newProf.role]
       const roleCompte = fonctionMaternelle?.role || newProf.role
       const fonctionCompte = fonctionMaternelle?.fonction || null
       const langueCompte = fonctionMaternelle?.langue || newProf.langue
-      // `users` n'est plus accessible en écriture à la clé anonyme, et le
-      // code d'accès a quitté la table. L'enregistrement passe donc par une
-      // fonction SECURITY DEFINER qui écrit `users` et `users_secrets` dans
-      // une seule transaction, et refuse le rôle `directeur`.
-      //
-      // Le repli sur `users_role_check` n'a pas disparu : il a été déplacé
-      // dans la fonction SQL, où il s'exécute à l'intérieur de la même
-      // transaction. Vu d'ici, le comportement est inchangé.
-      const { data: userData, error } = await supabase.rpc('enregistrer_utilisateur', {
-        p_id: newProf.id || null,
-        p_prenom: newProf.prenom,
-        p_nom: newProf.nom,
-        p_role: roleCompte,
-        p_langue: langueCompte,
-        p_fonction: fonctionCompte,
-        p_code: code,
-        p_plafond: newProf.plafond_salaire ?? null,
-      })
 
-      if (error) {
-        alert('❌ Compte non enregistré : ' + (error.message || 'Erreur inattendue'))
-        setMsg('Erreur: ' + error.message)
-      } else if (userData) {
-        if (roleCompte === 'professeur') {
-          await supabase.from('prof_classes').delete().eq('user_id', userData.id)
-          if (newProf.classe_ids?.length > 0) {
-            const links = newProf.classe_ids.map(cid => ({ 
-              user_id: userData.id, 
-              classe_id: cid,
-              langue: langueCompte || 'fr'
-            }))
-            const { error: linkErr } = await supabase.from('prof_classes').insert(links)
-            if (linkErr) {
-              alert("Classes non sauvées: " + linkErr.message)
-            }
-          }
-        }
-        setMsg(`Compte ${newProf.id ? 'mis à jour' : 'créé'} ! Code: ` + code)
-        await loadData()
-        setShowModal(null)
-        setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', code_access:'', plafond_salaire: 180000, classe_ids: [] })
+      // Le jeton part dans l'en-tete Authorization, jamais dans le corps.
+      const { data: { session } = {} } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        alert('❌ Session expiree. Reconnectez-vous avant de creer un compte.')
+        setMsg('Session expiree')
+        return
       }
+
+      const reponse = await fetch('/api/personnel-creer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          prenom: newProf.prenom,
+          nom: newProf.nom,
+          role: roleCompte,
+          langue: langueCompte,
+          fonction: fonctionCompte,
+          telephone: newProf.telephone,
+        }),
+      })
+      const resultat = await reponse.json().catch(() => ({}))
+
+      if (!resultat?.ok) {
+        const libelles = {
+          reserve_a_la_direction: 'Seule la direction peut creer un compte.',
+          session_absente: 'Session expiree. Reconnectez-vous.',
+          session_invalide: 'Session expiree. Reconnectez-vous.',
+          identite_incomplete: 'Le prenom et le nom sont obligatoires.',
+          role_manquant: 'Choisissez un role.',
+          identifiant_deja_pris: 'Un compte porte deja cet identifiant.',
+          configuration_serveur_incomplete: 'Le serveur n\'est pas configure pour creer des comptes. Prevenez l\'administrateur.',
+        }
+        // La compensation ratee doit se voir : une identite orpheline
+        // empeche de recreer le meme membre.
+        const suite = resultat?.compensation === 'echouee'
+          ? "\n\n⚠ Une identite incomplete subsiste cote serveur. Signalez-le avant de reessayer."
+          : ''
+        alert('❌ Compte non cree : ' + (libelles[resultat?.raison] || 'Erreur inattendue') + suite)
+        setMsg('Erreur: ' + (resultat?.raison || 'inconnue'))
+        return
+      }
+
+      if (roleCompte === 'professeur' && newProf.classe_ids?.length > 0) {
+        const links = newProf.classe_ids.map(cid => ({
+          user_id: resultat.id,
+          classe_id: cid,
+          langue: langueCompte || 'fr',
+        }))
+        const { error: linkErr } = await supabase.from('prof_classes').insert(links)
+        if (linkErr) alert('Classes non sauvees: ' + linkErr.message)
+      }
+
+      // Aucun secret dans ce message. L'identifiant n'en est pas un : le
+      // membre doit le connaitre pour se connecter.
+      setMsg(`Compte cree. Identifiant : ${resultat.identifiant}. Envoyez-lui son acces.`)
+      await loadData()
+      await chargerEtatsAcces()
+      setShowModal(null)
+      setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
     } catch (e) {
       console.error(e)
-      setMsg('Erreur imprévue')
+      setMsg('Erreur imprevue')
     } finally {
       setLoading(false)
     }
+  }
+
+  // ── Statuts d'acces ───────────────────────────────────────────────────
+  //
+  // `lire_etat_acces_personnel` porte sa garde dans son `where` : un
+  // non-directeur recoit zero ligne, jamais une donnee.
+  const chargerEtatsAcces = async () => {
+    const { data, error } = await supabase.rpc('lire_etat_acces_personnel')
+    // Une lecture REFUSEE et une liste vide ne sont pas la meme chose : la
+    // premiere doit laisser l'affichage precedent en place plutot que de
+    // repeindre toutes les cartes en « Acces non envoye ».
+    if (error || !Array.isArray(data)) return
+    const parId = {}
+    for (const ligne of data) parId[ligne.user_id] = ligne
+    setEtatsAcces(parId)
+  }
+
+  const LIBELLES_ACCES = {
+    active:        { texte: 'Acces active',            couleur: 'var(--green)' },
+    envoyee:       { texte: 'Invitation envoyee',      couleur: 'var(--accent)' },
+    expiree:       { texte: 'Invitation expiree',      couleur: 'var(--orange)' },
+    non_envoye:    { texte: 'Acces non envoye',        couleur: 'var(--muted)' },
+    // Un membre d'avant la Phase 2 se connecte parfaitement mais n'a jamais
+    // recu de lien. L'afficher « non envoye » ferait croire a un compte
+    // inutilisable ; le statut dit ce qui est.
+    ancien_compte: { texte: 'Acces actif (ancien compte)', couleur: 'var(--green)' },
+    sans_identite: { texte: 'Sans identite — a recreer',   couleur: 'var(--red)' },
+  }
+
+  // ── Envoi d'un lien d'activation ──────────────────────────────────────
+  //
+  // Aucune cle serveur ici : `emettre_acces_personnel` est appelable avec la
+  // session du directeur. Le jeton brut ne sort qu'une fois, pour composer
+  // le lien, et n'est ecrit nulle part.
+  const envoyerAcces = async (membre) => {
+    const { data, error } = await supabase.rpc('emettre_acces_personnel', { p_user_id: membre.id })
+    if (error || !data?.ok) {
+      alert('❌ Lien non emis : ' + (error?.message || 'Erreur inattendue'))
+      return
+    }
+
+    const lien = `${window.location.origin}/activer-acces.html#token=${data.token}`
+    const message = [
+      `Bonjour ${data.prenom},`,
+      '',
+      'Votre acces a la plateforme IDEAL est pret.',
+      '',
+      `Identifiant : ${data.identifiant}`,
+      'Choisissez votre mot de passe ici :',
+      lien,
+      '',
+      'Ce lien est valable 48 heures et ne fonctionne qu\'une seule fois.',
+      'Ne le transmettez a personne.',
+      '',
+      'IDEAL Ecole Internationale Bilingue',
+    ].join('\n')
+
+    // Numero absent : `lienWhatsApp` ouvre WhatsApp sans destinataire, et le
+    // directeur choisit le contact. Un lien mort serait pire.
+    window.open(lienWhatsApp(data.telephone, message), '_blank')
+    await chargerEtatsAcces()
   }
 
   const saveJoursOuvres = async () => {
@@ -1807,10 +1916,28 @@ export default function DirecteurApp({ user, onLogout }) {
                     <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Rôle: <b style={{ color: 'var(--accent)' }}>{fmtRole(p.role)}</b></div>
-                      {/* Masqué : voir le commentaire de la liste principale. */}
-                      <div style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>
-                        🔑 Code : <b style={{ fontFamily: 'monospace', letterSpacing: 2 }}>••••••••</b>
-                      </div>
+                      {/* Plus de pastille « Code » : il n'y a plus de code. Le
+                          statut d'acces la remplace — un libelle, jamais un secret. */}
+                      {(() => {
+                        const etat = etatsAcces[p.id]
+                        const libelle = LIBELLES_ACCES[etat?.statut] || LIBELLES_ACCES.non_envoye
+                        const dejaEnvoye = etat?.statut === 'envoyee' || etat?.statut === 'expiree' || etat?.statut === 'active'
+                        return (
+                          <>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--card)', padding: '6px 10px', borderRadius: 6, marginBottom: 8 }}>
+                              <span style={{ color: libelle.couleur, fontWeight: 800 }}>● {libelle.texte}</span>
+                              {etat?.statut === 'envoyee' && etat?.expire_le && (
+                                <span> — expire le {new Date(etat.expire_le).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                              )}
+                            </div>
+                            {etat?.statut !== 'sans_identite' && (
+                              <button className="btn-sm" style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', border: '1px solid var(--accent)', width: '100%', marginBottom: 6 }} onClick={() => envoyerAcces(p)}>
+                                {dejaEnvoye ? "Renvoyer l'acces" : "Envoyer l'acces"}
+                              </button>
+                            )}
+                          </>
+                        )
+                      })()}
                       <button className="btn-sm" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', border: '1px solid var(--red)', width: '100%' }} onClick={() => deleteProf(p.id)}>
                         Supprimer
                       </button>
@@ -2222,9 +2349,12 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </>
             )}
+            {/* Le champ « Code d acces » a disparu. Le directeur ne choisit
+                plus, ne voit plus et ne transmet plus de secret : le membre
+                choisit son mot de passe lui-meme, par un lien a usage unique. */}
             <div className="form-group">
-              <label className="form-label">Code d acces (laisser vide pour generer)</label>
-              <input className="form-input code-input" value={newProf.code_acces} onChange={e=>setNewProf({...newProf,code_acces:e.target.value.toUpperCase()})} placeholder="Auto-genere" maxLength={12} />
+              <label className="form-label">Telephone WhatsApp (pour envoyer l&apos;acces)</label>
+              <input className="form-input" type="tel" value={newProf.telephone} onChange={e=>setNewProf({...newProf,telephone:e.target.value})} placeholder="+223 90 00 00 00" maxLength={20} />
             </div>
             <button className="btn btn-primary" onClick={saveProf} disabled={loading}>{loading?'...':'Creer le compte'}</button>
             <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
