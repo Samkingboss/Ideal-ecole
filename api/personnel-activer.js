@@ -70,7 +70,7 @@ export default async function handler(req, res) {
   }
 
   // ── Le mot de passe, posé par GoTrue ─────────────────────────────────
-  const { error: errMaj } =
+  const { data: majUser, error: errMaj } =
     await admin.auth.admin.updateUserById(consommation.auth_user_id, { password: nouveau })
 
   if (errMaj) {
@@ -79,5 +79,24 @@ export default async function handler(req, res) {
     return repondre(res, 502, { ok: false, raison: 'lien_consomme_sans_effet' })
   }
 
-  return repondre(res, 200, { ok: true })
+  // ── L'identifiant, pour que le membre puisse se connecter ────────────
+  //
+  // Il sort de la réponse que GoTrue vient de rendre : aucune requête
+  // supplémentaire, aucune lecture de `public.users`, aucun usage de plus
+  // de la clé serveur. `user_metadata.identifiant` est posé à la création ;
+  // l'adresse synthétique `identifiant@comptes.ideal-ecole.ml` sert de
+  // repli, car tout compte en possède une.
+  //
+  // Il n'est atteignable qu'ICI, après une consommation valide. Un jeton
+  // inconnu, expiré, révoqué ou déjà consommé n'arrive jamais jusqu'à
+  // cette ligne : aucune énumération n'est possible.
+  //
+  // Un identifiant n'est pas un secret — le membre doit le connaître pour
+  // se connecter, et il figure déjà dans le message WhatsApp du directeur.
+  const utilisateur = majUser?.user
+  const identifiant = utilisateur?.user_metadata?.identifiant
+    || String(utilisateur?.email || '').split('@')[0]
+    || null
+
+  return repondre(res, 200, { ok: true, identifiant })
 }

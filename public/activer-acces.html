@@ -25,6 +25,13 @@
     button{width:100%;padding:14px;border:0;border-radius:10px;background:var(--bleu);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
     button:disabled{opacity:.55;cursor:not-allowed}
     .erreur{background:#fdecea;border:1px solid #f3bdb7;color:var(--rouge);padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:18px;line-height:1.5}
+    .identite{margin:20px 0 4px;padding:14px;background:#f7fafb;border:1px solid #e4edf1;border-radius:12px;text-align:center}
+    .identite .label{font-size:9px;font-weight:900;letter-spacing:.08em;color:#81909a;text-transform:uppercase}
+    .identite .valeur{font-size:20px;font-weight:900;margin-top:5px;letter-spacing:.04em;word-break:break-all;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .actions{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+    .actions a.principal{display:block;text-align:center;padding:14px;border-radius:10px;background:var(--bleu);color:#fff;font-size:15px;font-weight:800;text-decoration:none}
+    .actions button.secondaire{width:100%;padding:12px;border:1.5px dashed var(--bord);border-radius:10px;background:none;color:var(--muted);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+    .aide-install{margin-top:10px;padding:12px 14px;background:#eef7fb;border:1px solid #cfe6f1;border-radius:10px;font-size:13px;color:var(--texte);line-height:1.55;text-align:left}
     footer{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;line-height:1.6}
   </style>
 </head>
@@ -62,7 +69,18 @@
       <div class="etat">
         <div class="icone">✅</div>
         <h1>Votre accès IDEAL est activé.</h1>
-        <p>Vous pouvez maintenant vous connecter avec votre identifiant et le mot de passe que vous venez de choisir.</p>
+        <p>Connectez-vous avec votre identifiant et le mot de passe que vous venez de choisir.</p>
+
+        <div id="identite" class="identite" hidden>
+          <div class="label">Votre identifiant</div>
+          <div id="identifiant" class="valeur"></div>
+        </div>
+
+        <div class="actions">
+          <a class="principal" href="/">Ouvrir IDEAL</a>
+          <button id="installer" type="button" class="secondaire" hidden>📲 Installer IDEAL sur mon téléphone</button>
+        </div>
+        <div id="aide-install" class="aide-install" hidden></div>
       </div>
     </section>
 
@@ -78,12 +96,43 @@
   </main>
 
   <script>
+  // ── Le service worker, pour que l'installation soit RÉELLE ──────────
+  //
+  // Sans service worker enregistré sur CETTE page, Chrome n'émet jamais
+  // `beforeinstallprompt` : le bouton d'installation ne pourrait que donner
+  // des instructions, jamais installer. `public/inscription.html` fait déjà
+  // exactement ceci.
+  //
+  // Aucun risque pour l'activation : `sw.js:67` sort immédiatement sur
+  // `req.method !== 'GET'`. Un POST vers /api/personnel-activer n'est jamais
+  // intercepté.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { /* installation impossible : le reste marche */ }))
+  }
+
+  // ── L'invite d'installation, captée au plus tôt ─────────────────────
+  //
+  // L'événement peut survenir avant que le membre ait fini de saisir son mot
+  // de passe. On le retient, et on prévient l'écran s'il arrive plus tard.
+  // Même mécanique que LoginPage, que cette page ne peut pas importer.
+  let _invite = null
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    _invite = e
+    window.dispatchEvent(new Event('ideal-installable'))
+  })
+
   // ── Le jeton vit dans le FRAGMENT, jamais dans la query string ───────
   //
   // Un fragment n'est pas transmis au serveur : absent des journaux
   // d'accès, absent de l'en-tête Referer. Même choix que
   // `suivi-inscription.html`.
-  (function () {
+  //
+  // Le point-virgule ouvrant n'est pas décoratif : sans lui, l'insertion
+  // automatique fusionne cette parenthèse avec l'instruction précédente,
+  // et `window.addEventListener(...)(...)` lève une TypeError qui bloque
+  // toute la page sur « Vérification du lien ».
+  ;(function () {
     const $ = (id) => document.getElementById(id)
     const montrer = (id) => {
       for (const s of ['chargement', 'formulaire', 'succes', 'invalide']) $(s).hidden = (s !== id)
@@ -98,6 +147,79 @@
 
     if (!/^[0-9a-f]{64}$/.test(cle)) { montrer('invalide'); return }
     montrer('formulaire')
+
+    // ── Après succès : l'identifiant, puis les deux actions ───────────
+    const ua = navigator.userAgent
+    const estAndroid = /Android/.test(ua)
+    // Android d'abord, et la reconnaissance d'iPadOS exige « Macintosh » dans
+    // l'agent. Un `navigator.platform === 'MacIntel'` seul suffisait à faire
+    // passer un téléphone Android pour un iPad — vérifié à l'émulation — et la
+    // page conseillait alors un bouton Partager qui n'existe pas sur Android.
+    const estIOS = !estAndroid && (
+      /iPad|iPhone|iPod/.test(ua)
+      || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1))
+    // Sur iOS, seul Safari sait ajouter à l'écran d'accueil. Chrome et
+    // Firefox y sont des habillages de WebKit sans cette fonction : leur
+    // proposer « Partager » enverrait chercher un bouton qui n'existe pas.
+    const estSafariIOS = estIOS && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)
+    const dejaInstallee = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true
+
+    const aide = (texte) => { $('aide-install').textContent = texte; $('aide-install').hidden = false }
+
+    const preparerInstallation = () => {
+      const bouton = $('installer')
+      // Déjà installée : ni bouton, ni conseil. Il n'y a rien à faire.
+      if (dejaInstallee) { bouton.hidden = true; $('aide-install').hidden = true; return }
+
+      if (_invite) {
+        // Installation NATIVE réellement disponible.
+        bouton.hidden = false
+        bouton.onclick = async () => {
+          _invite.prompt()
+          const { outcome } = await _invite.userChoice
+          if (outcome === 'accepted') { _invite = null; bouton.hidden = true; $('aide-install').hidden = true }
+        }
+        return
+      }
+
+      if (estSafariIOS) {
+        bouton.hidden = false
+        bouton.onclick = () => aide("Pour installer IDEAL : touchez Partager (le carré avec une flèche), puis « Sur l’écran d’accueil ».")
+        return
+      }
+
+      if (estIOS) {
+        // WebKit sans le bouton Partager d'Safari.
+        bouton.hidden = true
+        aide("Pour installer IDEAL sur votre iPhone, rouvrez ce lien dans Safari.")
+        return
+      }
+
+      if (estAndroid) {
+        bouton.hidden = false
+        bouton.onclick = () => aide("Pour installer IDEAL : ouvrez le menu du navigateur (⋮), puis « Installer l’application ».")
+        return
+      }
+
+      // Ordinateur sans invite native : aucune instruction mobile absurde.
+      // « Ouvrir IDEAL » suffit.
+      bouton.hidden = true
+    }
+
+    // L'invite peut arriver après l'activation : on refait le calcul.
+    window.addEventListener('ideal-installable', () => {
+      if (!$('succes').hidden) preparerInstallation()
+    })
+
+    const reussite = (identifiant) => {
+      if (identifiant) {
+        $('identifiant').textContent = identifiant
+        $('identite').hidden = false
+      }
+      montrer('succes')
+      preparerInstallation()
+    }
 
     const erreur = (texte) => { $('erreur').textContent = texte; $('erreur').hidden = false }
 
@@ -128,7 +250,7 @@
         return
       }
 
-      if (reponse && reponse.ok) { montrer('succes'); return }
+      if (reponse && reponse.ok) { reussite(reponse.identifiant); return }
 
       if (reponse && reponse.raison === 'mot_de_passe_trop_court') {
         erreur('Le mot de passe doit compter au moins 10 caractères.')

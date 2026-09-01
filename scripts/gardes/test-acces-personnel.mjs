@@ -281,6 +281,90 @@ test('21 · le message WhatsApp ne porte que le lien et l’identifiant', () => 
   assert.doesNotMatch(envoi, /wa\.me/)
 })
 
+// ── 22 à 27 · l'écran d'après-activation ───────────────────────────────
+
+test("22 · l'identifiant n'est rendu qu'après une consommation valide", () => {
+  // Un seul `return` porte l'identifiant, et il est en aval de la
+  // consommation. Tous les refus renvoient sans lui.
+  const retours = [...activer.matchAll(/return repondre\(res, \d+, (\{[^}]*\})/g)].map(m => m[1])
+  const avecIdent = retours.filter(r => /identifiant/.test(r))
+  assert.equal(avecIdent.length, 1, `${avecIdent.length} retour(s) portent l'identifiant, 1 attendu`)
+  assert.match(avecIdent[0], /ok: true/)
+  // Et il se situe APRÈS la consommation et APRÈS la pose du mot de passe.
+  assert.ok(activer.indexOf("rpc('consommer_acces_personnel'") < activer.lastIndexOf('identifiant'))
+  assert.ok(activer.indexOf('updateUserById') < activer.lastIndexOf('identifiant'))
+})
+
+test('23 · ni mot de passe ni jeton ne reviennent au navigateur', () => {
+  const retours = [...activer.matchAll(/return repondre\(res, \d+, (\{[^}]*\})/g)].map(m => m[1])
+  for (const r of retours) {
+    assert.doesNotMatch(r, /\bnouveau\b|password|mot_de_passe:|jetonLien|token/, `réponse fuyante : ${r}`)
+  }
+  // La page n'écrit jamais le jeton ni le mot de passe dans le DOM.
+  assert.doesNotMatch(page, /textContent\s*=\s*[^\n]*\b(cle|mdp)\b/)
+})
+
+test("24 · l'identifiant ne coûte aucune requête ni aucun privilège de plus", () => {
+  // Il sort de la réponse de `updateUserById`, déjà appelée. Aucun appel
+  // supplémentaire au client admin, aucune lecture de `public.users`.
+  assert.match(activer, /const \{ data: majUser, error: errMaj \} =\s*\n?\s*await admin\.auth\.admin\.updateUserById/)
+  assert.equal((activer.match(/admin\.(rpc|from|auth)/g) || []).length, 2,
+    'la route ne doit faire que deux appels au client admin')
+  assert.doesNotMatch(activer, /from\(\s*['"]users['"]\s*\)/)
+})
+
+test('25 · « Ouvrir IDEAL » mène à l’entrée réelle de l’application', () => {
+  assert.match(page, /<a class="principal" href="\/">Ouvrir IDEAL<\/a>/)
+  // `/` est bien l'entrée : index.html monte React, qui rend LoginPage sans
+  // session, et c'est le `start_url` du manifeste.
+  const manifeste = JSON.parse(lire('public/manifest.json'))
+  assert.equal(manifeste.start_url, '/')
+  assert.match(lire('index.html'), /<div id="root"><\/div>/)
+})
+
+test('26 · aucune installation simulée : la branche suit la plateforme', () => {
+  const bloc = page.slice(page.indexOf('const ua = navigator.userAgent'), page.indexOf('const aide ='))
+  const fenetre = { matchMedia: () => ({ matches: false }), navigator: { standalone: false } }
+  const evaluer = (ua, mt) => new Function('navigator', 'window',
+    bloc + '; return { estAndroid, estIOS, estSafariIOS }')({ userAgent: ua, maxTouchPoints: mt }, fenetre)
+
+  const CAS = [
+    ['Android Chrome', 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/148 Mobile Safari/537.36', 5,
+      { estAndroid: true, estIOS: false, estSafariIOS: false }],
+    ['iPhone Safari', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Version/17.0 Mobile/15E148 Safari/604.1', 5,
+      { estAndroid: false, estIOS: true, estSafariIOS: true }],
+    ['iPhone Chrome', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) CriOS/120 Mobile/15E148 Safari/604.1', 5,
+      { estAndroid: false, estIOS: true, estSafariIOS: false }],
+    ['iPad OS 17', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15', 5,
+      { estAndroid: false, estIOS: true, estSafariIOS: true }],
+    ['Mac de bureau', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/148 Safari/537.36', 0,
+      { estAndroid: false, estIOS: false, estSafariIOS: false }],
+  ]
+  for (const [nom, ua, mt, attendu] of CAS) {
+    assert.deepEqual(evaluer(ua, mt), attendu, `plateforme mal reconnue : ${nom}`)
+  }
+
+  // L'invite native n'est jamais fabriquée : `prompt()` n'est appelée que sur
+  // l'événement réellement reçu du navigateur.
+  assert.match(page, /window\.addEventListener\('beforeinstallprompt'/)
+  assert.match(page, /if \(_invite\) \{[\s\S]{0,200}_invite\.prompt\(\)/)
+  assert.doesNotMatch(page, /prompt\(\)[\s\S]{0,80}else if \(est(IOS|Android)/)
+  // Sur un ordinateur sans invite native, on masque au lieu de conseiller.
+  assert.match(page, /Ordinateur sans invite native[\s\S]{0,200}bouton\.hidden = true/)
+  // Déjà installée : ni bouton ni conseil.
+  assert.match(page, /if \(dejaInstallee\) \{ bouton\.hidden = true/)
+})
+
+test('27 · le service worker n’expose rien de neuf et ne gêne pas l’activation', () => {
+  // La page l'enregistre pour que `beforeinstallprompt` soit possible.
+  assert.match(page, /navigator\.serviceWorker\.register\('\/sw\.js'\)/)
+  // Et le worker ne touche jamais un POST : l'activation ne peut pas être
+  // interceptée. C'est la condition qui rend cet enregistrement sans risque.
+  assert.match(lire('public/sw.js'), /req\.method !== 'GET' \|\| url\.origin !== self\.location\.origin\) return/)
+  // Aucun secret, aucune clé, aucune RPC nouvelle dans la page.
+  assert.doesNotMatch(page, /sb_secret_|service_role|SUPABASE_SECRET|rest\/v1\/rpc/)
+})
+
 console.log(echecs === 0
   ? `\n✅ test-acces-personnel : tout est vert.`
   : `\n❌ test-acces-personnel : ${echecs} contrôle(s) en échec.`)
