@@ -40,6 +40,26 @@ const sansCommentaires = (texte) => texte
 
 const sqlNu = sansCommentaires(sql)
 
+// Le même service pour le JavaScript. `sansCommentaires` ne connaît que le
+// `--` du SQL ; ici les commentaires commencent par `//`. Sans ce second
+// dépouilleur, un repère cherché dans le code retombait sur la PROSE qui le
+// décrit — le contrôle 22 mesurait la position d'une phrase, pas celle d'un
+// appel, et ne pouvait donc pratiquement pas échouer.
+//
+// Ligne par ligne, jamais en une passe globale : une passe globale a déjà
+// avalé du code ailleurs dans ce dépôt.
+const sansCommentairesJS = (texte) => texte
+  .split('\n')
+  .map((l) => {
+    const i = l.indexOf('//')
+    if (i < 0) return l
+    const avant = l.slice(0, i)
+    // Un `//` dans une chaîne ou une URL n'ouvre pas un commentaire.
+    const guillemets = (avant.match(/['"`]/g) || []).length
+    return guillemets % 2 === 0 ? avant : l
+  })
+  .join('\n')
+
 // Le corps d'une fonction SQL nommée, isolé de ses voisines : sans cela un
 // contrôle passerait pour la mauvaise raison, en lisant la fonction d'à côté.
 const corpsSql = (nom) => {
@@ -291,8 +311,21 @@ test("22 · l'identifiant n'est rendu qu'après une consommation valide", () => 
   assert.equal(avecIdent.length, 1, `${avecIdent.length} retour(s) portent l'identifiant, 1 attendu`)
   assert.match(avecIdent[0], /ok: true/)
   // Et il se situe APRÈS la consommation et APRÈS la pose du mot de passe.
-  assert.ok(activer.indexOf("rpc('consommer_acces_personnel'") < activer.lastIndexOf('identifiant'))
-  assert.ok(activer.indexOf('updateUserById') < activer.lastIndexOf('identifiant'))
+  //
+  // Sur le CODE, jamais sur la prose : le fichier explique en tête pourquoi il
+  // passe par `auth.admin.updateUserById`, et un `indexOf` brut tombait sur
+  // cette phrase ligne 9 au lieu de l'appel ligne 74. L'assertion ne pouvait
+  // alors plus échouer, donc ne prouvait plus rien.
+  const activerNu = sansCommentairesJS(activer)
+  const iConso = activerNu.indexOf("rpc('consommer_acces_personnel'")
+  const iMaj = activerNu.indexOf('await admin.auth.admin.updateUserById')
+  const iIdent = activerNu.indexOf('ok: true, identifiant')
+
+  assert.ok(iConso > 0, 'appel réel à consommer_acces_personnel introuvable dans le code')
+  assert.ok(iMaj > 0, 'appel réel à updateUserById introuvable dans le code')
+  assert.ok(iIdent > 0, "retour portant l'identifiant introuvable dans le code")
+  assert.ok(iConso < iMaj, 'le mot de passe est posé avant la consommation du jeton')
+  assert.ok(iMaj < iIdent, "l'identifiant est construit avant la pose du mot de passe")
 })
 
 test('23 · ni mot de passe ni jeton ne reviennent au navigateur', () => {
