@@ -3,18 +3,18 @@
   "phase": "3-en-cours",
   "etape_migration": "apres-retrait",
   "plafonds": {
-    "data_ou_vide": 9,
+    "data_ou_vide": 8,
     "eslint": 151,
     "ecrans_orphelins": 6,
     "wa_me_disperses": 9,
     "allergies_repli_aucune": 1,
     "demo_en_etat_initial": 0,
-    "app_state_ecritures": 17,
+    "app_state_ecritures": 15,
     "fichiers_vides": 1,
     "tables_ouvertes_anon": 26
   },
   "planchers": {
-    "journal_audit": 79,
+    "journal_audit": 86,
     "gardes_au_vert": 0
   },
   "orphelins_assumes": [],

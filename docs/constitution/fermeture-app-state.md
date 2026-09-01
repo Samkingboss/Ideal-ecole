@@ -59,7 +59,7 @@ APRÈS   notifier_preparation(<de quoi je parle>)
 Le navigateur n'écrit pas l'état. Il exprime une intention. Le serveur lit
 `auth.uid()`, vérifie le droit, construit la donnée et l'écrit lui-même.
 
-## Inventaire des 17 écritures restantes
+## Inventaire des 15 écritures restantes
 
 | Écriture | Espace | Workflow métier | Qui a le droit | Ce qu'il peut réellement modifier | Surface de remplacement |
 |---|---|---|---|---|---|
@@ -78,8 +78,6 @@ Le navigateur n'écrit pas l'état. Il exprime une intention. Le serveur lit
 | `src/pages/DirecteurApp.jsx:940` | cantine | Fiche de marche cantine cote direction | direction | la fiche de marche courante | `enregistrer_fiche_marche` |
 | `src/pages/DossierPersonnel.jsx:160` | (non précisé) | Dossier RH personnel | l'agent lui-meme | SON dossier, et lui seul | `enregistrer_mon_dossier_rh` |
 | `public/comptabilite.html:7544` | rh | Grille des postes, page comptabilite | direction | la grille des postes | `enregistrer_poste` |
-| `public/inscription.html:1535` | (non précisé) | Notification d'une nouvelle inscription | PERSONNE — page publique | rien : elle signale un fait | `notifier_inscription(p_inscription_id) — executable par anon, sans autre pouvoir` |
-| `public/inscription.html:1538` | APP_NOTIFS | Notification d'une nouvelle inscription (2e cible) | PERSONNE — page publique | rien : elle signale un fait | `notifier_inscription(p_inscription_id)` |
 ## Ordre de migration
 
 Par risque décroissant, et par indépendance.

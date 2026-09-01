@@ -146,15 +146,24 @@ console.log(`\n${G}── CONFIDENTIALITÉ · l'observable identifie, il n'autor
 // ── C7 · le formulaire public peut toujours déposer un dossier ─────────────
 //
 // La confidentialité ne doit pas avoir supprimé la raison d'être de la page.
+//
+// Cette garde a crié au loup. Elle exigeait le nom littéral
+// `creer_inscription` ; le jour où la fonction a été renommée
+// `creer_inscription_avec_suivi` — un renommage sain, la page marchait — elle
+// est passée au rouge. Une garde qui rougit sur un renommage apprend à ignorer
+// le rouge, ce qui est exactement le contraire de son travail.
+//
+// On mesure donc la CAPACITÉ, pas l'orthographe : la page dispose-t-elle d'une
+// voie de dépôt vers le serveur ? Le nom exact, et surtout son existence
+// réelle en base, sont l'affaire de la garde réseau `test-rpc-publiques.mjs`,
+// qui interroge le serveur au lieu de lire des chaînes.
 {
   const src = sansCommentaires(lire('public/inscription.html'))
-  // La soumission passe deja par une fonction serveur — `creer_inscription`,
-  // en une seule transaction. C'est ce qui permettra de fermer la table en
-  // ecriture a `anon` sans supprimer la raison d'etre de la page.
-  const peutDeposer = /rpc\(\s*['"]creer_inscription['"]/.test(src)
-    || /from\(\s*['"]inscriptions['"]\s*\)[\s\S]{0,160}?\.insert\(/.test(src)
+  const voies = [...src.matchAll(/\.rpc\(\s*['"]([a-z0-9_]*creer_inscription[a-z0-9_]*)['"]/g)].map(m => m[1])
+  const parInsert = /from\(\s*['"]inscriptions['"]\s*\)[\s\S]{0,160}?\.insert\(/.test(src)
+  const peutDeposer = voies.length > 0 || parInsert
   verifier('C7 · le formulaire public peut toujours déposer un dossier',
-    peutDeposer, peutDeposer ? '' : '— plus aucune voie de soumission')
+    peutDeposer, peutDeposer ? `— via ${voies.join(', ') || 'insert direct'}` : '— plus aucune voie de soumission')
 }
 
 // ── C8 · aucun écran ne masque côté client ce que le serveur a livré ───────
