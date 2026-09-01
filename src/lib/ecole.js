@@ -29,6 +29,18 @@ export const WHATSAPP_ECOLE_LISIBLE = '+223 90 19 00 07'
 export const lienWhatsAppEcole = message =>
   `https://wa.me/${WHATSAPP_ECOLE}?text=${encodeURIComponent(String(message || ''))}`
 
+// Lien de rédaction vers un numéro QUELCONQUE — la famille d'un élève, le plus
+// souvent. Chaque écran reconstruisait sa propre URL, avec sa propre façon de
+// nettoyer le numéro et son propre repli quand il manque. Le repli correct est
+// d'ouvrir WhatsApp sans destinataire : l'utilisateur choisit le contact,
+// plutôt que de se retrouver devant un lien mort.
+export const lienWhatsApp = (numero, message) => {
+  const n = String(numero || '').replace(/\D/g, '')
+  // Numéro absent : l'URL devient `wa.me/?text=…`, forme officielle du
+  // « choisir le destinataire dans WhatsApp ».
+  return `https://wa.me/${n}?text=${encodeURIComponent(String(message || ''))}`
+}
+
 // ── Identité ─────────────────────────────────────────────────────────────────
 //
 // Dix-sept variantes du nom circulaient sur les documents officiels. La
