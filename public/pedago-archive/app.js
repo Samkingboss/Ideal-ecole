@@ -1,3 +1,29 @@
+/* global supabase */
+// `supabase` est le global posé par le script CDN chargé dans index.html.
+// `rapports.html` a le même usage, mais son code est en ligne dans la page :
+// eslint ne le lit pas. Ce fichier-ci est un .js autonome, donc lu — d'où
+// cette déclaration, plutôt qu'un plafond relevé pour un faux positif.
+
+// ═══════════════ LA SESSION IDEAL ═══════════════
+//
+// Cette page parlait en `anon` même pour un directeur connecté : ses deux
+// blocs construisaient leur en-tête `Authorization` avec la clé publique.
+// C'est le défaut que `rapports.html` a corrigé le 26 août ; il avait été
+// oublié ici, et il devient bloquant : `public.eleves` doit être fermée à
+// `anon`, et cette page en lit la liste des élèves.
+//
+// On ne crée pas un second mécanisme d'authentification : on reprend celui
+// du portail, exactement comme `rapports.html` et `comptabilite.html`.
+//
+// UN SEUL client pour toute la page. Deux clients sur le même `storageKey`
+// renouvelleraient le jeton chacun de leur côté, et l'un invaliderait celui
+// de l'autre.
+const _SUPA_URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
+const _SUPA_CLE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
+const _supa = supabase.createClient(_SUPA_URL, _SUPA_CLE, {
+    auth: { storageKey: 'ideal-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+});
+
 // ═══════════════ ACCÈS À LA BASE IDEAL ═══════════════
 // Un seul point d'accès pour toute la page. Le bloc de synchronisation en fin
 // de fichier s'en sert aussi : il n'existe qu'un chargeur, pas deux.
@@ -5,6 +31,19 @@ const IDEAL_DB = (function () {
     const URL = 'https://jircuneixzwsmtktxrkh.supabase.co';
     const CLE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
     const H = { apikey: CLE, Authorization: 'Bearer ' + CLE, 'Content-Type': 'application/json' };
+
+    // `H` reste un objet : les appels ci-dessous le répandent. C'est son
+    // `Authorization` qui change — jeton de session quand il y en a une, clé
+    // publique sinon, auquel cas le serveur refusera, et c'est voulu.
+    const porterLaSession = (session) => {
+        H.Authorization = 'Bearer ' + ((session && session.access_token) || CLE);
+        return !!(session && session.access_token);
+    };
+    const adopterSession = async () => {
+        const { data } = await _supa.auth.getSession();
+        return porterLaSession(data && data.session);
+    };
+    _supa.auth.onAuthStateChange((_e, session) => porterLaSession(session));
 
     // Un devoir tel que l'interface le manipule. `contenu` porte la forme
     // d'origine — type, période, objectifs, barème, ciblage — que les colonnes
@@ -91,7 +130,7 @@ const IDEAL_DB = (function () {
         if (!r.ok) throw new Error('Suppression refusée (' + r.status + ')');
     }
 
-    return { URL, CLE, H, classes, chargerDevoirs, enregistrerDevoir, supprimerDevoir };
+    return { URL, CLE, H, adopterSession, classes, chargerDevoirs, enregistrerDevoir, supprimerDevoir };
 })();
 
 // State Management
@@ -1405,6 +1444,18 @@ function clearHomeworkContent() {
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmN1bmVpeHp3c210a3R4cmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzI0ODQsImV4cCI6MjA4Nzc0ODQ4NH0.MLAV60tPKhFP8BixVavW3SU-npe8YvS0lKQ493AYNls';
     const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
 
+    // Ce bloc a son propre `H` : il porte donc sa propre adoption, sur le
+    // même client partagé.
+    const porterLaSession = (session) => {
+        H.Authorization = 'Bearer ' + ((session && session.access_token) || SB_KEY);
+        return !!(session && session.access_token);
+    };
+    const adopterSession = async () => {
+        const { data } = await _supa.auth.getSession();
+        return porterLaSession(data && data.session);
+    };
+    _supa.auth.onAuthStateChange((_e, session) => porterLaSession(session));
+
     // ── Le partage du logo par `app_state` a été retiré ────────────────────
     //
     // Une minuterie poussait `ideal_logo` toutes les 2,5 secondes, et la
@@ -1428,6 +1479,12 @@ function clearHomeworkContent() {
 
     (async () => {
         try {
+            // La session AVANT la première lecture. `onAuthStateChange` seul
+            // ne suffit pas : il arrive après, et les premiers `fetch`
+            // partiraient avec la clé publique. Même ordre que rapports.html.
+            await adopterSession();
+            await IDEAL_DB.adopterSession();
+
             // Périmètre de classes selon le rôle de l'utilisateur connecté
             let user = null;
             try { user = JSON.parse(localStorage.getItem('ideal_user') || 'null'); } catch(e) {}
