@@ -48,6 +48,9 @@ verifier('notification idempotente et rattachée au dossier',
 verifier('aucune notification avant validation signée',
   sql.includes("old.statut is not distinct from 'validee'")
   && sql.includes('new.signature_directeur_chemin is null'))
+verifier('confirmation parent contient la chaîne WhatsApp officielle',
+  page.includes("const CHAINE_WHATSAPP_ECOLE = 'https://whatsapp.com/channel/0029VbAvPN6DzgT5CqYNXY2u'")
+  && page.includes('veuillez vous abonner à notre chaîne WhatsApp officielle'))
 verifier('rollback disponible',
   rollback.includes('drop trigger if exists inscription_validee_notifier_ra')
   && rollback.includes('drop function if exists public.modifier_inscription_administration'))

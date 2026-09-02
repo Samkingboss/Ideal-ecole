@@ -3,6 +3,8 @@ import { etatDossier, libelleEtat, etatPiece, LIBELLE_CONTEXTE } from '../lib/do
 import { supabase } from '../lib/supabase'
 import { lienWhatsAppEcole, NOM_ECOLE } from '../lib/ecole'
 
+const CHAINE_WHATSAPP_ECOLE = 'https://whatsapp.com/channel/0029VbAvPN6DzgT5CqYNXY2u'
+
 const telephoneWA = valeur => {
   let n = String(valeur || '').replace(/\D/g, '')
   if (n.startsWith('00')) n = n.slice(2)
@@ -161,7 +163,7 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
 
   const ouvrirWhatsApp = (inscription, parent) => {
     const numero = telephoneWA(parent?.whatsapp || parent?.tel1)
-    const texte = `Bonjour ${parent?.prenom || 'cher parent'},\n\nL'inscription de ${inscription.prenom} ${String(inscription.nom || '').toUpperCase()} à ${NOM_ECOLE} est désormais validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\n${NOM_ECOLE} — Bamako`
+    const texte = `Bonjour ${parent?.prenom || 'cher parent'},\n\nL'inscription de ${inscription.prenom} ${String(inscription.nom || '').toUpperCase()} à ${NOM_ECOLE} est désormais validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\n\n📢 Afin de suivre les actualités de l'école et les informations liées à la scolarité de votre enfant, veuillez vous abonner à notre chaîne WhatsApp officielle :\n${CHAINE_WHATSAPP_ECOLE}\n\n${NOM_ECOLE} — Bamako`
     window.open(lienWhatsAppEcole(numero, texte), '_blank')
   }
 
