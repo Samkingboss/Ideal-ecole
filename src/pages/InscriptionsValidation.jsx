@@ -22,11 +22,13 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
   const [nomDirecteur, setNomDirecteur] = useState(`${directeur?.prenom || ''} ${directeur?.nom || ''}`.trim())
   const [enCours, setEnCours] = useState(false)
   const [message, setMessage] = useState('')
+  const [edition, setEdition] = useState(null)
   const canvasRef = useRef(null)
   const dessinRef = useRef(false)
 
   const enAttente = inscriptions.filter(i => i.statut !== 'validee')
   const validees = inscriptions.filter(i => i.statut === 'validee')
+  const estResponsableAdministratif = directeur?.role === 'responsable_administratif'
 
   useEffect(() => {
     if (!inscriptionCiblee) return
@@ -57,9 +59,60 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
 
   useEffect(() => {
     if (!selection?.responsable1_id) { setResponsable(null); return }
+    setResponsable(null)
     supabase.from('responsables').select('*').eq('id', selection.responsable1_id).maybeSingle()
       .then(({ data }) => setResponsable(data || null))
   }, [selection])
+
+  useEffect(() => {
+    if (!selection) { setEdition(null); return }
+    setEdition({
+      eleve: {
+        nom: selection.nom || '', prenom: selection.prenom || '', sexe: selection.sexe || '',
+        date_naissance: selection.date_naissance || '', lieu_naissance: selection.lieu_naissance || '',
+        groupe_sanguin: selection.groupe_sanguin || '', nationalite: selection.nationalite || '',
+        langue_maison: selection.langue_maison || '', ancienne_ecole: selection.ancienne_ecole || '',
+        classe_precedente: selection.classe_precedente || '', classe_demandee: selection.classe_demandee || '',
+        adresse: selection.adresse || '', cantine: !!selection.cantine,
+        allergies: selection.allergies || '', restrictions: selection.restrictions || '',
+        transport: !!selection.transport, droit_image: !!selection.droit_image,
+      },
+      responsable1: null,
+    })
+  }, [selection])
+
+  useEffect(() => {
+    if (!responsable || !selection) return
+    setEdition(courant => courant ? ({ ...courant, responsable1: {
+      nom: responsable.nom || '', prenom: responsable.prenom || '', lien_parente: responsable.lien_parente || '',
+      tel1: responsable.tel1 || '', whatsapp: responsable.whatsapp || '', email: responsable.email || '',
+      adresse: responsable.adresse || '', profession: responsable.profession || '',
+      situation_matrimoniale: responsable.situation_matrimoniale || '',
+    } }) : courant)
+  }, [responsable, selection])
+
+  const changerEdition = (bloc, champ, valeur) => setEdition(courant => ({
+    ...courant, [bloc]: { ...(courant?.[bloc] || {}), [champ]: valeur },
+  }))
+
+  const enregistrerModification = async () => {
+    if (!selection?.id || !edition?.responsable1) return
+    setEnCours(true); setMessage('')
+    const { data, error } = await supabase.rpc('modifier_inscription_administration', {
+      p_inscription_id: selection.id,
+      p_modifications: edition,
+    })
+    if (error || !data?.ok) {
+      setMessage(`Modification impossible : ${error?.message || 'la base n’a pas confirmé la modification.'}`)
+      setEnCours(false)
+      return
+    }
+    setMessage('✓ Informations mises à jour dans le dossier et la fiche élève.')
+    await onValidated?.()
+    setSelection(courant => courant ? ({ ...courant, ...edition.eleve }) : courant)
+    setResponsable(courant => courant ? ({ ...courant, ...edition.responsable1 }) : courant)
+    setEnCours(false)
+  }
 
   useEffect(() => {
     setSignatureParentUrl('')
@@ -166,7 +219,15 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
     </div>
     <div style={{display:'grid',gap:10,marginTop:14}}>{inscriptions.map(i => <article id={`inscription-${i.id}`} key={i.id} style={{background:'#fff',border:`2px solid ${String(i.id) === String(inscriptionCiblee) ? '#00a8e0' : i.statut === 'validee' ? '#b8dfca' : '#d9e3e9'}`,borderLeft:`5px solid ${i.statut === 'validee' ? '#16825d' : '#f28c28'}`,borderRadius:12,padding:'13px 15px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',boxShadow:String(i.id) === String(inscriptionCiblee) ? '0 0 0 4px rgba(0,168,224,.16)' : 'none'}}><div><b style={{color:'#17364d'}}>{i.prenom} {i.nom}</b><div style={{fontSize:11,color:'#71808b',marginTop:3}}>{i.matricule} · {String(i.classe_demandee || '').replace(/\s+Bilingue/gi, '')}</div></div><div style={{display:'flex',alignItems:'center',gap:9}}><span style={{fontSize:11,fontWeight:850,color:i.statut === 'validee' ? '#16825d' : '#b86613'}}>{i.statut === 'validee' ? '✓ Validée' : '⏳ En attente'}</span><button onClick={() => setSelection(i)} style={{border:0,borderRadius:8,padding:'8px 11px',background:'#174e72',color:'#fff',fontWeight:800,cursor:'pointer'}}>{i.statut === 'validee' ? 'Voir la fiche' : 'Examiner et signer'}</button></div></article>)}</div>
     {!inscriptions.length && <div style={{padding:30,textAlign:'center',color:'#71808b'}}>Aucun dossier d’inscription.</div>}
-    {selection && <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setSelection(null)} style={{zIndex:999999}}><div className="modal" style={{maxWidth:720,maxHeight:'92vh',overflowY:'auto'}}><div className="modal-title">Dossier — {selection.prenom} {selection.nom}</div><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,background:'#f3f6f8',padding:14,borderRadius:10,fontSize:13}}><div><b>Matricule</b><br/>{selection.matricule}</div><div><b>Classe demandée</b><br/>{selection.classe_demandee}</div><div><b>Date de naissance</b><br/>{selection.date_naissance}</div><div><b>Responsable</b><br/>{responsable ? `${responsable.prenom} ${responsable.nom}` : 'Chargement…'}</div><div><b>Signature parent</b><br/>{selection.signature_chemin ? '✓ Enregistrée' : '✗ Absente'}</div><div><b>Statut</b><br/>{selection.statut === 'validee' ? 'Validée' : 'En attente de la Direction'}</div></div>{(() => {
+    {selection && <div className="modal-overlay" onClick={e => e.target.className === 'modal-overlay' && setSelection(null)} style={{zIndex:999999}}><div className="modal" style={{maxWidth:720,maxHeight:'92vh',overflowY:'auto'}}><div className="modal-title">Dossier — {selection.prenom} {selection.nom}</div><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,background:'#f3f6f8',padding:14,borderRadius:10,fontSize:13}}><div><b>Matricule</b><br/>{selection.matricule}</div><div><b>Classe demandée</b><br/>{selection.classe_demandee}</div><div><b>Date de naissance</b><br/>{selection.date_naissance}</div><div><b>Responsable</b><br/>{responsable ? `${responsable.prenom} ${responsable.nom}` : 'Chargement…'}</div><div><b>Signature parent</b><br/>{selection.signature_chemin ? '✓ Enregistrée' : '✗ Absente'}</div><div><b>Statut</b><br/>{selection.statut === 'validee' ? 'Validée' : 'En attente de la Direction'}</div></div>{estResponsableAdministratif && edition && <details open style={{marginTop:12,border:'1px solid #bfdbfe',borderRadius:10,padding:12,background:'#eff6ff'}}><summary style={{cursor:'pointer',fontWeight:900,color:'#174e72'}}>✏️ Modifier les informations du dossier</summary><div style={{marginTop:10,fontSize:12,color:'#475569'}}>Le matricule, les signatures et le statut restent protégés. Pour une inscription déjà validée, la fiche élève est synchronisée automatiquement.</div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:9,marginTop:10}}>{[
+          ['nom','Nom'],['prenom','Prénom(s)'],['sexe','Sexe (M/F)'],['date_naissance','Date de naissance'],
+          ['lieu_naissance','Lieu de naissance'],['groupe_sanguin','Groupe sanguin'],['nationalite','Nationalité'],
+          ['langue_maison','Langue à la maison'],['ancienne_ecole','Ancienne école'],['classe_precedente','Classe précédente'],
+          ['classe_demandee','Classe demandée'],['adresse','Adresse de l’élève'],['allergies','Allergies'],['restrictions','Restrictions'],
+        ].map(([champ,label]) => <label key={champ} className="form-label">{label}<input className="form-input" type={champ === 'date_naissance' ? 'date' : 'text'} value={edition.eleve[champ]} onChange={e => changerEdition('eleve', champ, e.target.value)}/></label>)}</div><div style={{display:'flex',gap:16,flexWrap:'wrap',marginTop:10}}>{[['cantine','Cantine'],['transport','Transport'],['droit_image','Droit à l’image']].map(([champ,label]) => <label key={champ} style={{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:800}}><input type="checkbox" checked={edition.eleve[champ]} onChange={e => changerEdition('eleve', champ, e.target.checked)}/>{label}</label>)}</div>{edition.responsable1 && <><div style={{fontWeight:900,color:'#174e72',marginTop:15}}>Responsable légal principal</div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:9,marginTop:8}}>{[
+          ['nom','Nom'],['prenom','Prénom(s)'],['lien_parente','Lien de parenté'],['tel1','Téléphone principal'],
+          ['whatsapp','WhatsApp'],['email','Courriel'],['adresse','Adresse'],['profession','Profession'],['situation_matrimoniale','Situation matrimoniale'],
+        ].map(([champ,label]) => <label key={champ} className="form-label">{label}<input className="form-input" type={champ === 'email' ? 'email' : 'text'} value={edition.responsable1[champ]} onChange={e => changerEdition('responsable1', champ, e.target.value)}/></label>)}</div></>}<button className="btn btn-primary" disabled={enCours || !edition.responsable1} onClick={enregistrerModification} style={{marginTop:14,width:'100%'}}>{enCours ? 'Enregistrement…' : 'Enregistrer les modifications'}</button>{message && <div style={{marginTop:10,color:message.startsWith('✓') ? '#166534' : '#b91c1c',fontWeight:700,fontSize:12}}>{message}</div>}</details>}{(() => {
           if (piecesEtat === 'chargement') return <div style={{marginTop:12,fontSize:13,color:'#64748b'}}>Lecture des pièces…</div>
           if (piecesEtat === 'erreur') return (
             <div style={{marginTop:12,padding:'10px 12px',borderRadius:10,background:'rgba(239,68,68,.08)',border:'1px solid #ef4444',fontSize:13}}>
@@ -230,6 +291,6 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
               <div style={{gridColumn:'1 / -1'}}><b>Courriel</b><br/>{responsable.email || '—'}</div>
             </>}
           </div>
-        </details>{signatureParentUrl && <div style={{marginTop:12}}><div className="form-label">Signature du responsable légal</div><img src={signatureParentUrl} alt="Signature du responsable légal" style={{display:'block',width:'100%',maxWidth:360,height:95,objectFit:'contain',objectPosition:'left center',background:'#fff',border:'1px solid #dbe3e9',borderRadius:8}}/></div>}{selection.statut !== 'validee' && <><label className="form-label" style={{marginTop:15}}>Nom du directeur signataire</label><input className="form-input" value={nomDirecteur} onChange={e => setNomDirecteur(e.target.value)}/><label className="form-label" style={{marginTop:12}}>Signature manuscrite du directeur</label><canvas ref={canvasRef} onPointerDown={e=>{debut(e);e.currentTarget.dataset.signed='1'}} onPointerMove={tracer} onPointerUp={fin} onPointerCancel={fin} style={{display:'block',width:'100%',height:150,border:'2px solid #174e72',borderRadius:10,background:'#fff',touchAction:'none'}}/><button onClick={effacer} className="btn-sm" style={{marginTop:7}}>Effacer la signature</button>{message && <div style={{marginTop:10,color:'#b91c1c',fontWeight:700,fontSize:12}}>{message}</div>}<button className="btn btn-primary" disabled={enCours || !selection.signature_chemin} onClick={valider} style={{marginTop:15,width:'100%'}}>{enCours ? 'Validation…' : 'Signer, valider et informer le parent'}</button></>}<button className="btn-cancel" onClick={()=>setSelection(null)}>Fermer</button></div></div>}
+        </details>{signatureParentUrl && <div style={{marginTop:12}}><div className="form-label">Signature du responsable légal</div><img src={signatureParentUrl} alt="Signature du responsable légal" style={{display:'block',width:'100%',maxWidth:360,height:95,objectFit:'contain',objectPosition:'left center',background:'#fff',border:'1px solid #dbe3e9',borderRadius:8}}/></div>}{!estResponsableAdministratif && selection.statut !== 'validee' && <><label className="form-label" style={{marginTop:15}}>Nom du directeur signataire</label><input className="form-input" value={nomDirecteur} onChange={e => setNomDirecteur(e.target.value)}/><label className="form-label" style={{marginTop:12}}>Signature manuscrite du directeur</label><canvas ref={canvasRef} onPointerDown={e=>{debut(e);e.currentTarget.dataset.signed='1'}} onPointerMove={tracer} onPointerUp={fin} onPointerCancel={fin} style={{display:'block',width:'100%',height:150,border:'2px solid #174e72',borderRadius:10,background:'#fff',touchAction:'none'}}/><button onClick={effacer} className="btn-sm" style={{marginTop:7}}>Effacer la signature</button>{message && <div style={{marginTop:10,color:'#b91c1c',fontWeight:700,fontSize:12}}>{message}</div>}<button className="btn btn-primary" disabled={enCours || !selection.signature_chemin} onClick={valider} style={{marginTop:15,width:'100%'}}>{enCours ? 'Validation…' : 'Signer, valider et informer le parent'}</button></>}<button className="btn-cancel" onClick={()=>setSelection(null)}>Fermer</button></div></div>}
   </section>
 }

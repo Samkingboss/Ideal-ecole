@@ -108,6 +108,7 @@ const DEFAULT_POSTES = [
 const fmtFCFA = n => (parseInt(n, 10) || 0).toLocaleString('fr-FR') + ' FCFA'
 
 const ROUTES_ADMINISTRATION = {
+  '/administration/inscriptions': 'inscriptions',
   '/administration/cartes-scolaires': 'cartes',
   '/administration/certificats-scolarite': 'certificat',
   '/administration/effectifs': 'liste',
@@ -381,6 +382,7 @@ export default function DirecteurApp({ user, onLogout }) {
     if (target === 'eleves') {
       setSubTabEleve('dossiers')
       setInscriptionCiblee(ref || null)
+      if (user.role === 'responsable_administratif') setModuleAdministration('inscriptions')
     } else {
       setDemandeCiblee(ref || null)
     }
@@ -977,6 +979,7 @@ export default function DirecteurApp({ user, onLogout }) {
               if (t === 'eleves') {
                 setSubTabEleve('dossiers')
                 setInscriptionCiblee(ref || null)
+                setModuleAdministration('inscriptions')
               } else {
                 setDemandeCiblee(ref || null)
               }
@@ -1064,7 +1067,7 @@ export default function DirecteurApp({ user, onLogout }) {
 
               {/* Raccourcis et modules pour la Gestion Élèves */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-                <a href="/inscription.html" style={{ textDecoration: 'none' }}>
+                <a href="/administration/inscriptions" onClick={event => ouvrirModuleAdministration(event, '/administration/inscriptions')} style={{ textDecoration: 'none' }}>
                   <div style={{ background: 'linear-gradient(135deg,#00a8e0,#0078b4)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(0,168,224,0.25)', cursor: 'pointer' }}>
                     <div style={{ fontSize: 26, marginBottom: 6 }}>📝</div>
                     <div style={{ fontWeight: 900, fontSize: 15 }}>Inscriptions &amp; Dossiers</div>
@@ -1102,6 +1105,7 @@ export default function DirecteurApp({ user, onLogout }) {
               </div>}
 
               {/* Pages métier dédiées : les composants existants sont réutilisés sans duplication. */}
+              {moduleAdministration === 'inscriptions' && <InscriptionsValidation inscriptions={inscriptions} directeur={user} onValidated={loadData} inscriptionCiblee={inscriptionCiblee} />}
               {moduleAdministration === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
               {moduleAdministration === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} user={user} />}
 
