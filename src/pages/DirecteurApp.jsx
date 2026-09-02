@@ -150,6 +150,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [prepFiltre, setPrepFiltre] = useState('a_controler')
   const [prepAvis, setPrepAvis] = useState({ appreciations: {}, commentaire: '' })
   const [checkpoints, setCheckpoints] = useState([])
+  const [evaluationsPedagogiques, setEvaluationsPedagogiques] = useState([])
   const [activeEleveClass, setActiveEleveClass] = useState(null)
   const [disciplines, setDisciplines] = useState([])
   const [postes, setPostes] = useState(DEFAULT_POSTES)
@@ -451,7 +452,8 @@ export default function DirecteurApp({ user, onLogout }) {
         supabase.from('prof_classes').select('*'),
         supabase.from('disciplines').select('*, eleves(prenom, nom, classe_id, classes(nom)), users!prof_id(prenom, nom)').order('created_at', { ascending: false }),
         supabase.from('inscriptions').select('*').order('created_at', { ascending: false }),
-        supabase.from('allergenes').select('code, libelle, ordre').eq('actif', true).order('ordre')
+        supabase.from('allergenes').select('code, libelle, ordre').eq('actif', true).order('ordre'),
+        supabase.from('comprehensions').select('eleve_id, matiere, note, participation, comprehension, statut, date_cours')
       ])
 
       // Douze requêtes en parallèle, et jusqu'ici douze `|| []`. Une seule
@@ -472,6 +474,7 @@ export default function DirecteurApp({ user, onLogout }) {
         discipline:   results[10],
         inscriptions: results[11],
         allergenes:   results[12],
+        evaluations:  results[13],
       }
       const bilan = agreger(parBloc)
       setBlocsEnEchec(bilan.blocsEnEchec)
@@ -492,6 +495,7 @@ export default function DirecteurApp({ user, onLogout }) {
       const disc  = liste(results[10])
       const inscs = liste(results[11])
       setAllergenesRef(liste(results[12]))
+      setEvaluationsPedagogiques(liste(results[13]))
 
       // Les données médicales et l'inscription cantine appartiennent au
       // dossier d'inscription. On les rattache à l'élève actif sans créer une
@@ -2390,11 +2394,19 @@ export default function DirecteurApp({ user, onLogout }) {
                   const e = eleves.find(eleve => String(eleve.id) === String(syntheseEleveSelectionne))
                   if (!e) return null
                   const classe = e.classes?.nom || e.classe_nom || classes.find(c => String(c.id) === String(e.classe_id))?.nom || 'Sans classe'
-                  const cps = checkpoints.filter(cp => String(cp.eleve_id) === String(e.id))
+                  const cps = evaluationsPedagogiques.filter(cp => String(cp.eleve_id) === String(e.id))
                   const incidents = disciplines.filter(d => String(d.eleve_id) === String(e.id))
                   const dossier = inscriptions.find(i => String(i.id) === String(e.inscription_id) || (e.matricule && i.matricule === e.matricule))
-                  const notes = cps.map(cp => Number(cp.note)).filter(Number.isFinite)
-                  const moyenne = notes.length ? Math.round(notes.reduce((total, note) => total + note, 0) / notes.length) : null
+                  const progressionParMatiere = Object.values(cps.reduce((groupes, cp) => {
+                    const matiere = (cp.matiere || 'Matière non renseignée').trim()
+                    if (!groupes[matiere]) groupes[matiere] = { matiere, notes: [], absences: 0 }
+                    if (cp.statut === 'absent') groupes[matiere].absences += 1
+                    else if (Number.isFinite(Number(cp.note))) groupes[matiere].notes.push(Number(cp.note))
+                    return groupes
+                  }, {})).map(groupe => ({
+                    ...groupe,
+                    moyenne: groupe.notes.length ? Math.round(groupe.notes.reduce((total, note) => total + note, 0) / groupe.notes.length) : null,
+                  })).sort((a, b) => a.matiere.localeCompare(b.matiere, 'fr', { sensitivity: 'base' }))
                   return <div style={{ padding: 15, borderRadius: 14, border: '2px solid rgba(141,198,63,.28)', background: 'var(--bg)' }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{e.prenom} {e.nom}</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
@@ -2402,9 +2414,17 @@ export default function DirecteurApp({ user, onLogout }) {
                       <div><b>Date de naissance :</b> {e.date_naissance || '—'}</div><div><b>Sexe :</b> {e.sexe || '—'}</div>
                       <div><b>Statut :</b> {e.actif === false ? 'Inactif' : 'Actif'}</div><div><b>Inscription :</b> {dossier?.statut || (e.inscription_id ? 'Enregistrée' : '—')}</div>
                       <div><b>Cantine :</b> {e.cantine === true ? 'Inscrit' : e.cantine === false ? 'Non inscrit' : 'Non renseigné'}</div><div><b>Check-points :</b> {cps.length}</div>
-                      <div><b>Check-points validés :</b> {cps.filter(cp => cp.statut === 'validé' || cp.note !== null).length}</div><div><b>Incidents disciplinaires :</b> {incidents.length}</div>
+                      <div><b>Check-points évalués :</b> {cps.filter(cp => cp.statut !== 'absent' && cp.note !== null).length}</div><div><b>Incidents disciplinaires :</b> {incidents.length}</div>
                     </div>
-                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 900, marginBottom: 7 }}><span>Progression pédagogique</span><span>{moyenne === null ? 'Pas encore évaluée' : `${moyenne}%`}</span></div><div style={{ height: 12, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}><div style={{ width: `${Math.max(0, Math.min(100, moyenne || 0))}%`, height: '100%', background: 'var(--green)', borderRadius: 999 }} /></div></div>
+                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 12 }}>Progression pédagogique par matière</div>
+                      {progressionParMatiere.length === 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Pas encore évaluée</div>}
+                      {progressionParMatiere.map(matiere => <div key={matiere.matiere} style={{ marginBottom: 13 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, marginBottom: 6 }}><b>{matiere.matiere}</b><span style={{ fontWeight: 900 }}>{matiere.moyenne === null ? 'À rattraper' : `${matiere.moyenne}%`}</span></div>
+                        <div style={{ height: 10, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}><div style={{ width: `${Math.max(0, Math.min(100, matiere.moyenne || 0))}%`, height: '100%', background: 'var(--green)', borderRadius: 999 }} /></div>
+                        <div style={{ marginTop: 4, fontSize: 10, color: 'var(--muted)' }}>{matiere.notes.length} évaluation(s){matiere.absences > 0 ? ` · ${matiere.absences} absence(s) à rattraper` : ''}</div>
+                      </div>)}
+                    </div>
                   </div>
                 })()}
               </div>}

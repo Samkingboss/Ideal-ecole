@@ -35,9 +35,12 @@ verifier('La cuisinière est suivie par ses menus et non par des préparations',
 verifier('La fiche personnel agrège préparations, RH, présences et points',
   ['Préparations :', 'Demandes RH :', 'Présences enregistrées :', 'Points :'].every(texte => src.includes(texte)))
 verifier('La fiche élève agrège identité, inscription, progression et discipline',
-  ['Matricule :', 'Inscription :', 'Check-points validés :', 'Incidents disciplinaires :'].every(texte => src.includes(texte)))
+  ['Matricule :', 'Inscription :', 'Check-points évalués :', 'Incidents disciplinaires :'].every(texte => src.includes(texte)))
 verifier('Les fiches individuelles affichent leur progression',
-  src.includes('Préparations validées') && src.includes('Progression pédagogique'))
+  src.includes('Préparations validées') && src.includes('Progression pédagogique par matière'))
+verifier('La progression élève utilise les évaluations et les regroupe par matière',
+  src.includes("supabase.from('comprehensions').select('eleve_id, matiere, note, participation, comprehension, statut, date_cours')")
+  && src.includes('progressionParMatiere') && src.includes("cp.statut === 'absent'"))
 verifier('Aucune nouvelle mutation Supabase dans ce lot de présentation',
   !src.slice(src.indexOf('Synthèse de chaque membre du personnel'), src.indexOf('      </div>\n\n      <div className="bottom-nav"')).includes("supabase."))
 
