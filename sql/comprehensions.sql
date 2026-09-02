@@ -5,6 +5,8 @@
 --
 -- À exécuter dans le SQL Editor du dashboard Supabase.
 
+begin;
+
 create table if not exists public.comprehensions (
   id          uuid primary key default gen_random_uuid(),
   eleve_id    uuid not null references public.eleves(id) on delete cascade,
@@ -22,6 +24,30 @@ create table if not exists public.comprehensions (
   -- cours corrige la note au lieu d'empiler des doublons.
   constraint comprehensions_unicite unique (eleve_id, date_cours, matiere)
 );
+
+-- Extension check-point. `note` reste le résultat général afin que les
+-- consommateurs historiques continuent de lire la même colonne.
+alter table public.comprehensions
+  add column if not exists preparation_id uuid references public.preparations(id) on delete set null,
+  add column if not exists participation integer check (participation between 0 and 100),
+  add column if not exists comprehension integer check (comprehension between 0 and 100),
+  add column if not exists statut text not null default 'evalue'
+    check (statut in ('evalue', 'absent'));
+
+alter table public.comprehensions drop constraint if exists comprehensions_unicite;
+alter table public.comprehensions drop constraint if exists comprehensions_checkpoint_unicite;
+alter table public.comprehensions add constraint comprehensions_checkpoint_unicite
+  unique nulls not distinct (eleve_id, preparation_id, date_cours, matiere);
+
+alter table public.comprehensions drop constraint if exists comprehensions_checkpoint_coherent;
+alter table public.comprehensions add constraint comprehensions_checkpoint_coherent check (
+  (statut = 'absent' and participation is null and comprehension is null)
+  or (statut = 'evalue' and (preparation_id is null or
+    (participation is not null and comprehension is not null
+      and note = round((participation + comprehension)::numeric / 2))))
+);
+
+create index if not exists comprehensions_preparation_idx on public.comprehensions (preparation_id);
 
 -- Le rapport hebdomadaire interroge toujours par élève et par plage de dates.
 create index if not exists comprehensions_eleve_date_idx
@@ -56,3 +82,5 @@ create policy comprehensions_saisie on public.comprehensions
 drop policy if exists comprehensions_correction on public.comprehensions;
 create policy comprehensions_correction on public.comprehensions
   for update using (true) with check (true);
+
+commit;

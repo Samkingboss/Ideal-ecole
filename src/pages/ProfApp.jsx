@@ -200,7 +200,7 @@ export default function ProfApp({ user, onLogout }) {
       do {
         prepRefreshEnAttente.current = false
         const { data, error } = await supabase.from('preparations')
-          .select('id, date_cours, sequence, matiere, groupe, status, historique_statuts, heure_depot')
+          .select('id, classe_id, date_cours, heure_cours, sequence, matiere, groupe, status, contenu, historique_statuts, heure_depot')
           .eq('user_id', user.id).order('heure_depot', { ascending: false })
         if (!error) setPreparations(data || [])
       } while (prepRefreshEnAttente.current)
@@ -427,7 +427,7 @@ export default function ProfApp({ user, onLogout }) {
       // nécessaire pour lister. `historique_statuts` l'est — c'est là que vit
       // la remarque de la direction.
       const { data: preps } = await supabase.from('preparations')
-        .select('id, date_cours, sequence, matiere, groupe, status, historique_statuts, heure_depot')
+        .select('id, classe_id, date_cours, heure_cours, sequence, matiere, groupe, status, contenu, historique_statuts, heure_depot')
         .eq('user_id', user.id).order('heure_depot', { ascending: false })
       setPreparations(preps || [])
 
@@ -900,8 +900,8 @@ export default function ProfApp({ user, onLogout }) {
             <button onClick={() => setTab('mespreps')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'mespreps' ? '#00a8e0' : 'var(--bg)', color: tab === 'mespreps' ? '#fff' : 'var(--muted)' }}>
               📝 Mes préparations{prepsACorriger > 0 ? ` · ${prepsACorriger}` : ''}
             </button>
-            <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions &amp; Checkpoints</button>
-            <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>🎯 Fin de cours &amp; Clés</button>
+            <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions du programme</button>
+            <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>✅ Check-points de fin de leçon</button>
           </>
         )}
 
@@ -1073,7 +1073,7 @@ export default function ProfApp({ user, onLogout }) {
 
         {tab === 'progression' && (
           <div>
-            <div className="section-head"><div className="section-title">Progressions &amp; Checkpoints</div></div>
+            <div className="section-head"><div className="section-title">Progressions du programme</div></div>
             {programmeData.length === 0 ? (
               <div className="empty-state"><div className="empty-icon">📚</div><p>Aucun programme défini.</p></div>
             ) : (
@@ -1097,7 +1097,7 @@ export default function ProfApp({ user, onLogout }) {
         )}
 
         {tab === 'fincours' && (
-          <FinDeCours user={user} selectedClasse={selectedClasse} classEleves={classEleves} programmeData={programmeData} supabase={supabase} />
+          <FinDeCours user={user} selectedClasse={selectedClasse} classEleves={classEleves} preparations={preparations} supabase={supabase} />
         )}
 
         {/* ════════ SESSION 3 : MA CLASSE & ÉLÈVES ════════ */}

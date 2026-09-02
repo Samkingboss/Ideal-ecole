@@ -398,6 +398,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','
 
 let STUDENTS=[];       // {key,name,classe,whatsapp}
 let REPORTS={};        // key -> report object
+let DERIVED_CHECKPOINTS={}; // key -> détail factuel de la semaine synchronisée
 let _filter='';
 let CURRENT=null;      // élève en cours d'édition
 let user=null;
@@ -500,7 +501,7 @@ async function loadPointageForCurrent({ preremplir = true } = {}){
     q(`checkpoints?date_checkpoint=gte.${monday}&date_checkpoint=lte.${friday}&select=id`),
     q(`app_state?app=eq.pedago&key=eq.ideal_homeworks&select=value`),
     q(`manquements?eleve_id=eq.${enc}&date_manque=gte.${monday}&date_manque=lte.${friday}&select=date_manque,type_manque,matiere,observation,signale_par`),
-    q(`comprehensions?eleve_id=eq.${enc}&date_cours=gte.${monday}&date_cours=lte.${friday}&select=date_cours,matiere,lecon,note,observation`),
+    q(`comprehensions?eleve_id=eq.${enc}&date_cours=gte.${monday}&date_cours=lte.${friday}&select=date_cours,matiere,lecon,note,participation,comprehension,statut,observation`),
   ]);
 
   // Les consommateurs plus bas appellent `.forEach` et `.filter` : on leur
@@ -635,10 +636,19 @@ async function loadPointageForCurrent({ preremplir = true } = {}){
   // Ces notes priment sur les progressions : elles sont datées, nommées et
   // portent le jugement direct de l'enseignant à la sortie de la leçon.
   let moyComp=null;
-  if(comprehensions.length){
-    const tri=[...comprehensions].sort((a,b)=>(b.note||0)-(a.note||0));
+  const aRattraper=comprehensions.filter(c=>c.statut==='absent');
+  const evaluees=comprehensions.filter(c=>c.statut!=='absent');
+  if(preremplir){
+    DERIVED_CHECKPOINTS[CURRENT.key]=comprehensions.map(c=>({
+      date:c.date_cours, matiere:c.matiere, lecon:c.lecon||'', statut:c.statut||'evalue',
+      participation:c.participation, comprehension:c.comprehension, note:c.note,
+      observation:c.observation||''
+    }));
+  }
+  if(evaluees.length){
+    const tri=[...evaluees].sort((a,b)=>(b.note||0)-(a.note||0));
     const haut=tri[0], bas=tri[tri.length-1];
-    moyComp=Math.round(comprehensions.reduce((s,c)=>s+(c.note||0),0)/comprehensions.length);
+    moyComp=Math.round(evaluees.reduce((s,c)=>s+(c.note||0),0)/evaluees.length);
     const jour=d=>new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
     const intitule=c=>[c.matiere,c.lecon].filter(Boolean).join(' — ');
 
@@ -649,10 +659,10 @@ async function loadPointageForCurrent({ preremplir = true } = {}){
       ? `${bas.note}/100 en ${intitule(bas)}` + (bas.observation? ` — ${bas.observation}` : '')
       : null;
   }
-  sources.push({ ok:comprehensions.length>0, libelle:'Compréhension en fin de cours (enseignants)',
+  sources.push({ ok:comprehensions.length>0, libelle:'Check-points de fin de leçon (enseignants)',
     detail:comprehensions.length
-      ? `${comprehensions.length} cours noté(s) · moyenne ${moyComp}/100`
-      : 'aucune fiche de fin de cours cette semaine' });
+      ? `${evaluees.length} leçon(s) évaluée(s)${moyComp===null?'':` · moyenne ${moyComp}/100`}${aRattraper.length?` · ${aRattraper.length} notion(s) à rattraper`:''}`
+      : 'aucun check-point cette semaine' });
 
   // Écriture unique : on ne remplace jamais ce que le conseiller a saisi
   // lui-même, mais une synchronisation explicite doit pouvoir rafraîchir.
@@ -918,6 +928,7 @@ function collectReport(){
     punitions:num('ed-punitions'), incidents:v('ed-incidents'),
     meilleure:v('ed-meilleure'), faible:v('ed-faible'),
     general:v('ed-general'), maison:v('ed-maison'),
+    checkpoints:DERIVED_CHECKPOINTS[CURRENT.key] || REPORTS[CURRENT.key]?.checkpoints || [],
     teacher:[user&&user.prenom,user&&user.nom].filter(Boolean).join(' '),
     // Identifiant de l'auteur : c'est lui qui fait foi pour le décompte des
     // points. Le nom en clair reste affiché sur le rapport, mais un
@@ -999,6 +1010,12 @@ function renderReport(r){
       ${r.meilleure?`<div class="win win-top"><div class="wl">🏅 Prouesse de la semaine</div><div class="wv">${esc(r.meilleure)}</div></div>`:''}
       ${r.faible?`<div class="win win-low"><div class="wl">🎯 Point à améliorer</div><div class="wv">${esc(r.faible)}</div></div>`:''}
     </div>`:'<div class="rep-card">Notes non renseignées cette semaine.</div>';
+  const checkpointRows=(r.checkpoints||[]).map(c=>{
+    const notion=[c.matiere,c.lecon].filter(Boolean).join(' — ')||'Notion enseignée';
+    if(c.statut==='absent') return `<div class="rep-note" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412"><strong>${esc(notion)}</strong><br>Absent(e) — notion à rattraper</div>`;
+    if(c.participation==null||c.comprehension==null) return `<div class="rep-note"><strong>${esc(notion)}</strong><br>Compréhension : ${esc(c.note)}/100${c.observation?`<br>${esc(c.observation)}`:''}</div>`;
+    return `<div class="rep-note"><strong>${esc(notion)}</strong><br>Participation : ${esc(c.participation)}% · Compréhension : ${esc(c.comprehension)}% · Note générale : ${esc(c.note)}/100${c.observation?`<br>${esc(c.observation)}`:''}</div>`;
+  }).join('');
 
   document.getElementById('report').innerHTML=`
     <div class="rep-side"></div>
@@ -1028,6 +1045,8 @@ function renderReport(r){
         r.incidents?card('a',r.incidents):`<div class="rep-card card-g">Aucun incident signalé cette semaine. 👍</div>`)}
 
       ${sec('r','🏆','Prouesse et progrès de la semaine',wins)}
+
+      ${(r.checkpoints||[]).length?sec('b','📊','Check-points des notions enseignées',checkpointRows):''}
 
       ${r.general?sec('b','💬','Appréciation de l\'enseignant',card('b',r.general)):''}
       ${r.maison?sec('r','🏠','Conseils pour la maison',card('r',r.maison)):''}
