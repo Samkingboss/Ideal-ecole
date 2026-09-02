@@ -189,13 +189,13 @@ export function CarteVerso({ eleve, echelle = ECHELLE, unite = 'px' }) {
       <div style={{ position: 'absolute', top: mm(45), left: 0, right: 0, textAlign: 'center', fontSize: mm(1.7), color: '#6F7D88', fontWeight: 750 }}>Scanner pour vérifier la fiche</div>
       <div style={{ position: 'absolute', top: mm(49), right: mm(7), width: mm(13), height: mm(2.3), background: '#F28C28' }} />
 
-      <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(54), bottom: mm(5), color: '#16384F' }}>
+      <div style={{ position: 'absolute', left: mm(7), right: mm(7), top: mm(53.5), bottom: mm(5.5), color: '#16384F' }}>
         {[
           ['MATRICULE', eleve.matricule],
           ['ANNÉE SCOLAIRE', '2026—2027'],
           ['GROUPE SANGUIN', eleve.groupe_sanguin || '—'],
         ].map(([label, valeur]) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${mm(1.4)} 0`, borderBottom: `${mm(.2)} solid #D5DBE0` }}>
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${mm(1.05)} 0`, borderBottom: `${mm(.2)} solid #D5DBE0` }}>
             <span style={{ fontSize: mm(1.45), color: '#74828D', fontWeight: 800, letterSpacing: mm(.07) }}>{label}</span>
             <span style={{ fontSize: mm(2.15), color: label === 'GROUPE SANGUIN' ? '#C62828' : '#16384F', fontWeight: 850 }}>{valeur}</span>
           </div>
@@ -206,11 +206,11 @@ export function CarteVerso({ eleve, echelle = ECHELLE, unite = 'px' }) {
             Une personne qui ramasse une carte dans la rue à Bamako doit
             pouvoir lire un numéro et appeler. Le numéro vient de la source
             institutionnelle unique — jamais recopié ici. */}
-        <div style={{ marginTop: mm(2.2), fontSize: mm(1.6), color: '#6F7D88', lineHeight: 1.3, textAlign: 'center' }}>
+        <div style={{ marginTop: mm(1.4), fontSize: mm(1.5), color: '#6F7D88', lineHeight: 1.2, textAlign: 'center' }}>
           Carte strictement personnelle.
         </div>
         <div style={{
-          marginTop: mm(1.2), padding: `${mm(1.5)} ${mm(1.2)}`, borderRadius: mm(1.2),
+          marginTop: mm(1), padding: `${mm(1.15)} ${mm(1.2)}`, borderRadius: mm(1.2),
           background: '#FDF1E4', border: `${mm(.25)} solid #F28C28`, textAlign: 'center',
         }}>
           <div style={{ fontSize: mm(1.4), color: '#8A5A22', fontWeight: 800, letterSpacing: mm(.05) }}>

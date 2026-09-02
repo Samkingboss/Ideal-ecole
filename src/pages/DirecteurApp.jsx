@@ -160,6 +160,10 @@ export default function DirecteurApp({ user, onLogout }) {
   const [demandesRH, setDemandesRH] = useState([])
   const [demandeRHDetail, setDemandeRHDetail] = useState(null)
   const [personnelRHSelectionne, setPersonnelRHSelectionne] = useState(null)
+  const [enseignantPedagogieSelectionne, setEnseignantPedagogieSelectionne] = useState(null)
+  const [syntheseVue, setSyntheseVue] = useState('personnel')
+  const [synthesePersonnelSelectionne, setSynthesePersonnelSelectionne] = useState(null)
+  const [syntheseEleveSelectionne, setSyntheseEleveSelectionne] = useState(null)
   const prepRefreshEnVol = useRef(false)
   const prepRefreshEnAttente = useRef(false)
 
@@ -1753,6 +1757,45 @@ export default function DirecteurApp({ user, onLogout }) {
               </div>
             </div>
 
+            <div className="card" style={{ marginBottom: 20, padding: '1.2rem', borderLeft: '4px solid #8e44ad' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👥 Dossiers du personnel</h3>
+                  <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>Choisissez un membre pour regrouper sa fiche et toutes ses demandes RH.</div>
+                </div>
+                {personnelRHSelectionne && <button className="btn-sm" onClick={() => setPersonnelRHSelectionne(null)}>Voir tout le personnel</button>}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+                {(profs || []).map(p => {
+                  const selectionne = String(personnelRHSelectionne) === String(p.id)
+                  const demandes = (demandesRH || []).filter(d => String(d.user_id) === String(p.id))
+                  return <button key={p.id} type="button" onClick={() => setPersonnelRHSelectionne(p.id)} style={{ textAlign: 'left', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 13, borderRadius: 12, background: selectionne ? 'rgba(142,68,173,.10)' : 'var(--bg)', border: selectionne ? '2px solid #8e44ad' : '1px solid var(--border)' }}>
+                    <div style={{ fontWeight: 900, fontSize: 14 }}>{p.prenom} {p.nom}</div>
+                    <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{libelleFonction(p)} · {p.actif ? 'Actif' : 'Inactif'}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 9, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 11 }}>
+                      <span>{demandes.length} demande(s)</span>
+                      <b style={{ color: '#8e44ad' }}>Ouvrir →</b>
+                    </div>
+                  </button>
+                })}
+              </div>
+              {personnelRHSelectionne && (() => {
+                const p = profs.find(membre => String(membre.id) === String(personnelRHSelectionne))
+                if (!p) return null
+                const fiche = personnelRH[p.id] || {}
+                const classeNoms = (p.classe_ids || []).map(id => classes.find(c => String(c.id) === String(id))?.nom).filter(Boolean)
+                return <div style={{ marginTop: 15, padding: 14, borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 15, fontWeight: 900 }}>{p.prenom} {p.nom}</div>
+                  <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, fontSize: 12 }}>
+                    <div><b>Fonction :</b> {libelleFonction(p)}</div>
+                    <div><b>Langue :</b> {p.langue?.toUpperCase() || '—'}</div>
+                    <div><b>Classes :</b> {classeNoms.join(', ') || '—'}</div>
+                    <div><b>Date d’embauche :</b> {fiche.dateEmbauche || '—'}</div>
+                  </div>
+                </div>
+              })()}
+            </div>
+
             <div className="card" style={{ marginBottom: 20, padding: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel des Postes &amp; Salaires</h3>
@@ -1769,9 +1812,9 @@ export default function DirecteurApp({ user, onLogout }) {
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📑 Demandes RH &amp; Congés du Personnel</h3>
                 <span className="badge" style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', fontWeight: 700, padding: '4px 10px', borderRadius: 20, fontSize: 11 }}>{(demandesRH || []).filter(d => d.statut === 'En attente').length} En attente</span>
               </div>
-              {(demandesRH || []).length === 0 ? (
+              {(demandesRH || []).filter(d => !personnelRHSelectionne || String(d.user_id) === String(personnelRHSelectionne)).length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '1.5rem' }}>Aucune demande RH soumise.</div>
-              ) : (demandesRH || []).map(d => (
+              ) : (demandesRH || []).filter(d => !personnelRHSelectionne || String(d.user_id) === String(personnelRHSelectionne)).map(d => (
                 <div
                   key={d.id}
                   id={`demande-${d.id}`}
@@ -2014,7 +2057,34 @@ export default function DirecteurApp({ user, onLogout }) {
           <div>
             <div style={{ marginBottom: 20 }}>
               <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>📚 Session : Suivi Pédagogique</h1>
-              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Fiches de préparations de cours déposées par les professeurs et avancement des programmes.</p>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Suivi individuel des enseignants, de leurs préparations et de leur historique pédagogique.</p>
+            </div>
+
+            <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid var(--accent)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👩🏾‍🏫 Enseignants</h3>
+                  <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>Cliquez sur un enseignant pour afficher uniquement son dossier pédagogique.</div>
+                </div>
+                {enseignantPedagogieSelectionne && <button className="btn-sm" onClick={() => setEnseignantPedagogieSelectionne(null)}>Tous les enseignants</button>}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+                {profs.filter(p => p.role === 'professeur').map(p => {
+                  const liste = preparations.filter(prep => String(prep.user_id) === String(p.id))
+                  const aControler = liste.filter(prep => A_CONTROLER.includes(prep.status)).length
+                  const validees = liste.filter(prep => prep.status === 'validee').length
+                  const selectionne = String(enseignantPedagogieSelectionne) === String(p.id)
+                  return <button key={p.id} type="button" onClick={() => setEnseignantPedagogieSelectionne(p.id)} style={{ textAlign: 'left', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 13, borderRadius: 12, background: selectionne ? 'rgba(0,168,224,.10)' : 'var(--bg)', border: selectionne ? '2px solid var(--accent)' : '1px solid var(--border)' }}>
+                    <div style={{ fontWeight: 900, fontSize: 14 }}>{p.prenom} {p.nom}</div>
+                    <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{libelleFonction(p)}{p.langue ? ` · ${p.langue.toUpperCase()}` : ''}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5, marginTop: 10, textAlign: 'center' }}>
+                      <span style={{ padding: 6, borderRadius: 8, background: '#fff', fontSize: 10 }}><b>{liste.length}</b><br />Total</span>
+                      <span style={{ padding: 6, borderRadius: 8, background: '#fff', fontSize: 10, color: 'var(--amber)' }}><b>{aControler}</b><br />À contrôler</span>
+                      <span style={{ padding: 6, borderRadius: 8, background: '#fff', fontSize: 10, color: 'var(--green)' }}><b>{validees}</b><br />Validées</span>
+                    </div>
+                  </button>
+                })}
+              </div>
             </div>
 
             <div className="card" style={{ padding: '1.2rem' }}>
@@ -2023,7 +2093,7 @@ export default function DirecteurApp({ user, onLogout }) {
                   📚 Fiches de préparation
                   {' '}
                   <span style={{ fontWeight: 600, color: 'var(--muted)' }}>
-                    · {preparations.filter(p => A_CONTROLER.includes(p.status)).length} à contrôler sur {preparations.length}
+                    · {preparations.filter(p => (!enseignantPedagogieSelectionne || String(p.user_id) === String(enseignantPedagogieSelectionne)) && A_CONTROLER.includes(p.status)).length} à contrôler sur {preparations.filter(p => !enseignantPedagogieSelectionne || String(p.user_id) === String(enseignantPedagogieSelectionne)).length}
                   </span>
                 </h3>
                 {/* Une notification perdue ne doit pas arrêter le travail : la
@@ -2031,9 +2101,9 @@ export default function DirecteurApp({ user, onLogout }) {
                     cloche. C'est la file qui fait foi, la notification n'est
                     qu'un raccourci. */}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {[['a_controler', `À contrôler (${preparations.filter(p => A_CONTROLER.includes(p.status)).length})`],
-                    ['historique', `Historique (${preparations.filter(p => p.status === 'validee').length})`],
-                    ['toutes', `Toutes (${preparations.length})`]].map(([id, libelle]) => (
+                  {[['a_controler', `À contrôler (${preparations.filter(p => (!enseignantPedagogieSelectionne || String(p.user_id) === String(enseignantPedagogieSelectionne)) && A_CONTROLER.includes(p.status)).length})`],
+                    ['historique', `Historique (${preparations.filter(p => (!enseignantPedagogieSelectionne || String(p.user_id) === String(enseignantPedagogieSelectionne)) && p.status === 'validee').length})`],
+                    ['toutes', `Toutes (${preparations.filter(p => !enseignantPedagogieSelectionne || String(p.user_id) === String(enseignantPedagogieSelectionne)).length})`]].map(([id, libelle]) => (
                     <button key={id} onClick={() => setPrepFiltre(id)} style={{
                       padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
                       whiteSpace: 'nowrap',
@@ -2045,11 +2115,14 @@ export default function DirecteurApp({ user, onLogout }) {
                 </div>
               </div>
               {(() => {
-                const recentes = trierPreparationsParActivite(preparations)
+                const preparationsEnseignant = enseignantPedagogieSelectionne
+                  ? preparations.filter(p => String(p.user_id) === String(enseignantPedagogieSelectionne))
+                  : preparations
+                const recentes = trierPreparationsParActivite(preparationsEnseignant)
                 const visibles = prepFiltre === 'a_controler'
                   ? recentes.filter(p => A_CONTROLER.includes(p.status))
                   : prepFiltre === 'historique'
-                    ? trierPreparationsValidees(preparations)
+                    ? trierPreparationsValidees(preparationsEnseignant)
                     : recentes
                 return visibles.length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>
@@ -2247,6 +2320,86 @@ export default function DirecteurApp({ user, onLogout }) {
                   <div className="kpi-label">Préparations</div>
                 </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 20 }}>
+                <button type="button" onClick={() => setSyntheseVue('personnel')} style={{ padding: '15px 12px', borderRadius: 14, cursor: 'pointer', font: 'inherit', fontWeight: 900, border: syntheseVue === 'personnel' ? '2px solid #8e44ad' : '1px solid var(--border)', color: syntheseVue === 'personnel' ? '#8e44ad' : 'var(--muted)', background: syntheseVue === 'personnel' ? 'rgba(142,68,173,.10)' : 'var(--card)' }}>👥 Synthèse Personnel</button>
+                <button type="button" onClick={() => setSyntheseVue('eleves')} style={{ padding: '15px 12px', borderRadius: 14, cursor: 'pointer', font: 'inherit', fontWeight: 900, border: syntheseVue === 'eleves' ? '2px solid var(--green)' : '1px solid var(--border)', color: syntheseVue === 'eleves' ? 'var(--green)' : 'var(--muted)', background: syntheseVue === 'eleves' ? 'rgba(141,198,63,.10)' : 'var(--card)' }}>🎒 Synthèse Élèves</button>
+              </div>
+
+              {syntheseVue === 'personnel' && <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+                  <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👥 Synthèse de chaque membre du personnel</h3><div style={{ marginTop: 3, color: 'var(--muted)', fontSize: 11 }}>Identité professionnelle, affectations, activité pédagogique, demandes RH et suivi.</div></div>
+                  {synthesePersonnelSelectionne && <button className="btn-sm" onClick={() => setSynthesePersonnelSelectionne(null)}>Fermer la fiche</button>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                  {profs.map(p => {
+                    const preps = preparations.filter(prep => String(prep.user_id) === String(p.id))
+                    const demandes = demandesRH.filter(d => String(d.user_id) === String(p.id))
+                    const selectionne = String(synthesePersonnelSelectionne) === String(p.id)
+                    return <button key={p.id} type="button" onClick={() => setSynthesePersonnelSelectionne(p.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: selectionne ? 'rgba(142,68,173,.10)' : 'var(--bg)', border: selectionne ? '2px solid #8e44ad' : '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 900 }}>{p.prenom} {p.nom}</div>
+                      <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{libelleFonction(p)} · {p.actif ? 'Actif' : 'Inactif'}</div>
+                      <div style={{ marginTop: 9, fontSize: 11 }}>{preps.length} préparation(s) · {demandes.length} demande(s) RH</div>
+                    </button>
+                  })}
+                </div>
+                {synthesePersonnelSelectionne && (() => {
+                  const p = profs.find(membre => String(membre.id) === String(synthesePersonnelSelectionne))
+                  if (!p) return null
+                  const preps = preparations.filter(prep => String(prep.user_id) === String(p.id))
+                  const demandes = demandesRH.filter(d => String(d.user_id) === String(p.id))
+                  const presences = (sourcesPoints.performances || []).filter(perf => String(perf.prof_id) === String(p.id))
+                  const points = equipePoints.find(item => String(item.prof.id) === String(p.id))
+                  const fiche = personnelRH[p.id] || {}
+                  const classeNoms = (p.classe_ids || []).map(id => classes.find(c => String(c.id) === String(id))?.nom).filter(Boolean)
+                  return <div style={{ marginTop: 16, padding: 15, borderRadius: 14, border: '2px solid rgba(142,68,173,.25)', background: 'var(--bg)' }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{p.prenom} {p.nom}</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
+                      <div><b>Fonction :</b> {libelleFonction(p)}</div><div><b>Statut :</b> {p.actif ? 'Actif' : 'Inactif'}</div>
+                      <div><b>Langue :</b> {p.langue?.toUpperCase() || '—'}</div><div><b>Classes :</b> {classeNoms.join(', ') || '—'}</div>
+                      <div><b>Date d’embauche :</b> {fiche.dateEmbauche || '—'}</div><div><b>Présences enregistrées :</b> {presences.length}</div>
+                      <div><b>Préparations :</b> {preps.length}</div><div><b>À contrôler :</b> {preps.filter(prep => A_CONTROLER.includes(prep.status)).length}</div>
+                      <div><b>Validées :</b> {preps.filter(prep => prep.status === 'validee').length}</div><div><b>Demandes RH :</b> {demandes.length}</div>
+                      <div><b>Demandes en attente :</b> {demandes.filter(d => d.statut === 'En attente').length}</div><div><b>Points :</b> {points ? `${points.calc.total} / ${points.calc.max} (${points.calc.pourcentage} %)` : 'Non applicable'}</div>
+                    </div>
+                  </div>
+                })()}
+              </div>}
+
+              {syntheseVue === 'eleves' && <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+                  <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>🎒 Synthèse de chaque élève</h3><div style={{ marginTop: 3, color: 'var(--muted)', fontSize: 11 }}>Identité scolaire, classe, inscription, progression et discipline.</div></div>
+                  {syntheseEleveSelectionne && <button className="btn-sm" onClick={() => setSyntheseEleveSelectionne(null)}>Fermer la fiche</button>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+                  {eleves.map(e => {
+                    const classe = e.classes?.nom || e.classe_nom || classes.find(c => String(c.id) === String(e.classe_id))?.nom || 'Sans classe'
+                    const selectionne = String(syntheseEleveSelectionne) === String(e.id)
+                    return <button key={e.id} type="button" onClick={() => setSyntheseEleveSelectionne(e.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: selectionne ? 'rgba(141,198,63,.10)' : 'var(--bg)', border: selectionne ? '2px solid var(--green)' : '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 900 }}>{e.prenom} {e.nom}</div>
+                      <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{e.matricule || 'Sans matricule'} · {classe}</div>
+                    </button>
+                  })}
+                </div>
+                {syntheseEleveSelectionne && (() => {
+                  const e = eleves.find(eleve => String(eleve.id) === String(syntheseEleveSelectionne))
+                  if (!e) return null
+                  const classe = e.classes?.nom || e.classe_nom || classes.find(c => String(c.id) === String(e.classe_id))?.nom || 'Sans classe'
+                  const cps = checkpoints.filter(cp => String(cp.eleve_id) === String(e.id))
+                  const incidents = disciplines.filter(d => String(d.eleve_id) === String(e.id))
+                  const dossier = inscriptions.find(i => String(i.id) === String(e.inscription_id) || (e.matricule && i.matricule === e.matricule))
+                  return <div style={{ marginTop: 16, padding: 15, borderRadius: 14, border: '2px solid rgba(141,198,63,.28)', background: 'var(--bg)' }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{e.prenom} {e.nom}</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
+                      <div><b>Matricule :</b> {e.matricule || '—'}</div><div><b>Classe :</b> {classe}</div>
+                      <div><b>Date de naissance :</b> {e.date_naissance || '—'}</div><div><b>Sexe :</b> {e.sexe || '—'}</div>
+                      <div><b>Statut :</b> {e.actif === false ? 'Inactif' : 'Actif'}</div><div><b>Inscription :</b> {dossier?.statut || (e.inscription_id ? 'Enregistrée' : '—')}</div>
+                      <div><b>Cantine :</b> {e.cantine === true ? 'Inscrit' : e.cantine === false ? 'Non inscrit' : 'Non renseigné'}</div><div><b>Check-points :</b> {cps.length}</div>
+                      <div><b>Check-points validés :</b> {cps.filter(cp => cp.statut === 'validé' || cp.note !== null).length}</div><div><b>Incidents disciplinaires :</b> {incidents.length}</div>
+                    </div>
+                  </div>
+                })()}
+              </div>}
 
               {/* Avancement des Check-points */}
               <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
