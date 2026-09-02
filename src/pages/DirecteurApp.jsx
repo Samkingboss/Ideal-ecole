@@ -397,6 +397,7 @@ export default function DirecteurApp({ user, onLogout }) {
   }, [])
   const [subTabPersonnel, setSubTabPersonnel] = useState('profs')
   const [ficheMarcheCantine, setFicheMarcheCantine] = useState({ budget: 0, articles: [] })
+  const [menuCantine, setMenuCantine] = useState(null)
   const [justificatifsCuisine, setJustificatifsCuisine] = useState([])
   const [selectedJustificatif, setSelectedJustificatif] = useState(null)
 
@@ -614,6 +615,10 @@ export default function DirecteurApp({ user, onLogout }) {
       const { data: stateMarche } = await supabase.from('app_state')
         .select('value').eq('key', 'cantine_fiche_marche').maybeSingle()
       if (stateMarche && stateMarche.value) setFicheMarcheCantine(stateMarche.value)
+
+      const { data: stateMenu } = await supabase.from('app_state')
+        .select('value').eq('app', 'cantine').eq('key', 'cantine_menu_semaine').maybeSingle()
+      if (stateMenu?.value) setMenuCantine(stateMenu.value)
 
       // Historique des Justificatifs du Jour transmis par la Cuisinière
       const { data: stateJustifs } = await supabase.from('app_state')
@@ -1763,9 +1768,9 @@ export default function DirecteurApp({ user, onLogout }) {
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👥 Dossiers du personnel</h3>
                   <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>Choisissez un membre pour regrouper sa fiche et toutes ses demandes RH.</div>
                 </div>
-                {personnelRHSelectionne && <button className="btn-sm" onClick={() => setPersonnelRHSelectionne(null)}>Voir tout le personnel</button>}
+                {personnelRHSelectionne && <button className="btn-sm" onClick={() => setPersonnelRHSelectionne(null)}>← Retour au personnel</button>}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+              {!personnelRHSelectionne && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
                 {(profs || []).map(p => {
                   const selectionne = String(personnelRHSelectionne) === String(p.id)
                   const demandes = (demandesRH || []).filter(d => String(d.user_id) === String(p.id))
@@ -1778,7 +1783,7 @@ export default function DirecteurApp({ user, onLogout }) {
                     </div>
                   </button>
                 })}
-              </div>
+              </div>}
               {personnelRHSelectionne && (() => {
                 const p = profs.find(membre => String(membre.id) === String(personnelRHSelectionne))
                 if (!p) return null
@@ -2060,13 +2065,12 @@ export default function DirecteurApp({ user, onLogout }) {
               <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Suivi individuel des enseignants, de leurs préparations et de leur historique pédagogique.</p>
             </div>
 
-            <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid var(--accent)' }}>
+            {!enseignantPedagogieSelectionne && <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid var(--accent)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👩🏾‍🏫 Enseignants</h3>
                   <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>Cliquez sur un enseignant pour afficher uniquement son dossier pédagogique.</div>
                 </div>
-                {enseignantPedagogieSelectionne && <button className="btn-sm" onClick={() => setEnseignantPedagogieSelectionne(null)}>Tous les enseignants</button>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
                 {profs.filter(p => p.role === 'professeur').map(p => {
@@ -2085,7 +2089,18 @@ export default function DirecteurApp({ user, onLogout }) {
                   </button>
                 })}
               </div>
-            </div>
+            </div>}
+
+            {enseignantPedagogieSelectionne && (() => {
+              const p = profs.find(membre => String(membre.id) === String(enseignantPedagogieSelectionne))
+              if (!p) return null
+              const classeNoms = (p.classe_ids || []).map(id => classes.find(c => String(c.id) === String(id))?.nom).filter(Boolean)
+              return <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid var(--accent)' }}>
+                <button className="btn-sm" onClick={() => setEnseignantPedagogieSelectionne(null)} style={{ marginBottom: 12 }}>← Retour aux enseignants</button>
+                <h2 style={{ margin: 0, fontSize: 20 }}>{p.prenom} {p.nom}</h2>
+                <div style={{ marginTop: 5, fontSize: 12, color: 'var(--muted)' }}>{libelleFonction(p)}{p.langue ? ` · ${p.langue.toUpperCase()}` : ''} · {classeNoms.join(', ') || 'Aucune classe attribuée'}</div>
+              </div>
+            })()}
 
             <div className="card" style={{ padding: '1.2rem' }}>
               <div className="entete-ecran" style={{ marginBottom: 12 }}>
@@ -2329,20 +2344,25 @@ export default function DirecteurApp({ user, onLogout }) {
               {syntheseVue === 'personnel' && <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
                   <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👥 Synthèse de chaque membre du personnel</h3><div style={{ marginTop: 3, color: 'var(--muted)', fontSize: 11 }}>Identité professionnelle, affectations, activité pédagogique, demandes RH et suivi.</div></div>
-                  {synthesePersonnelSelectionne && <button className="btn-sm" onClick={() => setSynthesePersonnelSelectionne(null)}>Fermer la fiche</button>}
+                  {synthesePersonnelSelectionne && <button className="btn-sm" onClick={() => setSynthesePersonnelSelectionne(null)}>← Retour au personnel</button>}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                {!synthesePersonnelSelectionne && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
                   {profs.map(p => {
                     const preps = preparations.filter(prep => String(prep.user_id) === String(p.id))
                     const demandes = demandesRH.filter(d => String(d.user_id) === String(p.id))
                     const selectionne = String(synthesePersonnelSelectionne) === String(p.id)
+                    const activite = p.role === 'professeur'
+                      ? `${preps.length} préparation(s)`
+                      : p.role === 'cuisiniere'
+                        ? `${menuCantine ? '1 menu de semaine' : 'Aucun menu'} · ${justificatifsCuisine.length} justificatif(s)`
+                        : 'Suivi administratif'
                     return <button key={p.id} type="button" onClick={() => setSynthesePersonnelSelectionne(p.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: selectionne ? 'rgba(142,68,173,.10)' : 'var(--bg)', border: selectionne ? '2px solid #8e44ad' : '1px solid var(--border)' }}>
                       <div style={{ fontSize: 14, fontWeight: 900 }}>{p.prenom} {p.nom}</div>
                       <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{libelleFonction(p)} · {p.actif ? 'Actif' : 'Inactif'}</div>
-                      <div style={{ marginTop: 9, fontSize: 11 }}>{preps.length} préparation(s) · {demandes.length} demande(s) RH</div>
+                      <div style={{ marginTop: 9, fontSize: 11 }}>{activite} · {demandes.length} demande(s) RH</div>
                     </button>
                   })}
-                </div>
+                </div>}
                 {synthesePersonnelSelectionne && (() => {
                   const p = profs.find(membre => String(membre.id) === String(synthesePersonnelSelectionne))
                   if (!p) return null
@@ -2352,14 +2372,19 @@ export default function DirecteurApp({ user, onLogout }) {
                   const points = equipePoints.find(item => String(item.prof.id) === String(p.id))
                   const fiche = personnelRH[p.id] || {}
                   const classeNoms = (p.classe_ids || []).map(id => classes.find(c => String(c.id) === String(id))?.nom).filter(Boolean)
-                  return <div style={{ marginTop: 16, padding: 15, borderRadius: 14, border: '2px solid rgba(142,68,173,.25)', background: 'var(--bg)' }}>
+                  const joursMenu = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].filter(jour => {
+                    const repas = menuCantine?.[jour]
+                    return repas && [repas.entreeTitre, repas.platTitre, repas.dessertTitre, repas.gouterTitre].some(Boolean)
+                  })
+                  return <div style={{ padding: 15, borderRadius: 14, border: '2px solid rgba(142,68,173,.25)', background: 'var(--bg)' }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{p.prenom} {p.nom}</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
                       <div><b>Fonction :</b> {libelleFonction(p)}</div><div><b>Statut :</b> {p.actif ? 'Actif' : 'Inactif'}</div>
                       <div><b>Langue :</b> {p.langue?.toUpperCase() || '—'}</div><div><b>Classes :</b> {classeNoms.join(', ') || '—'}</div>
                       <div><b>Date d’embauche :</b> {fiche.dateEmbauche || '—'}</div><div><b>Présences enregistrées :</b> {presences.length}</div>
-                      <div><b>Préparations :</b> {preps.length}</div><div><b>À contrôler :</b> {preps.filter(prep => A_CONTROLER.includes(prep.status)).length}</div>
-                      <div><b>Validées :</b> {preps.filter(prep => prep.status === 'validee').length}</div><div><b>Demandes RH :</b> {demandes.length}</div>
+                      {p.role === 'professeur' && <><div><b>Préparations :</b> {preps.length}</div><div><b>À contrôler :</b> {preps.filter(prep => A_CONTROLER.includes(prep.status)).length}</div><div><b>Validées :</b> {preps.filter(prep => prep.status === 'validee').length}</div></>}
+                      {p.role === 'cuisiniere' && <><div><b>Menu de la semaine :</b> {menuCantine ? 'Renseigné' : 'Non renseigné'}</div><div><b>Jours renseignés :</b> {joursMenu.length} / 5</div><div><b>Budget marché :</b> {fcfa(ficheMarcheCantine.budget)}</div><div><b>Justificatifs transmis :</b> {justificatifsCuisine.length}</div></>}
+                      <div><b>Demandes RH :</b> {demandes.length}</div>
                       <div><b>Demandes en attente :</b> {demandes.filter(d => d.statut === 'En attente').length}</div><div><b>Points :</b> {points ? `${points.calc.total} / ${points.calc.max} (${points.calc.pourcentage} %)` : 'Non applicable'}</div>
                     </div>
                   </div>
@@ -2369,9 +2394,9 @@ export default function DirecteurApp({ user, onLogout }) {
               {syntheseVue === 'eleves' && <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
                   <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>🎒 Synthèse de chaque élève</h3><div style={{ marginTop: 3, color: 'var(--muted)', fontSize: 11 }}>Identité scolaire, classe, inscription, progression et discipline.</div></div>
-                  {syntheseEleveSelectionne && <button className="btn-sm" onClick={() => setSyntheseEleveSelectionne(null)}>Fermer la fiche</button>}
+                  {syntheseEleveSelectionne && <button className="btn-sm" onClick={() => setSyntheseEleveSelectionne(null)}>← Retour aux élèves</button>}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+                {!syntheseEleveSelectionne && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
                   {eleves.map(e => {
                     const classe = e.classes?.nom || e.classe_nom || classes.find(c => String(c.id) === String(e.classe_id))?.nom || 'Sans classe'
                     const selectionne = String(syntheseEleveSelectionne) === String(e.id)
@@ -2380,7 +2405,7 @@ export default function DirecteurApp({ user, onLogout }) {
                       <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{e.matricule || 'Sans matricule'} · {classe}</div>
                     </button>
                   })}
-                </div>
+                </div>}
                 {syntheseEleveSelectionne && (() => {
                   const e = eleves.find(eleve => String(eleve.id) === String(syntheseEleveSelectionne))
                   if (!e) return null
@@ -2388,7 +2413,7 @@ export default function DirecteurApp({ user, onLogout }) {
                   const cps = checkpoints.filter(cp => String(cp.eleve_id) === String(e.id))
                   const incidents = disciplines.filter(d => String(d.eleve_id) === String(e.id))
                   const dossier = inscriptions.find(i => String(i.id) === String(e.inscription_id) || (e.matricule && i.matricule === e.matricule))
-                  return <div style={{ marginTop: 16, padding: 15, borderRadius: 14, border: '2px solid rgba(141,198,63,.28)', background: 'var(--bg)' }}>
+                  return <div style={{ padding: 15, borderRadius: 14, border: '2px solid rgba(141,198,63,.28)', background: 'var(--bg)' }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{e.prenom} {e.nom}</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
                       <div><b>Matricule :</b> {e.matricule || '—'}</div><div><b>Classe :</b> {classe}</div>
