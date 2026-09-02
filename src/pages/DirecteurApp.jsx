@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import PerformancesDirecteur from './PerformancesDirecteur'
 import AgendaCalendrier from './AgendaCalendrier'
 import NotificationCenter from './NotificationCenter'
 import {
@@ -151,8 +150,6 @@ export default function DirecteurApp({ user, onLogout }) {
   const [prepFiltre, setPrepFiltre] = useState('a_controler')
   const [prepAvis, setPrepAvis] = useState({ appreciations: {}, commentaire: '' })
   const [checkpoints, setCheckpoints] = useState([])
-  const [syntheseData, setSyntheseData] = useState([])
-  const [activeSyntheseClass, setActiveSyntheseClass] = useState(null)
   const [activeEleveClass, setActiveEleveClass] = useState(null)
   const [disciplines, setDisciplines] = useState([])
   const [postes, setPostes] = useState(DEFAULT_POSTES)
@@ -161,9 +158,11 @@ export default function DirecteurApp({ user, onLogout }) {
   const [demandeRHDetail, setDemandeRHDetail] = useState(null)
   const [personnelRHSelectionne, setPersonnelRHSelectionne] = useState(null)
   const [enseignantPedagogieSelectionne, setEnseignantPedagogieSelectionne] = useState(null)
-  const [syntheseVue, setSyntheseVue] = useState('personnel')
+  const [syntheseVue, setSyntheseVue] = useState('accueil')
   const [synthesePersonnelSelectionne, setSynthesePersonnelSelectionne] = useState(null)
   const [syntheseEleveSelectionne, setSyntheseEleveSelectionne] = useState(null)
+  const [rechercheSynthesePersonnel, setRechercheSynthesePersonnel] = useState('')
+  const [rechercheSyntheseEleves, setRechercheSyntheseEleves] = useState('')
   const prepRefreshEnVol = useRef(false)
   const prepRefreshEnAttente = useRef(false)
 
@@ -566,23 +565,6 @@ export default function DirecteurApp({ user, onLogout }) {
       setProfs(enrichedProfs)
       
       if (cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
-
-      const { data: allMats } = await supabase.from('matieres').select('*, objectifs(*)')
-      const { data: allProgs } = await supabase.from('progressions').select('*, eleves(classe_id), objectifs(id)')
-      
-      const analysis = []
-      cl.forEach(c => {
-        const cMats = (allMats || []).filter(m => m.classe_id === c.id)
-        const cProgs = (allProgs || []).filter(p => p.eleves?.classe_id === c.id)
-        const matStats = cMats.map(m => {
-          const mObjIds = (m.objectifs || []).map(o => o.id)
-          const mProgs = cProgs.filter(p => mObjIds.includes(p.objectif_id))
-          const avg = mProgs.length ? Math.round(mProgs.reduce((acc,p)=>acc+p.pourcentage,0)/mProgs.length) : 0
-          return { nom: m.nom, avg }
-        }).sort((a,b) => b.avg - a.avg)
-        analysis.push({ classe: c.nom, stats: matStats })
-      })
-      setSyntheseData(analysis)
 
       // Référentiel Postes & salaires (partagé avec la comptabilité via app_state rh/postes)
       const { data: rhPostes } = await supabase.from('app_state')
@@ -2301,13 +2283,16 @@ export default function DirecteurApp({ user, onLogout }) {
 
         {/* ════════════════ 6. SYNTHÈSE ════════════════ */}
         {(activeDirectorTab === 'synthese' || activeDirectorTab === 'dashboard') && (() => {
-          const cpParClasse = classes.map(cl => {
-            const elevesCl = eleves.filter(e => e.classe_id === cl.id)
-            const cpCl = checkpoints.filter(cp => elevesCl.some(e => e.id === cp.eleve_id))
-            const total = elevesCl.length * 3
-            const fait = cpCl.filter(cp => cp.statut === 'validé' || cp.note !== null).length
-            return { classe: cl.nom, pct: total > 0 ? Math.round(fait / total * 100) : 0, fait, total: elevesCl.length }
-          })
+          const ordreAlphabetique = (a, b) => `${a.nom || ''} ${a.prenom || ''}`.localeCompare(`${b.nom || ''} ${b.prenom || ''}`, 'fr', { sensitivity: 'base' })
+          const termePersonnel = rechercheSynthesePersonnel.trim().toLocaleLowerCase('fr')
+          const termeEleve = rechercheSyntheseEleves.trim().toLocaleLowerCase('fr')
+          const personnelFiltres = [...profs].sort(ordreAlphabetique).filter(p => `${p.prenom || ''} ${p.nom || ''} ${p.nom || ''} ${p.prenom || ''}`.toLocaleLowerCase('fr').includes(termePersonnel))
+          const elevesFiltres = [...eleves].sort(ordreAlphabetique).filter(e => `${e.prenom || ''} ${e.nom || ''} ${e.nom || ''} ${e.prenom || ''} ${e.matricule || ''}`.toLocaleLowerCase('fr').includes(termeEleve))
+          const retourAccueilSynthese = () => {
+            setSyntheseVue('accueil')
+            setSynthesePersonnelSelectionne(null)
+            setSyntheseEleveSelectionne(null)
+          }
 
           return (
             <div>
@@ -2316,52 +2301,39 @@ export default function DirecteurApp({ user, onLogout }) {
                 <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Tableau de bord général de l'établissement et indicateurs clés de performance.</p>
               </div>
 
-              {/* KPI Cards */}
-              <div className="kpi-grid" style={{ marginBottom: 20 }}>
-                <div className="kpi-card kpi-accent">
-                  <div className="kpi-value"><Kpi v={stats.profs} echec={blocsEnEchec.includes('personnel')} /></div>
-                  <div className="kpi-label">Enseignants</div>
-                </div>
-                <div className="kpi-card kpi-green">
-                  <div className="kpi-value"><Kpi v={stats.eleves} echec={blocsEnEchec.includes('eleves')} /></div>
-                  <div className="kpi-label">Élèves</div>
-                </div>
-                <div className="kpi-card kpi-amber">
-                  <div className="kpi-value"><Kpi v={stats.classes ?? classes.length} echec={blocsEnEchec.includes('classes')} /></div>
-                  <div className="kpi-label">Classes</div>
-                </div>
-                <div className="kpi-card kpi-pink">
-                  <div className="kpi-value"><Kpi v={preparations.length} echec={blocsEnEchec.includes('preparations')} /></div>
-                  <div className="kpi-label">Préparations</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 20 }}>
-                <button type="button" onClick={() => setSyntheseVue('personnel')} style={{ padding: '15px 12px', borderRadius: 14, cursor: 'pointer', font: 'inherit', fontWeight: 900, border: syntheseVue === 'personnel' ? '2px solid #8e44ad' : '1px solid var(--border)', color: syntheseVue === 'personnel' ? '#8e44ad' : 'var(--muted)', background: syntheseVue === 'personnel' ? 'rgba(142,68,173,.10)' : 'var(--card)' }}>👥 Synthèse Personnel</button>
-                <button type="button" onClick={() => setSyntheseVue('eleves')} style={{ padding: '15px 12px', borderRadius: 14, cursor: 'pointer', font: 'inherit', fontWeight: 900, border: syntheseVue === 'eleves' ? '2px solid var(--green)' : '1px solid var(--border)', color: syntheseVue === 'eleves' ? 'var(--green)' : 'var(--muted)', background: syntheseVue === 'eleves' ? 'rgba(141,198,63,.10)' : 'var(--card)' }}>🎒 Synthèse Élèves</button>
-              </div>
+              {syntheseVue === 'accueil' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                <button type="button" onClick={() => setSyntheseVue('personnel')} style={{ minHeight: 132, padding: 18, borderRadius: 18, cursor: 'pointer', font: 'inherit', textAlign: 'left', border: '2px solid rgba(142,68,173,.28)', color: 'var(--dark)', background: 'rgba(142,68,173,.08)' }}>
+                  <div style={{ fontSize: 28 }}>👥</div><div style={{ marginTop: 8, fontSize: 16, fontWeight: 900 }}>Synthèse Personnel</div><div style={{ marginTop: 5, fontSize: 12, color: 'var(--muted)' }}>{profs.length} membre(s) · consulter les fiches et statistiques</div>
+                </button>
+                <button type="button" onClick={() => setSyntheseVue('eleves')} style={{ minHeight: 132, padding: 18, borderRadius: 18, cursor: 'pointer', font: 'inherit', textAlign: 'left', border: '2px solid rgba(141,198,63,.32)', color: 'var(--dark)', background: 'rgba(141,198,63,.09)' }}>
+                  <div style={{ fontSize: 28 }}>🎒</div><div style={{ marginTop: 8, fontSize: 16, fontWeight: 900 }}>Synthèse Élèves</div><div style={{ marginTop: 5, fontSize: 12, color: 'var(--muted)' }}>{eleves.length} élève(s) · progression et suivi individuel</div>
+                </button>
+                <div className="kpi-card kpi-amber" style={{ minHeight: 108 }}><div className="kpi-value"><Kpi v={stats.classes ?? classes.length} echec={blocsEnEchec.includes('classes')} /></div><div className="kpi-label">Classes</div></div>
+                <div className="kpi-card kpi-green" style={{ minHeight: 108 }}><div className="kpi-value"><Kpi v={stats.eleves} echec={blocsEnEchec.includes('eleves')} /></div><div className="kpi-label">Élèves</div></div>
+              </div>}
 
               {syntheseVue === 'personnel' && <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
                   <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>👥 Synthèse de chaque membre du personnel</h3><div style={{ marginTop: 3, color: 'var(--muted)', fontSize: 11 }}>Identité professionnelle, affectations, activité pédagogique, demandes RH et suivi.</div></div>
-                  {synthesePersonnelSelectionne && <button className="btn-sm" onClick={() => setSynthesePersonnelSelectionne(null)}>← Retour au personnel</button>}
+                  <button className="btn-sm" onClick={() => synthesePersonnelSelectionne ? setSynthesePersonnelSelectionne(null) : retourAccueilSynthese()}>← Retour</button>
                 </div>
+                {!synthesePersonnelSelectionne && <div style={{ position: 'relative', marginBottom: 14 }}><span aria-hidden="true" style={{ position: 'absolute', left: 13, top: 11 }}>🔎</span><input className="form-input" type="search" value={rechercheSynthesePersonnel} onChange={e => setRechercheSynthesePersonnel(e.target.value)} placeholder="Rechercher un membre du personnel…" aria-label="Rechercher un membre du personnel" style={{ paddingLeft: 40 }} /></div>}
                 {!synthesePersonnelSelectionne && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
-                  {profs.map(p => {
+                  {personnelFiltres.map(p => {
                     const preps = preparations.filter(prep => String(prep.user_id) === String(p.id))
                     const demandes = demandesRH.filter(d => String(d.user_id) === String(p.id))
-                    const selectionne = String(synthesePersonnelSelectionne) === String(p.id)
                     const activite = p.role === 'professeur'
                       ? `${preps.length} préparation(s)`
                       : p.role === 'cuisiniere'
                         ? `${menuCantine ? '1 menu de semaine' : 'Aucun menu'} · ${justificatifsCuisine.length} justificatif(s)`
                         : 'Suivi administratif'
-                    return <button key={p.id} type="button" onClick={() => setSynthesePersonnelSelectionne(p.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: selectionne ? 'rgba(142,68,173,.10)' : 'var(--bg)', border: selectionne ? '2px solid #8e44ad' : '1px solid var(--border)' }}>
+                    return <button key={p.id} type="button" onClick={() => setSynthesePersonnelSelectionne(p.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: 'var(--bg)', border: '1px solid var(--border)' }}>
                       <div style={{ fontSize: 14, fontWeight: 900 }}>{p.prenom} {p.nom}</div>
                       <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{libelleFonction(p)} · {p.actif ? 'Actif' : 'Inactif'}</div>
                       <div style={{ marginTop: 9, fontSize: 11 }}>{activite} · {demandes.length} demande(s) RH</div>
                     </button>
                   })}
+                  {personnelFiltres.length === 0 && <div style={{ color: 'var(--muted)', padding: 16 }}>Aucun membre trouvé.</div>}
                 </div>}
                 {synthesePersonnelSelectionne && (() => {
                   const p = profs.find(membre => String(membre.id) === String(synthesePersonnelSelectionne))
@@ -2376,6 +2348,8 @@ export default function DirecteurApp({ user, onLogout }) {
                     const repas = menuCantine?.[jour]
                     return repas && [repas.entreeTitre, repas.platTitre, repas.dessertTitre, repas.gouterTitre].some(Boolean)
                   })
+                  const tauxPoints = points?.calc?.pourcentage ?? 0
+                  const tauxPrepsValidees = preps.length ? Math.round(preps.filter(prep => prep.status === 'validee').length / preps.length * 100) : 0
                   return <div style={{ padding: 15, borderRadius: 14, border: '2px solid rgba(142,68,173,.25)', background: 'var(--bg)' }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{p.prenom} {p.nom}</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
@@ -2387,6 +2361,11 @@ export default function DirecteurApp({ user, onLogout }) {
                       <div><b>Demandes RH :</b> {demandes.length}</div>
                       <div><b>Demandes en attente :</b> {demandes.filter(d => d.statut === 'En attente').length}</div><div><b>Points :</b> {points ? `${points.calc.total} / ${points.calc.max} (${points.calc.pourcentage} %)` : 'Non applicable'}</div>
                     </div>
+                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 12 }}>Progression</div>
+                      {p.role === 'professeur' && <div style={{ marginBottom: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 5 }}><span>Préparations validées</span><b>{tauxPrepsValidees}%</b></div><div style={{ height: 10, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}><div style={{ width: `${tauxPrepsValidees}%`, height: '100%', background: '#8e44ad', borderRadius: 999 }} /></div></div>}
+                      {points && <div><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 5 }}><span>Performance annuelle</span><b>{tauxPoints}%</b></div><div style={{ height: 10, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}><div style={{ width: `${Math.max(0, Math.min(100, tauxPoints))}%`, height: '100%', background: 'var(--green)', borderRadius: 999 }} /></div></div>}
+                    </div>
                   </div>
                 })()}
               </div>}
@@ -2394,17 +2373,18 @@ export default function DirecteurApp({ user, onLogout }) {
               {syntheseVue === 'eleves' && <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
                   <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>🎒 Synthèse de chaque élève</h3><div style={{ marginTop: 3, color: 'var(--muted)', fontSize: 11 }}>Identité scolaire, classe, inscription, progression et discipline.</div></div>
-                  {syntheseEleveSelectionne && <button className="btn-sm" onClick={() => setSyntheseEleveSelectionne(null)}>← Retour aux élèves</button>}
+                  <button className="btn-sm" onClick={() => syntheseEleveSelectionne ? setSyntheseEleveSelectionne(null) : retourAccueilSynthese()}>← Retour</button>
                 </div>
+                {!syntheseEleveSelectionne && <div style={{ position: 'relative', marginBottom: 14 }}><span aria-hidden="true" style={{ position: 'absolute', left: 13, top: 11 }}>🔎</span><input className="form-input" type="search" value={rechercheSyntheseEleves} onChange={e => setRechercheSyntheseEleves(e.target.value)} placeholder="Rechercher un élève ou un matricule…" aria-label="Rechercher un élève" style={{ paddingLeft: 40 }} /></div>}
                 {!syntheseEleveSelectionne && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
-                  {eleves.map(e => {
+                  {elevesFiltres.map(e => {
                     const classe = e.classes?.nom || e.classe_nom || classes.find(c => String(c.id) === String(e.classe_id))?.nom || 'Sans classe'
-                    const selectionne = String(syntheseEleveSelectionne) === String(e.id)
-                    return <button key={e.id} type="button" onClick={() => setSyntheseEleveSelectionne(e.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: selectionne ? 'rgba(141,198,63,.10)' : 'var(--bg)', border: selectionne ? '2px solid var(--green)' : '1px solid var(--border)' }}>
+                    return <button key={e.id} type="button" onClick={() => setSyntheseEleveSelectionne(e.id)} style={{ textAlign: 'left', padding: 13, borderRadius: 12, cursor: 'pointer', color: 'inherit', font: 'inherit', background: 'var(--bg)', border: '1px solid var(--border)' }}>
                       <div style={{ fontSize: 14, fontWeight: 900 }}>{e.prenom} {e.nom}</div>
                       <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>{e.matricule || 'Sans matricule'} · {classe}</div>
                     </button>
                   })}
+                  {elevesFiltres.length === 0 && <div style={{ color: 'var(--muted)', padding: 16 }}>Aucun élève trouvé.</div>}
                 </div>}
                 {syntheseEleveSelectionne && (() => {
                   const e = eleves.find(eleve => String(eleve.id) === String(syntheseEleveSelectionne))
@@ -2413,6 +2393,8 @@ export default function DirecteurApp({ user, onLogout }) {
                   const cps = checkpoints.filter(cp => String(cp.eleve_id) === String(e.id))
                   const incidents = disciplines.filter(d => String(d.eleve_id) === String(e.id))
                   const dossier = inscriptions.find(i => String(i.id) === String(e.inscription_id) || (e.matricule && i.matricule === e.matricule))
+                  const notes = cps.map(cp => Number(cp.note)).filter(Number.isFinite)
+                  const moyenne = notes.length ? Math.round(notes.reduce((total, note) => total + note, 0) / notes.length) : null
                   return <div style={{ padding: 15, borderRadius: 14, border: '2px solid rgba(141,198,63,.28)', background: 'var(--bg)' }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: 17 }}>{e.prenom} {e.nom}</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9, fontSize: 12 }}>
@@ -2422,26 +2404,10 @@ export default function DirecteurApp({ user, onLogout }) {
                       <div><b>Cantine :</b> {e.cantine === true ? 'Inscrit' : e.cantine === false ? 'Non inscrit' : 'Non renseigné'}</div><div><b>Check-points :</b> {cps.length}</div>
                       <div><b>Check-points validés :</b> {cps.filter(cp => cp.statut === 'validé' || cp.note !== null).length}</div><div><b>Incidents disciplinaires :</b> {incidents.length}</div>
                     </div>
+                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 900, marginBottom: 7 }}><span>Progression pédagogique</span><span>{moyenne === null ? 'Pas encore évaluée' : `${moyenne}%`}</span></div><div style={{ height: 12, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}><div style={{ width: `${Math.max(0, Math.min(100, moyenne || 0))}%`, height: '100%', background: 'var(--green)', borderRadius: 999 }} /></div></div>
                   </div>
                 })()}
               </div>}
-
-              {/* Avancement des Check-points */}
-              <div className="card" style={{ padding: '1.2rem', marginBottom: 20 }}>
-                <h3 style={{ margin: '0 0 14px 0', fontSize: 16, fontWeight: 800 }}>📌 Avancement des Check-points par Classe</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                  {cpParClasse.map(c => (
-                    <div key={c.classe} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
-                      <div style={{ fontWeight: 800, fontSize: 14 }}>{c.classe}</div>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--accent)', margin: '4px 0' }}>{c.pct}%</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.fait} check-points validés</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Performance Globale */}
-              <PerformancesDirecteur />
             </div>
           )
         })()}
