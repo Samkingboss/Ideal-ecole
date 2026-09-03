@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import SuiviStock from './SuiviStock'
 import { supabase } from '../lib/supabase'
+import { modifierEtatPartage, modifierListePartagee } from '../lib/etatPartage'
 import NotificationCenter from './NotificationCenter'
 import DossierPersonnel from './DossierPersonnel'
 import DemandesEnseignant from './DemandesEnseignant'
@@ -391,7 +392,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
         })
         setPointage(defaultPt)
       }
-    } catch (e) {
+    } catch {
       const defaultPt = {}
       eleves.forEach(e => {
         defaultPt[e.id] = { matin: false, midi: false, gouter: false }
@@ -593,11 +594,17 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
     if (!confirm('Voulez-vous effacer toutes les données du menu de la semaine ?')) return
     setMenuSemaine(EMPTY_MENU_SEMAINE)
     try {
-      await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: EMPTY_MENU_SEMAINE, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      // Le client Supabase ne lève pas : il rend `{ error }`. Ce `try/catch`
+      // n'attrapait donc rien, et l'écran annonçait « entièrement effacés »
+      // alors que le serveur gardait le menu — que le rechargement suivant
+      // faisait réapparaître.
+      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: EMPTY_MENU_SEMAINE, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      if (error) throw error
       setMsg('🗑️ Les menus de la semaine ont été entièrement effacés.')
       setTimeout(() => setMsg(''), 3000)
     } catch (e) {
       console.error(e)
+      setMsg("⚠️ Le menu n'a pas pu être effacé sur le serveur : " + (e?.message || 'erreur inconnue'))
     }
   }
 
@@ -605,8 +612,15 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   const saveFicheMarche = async (updatedMarche) => {
     setFicheMarche(updatedMarche)
     try {
-      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updatedMarche, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
-      if (error) throw error
+      // La direction écrit le budget sur la même fiche depuis son écran.
+      // Réécrire tout le document effaçait sa saisie ; on fusionne sur la
+      // fiche relue, en gardant ce que cet écran vient de modifier.
+      const r = await modifierEtatPartage({
+        app: 'cantine', cle: 'cantine_fiche_marche', client: supabase,
+        parDefaut: EMPTY_FICHE_MARCHE,
+        transformer: fiche => ({ ...(fiche || {}), ...updatedMarche }),
+      })
+      if (!r.ok) throw new Error(r.message || r.raison)
       return true
     } catch (e) {
       console.error(e)
@@ -713,19 +727,15 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
         statut: 'VALIDE_CUISINE'
       }
 
-      const { data: stateJustifs, error: lectureError } = await supabase.from('app_state').select('value').eq('app', 'cantine').eq('key', 'cantine_justificatifs_historique').maybeSingle()
-      if (lectureError) throw lectureError
-      const currentList = (stateJustifs && Array.isArray(stateJustifs.value)) ? stateJustifs.value : []
-      const filteredList = currentList.filter(j => j.date_du_jour !== justificatifEntry.date_du_jour || j.type_periode !== justificatifEntry.type_periode)
-      const newList = [justificatifEntry, ...filteredList]
-
-      const { error: transmissionError } = await supabase.from('app_state').upsert({
-        app: 'cantine',
-        key: 'cantine_justificatifs_historique',
-        value: newList,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'app,key' })
-      if (transmissionError) throw transmissionError
+      // Registre des justificatifs : lu puis réécrit en entier, donc exposé au
+      // même écrasement que les autres listes partagées. L'ajout se fait
+      // maintenant sur le registre relu au moment d'écrire.
+      const rJustifs = await modifierListePartagee({
+        app: 'cantine', cle: 'cantine_justificatifs_historique', client: supabase,
+        transformer: registre => [justificatifEntry, ...registre.filter(
+          j => j.date_du_jour !== justificatifEntry.date_du_jour || j.type_periode !== justificatifEntry.type_periode)],
+      })
+      if (!rJustifs.ok) throw new Error(rJustifs.message || rJustifs.raison)
 
       setMsg('📜 Fiche du marché validée, signée par la cuisinière et enregistrée dans les justificatifs du Responsable Administratif !')
       setTimeout(() => setMsg(''), 5000)

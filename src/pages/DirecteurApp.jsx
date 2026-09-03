@@ -9,6 +9,7 @@ import {
 import { lireJournal } from '../lib/audit'
 import { lienWhatsApp } from '../lib/ecole'
 import { notifierCorrectionPreparation, pushNotification } from '../lib/notifications'
+import { modifierEtatPartage, modifierListePartagee } from '../lib/etatPartage'
 import AffectationsMatieres from './AffectationsMatieres'
 import ActivitePersonnel from './ActivitePersonnel'
 import CartesScolaires from './CartesScolaires'
@@ -227,19 +228,28 @@ export default function DirecteurApp({ user, onLogout }) {
   //
   // La notification vise `d.user_id` et non un role : c'est l'enseignant
   // concerne qu'on informe, pas la salle des profs.
+  // La reponse etait ecrite en reecrivant TOUT le registre a partir de l'etat
+  // charge a l'ouverture de l'ecran. Une demande deposee par un enseignant
+  // depuis cette ouverture etait donc effacee par la premiere reponse du
+  // directeur — silencieusement, et sans que personne ne puisse le savoir :
+  // l'enseignant voyait sa demande partie, la direction ne l'a jamais vue.
+  //
+  // On ne touche plus qu'a la demande visee, sur le registre A JOUR relu au
+  // moment d'ecrire.
   const repondreDemande = async (d, statut, reponse) => {
-    const updated = demandesRH.map(x => (x.id === d.id ? { ...x, statut, reponse_direction: reponse } : x))
-    setDemandesRH(updated)
+    const r = await modifierListePartagee({
+      app: 'rh', cle: 'demandes_rh_global', client: supabase,
+      transformer: registre => registre.map(
+        x => (x.id === d.id ? { ...x, statut, reponse_direction: reponse } : x)),
+    })
 
-    const { error } = await supabase.from('app_state').upsert({
-      app: 'rh', key: 'demandes_rh_global', value: updated, updated_at: new Date().toISOString(),
-    }, { onConflict: 'app,key' })
-
-    if (error) {
-      setDemandesRH(demandesRH)   // on remet l'ecran dans l'etat de la base
-      alert("La reponse n'a pas ete enregistree : " + error.message)
+    if (!r.ok) {
+      alert("La reponse n'a pas ete enregistree : " + (r.message || r.raison))
       return
     }
+    // L'ecran adopte ce que la base contient reellement, y compris les
+    // demandes arrivees entre-temps.
+    setDemandesRH(r.valeur)
 
     const transmise = await pushNotification(d.user_id, {
       titre: /refus/i.test(statut) ? 'Votre demande a été refusée' : 'Votre demande a été approuvée',
@@ -571,26 +581,24 @@ export default function DirecteurApp({ user, onLogout }) {
       if (cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
 
       // Référentiel Postes & salaires (partagé avec la comptabilité via app_state rh/postes)
-      const { data: rhPostes } = await supabase.from('app_state')
-        .select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle()
-      if (Array.isArray(rhPostes?.value) && rhPostes.value.length > 0) {
-        const cleaned = rhPostes.value.map(p => ({
-          ...p,
-          commentaire: (p.commentaire || '').replace(/Fati\s*DJIRÉ/gi, '').replace(/\(–\s*trilingue\)/gi, '').replace(/\(Fati\s*DJIRÉ\s*–\s*trilingue\)/gi, '').trim()
-        }))
-        setPostes(cleaned)
-        // Nettoyage cosmétique rejoué à chaque chargement : un refus n'a pas
-        // de conséquence pour l'utilisateur, la version nettoyée reste
-        // affichée et la tentative recommencera. On lit tout de même le
-        // résultat plutôt que de l'ignorer — une écriture dont personne ne
-        // regarde l'issue est une écriture dont personne ne sait qu'elle
-        // échoue depuis des mois.
-        const { error: errNettoyage } = await supabase.from('app_state').upsert(
-          { app: 'rh', key: 'postes', value: cleaned, updated_at: new Date().toISOString() },
-          { onConflict: 'app,key' }
-        )
-        if (errNettoyage) console.warn('Nettoyage des postes non persisté :', errNettoyage.message)
-      }
+      //
+      // Ce nettoyage cosmétique se rejoue à CHAQUE ouverture de l'écran, sans
+      // que personne ne le demande, et il réécrivait toute la grille des
+      // salaires à partir de la copie lue une ligne plus haut. Un poste créé
+      // depuis la page comptabilité pendant ce court intervalle disparaissait
+      // — écrasé par un nettoyage automatique que nul ne regardait.
+      //
+      // Il s'applique désormais à la grille relue au moment d'écrire.
+      const nettoyerPostes = liste => liste.map(p => ({
+        ...p,
+        commentaire: (p.commentaire || '').replace(/Fati\s*DJIRÉ/gi, '').replace(/\(–\s*trilingue\)/gi, '').replace(/\(Fati\s*DJIRÉ\s*–\s*trilingue\)/gi, '').trim()
+      }))
+      const rPostes = await modifierListePartagee({
+        app: 'rh', cle: 'postes', client: supabase,
+        transformer: liste => (liste.length > 0 ? nettoyerPostes(liste) : liste),
+      })
+      if (rPostes.ok) { if (rPostes.valeur.length > 0) setPostes(rPostes.valeur) }
+      else console.warn('Nettoyage des postes non persisté :', rPostes.message || rPostes.raison)
 
       // Demandes RH soumises par les enseignants
       const { data: globalDem } = await supabase.from('app_state')
@@ -1149,12 +1157,19 @@ export default function DirecteurApp({ user, onLogout }) {
                           value={ficheMarcheCantine.budget || 0}
                           onChange={async (e) => {
                             const b = Number(e.target.value) || 0
-                            const updated = { ...ficheMarcheCantine, budget: b }
-                            setFicheMarcheCantine(updated)
-                            // Sans lecture du résultat, le budget s'affichait
-                            // modifié à l'écran sans avoir été enregistré.
-                            const { error: errBudget } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_fiche_marche', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
-                            if (errBudget) setErreurGlobale("Le budget du marché n'a pas été enregistré : " + errBudget.message)
+                            // La fiche du marché est écrite par DEUX écrans :
+                            // celui-ci pour le budget, celui de la cuisinière
+                            // pour les achats. Réécrire tout le document depuis
+                            // la copie chargée ici effaçait les articles saisis
+                            // entre-temps. On ne touche plus qu'au budget, sur
+                            // la fiche relue au moment d'écrire.
+                            const rMarche = await modifierEtatPartage({
+                              app: 'cantine', cle: 'cantine_fiche_marche', client: supabase,
+                              parDefaut: { budget: 0, articles: [] },
+                              transformer: fiche => ({ ...(fiche || {}), budget: b }),
+                            })
+                            if (!rMarche.ok) setErreurGlobale("Le budget du marché n'a pas été enregistré : " + (rMarche.message || rMarche.raison))
+                            else setFicheMarcheCantine(rMarche.valeur)
                           }}
                           style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}
                         />

@@ -59,23 +59,18 @@ APRÈS   notifier_preparation(<de quoi je parle>)
 Le navigateur n'écrit pas l'état. Il exprime une intention. Le serveur lit
 `auth.uid()`, vérifie le droit, construit la donnée et l'écrit lui-même.
 
-## Inventaire des 15 écritures restantes
+## Inventaire des 10 écritures restantes
 
 | Écriture | Espace | Workflow métier | Qui a le droit | Ce qu'il peut réellement modifier | Surface de remplacement |
 |---|---|---|---|---|---|
-| `src/lib/notifications.js:77` | APP_NOTIFS | Toute notification du portail (10 appelants) | personnel connecte | la boite du destinataire, en ajout | `une RPC par intention metier ; `notifier_preparation` est la premiere` |
+| `src/lib/etatPartage.js:86` | tous | Création d'une ligne absente, pour le compte de l'appelant | personnel connecté | la ligne visée, en écriture conditionnelle | dissous par les RPC métier ci-dessous |
+| `src/lib/etatPartage.js:105` | tous | Mise à jour conditionnelle — l'unique écrivain des listes partagées | personnel connecté | la ligne visée, si nul n'a écrit depuis la lecture | dissous par les RPC métier ci-dessous |
 | `src/pages/ActivitePersonnel.jsx:251` | rh | Fiche d'activite du personnel | direction | les points et l'activite d'un agent | `enregistrer_activite_personnel` |
 | `src/pages/CuisiniereApp.jsx:405` | (non précisé) | Pointage des repas du jour | cuisiniere | le pointage du jour, sa cantine | `pointer_repas — ECRITURE DEJA MORTE : `app` manque, la cle primaire la refuse` |
 | `src/pages/CuisiniereApp.jsx:542` | cantine | Menu de la semaine | cuisiniere | le menu de sa cantine | `enregistrer_menu_semaine` |
 | `src/pages/CuisiniereApp.jsx:564` | cantine | Menu de la semaine (validation) | cuisiniere | le menu de sa cantine | `enregistrer_menu_semaine` |
-| `src/pages/CuisiniereApp.jsx:576` | cantine | Fiche de marche | cuisiniere | la fiche de marche courante | `enregistrer_fiche_marche` |
-| `src/pages/CuisiniereApp.jsx:690` | cantine | Historique des justificatifs | cuisiniere | ses propres justificatifs, en ajout | `deposer_justificatif_cantine` |
-| `src/pages/DemandesEnseignant.jsx:271` | (non précisé) | Depot d'une demande RH | enseignant | sa propre demande, en ajout a la file | `deposer_demande_rh` |
-| `src/pages/DirecteurApp.jsx:190` | rh | Reponse de la direction a une demande RH | direction | le statut et la reponse d'une demande | `repondre_demande_rh` |
 | `src/pages/DirecteurApp.jsx:491` | rh | Creation / modification d'un poste | direction | la grille des postes | `enregistrer_poste` |
-| `src/pages/DirecteurApp.jsx:551` | rh | Suppression d'un poste | direction | la grille des postes | `supprimer_poste` |
 | `src/pages/DirecteurApp.jsx:564` | rh | Parametres RH (points, saisie manuelle) | direction | la configuration RH | `enregistrer_parametres_rh` |
-| `src/pages/DirecteurApp.jsx:940` | cantine | Fiche de marche cantine cote direction | direction | la fiche de marche courante | `enregistrer_fiche_marche` |
 | `src/pages/DossierPersonnel.jsx:160` | (non précisé) | Dossier RH personnel | l'agent lui-meme | SON dossier, et lui seul | `enregistrer_mon_dossier_rh` |
 | `public/comptabilite.html:7544` | rh | Grille des postes, page comptabilite | direction | la grille des postes | `enregistrer_poste` |
 ## Ordre de migration

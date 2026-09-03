@@ -215,8 +215,15 @@ console.log(`\n${G}── APP_STATE · le navigateur n'écrit pas l'état   [INV
   for (const e of ecrituresAppState()) {
     const lignes = lire(e.fichier).split('\n')
     const fenetre = lignes.slice(e.ligne - 1, e.ligne + 14).join('\n')
-    if (!/(^|[\s({,])app\s*:/m.test(fenetre))
-      manquent.push(`${e.fichier}:${e.ligne} sans app`)
+    // Trois façons LÉGITIMES de nommer l'espace, toutes équivalentes en base :
+    // `app: 'rh'`, la forme abrégée `{ app, key: cle }` quand la variable
+    // porte déjà le nom, et le filtre `.eq('app', app)` d'une mise à jour
+    // ciblée. N'en reconnaître qu'une faisait rougir le module central qui
+    // les emploie toutes.
+    const nommeSonEspace = /(^|[\s({,])app\s*:/m.test(fenetre)
+      || /[({,]\s*app\s*[,}]/m.test(fenetre)
+      || /\.eq\(\s*'app'/m.test(fenetre)
+    if (!nommeSonEspace) manquent.push(`${e.fichier}:${e.ligne} sans app`)
     const suite = lignes.slice(Math.max(0, e.ligne - 4), e.ligne + 22).join('\n')
     const litLeResultat = /(const|let)\s*\{[^}]*\berror\b/.test(suite)
     if (!litLeResultat) manquent.push(`${e.fichier}:${e.ligne} sans lecture du résultat`)

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { modifierListePartagee } from './etatPartage'
 
 // `app_state` a une clé primaire composite (app, key). Toutes les
 // notifications vivent sous ce même `app`.
@@ -51,49 +52,36 @@ export async function pushNotification(target, notifData) {
     for (const tgt of targets) {
       if (!tgt) continue
       const userKey = `notifs_${tgt}`
-      let currentList = []
 
-      // 1. Récupération Supabase en priorité
-      const { data } = await supabase
-        .from('app_state')
-        .select('value')
-        .eq('app', APP_NOTIFS)
-        .eq('key', userKey)
-        .maybeSingle()
-
-      if (data && data.value && Array.isArray(data.value)) {
-        currentList = data.value
-      } else {
-        const localData = localStorage.getItem(userKey)
-        if (localData) {
-          try { currentList = JSON.parse(localData) } catch (e) {}
-        }
-      }
-
-      const updatedList = [newNotif, ...currentList.filter(n => n.id !== newNotif.id)].slice(0, 50)
-
-      // Mettre à jour le localStorage SEULEMENT SI le compte courant est destinataire
-      if (tgt === currentRole || tgt === currentUserId || tgt === 'global') {
-        localStorage.setItem(userKey, JSON.stringify(updatedList))
-      }
-
-      // Upsert Supabase. `app` fait partie de la clé primaire et ne peut être
-      // nulle : sans elle, chaque envoi était refusé en 400 et la
-      // notification ne quittait jamais l'appareil de l'expéditeur.
-      const { error } = await supabase
-        .from('app_state')
-        .upsert({
-          app: APP_NOTIFS,
-          key: userKey,
-          value: updatedList,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'app,key' })
+      // Lire la boîte, y ajouter la notification, réécrire la boîte entière :
+      // c'est ce que faisait ce code, et entre la lecture et l'écriture rien
+      // n'empêchait un autre appareil de passer. Deux incidents signalés à la
+      // même minute, et la direction n'en voyait qu'un — sans erreur, sans
+      // trace.
+      //
+      // L'écriture est désormais conditionnelle à l'horodatage lu : si
+      // quelqu'un a écrit entre-temps, on relit et l'on rejoue l'ajout sur la
+      // liste à jour. Voir `etatPartage.js`.
+      const r = await modifierListePartagee({
+        app: APP_NOTIFS,
+        cle: userKey,
+        client: supabase,
+        transformer: liste => [newNotif, ...liste.filter(n => n.id !== newNotif.id)].slice(0, 50),
+      })
 
       // Une notification perdue en silence est pire que pas de notification :
       // l'expéditeur croit avoir prévenu.
-      if (error) {
-        console.error('Notification non transmise à', tgt, ':', error.message)
-        echec = { cible: tgt, message: error.message, code: error.code, details: error.details }
+      if (!r.ok) {
+        console.error('Notification non transmise à', tgt, ':', r.raison, r.message)
+        echec = { cible: tgt, message: r.message || r.raison, code: r.raison }
+        continue
+      }
+
+      // Le miroir local ne sert qu'à l'affichage hors ligne du destinataire.
+      // Il ne s'écrit qu'APRÈS l'accord du serveur : l'écrire avant montrait à
+      // l'expéditeur une notification que la base avait refusée.
+      if (tgt === currentRole || tgt === currentUserId || tgt === 'global') {
+        localStorage.setItem(userKey, JSON.stringify(r.valeur))
       }
     }
 

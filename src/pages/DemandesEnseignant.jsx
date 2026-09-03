@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { modifierListePartagee } from '../lib/etatPartage'
 const APP_RH = 'rh'
 
 // Règles posées par le directeur le 16 août 2026.
@@ -109,7 +110,7 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
   const loadDemandes = async () => {
     try {
       const cache = localStorage.getItem(`demandes_rh_${user?.id}`)
-      if (cache) { try { setDemandes(JSON.parse(cache)) } catch (e) {} }
+      if (cache) { try { setDemandes(JSON.parse(cache)) } catch { /* cache local illisible : on repart du registre global */ } }
 
       const { data, error } = await supabase
         .from('app_state')
@@ -256,34 +257,24 @@ export default function DemandesEnseignant({ user, portalLabel = 'Portail enseig
       // enseignant en base, elle divergeait sans jamais être relue.
       localStorage.setItem(`demandes_rh_${user?.id}`, JSON.stringify(updatedList))
 
-      // Push dans le registre global des demandes RH pour la Direction
-      const { data: globalState } = await supabase
-        .from('app_state')
-        .select('value')
-        .eq('app', APP_RH)
-        .eq('key', 'demandes_rh_global')
-        .maybeSingle()
-
-      const currentGlobal = (globalState && Array.isArray(globalState.value)) ? globalState.value : []
-      const updatedGlobal = [nouvelleDemande, ...currentGlobal]
-
-      const { error: eGlobal } = await supabase
-        .from('app_state')
-        .upsert({
-          // `app` fait partie de la cle primaire et ne peut etre nulle :
-          // sans elle l'ecriture etait refusee et la demande perdue.
-          app: APP_RH,
-          key: 'demandes_rh_global',
-          value: updatedGlobal,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'app,key' })
+      // Dépôt dans le registre global des demandes RH, lu par la Direction.
+      //
+      // Le registre était relu puis réécrit en entier. Deux enseignants
+      // déposant à la même minute — ce qui arrive en fin de mois — et l'un des
+      // deux disparaissait du registre sans que rien ne le signale.
+      //
+      // L'écriture est maintenant conditionnelle : voir `etatPartage.js`.
+      const rGlobal = await modifierListePartagee({
+        app: APP_RH, cle: 'demandes_rh_global', client: supabase,
+        transformer: registre => [nouvelleDemande, ...registre],
+      })
 
       // Une demande perdue en silence est le pire des cas : l'enseignant croit
       // avoir écrit à la direction et attend une réponse qui ne viendra pas.
-      if (eGlobal) {
+      if (!rGlobal.ok) {
         setLoading(false)
         setSuccessMsg('')
-        alert("Votre demande n'a pas pu être transmise : " + eGlobal.message + "\nRéessayez, et prévenez la direction si cela se reproduit.")
+        alert("Votre demande n'a pas pu être transmise : " + (rGlobal.message || rGlobal.raison) + "\nRéessayez, et prévenez la direction si cela se reproduit.")
         return
       }
 
