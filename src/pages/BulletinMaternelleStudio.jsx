@@ -27,6 +27,7 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
   const [bulletins, setBulletins] = useState([])
   const [horaires, setHoraires] = useState([])
   const [presences, setPresences] = useState([])
+  const [photos, setPhotos] = useState({})
   const [etat, setEtat] = useState('chargement')
   const [message, setMessage] = useState('')
 
@@ -36,10 +37,11 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
     let annule = false
     ;(async () => {
       if (!maternelle.length) { setBulletins([]); setEtat('pret'); return }
-      const [bulletinsRes, horairesRes, presencesRes] = await Promise.all([
+      const [bulletinsRes, horairesRes, presencesRes, photosRes] = await Promise.all([
         supabase.rpc('lire_bulletins_maternelle', { p_eleve_ids: maternelle.map(e => e.id) }),
         supabase.rpc('lire_pilotage_heures_pedagogiques'),
         supabase.from('presences_eleves').select('eleve_id,date_jour,statut').in('eleve_id', maternelle.map(e => e.id)),
+        supabase.rpc('lire_photos_bulletins_maternelle', { p_eleve_ids:maternelle.map(e => e.id) }),
       ])
       const { data, error } = bulletinsRes
       if (annule) return
@@ -50,6 +52,11 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
       } else setBulletins(Array.isArray(data) ? data : [])
       setHoraires(Array.isArray(horairesRes.data) ? horairesRes.data : [])
       setPresences(Array.isArray(presencesRes.data) ? presencesRes.data : [])
+      const refs = Array.isArray(photosRes.data) ? photosRes.data : []
+      const chemins = [...new Set(refs.map(x => x.photo_chemin).filter(Boolean))]
+      const signees = chemins.length ? await supabase.storage.from('inscriptions').createSignedUrls(chemins,3600) : {data:[]}
+      const parChemin = new Map((signees.data || []).filter(x => x.signedUrl && !x.error).map(x => [x.path,x.signedUrl]))
+      setPhotos(Object.fromEntries(refs.map(x => [String(x.eleve_id), parChemin.get(x.photo_chemin) || x.photo_base64 || ''])))
       setEtat('pret')
     })()
     return () => { annule = true }
@@ -90,7 +97,7 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
         classSize: effectifs.get(e.classe_id) || 0,
         teacher: `${user?.prenom || ''} ${user?.nom || ''}`.trim(),
         headmaster: 'Direction IDEAL',
-        photo: e.photo_url || '',
+        photo: photos[String(e.id)] || '',
         evaluations: {
           t1: fusion('t1').evaluations,
           t2: fusion('t2').evaluations,
@@ -109,7 +116,7 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
         },
       }
     })
-  }, [maternelle, bulletins, horaires, presences, user, sectionTitulaire])
+  }, [maternelle, bulletins, horaires, presences, photos, user, sectionTitulaire])
 
   const envoyer = useCallback(() => iframeRef.current?.contentWindow?.postMessage({
     type: 'ideal:bulletin:init', students: donneesEleves, editorLanguage:langueCompte,

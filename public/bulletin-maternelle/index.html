@@ -763,6 +763,47 @@ body {
     font-weight: 600;
 }
 
+/* Carte de développement : une lecture immédiate pour les familles. */
+.development-map {
+    background: linear-gradient(145deg, #F8FBFF 0%, #FFF7ED 100%);
+    border: 1px solid #DCE8F2;
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    gap: 16px;
+    overflow: hidden;
+    position: relative;
+}
+.development-map::before {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 6px;
+    background: linear-gradient(#2563EB,#10B981,#F59E0B,#EC4899);
+}
+.development-portrait { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.development-title { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.development-title h3 { font:800 13px 'Poppins',sans-serif; color:#0C2B5C; margin:0; }
+.development-title p { margin:2px 0 0; font-size:9px; color:#64748B; }
+.overall-orbit {
+    width:76px; height:76px; border-radius:50%; display:grid; place-items:center;
+    background:conic-gradient(#10B981 var(--overall,0%),#E2E8F0 0);
+    box-shadow:0 8px 22px rgba(15,118,110,.16); position:relative; margin-top:6px;
+}
+.overall-orbit::after { content:""; position:absolute; inset:8px; border-radius:50%; background:#fff; }
+.overall-orbit strong { z-index:1; font:900 18px 'Poppins',sans-serif; color:#0C2B5C; }
+.child-map { width:108px; height:180px; margin-top:4px; filter:drop-shadow(0 8px 8px rgba(15,23,42,.12)); }
+.body-zone { stroke:#fff; stroke-width:3; transition:fill .3s ease; }
+.development-caption { font-size:8.5px; color:#64748B; text-align:center; line-height:1.3; }
+.development-gauges { display:flex; flex-direction:column; gap:7px; justify-content:center; }
+.domain-gauge { display:grid; grid-template-columns:26px 1fr 38px; align-items:center; gap:7px; }
+.domain-gauge-icon { width:26px; height:26px; display:grid; place-items:center; border-radius:8px; color:#fff; font-size:12px; }
+.domain-gauge-name { font:700 9px 'Poppins',sans-serif; color:#243B53; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.domain-gauge-track { height:8px; border-radius:10px; background:#E2E8F0; overflow:hidden; margin-top:3px; }
+.domain-gauge-fill { height:100%; border-radius:10px; min-width:3px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.25); }
+.domain-gauge-score { font:900 10px 'Poppins',sans-serif; text-align:right; color:#0C2B5C; }
+.parent-key { grid-column:1/-1; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.parent-key span { border-radius:8px; padding:5px 7px; font-size:8px; font-weight:700; text-align:center; }
+.legacy-chart-data { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
+
 /* Badges Bar */
 .report-badges-bar {
     background-color: #FAF5FF;
@@ -1169,22 +1210,37 @@ body {
                             </div>
                         </div>
                     </section>
-                    <section class="report-summary-bar">
-                        <div class="summary-card doughnut-card">
-                            <h3><i class="fa-solid fa-chart-pie"></i> Synthèse Globale des Objectifs</h3>
-                            <div class="chart-wrapper"><canvas id="chart-doughnut"></canvas></div>
+                    <section class="development-map">
+                        <div class="development-title">
+                            <div><h3>🌱 La carte de développement de votre enfant</h3><p>Les couleurs montrent ce qui est acquis et ce qui mérite encore d’être accompagné.</p></div>
                             <div class="stats-pills-row">
-                                <span class="stat-pill stat-tb">TB: <strong id="stat-count-tb">0</strong></span>
-                                <span class="stat-pill stat-b">B: <strong id="stat-count-b">0</strong></span>
-                                <span class="stat-pill stat-m">M: <strong id="stat-count-m">0</strong></span>
-                                <span class="stat-pill stat-ar">AR: <strong id="stat-count-ar">0</strong></span>
+                                <span class="stat-pill stat-tb">TB <strong id="stat-count-tb">0</strong></span>
+                                <span class="stat-pill stat-b">B <strong id="stat-count-b">0</strong></span>
+                                <span class="stat-pill stat-m">M <strong id="stat-count-m">0</strong></span>
+                                <span class="stat-pill stat-ar">AR <strong id="stat-count-ar">0</strong></span>
                             </div>
                         </div>
-                        <div class="summary-card radar-card">
-                            <h3><i class="fa-solid fa-chart-radar"></i> Répartition par Matière & Domaine</h3>
-                            <div class="chart-wrapper"><canvas id="chart-radar"></canvas></div>
-                            <div class="radar-score-badge">Taux global d'acquisition : <strong id="stat-overall-percent">100%</strong></div>
+                        <div class="development-portrait">
+                            <div class="overall-orbit" id="development-overall"><strong id="stat-overall-percent">0%</strong></div>
+                            <svg class="child-map" viewBox="0 0 120 205" role="img" aria-label="Silhouette représentant les domaines de développement">
+                                <circle id="body-head" class="body-zone" cx="60" cy="28" r="23" fill="#CBD5E1"/>
+                                <rect id="body-torso" class="body-zone" x="35" y="52" width="50" height="70" rx="24" fill="#CBD5E1"/>
+                                <rect id="body-left-hand" class="body-zone" x="12" y="60" width="22" height="72" rx="11" transform="rotate(13 23 96)" fill="#CBD5E1"/>
+                                <rect id="body-right-hand" class="body-zone" x="86" y="60" width="22" height="72" rx="11" transform="rotate(-13 97 96)" fill="#CBD5E1"/>
+                                <rect id="body-left-leg" class="body-zone" x="38" y="116" width="21" height="78" rx="11" transform="rotate(3 48 155)" fill="#CBD5E1"/>
+                                <rect id="body-right-leg" class="body-zone" x="62" y="116" width="21" height="78" rx="11" transform="rotate(-3 72 155)" fill="#CBD5E1"/>
+                                <path d="M46 28q14 12 28 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                            <div class="development-caption">Chaque zone se colore au rythme des acquisitions observées.</div>
                         </div>
+                        <div class="development-gauges" id="development-gauges"></div>
+                        <div class="parent-key">
+                            <span class="stat-tb">Très bien · acquis avec aisance</span>
+                            <span class="stat-b">Bien · acquis</span>
+                            <span class="stat-m">Moyen · en cours</span>
+                            <span class="stat-ar">À renforcer · à accompagner</span>
+                        </div>
+                        <div class="legacy-chart-data"><canvas id="chart-doughnut"></canvas><canvas id="chart-radar"></canvas></div>
                     </section>
                     <section class="report-badges-bar">
                         <h3><i class="fa-solid fa-crown"></i> Distinctions & Encouragements Pédagogiques</h3>
@@ -2444,7 +2500,8 @@ class ChartManager {
 
             domain.competencies.forEach((comp, idx) => {
                 const compKey = `${domain.id}_${idx}`;
-                const val = evals[compKey] || "TB"; // default to TB
+                const val = evals[compKey] || "";
+                if (!['TB','B','M','AR'].includes(val)) return;
                 totalCount++;
                 domainTotal++;
 
@@ -2467,7 +2524,7 @@ class ChartManager {
         });
 
         const totalPoints = countTB * 1.0 + countB * 0.75 + countM * 0.50 + countAR * 0.25;
-        const overallPercent = totalCount > 0 ? Math.round((totalPoints / totalCount) * 100) : 100;
+        const overallPercent = totalCount > 0 ? Math.round((totalPoints / totalCount) * 100) : 0;
 
         return {
             countTB,
@@ -2787,16 +2844,8 @@ class MaternelleApp {
         if (!student.evaluations) student.evaluations = {};
         ["t1", "t2", "t3"].forEach(tri => {
             if (!student.evaluations[tri]) student.evaluations[tri] = {};
-            const sectionCode = student.section || "GS";
-            const domains = getDomainsForSection(sectionCode, tri);
-            domains.forEach(domain => {
-                domain.competencies.forEach((_, idx) => {
-                    const compKey = `${domain.id}_${idx}`;
-                    if (!student.evaluations[tri][compKey]) {
-                        student.evaluations[tri][compKey] = "TB";
-                    }
-                });
-            });
+            // Une compétence absente reste non évaluée. La préremplir à TB
+            // afficherait une réussite inexistante dans la jauge parent.
         });
     }
 
@@ -3241,7 +3290,7 @@ class MaternelleApp {
             domain.competencies.forEach((compText, idx) => {
                 if (isEnglishCompetency(compText) !== (window.idealBridge.editorLanguage === 'en')) return;
                 const compKey = `${domain.id}_${idx}`;
-                const val = currentEvals[compKey] || "TB"; // default TB
+                const val = currentEvals[compKey] || "";
 
                 compsHtml += `
                     <div class="comp-item-row">
@@ -3402,7 +3451,7 @@ class MaternelleApp {
 
                 domain.competencies.forEach((compText, idx) => {
                     const compKey = `${domain.id}_${idx}`;
-                    const val = currentEvals[compKey] || "TB";
+                    const val = currentEvals[compKey] || "";
                     const isEn = isEnglishCompetency(compText);
 
                     const compRow = document.createElement("tr");
@@ -3427,7 +3476,43 @@ class MaternelleApp {
             });
         }
 
-        // Render Charts & Update Stats
+        // Carte de développement destinée aux parents : mêmes évaluations,
+        // simplement regroupées dans une lecture visuelle par domaine.
+        const stats = window.chartManager.computeStats(st, triKey);
+        const gauges = document.getElementById('development-gauges');
+        const couleurScore = score => score >= 85 ? '#10B981' : score >= 70 ? '#2563EB' : score >= 50 ? '#F59E0B' : '#EF4444';
+        if (gauges) {
+            gauges.innerHTML = stats.domains.map(domain => {
+                const score = stats.domainScores[domain.id] || 0;
+                const nom = domain.title.replace(/^\d+\.\s*/, '');
+                return `<div class="domain-gauge">
+                    <span class="domain-gauge-icon" style="background:${domain.color}"><i class="fa-solid ${domain.icon}"></i></span>
+                    <div><div class="domain-gauge-name">${nom}</div><div class="domain-gauge-track"><div class="domain-gauge-fill" style="width:${score}%;background:${couleurScore(score)}"></div></div></div>
+                    <span class="domain-gauge-score">${score}%</span>
+                </div>`;
+            }).join('');
+        }
+        const moyenneZones = motif => {
+            const valeurs = stats.domains.filter(d => motif.test(d.id)).map(d => stats.domainScores[d.id] || 0);
+            return valeurs.length ? Math.round(valeurs.reduce((a,b)=>a+b,0)/valeurs.length) : 0;
+        };
+        const zones = {
+            'body-head': moyenneZones(/lang|lecture|math|numer|science|decouverte/),
+            'body-torso': moyenneZones(/civique|vivre|autonom|art|expression/),
+            'body-left-hand': moyenneZones(/graph|ecrit|fine|art/),
+            'body-right-hand': moyenneZones(/graph|ecrit|fine|art/),
+            'body-left-leg': moyenneZones(/motr|sport|globale/),
+            'body-right-leg': moyenneZones(/motr|sport|globale/),
+        };
+        Object.entries(zones).forEach(([id,score]) => {
+            const zone = document.getElementById(id);
+            if (zone) { zone.style.fill=couleurScore(score); zone.style.opacity=String(.35 + score/155); }
+        });
+        const orbit = document.getElementById('development-overall');
+        if (orbit) orbit.style.setProperty('--overall', `${stats.overallPercent}%`);
+
+        // Render Charts & Update Stats (les canevas restent disponibles pour
+        // la compatibilité PDF, mais la lecture principale est l'infographie).
         window.chartManager.renderCharts(st, triKey);
     }
 
@@ -3435,7 +3520,8 @@ class MaternelleApp {
         if (!window.chartManager) return { teacher: "", headmaster: "" };
 
         const stats = window.chartManager.computeStats(student, trimesterKey);
-        const percent = parseFloat(stats.overallPercent) || 100;
+        const lu = Number(stats.overallPercent);
+        const percent = Number.isFinite(lu) ? lu : 0;
         const rawName = (student.name || "Élève").trim();
         const nameParts = rawName.split(" ");
         const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : rawName;

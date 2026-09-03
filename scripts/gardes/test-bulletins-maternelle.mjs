@@ -5,6 +5,7 @@ const prof = fs.readFileSync('src/pages/ProfApp.jsx', 'utf8')
 const studio = fs.readFileSync('src/pages/BulletinMaternelleStudio.jsx', 'utf8')
 const bulletin = fs.readFileSync('public/bulletin-maternelle/index.html', 'utf8')
 const sql = fs.readFileSync('sql/bulletins_maternelle.sql', 'utf8')
+const sqlPhotos = fs.readFileSync('sql/bulletins_maternelle_photos.sql', 'utf8')
 
 const test = (nom, condition) => { assert.ok(condition, nom); console.log(`PASS — ${nom}`) }
 
@@ -21,6 +22,10 @@ test('la soumission Direction est limitée à la titulaire et exige les deux lan
 test('la Direction est notifiée après la soumission explicite', /type:\s*'ideal:bulletin:submit'/.test(bulletin) && /pushNotification\('directeur'/.test(studio))
 test('les contributions française et anglaise sont fusionnées sans écrasement', /contributions\.fr/.test(studio) && /jsonb_set\(/.test(sql) && /jsonb_build_object\(v_langue,v_contribution\)/.test(sql))
 test('les heures viennent du pilotage Direction', /lire_pilotage_heures_pedagogiques/.test(studio) && !/totalHours:\s*180/.test(studio))
+test('la photo du bulletin vient du même photo_chemin que la carte scolaire', /lire_photos_bulletins_maternelle/.test(studio) && /i\.photo_chemin/.test(sqlPhotos) && /createSignedUrls\(chemins,3600\)/.test(studio))
+test('la lecture Storage est limitée aux photos des classes affectées', /name like 'photos\/%'/.test(sqlPhotos) && /prof_classes/.test(sqlPhotos) && /peut_lire_photo_maternelle\(name\)/.test(sqlPhotos))
+test('le bulletin présente une carte de développement et ses jauges par domaine', /class="development-map"/.test(bulletin) && /id="development-gauges"/.test(bulletin) && /body-left-hand/.test(bulletin) && /body-left-leg/.test(bulletin))
+test('une compétence non évaluée ne vaut jamais Très Bien par défaut', /overallPercent = totalCount > 0[\s\S]*?: 0/.test(bulletin) && !/evals\[compKey\] \|\| "TB"/.test(bulletin))
 test('l’atelier est utilisable sur téléphone', /@media \(max-width: 800px\)/.test(bulletin) && /\.control-panel \{ width: 100%/.test(bulletin) && /\.comp-pill-group \{ width: 100%; display: grid/.test(bulletin))
 test('l’atelier reste intégré dans IDEAL', /sans quitter IDEAL/.test(studio) && /<iframe/.test(studio))
 test('une ligne serveur est unique par élève, trimestre et année', /unique \(eleve_id, trimestre, annee_scolaire\)/i.test(sql))
