@@ -14,7 +14,7 @@ import { supabase } from './supabase'
  */
 
 const utilisateurCourant = () => {
-  try { return JSON.parse(localStorage.getItem('ideal_user') || 'null') } catch (e) { return null }
+  try { return JSON.parse(localStorage.getItem('ideal_user') || 'null') } catch { return null }
 }
 
 const texte = v => {

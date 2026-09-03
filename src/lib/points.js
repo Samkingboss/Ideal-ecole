@@ -273,7 +273,7 @@ export function detailIndicateur(config, donnees, userId, nomComplet, trimestreI
   }
   const heure = ts => {
     try { return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }
-    catch (e) { return String(ts || '') }
+    catch { return String(ts || '') }
   }
 
   if (indicateurId === 'preparations') {
