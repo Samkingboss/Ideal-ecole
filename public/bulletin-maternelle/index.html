@@ -1,0 +1,3415 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDEAL Maternelle - Suivi des Compétences (PS & GS)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <style>
+/*
+ * IDEAL Maternelle - Suivi des Compétences & Rapports d'Évaluation (PS & GS)
+ * Styling & Design System
+ */
+
+:root {
+    --primary-blue: #0C2B5C;
+    --primary-blue-light: #153E7E;
+    --orange-ideal: #F58220;
+    --orange-hover: #E07010;
+
+    --green-tb: #10B981;
+    --green-tb-bg: #ECFDF5;
+    --green-b: #059669;
+    --green-b-bg: #E6F4EA;
+    --yellow-m: #F59E0B;
+    --yellow-m-bg: #FFFBEB;
+    --red-ar: #EF4444;
+    --red-ar-bg: #FEF2F2;
+
+    --dark-bg: #0F172A;
+    --dark-card: #1E293B;
+    --dark-border: #334155;
+    --dark-text: #F8FAFC;
+    --dark-subtext: #94A3B8;
+
+    --light-bg: #F1F5F9;
+    --paper-bg: #FFFFFF;
+    --text-primary: #1E293B;
+    --text-muted: #64748B;
+    --border-light: #CBD5E1;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+[hidden] { display: none !important; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--dark-bg);
+    color: var(--dark-text);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ----------------------------------------------------
+   LEFT PANEL: CONTROLS & SIDEBAR
+   ---------------------------------------------------- */
+.control-panel {
+    width: 480px;
+    background-color: var(--dark-bg);
+    border-right: 1px solid var(--dark-border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    z-index: 10;
+}
+
+.panel-header {
+    padding: 16px 20px;
+    background-color: #09101F;
+    border-bottom: 1px solid var(--dark-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--orange-ideal), #F97316);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 20px;
+    box-shadow: 0 2px 8px rgba(245, 130, 32, 0.4);
+}
+
+.brand-title h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+}
+
+.brand-subtitle {
+    font-size: 11px;
+    color: var(--orange-ideal);
+    font-weight: 500;
+}
+
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.panel-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+    background: var(--dark-border);
+    border-radius: 3px;
+}
+
+.section-card {
+    background-color: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.section-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.section-card h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-card h2 i {
+    color: var(--orange-ideal);
+}
+
+.section-subtext {
+    font-size: 11px;
+    color: var(--dark-subtext);
+    margin-top: -4px;
+    margin-bottom: 12px;
+}
+
+.student-count-badge {
+    font-size: 11px;
+    background-color: rgba(245, 130, 32, 0.15);
+    color: var(--orange-ideal);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+/* Filter Chips */
+.filter-chips-container {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.filter-chip {
+    flex: 1;
+    padding: 7px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--dark-border);
+    background-color: var(--dark-bg);
+    color: var(--dark-subtext);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+    border-color: var(--orange-ideal);
+    color: #ffffff;
+}
+
+.filter-chip.active {
+    background-color: var(--orange-ideal);
+    color: #ffffff;
+    border-color: var(--orange-ideal);
+}
+
+/* Trimester Tabs */
+.trimester-tabs-container {
+    display: flex;
+    gap: 6px;
+    background-color: var(--dark-bg);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--dark-border);
+}
+
+.tri-tab-btn {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dark-subtext);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tri-tab-btn.active {
+    background-color: var(--primary-blue-light);
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Search Bar */
+.db-search-bar {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.db-search-bar i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--dark-subtext);
+    font-size: 12px;
+}
+
+.db-search-bar input {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    background-color: var(--dark-bg);
+    border: 1px solid var(--dark-border);
+    border-radius: 8px;
+    color: var(--dark-text);
+    font-size: 12px;
+    outline: none;
+}
+
+.db-search-bar input:focus {
+    border-color: var(--orange-ideal);
+}
+
+/* Student List */
+.student-list {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.student-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background-color: var(--dark-bg);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.student-item.active {
+    border-color: var(--orange-ideal);
+    background-color: rgba(245, 130, 32, 0.1);
+}
+
+.student-item-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--primary-blue-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.student-item-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.student-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.student-item-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dark-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.student-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.section-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #ffffff;
+}
+
+.section-PS { background-color: #3B82F6; }
+.section-GS { background-color: #8B5CF6; }
+
+.student-year-tag {
+    font-size: 10px;
+    color: var(--dark-subtext);
+}
+
+/* Forms & Inputs */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--dark-subtext);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    background-color: var(--dark-bg);
+    border: 1px solid var(--dark-border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--dark-text);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--orange-ideal);
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+
+/* Badges Grid */
+.badges-selector-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.badge-select-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    background-color: var(--dark-bg);
+    border: 1.5px solid var(--dark-border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.badge-select-card.selected {
+    background-color: rgba(245, 130, 32, 0.12);
+    box-shadow: 0 0 8px rgba(245, 130, 32, 0.2);
+}
+
+.badge-icon { font-size: 16px; }
+.badge-title { font-size: 10px; font-weight: 600; color: var(--dark-text); }
+
+/* Competency Matrix Editor */
+.domain-editor-card {
+    background-color: var(--dark-bg);
+    border: 1px solid var(--dark-border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.domain-header {
+    padding: 8px 12px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--dark-border);
+    border-left: 4px solid var(--orange-ideal);
+}
+
+.domain-header h3 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--dark-text);
+}
+
+.domain-body {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.comp-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.comp-item-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.comp-item-title {
+    font-size: 10px;
+    color: var(--dark-subtext);
+    line-height: 1.3;
+    flex: 1;
+}
+
+.comp-pill-group {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.btn-pill {
+    padding: 3px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 4px;
+    border: 1px solid var(--dark-border);
+    background-color: var(--dark-card);
+    color: var(--dark-subtext);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pill-tb.active { background-color: var(--green-tb); color: #ffffff; border-color: var(--green-tb); }
+.pill-b.active  { background-color: var(--green-b);  color: #ffffff; border-color: var(--green-b); }
+.pill-m.active  { background-color: var(--yellow-m); color: #ffffff; border-color: var(--yellow-m); }
+.pill-ar.active { background-color: var(--red-ar);   color: #ffffff; border-color: var(--red-ar); }
+
+/* Buttons */
+.btn {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary { background-color: var(--orange-ideal); color: #ffffff; }
+.btn-primary:hover { background-color: var(--orange-hover); }
+.btn-ideal { background-color: var(--primary-blue-light); color: #ffffff; }
+.btn-ideal:hover { background-color: var(--primary-blue); }
+
+.btn-danger {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover { background-color: #EF4444; color: #ffffff; }
+.btn-full { width: 100%; }
+.btn-group-stacked { display: flex; flex-direction: column; gap: 8px; }
+
+/* ----------------------------------------------------
+   RIGHT PANEL: LIVE BULLETIN PREVIEW & VIEWPORT
+   ---------------------------------------------------- */
+.preview-panel {
+    flex: 1;
+    background-color: #0B1120;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.preview-toolbar {
+    padding: 14px 24px;
+    background-color: #09101F;
+    border-bottom: 1px solid var(--dark-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.toolbar-info { display: flex; align-items: center; gap: 12px; }
+.toolbar-info h2 { font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 600; color: #ffffff; }
+
+.preview-badge {
+    font-size: 10px;
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.toolbar-actions { display: flex; gap: 10px; }
+
+.preview-viewport {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* Printable A4 Report Paper Styling */
+.report-paper {
+    width: 820px;
+    background-color: var(--paper-bg);
+    color: var(--text-primary);
+    padding: 28px;
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 11px;
+    position: relative;
+    border-top: 5px solid;
+    border-image: linear-gradient(90deg, #F58220, #10B981, #2563EB, #EC4899, #7C3AED) 1;
+}
+
+/* Header */
+.report-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border-bottom: 2px solid var(--primary-blue);
+    padding-bottom: 10px;
+}
+
+.header-logo-container { width: 95px; flex-shrink: 0; }
+.report-logo { width: 100%; height: auto; object-fit: contain; }
+.header-school-details { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+.school-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--primary-blue);
+    letter-spacing: -0.3px;
+}
+
+.school-motto { font-size: 10.5px; color: var(--orange-ideal); font-style: italic; font-weight: 600; }
+
+.report-document-title {
+    margin-top: 4px;
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+    color: #ffffff;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    align-self: flex-start;
+    box-shadow: 0 2px 6px rgba(12, 43, 92, 0.2);
+}
+
+/* Student Identity Bar */
+.report-student-card {
+    background: linear-gradient(135deg, #F8FAFC, #EFF6FF);
+    border: 1px solid var(--border-light);
+    border-left: 6px solid var(--orange-ideal);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.report-photo-box {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 3px solid var(--primary-blue);
+    overflow: hidden;
+    flex-shrink: 0;
+    background-color: #E2E8F0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(12, 43, 92, 0.15);
+}
+
+.report-photo-box img { width: 100%; height: 100%; object-fit: cover; }
+.photo-placeholder { color: var(--primary-blue); font-size: 26px; }
+
+.report-student-meta { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.meta-row-main { display: flex; align-items: center; gap: 10px; }
+
+.student-fullname {
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-blue);
+}
+
+.student-section-pill {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--orange-ideal), #F97316);
+    color: #ffffff;
+    padding: 2px 12px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(245, 130, 32, 0.3);
+}
+
+.meta-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px 10px;
+}
+
+.meta-item { font-size: 10px; color: var(--text-muted); }
+.meta-val { color: var(--text-primary); font-weight: 600; }
+
+/* Language Distinction Row Backgrounds */
+.row-lang-fr {
+    background-color: #F0F9FF !important; /* Bleu ciel doux */
+    border-left: 3px solid #0284C7 !important;
+}
+
+.row-lang-en {
+    background-color: #FFF7ED !important; /* Orange clair doux */
+    border-left: 3px solid #F97316 !important;
+}
+
+.row-lang-fr .col-comp-desc::before {
+    content: "🇫🇷 ";
+    font-size: 10px;
+    margin-right: 4px;
+}
+
+.row-lang-en .col-comp-desc::before {
+    content: "🇬🇧 ";
+    font-size: 10px;
+    margin-right: 4px;
+}
+/* Charts Bar */
+.report-summary-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.summary-card {
+    background-color: #FFFFFF;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.summary-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary-blue);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 4px;
+}
+
+.chart-wrapper { height: 105px; position: relative; }
+.stats-pills-row { display: flex; justify-content: space-between; gap: 4px; }
+.stat-pill { font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+
+.stat-tb { background-color: var(--green-tb-bg); color: var(--green-tb); }
+.stat-b  { background-color: var(--green-b-bg);  color: var(--green-b); }
+.stat-m  { background-color: var(--yellow-m-bg); color: var(--yellow-m); }
+.stat-ar { background-color: var(--red-ar-bg);   color: var(--red-ar); }
+
+.radar-score-badge {
+    font-size: 10px;
+    text-align: center;
+    background-color: #EFF6FF;
+    color: var(--primary-blue);
+    padding: 3px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* Badges Bar */
+.report-badges-bar {
+    background-color: #FAF5FF;
+    border: 1px solid #E9D5FF;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.report-badges-bar h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    color: #7C3AED;
+    margin-bottom: 6px;
+}
+
+.report-badges-container { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.report-badge-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #ffffff;
+    border: 1px solid #E9D5FF;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.no-badge-msg { font-size: 10px; color: var(--text-muted); font-style: italic; }
+
+/* Evaluation Table */
+.report-table-section { margin-top: 2px; }
+
+.report-eval-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+}
+
+.report-eval-table th {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    padding: 6px 8px;
+    text-align: center;
+    background-color: var(--primary-blue);
+    color: #ffffff;
+    border: 1px solid var(--primary-blue);
+}
+
+.report-eval-table th.col-domain-comp { text-align: left; width: 52%; }
+.report-eval-table th.col-eval-th { width: 12%; font-size: 9px; }
+
+.domain-section-header-row td {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 10.5px;
+    padding: 5px 8px;
+    border: 1px solid var(--border-light);
+}
+
+.competency-item-row td {
+    padding: 4px 8px;
+    border: 1px solid var(--border-light);
+    vertical-align: middle;
+}
+
+.col-comp-desc { color: var(--text-primary); line-height: 1.3; font-weight: 500; }
+.col-eval-cell { text-align: center; }
+
+/* Language Distinction Backgrounds */
+.row-lang-fr {
+    background-color: #E0F2FE !important; /* Bleu ciel doux */
+}
+
+.row-lang-en {
+    background-color: #FFEDD5 !important; /* Orange clair doux */
+}
+
+
+.eval-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 9px;
+}
+
+.badge-tb { background-color: var(--green-tb-bg); color: var(--green-tb); }
+.badge-b  { background-color: var(--green-b-bg);  color: var(--green-b); }
+.badge-m  { background-color: var(--yellow-m-bg); color: var(--yellow-m); }
+.badge-ar { background-color: var(--red-ar-bg);   color: var(--red-ar); }
+
+.cell-active-tb { background-color: rgba(16, 185, 129, 0.08); }
+.cell-active-b  { background-color: rgba(5, 150, 105, 0.08); }
+.cell-active-m  { background-color: rgba(245, 158, 11, 0.08); }
+.cell-active-ar { background-color: rgba(239, 68, 68, 0.08); }
+
+/* Footer Appreciations & Signatures */
+.report-footer-section { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+
+.appreciation-box {
+    background-color: #F8FAFC;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.appreciation-box h4 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary-blue);
+    margin-bottom: 2px;
+}
+
+.appreciation-box p {
+    font-size: 10px;
+    color: var(--text-primary);
+    line-height: 1.4;
+    font-style: italic;
+}
+
+.signatures-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.signature-cell {
+    border: 1px dashed var(--border-light);
+    border-radius: 6px;
+    padding: 8px;
+    height: 65px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.sig-title { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.sig-name { font-size: 9px; font-weight: 600; color: #1E293B; margin-top: 3px; text-align: center; line-height: 1.25; }
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background-color: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+}
+
+.spinner-box {
+    background-color: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    padding: 24px 36px;
+    border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+
+.spinner {
+    width: 36px; height: 36px;
+    border: 3px solid rgba(245, 130, 32, 0.2);
+    border-top-color: var(--orange-ideal);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-text { font-size: 13px; font-weight: 600; color: var(--dark-text); }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="control-panel">
+            <header class="panel-header">
+                <div class="brand-title">
+                    <div class="brand-logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                    <div>
+                        <h1>IDEAL Maternelle</h1>
+                        <p class="brand-subtitle">Petite & Grande Section</p>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btn-new-student" title="Créer un nouvel élève" hidden>
+                    <i class="fa-solid fa-plus"></i> Nouveau
+                </button>
+            </header>
+            <main class="panel-content">
+                <section class="section-card">
+                    <div class="section-card-header">
+                        <h2><i class="fa-solid fa-users-rectangle"></i> Classe Maternelle</h2>
+                        <span class="student-count-badge" id="student-count">6 élèves</span>
+                    </div>
+                    <div class="filter-chips-container">
+                        <button class="filter-chip active" data-section="ALL">Toutes</button>
+                        <button class="filter-chip" data-section="PS">Petite Section (PS)</button>
+                        <button class="filter-chip" data-section="GS">Grande Section (GS)</button>
+                    </div>
+                    <div class="db-search-bar">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="db-search" placeholder="Rechercher par nom d'élève...">
+                    </div>
+                    <div class="student-list" id="student-list"></div>
+                    <div class="btn-group-stacked">
+                        <button class="btn btn-ideal btn-full" id="btn-load-preloaded" hidden>
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Recharger Élèves IDEAL (Démo PS/GS)
+                        </button>
+                    </div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-calendar-days"></i> Période d'Évaluation</h2>
+                    <div class="trimester-tabs-container">
+                        <button class="tri-tab-btn" data-trimester="t1">1er Trimestre</button>
+                        <button class="tri-tab-btn active" data-trimester="t2">2ème Trimestre</button>
+                        <button class="tri-tab-btn" data-trimester="t3">3ème Trimestre</button>
+                    </div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-id-card"></i> Fiche d'Identité de l'Élève</h2>
+                    <div class="form-group">
+                        <label for="student-name">Nom et Prénom de l'élève</label>
+                            <input type="text" id="student-name" readonly aria-readonly="true">
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="student-section">Classe</label>
+                            <select id="student-section" disabled>
+                                <option value="PS">Petite Section (PS)</option>
+                                <option value="GS" selected>Grande Section (GS)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="student-year">Année Scolaire</label>
+                            <input type="text" id="student-year" value="2025 - 2026" readonly aria-readonly="true">
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="student-age">Âge de l'élève</label>
+                            <input type="text" id="student-age" readonly aria-readonly="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="student-class-size">Effectif Classe</label>
+                            <input type="number" id="student-class-size" value="18" readonly aria-readonly="true">
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="student-teacher">Enseignant(e)</label>
+                            <input type="text" id="student-teacher" readonly aria-readonly="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="student-headmaster">Direction</label>
+                            <input type="text" id="student-headmaster" readonly aria-readonly="true">
+                        </div>
+                    </div>
+                    <div class="form-group" hidden>
+                        <label for="student-photo"><i class="fa-solid fa-camera"></i> Photo de l'élève (.jpg, .png)</label>
+                        <input type="file" id="student-photo" accept="image/*">
+                        <div class="btn-group" id="photo-action-group" style="display: none; margin-top: 8px;">
+                            <button class="btn btn-danger btn-full" id="btn-remove-photo">
+                                <i class="fa-solid fa-trash"></i> Retirer la photo
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-clock"></i> Heures de Cours & Assiduité</h2>
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label for="hours-total">Total Heures</label>
+                            <input type="number" id="hours-total" value="180">
+                        </div>
+                        <div class="form-group">
+                            <label for="hours-attended">Heures Suivies</label>
+                            <input type="number" id="hours-attended" value="176">
+                        </div>
+                        <div class="form-group">
+                            <label for="hours-missed">Heures Manquées</label>
+                            <input type="number" id="hours-missed" value="4">
+                        </div>
+                    </div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-award"></i> Badges de Distinctions</h2>
+                    <p class="section-subtext">Distinctions de l'équipe pédagogique :</p>
+                    <div class="badges-selector-grid" id="badges-selector-grid"></div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-list-check"></i> Matrice d'Évaluation des Objectifs</h2>
+                    <p class="section-subtext">Sélectionnez le niveau pour chaque objectif (<b>TB</b>: Très Bon, <b>B</b>: Bon, <b>M</b>: Moyen, <b>AR</b>: À Renforcer) :</p>
+                    <div id="competency-editor-container"></div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-pen-fancy"></i> Remarques et Visas</h2>
+                    <div class="form-group">
+                        <label for="app-teacher">Remarques et Visas des Maîtresses</label>
+                        <textarea id="app-teacher" rows="3" placeholder="Remarques sur le travail et l'évolution de l'enfant..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="app-headmaster">Avis du Directeur / Synthèse Direction</label>
+                        <textarea id="app-headmaster" rows="2" placeholder="Synthèse du suivi général de la direction..."></textarea>
+                    </div>
+                </section>
+                <section class="section-card">
+                    <button class="btn btn-danger btn-full" id="btn-delete-student" hidden>
+                        <i class="fa-solid fa-trash-can"></i> Supprimer cet élève
+                    </button>
+                </section>
+            </main>
+        </aside>
+        <main class="preview-panel">
+            <header class="preview-toolbar">
+                <div class="toolbar-info">
+                    <h2><i class="fa-solid fa-file-pdf"></i> Bulletin Maternelle IDEAL</h2>
+                    <span class="preview-badge">Petite & Grande Section</span>
+                </div>
+                <div class="toolbar-actions">
+                    <button class="btn btn-primary" id="btn-export-pdf">
+                        <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                    </button>
+                    <button class="btn btn-ideal" id="btn-export-zip">
+                        <i class="fa-solid fa-file-zipper"></i> Exporter Classe (ZIP)
+                    </button>
+                </div>
+            </header>
+            <div class="preview-viewport">
+                <article class="report-paper" id="report-paper">
+                    <header class="report-header">
+                        <div class="header-logo-container">
+                            <img src="assets/logo-ideal.png" alt="Logo IDEAL Ecole Bilingue" class="report-logo">
+                        </div>
+                        <div class="header-school-details">
+                            <h1 class="school-title">Ideal École Internationale Bilingue</h1>
+                            <p class="school-motto">Suivi des Compétences Maternelle (Bilingue Français / Anglais)</p>
+                            <div class="report-document-title">
+                                <span id="report-trimester-title">ÉVALUATION DU DEUXIÈME TRIMESTRE</span>
+                            </div>
+                        </div>
+                    </header>
+                    <section class="report-student-card">
+                        <div class="report-photo-box">
+                            <img id="rep-photo-img" src="" alt="Photo Élève" style="display: none;">
+                            <div id="rep-photo-placeholder" class="photo-placeholder">
+                                <i class="fa-solid fa-child"></i>
+                            </div>
+                        </div>
+                        <div class="report-student-meta">
+                            <div class="meta-row-main">
+                                <h2 class="student-fullname" id="rep-student-name">NOM DE L'ÉLÈVE</h2>
+                                <span class="student-section-pill" id="rep-student-section">Grande Section (GS)</span>
+                            </div>
+                            <div class="meta-grid-3">
+                                <div class="meta-item"><span class="meta-label">Âge :</span> <span class="meta-val" id="rep-age">5 ans</span></div>
+                                <div class="meta-item"><span class="meta-label">Effectif Classe :</span> <span class="meta-val" id="rep-class-size">18</span> élèves</div>
+                                <div class="meta-item"><span class="meta-label">Année Scolaire :</span> <span class="meta-val" id="rep-academic-year">2025 - 2026</span></div>
+                                <div class="meta-item"><span class="meta-label">Heures de cours :</span> <span class="meta-val" id="rep-hours-total">180</span> h.</div>
+                                <div class="meta-item"><span class="meta-label">Heures suivies :</span> <span class="meta-val" id="rep-hours-attended">176</span> h.</div>
+                                <div class="meta-item"><span class="meta-label">Heures manquées :</span> <span class="meta-val" id="rep-hours-missed">4</span> h.</div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="report-summary-bar">
+                        <div class="summary-card doughnut-card">
+                            <h3><i class="fa-solid fa-chart-pie"></i> Synthèse Globale des Objectifs</h3>
+                            <div class="chart-wrapper"><canvas id="chart-doughnut"></canvas></div>
+                            <div class="stats-pills-row">
+                                <span class="stat-pill stat-tb">TB: <strong id="stat-count-tb">0</strong></span>
+                                <span class="stat-pill stat-b">B: <strong id="stat-count-b">0</strong></span>
+                                <span class="stat-pill stat-m">M: <strong id="stat-count-m">0</strong></span>
+                                <span class="stat-pill stat-ar">AR: <strong id="stat-count-ar">0</strong></span>
+                            </div>
+                        </div>
+                        <div class="summary-card radar-card">
+                            <h3><i class="fa-solid fa-chart-radar"></i> Répartition par Matière & Domaine</h3>
+                            <div class="chart-wrapper"><canvas id="chart-radar"></canvas></div>
+                            <div class="radar-score-badge">Taux global d'acquisition : <strong id="stat-overall-percent">100%</strong></div>
+                        </div>
+                    </section>
+                    <section class="report-badges-bar">
+                        <h3><i class="fa-solid fa-crown"></i> Distinctions & Encouragements Pédagogiques</h3>
+                        <div class="report-badges-container" id="rep-badges-container"></div>
+                    </section>
+                    <section class="report-table-section">
+                        <table class="report-eval-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-domain-comp">Matières et Objectifs du Trimestre</th>
+                                    <th class="col-eval-th th-tb">🟢 TRÈS BON (TB)</th>
+                                    <th class="col-eval-th th-b">🟩 BON (B)</th>
+                                    <th class="col-eval-th th-m">🟡 MOYEN (M)</th>
+                                    <th class="col-eval-th th-ar">🔴 À RENFORCER (AR)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rep-competencies-tbody"></tbody>
+                        </table>
+                    </section>
+                    <section class="report-footer-section">
+                        <div class="appreciation-box">
+                            <h4><i class="fa-solid fa-user-pen"></i> Remarques et Visas des Maîtresses</h4>
+                            <p id="rep-app-teacher">Excellente participation. Bravo pour les progrès accomplis !</p>
+                        </div>
+                        <div class="appreciation-box">
+                            <h4><i class="fa-solid fa-building-columns"></i> Synthèse du Suivi Général de la Direction / Avis du Directeur</h4>
+                            <p id="rep-app-headmaster">Félicitations de la Direction pour cet investissement constant !</p>
+                        </div>
+                        <div class="signatures-grid">
+                            <div class="signature-cell"><span class="sig-title">Signature des Parents</span></div>
+                            <div class="signature-cell"><span class="sig-title">Signature de la Maîtresse</span></div>
+                            <div class="signature-cell"><span class="sig-title">Sceau & Visa Direction</span></div>
+                        </div>
+                    </section>
+                </article>
+            </div>
+        </main>
+    </div>
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner-box">
+            <div class="spinner"></div>
+            <p id="loading-text">Génération du bulletin Maternelle en cours...</p>
+        </div>
+    </div>
+    <script>
+// Pont avec l'application IDEAL. L'identité des élèves vient exclusivement
+// de la table `eleves`; cet atelier ne crée ni ne supprime aucun élève.
+window.idealBridge = (() => {
+    let resolveReady;
+    const ready = new Promise(resolve => { resolveReady = resolve; });
+    const bridge = { students: [], ready };
+    window.addEventListener('message', event => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type !== 'ideal:bulletin:init') return;
+        bridge.students = Array.isArray(event.data.students) ? event.data.students : [];
+        resolveReady();
+    });
+    window.parent.postMessage({ type: 'ideal:bulletin:ready' }, window.location.origin);
+    return bridge;
+})();
+
+/**
+ * Référentiel Officiel des Domaines et Compétences Maternelle
+ * IDEAL École Internationale Bilingue (Sections PS et GS par Trimestre t1, t2, t3)
+ * Compétences 100% individuelles (Un seul élément par ligne : 1 fruit, 1 animal, 1 lettre, 1 chiffre par ligne).
+ */
+
+const MATERNELLE_SECTIONS = [
+    { code: "PS", label: "Petite Section (PS)" },
+    { code: "GS", label: "Grande Section (GS)" }
+];
+
+const EVALUATION_LEVELS = {
+    "TB": { label: "TRÈS BON", code: "TB", color: "#10B981", badgeClass: "badge-tb", icon: "fa-circle-check" },
+    "B":  { label: "BON",      code: "B",  color: "#059669", badgeClass: "badge-b",  icon: "fa-check" },
+    "M":  { label: "MOYEN",    code: "M",  color: "#F59E0B", badgeClass: "badge-m",  icon: "fa-hourglass-half" },
+    "AR": { label: "À RENFORCER", code: "AR", color: "#EF4444", badgeClass: "badge-ar", icon: "fa-circle-exclamation" }
+};
+
+const MATERNELLE_DOMAINS = {
+    // =========================================================================
+    // PETITE SECTION (PS)
+    // =========================================================================
+    "PS": {
+        "t1": [
+            {
+                id: "langage_prelecture",
+                title: "1. LANGAGE & PRÉLECTURE (Français & Anglais)",
+                icon: "fa-comments",
+                color: "#2563EB",
+                competencies: [
+                    "Maîtrise la voyelle I et son son",
+                    "Maîtrise la voyelle U et son son",
+                    "Mastered the letter A and its sound",
+                    "Mastered the letter E and its sound",
+                    "Nomme et distingue la couleur bleu",
+                    "Nomme et distingue la couleur rouge",
+                    "Nomme et distingue la couleur jaune",
+                    "Names primary color: blue",
+                    "Names primary color: red",
+                    "Names primary color: yellow",
+                    "Reconnaît et nomme le T-shirt",
+                    "Reconnaît et nomme le pantalon",
+                    "Reconnaît et nomme la robe",
+                    "Reconnaît et nomme la jupe",
+                    "Reconnaît et nomme les chaussettes",
+                    "Reconnaît et nomme les chaussures",
+                    "Identifies body part: head",
+                    "Identifies body part: face",
+                    "Identifies body part: arms",
+                    "Identifies body part: hands",
+                    "Identifies body part: legs",
+                    "Identifies body part: feet",
+                    "Maîtrise la voyelle O et son son",
+                    "Mastered the letter I and its sound",
+                    "Identifie et nomme le cercle",
+                    "Identifie et nomme le carré",
+                    "Identifie et nomme le triangle",
+                    "Identifie et nomme le rectangle",
+                    "Identifies basic color: black",
+                    "Identifies basic color: white",
+                    "Identifies basic color: pink",
+                    "Identifies basic color: purple",
+                    "Identifies basic color: orange",
+                    "Identifies basic color: green"
+                ]
+            },
+            {
+                id: "ecriture_motricite_fine",
+                title: "2. ÉCRITURE & MOTRICITÉ FINE",
+                icon: "fa-pen-nib",
+                color: "#059669",
+                competencies: [
+                    "Trace avec précision les lignes verticales",
+                    "Trace avec précision les lignes horizontales",
+                    "Traces horizontal lines with precision",
+                    "Traces vertical lines with precision",
+                    "Maîtrise le tracé des lignes de base",
+                    "Sait écrire en capitale la lettre L",
+                    "Writes capital letter L"
+                ]
+            },
+            {
+                id: "mathematiques",
+                title: "3. MATHÉMATIQUES & LOGIQUE",
+                icon: "fa-shapes",
+                color: "#D97706",
+                competencies: [
+                    "Sait compter jusqu'à 5",
+                    "Associe la quantité 1 au nombre",
+                    "Associe la quantité 2 au nombre",
+                    "Associe la quantité 3 au nombre",
+                    "Associe la quantité 4 au nombre",
+                    "Associe la quantité 5 au nombre",
+                    "Counts from 1 to 5",
+                    "Recognizes number 1",
+                    "Recognizes number 2",
+                    "Recognizes number 3",
+                    "Recognizes number 4",
+                    "Recognizes number 5",
+                    "Sait compter jusqu'à 10",
+                    "Sait écrire le chiffre 1",
+                    "Counts from 1 to 10",
+                    "Writes number 1"
+                ]
+            },
+            {
+                id: "sciences_decouverte",
+                title: "4. SCIENCES & DÉCOUVERE DU MONDE",
+                icon: "fa-seedling",
+                color: "#16A34A",
+                competencies: [
+                    "Comprend et observe la formation des couleurs secondaires",
+                    "Identifies parts of the head: eyes",
+                    "Identifies parts of the head: nose",
+                    "Identifies parts of the head: mouth",
+                    "Identifies parts of the head: ears",
+                    "Identifies parts of the head: teeth",
+                    "Reconnaît et différencie les formes géométriques",
+                    "Performs color mixing activity (pearl rain experiment)"
+                ]
+            },
+            {
+                id: "art_expression",
+                title: "5. ART & EXPRESSION ARTISTIQUE",
+                icon: "fa-palette",
+                color: "#EC4899",
+                competencies: [
+                    "Participe à l'expérience de la course des couleurs",
+                    "Draws a face with eyes, nose, and mouth",
+                    "Identifie les caractéristiques du carré",
+                    "Demonstrates painting and brush control techniques"
+                ]
+            },
+            {
+                id: "motricite_globale",
+                title: "6. MOTRICITÉ GLOBALE",
+                icon: "fa-child-reaching",
+                color: "#DC2626",
+                competencies: [
+                    "Maîtrise la marche dans un parcours moteur",
+                    "Maîtrise la course dans un parcours moteur",
+                    "Responds to action word: sit",
+                    "Responds to action word: stand",
+                    "Responds to action word: hands up",
+                    "Responds to action word: jump",
+                    "Franchit avec agilité un parcours d'obstacles",
+                    "Executes action movement: run",
+                    "Executes action movement: walk",
+                    "Executes action movement: crawl"
+                ]
+            },
+            {
+                id: "education_civique",
+                title: "7. ÉDUCATION CIVIQUE & VIVRE ENSEMBLE",
+                icon: "fa-heart",
+                color: "#E11D48",
+                competencies: [
+                    "Sait se laver les mains avant et après les repas",
+                    "Jette systématiquement les déchets à la poubelle",
+                    "Mange proprement à table",
+                    "Tire la chasse d'eau après utilisation des toilettes",
+                    "Garde sa tenue et son espace de travail propres",
+                    "Washes hands before and after meals",
+                    "Throws trash into the garbage bin",
+                    "Eats cleanly at the table",
+                    "Flushes the toilet after use"
+                ]
+            }
+        ],
+        "t2": [
+            {
+                id: "langage_prelecture",
+                title: "1. LANGAGE & PRÉLECTURE (Français & Anglais)",
+                icon: "fa-comments",
+                color: "#2563EB",
+                competencies: [
+                    "Maîtrise la voyelle A et son son",
+                    "Maîtrise la voyelle E et son son",
+                    "Mastered the letter O and its sound",
+                    "Mastered the letter U and its sound",
+                    "Reconnaît et nomme les yeux",
+                    "Reconnaît et nomme le nez",
+                    "Reconnaît et nomme la bouche",
+                    "Reconnaît et nomme les oreilles",
+                    "Reconnaît et nomme les bras",
+                    "Reconnaît et nomme les jambes",
+                    "Identifies basic shape: circle",
+                    "Identifies basic shape: square",
+                    "Identifies basic shape: triangle",
+                    "Identifies basic shape: star",
+                    "Reconnaît et nomme la pomme",
+                    "Reconnaît et nomme la banane",
+                    "Reconnaît et nomme l'orange",
+                    "Reconnaît et nomme la mangue",
+                    "Reconnaît et nomme l'ananas",
+                    "Names vegetable: carrot",
+                    "Names vegetable: tomato",
+                    "Names vegetable: potato"
+                ]
+            },
+            {
+                id: "ecriture_motricite_fine",
+                title: "2. ÉCRITURE & MOTRICITÉ FINE",
+                icon: "fa-pen-nib",
+                color: "#059669",
+                competencies: [
+                    "Trace avec fluidité les lignes verticales et horizontales",
+                    "Sait écrire en capitale la lettre L",
+                    "Sait écrire en capitale la lettre T",
+                    "Writes capital letter L",
+                    "Writes capital letter T",
+                    "Sait écrire en capitale la lettre H",
+                    "Sait écrire en capitale la lettre I",
+                    "Writes capital letter H",
+                    "Writes capital letter I"
+                ]
+            },
+            {
+                id: "mathematiques",
+                title: "3. MATHÉMATIQUES & LOGIQUE",
+                icon: "fa-shapes",
+                color: "#D97706",
+                competencies: [
+                    "Sait compter jusqu'à 15",
+                    "Associe la quantité 10 au nombre",
+                    "Associe la quantité 15 au nombre",
+                    "Sait écrire le chiffre 1",
+                    "Sait écrire le chiffre 4",
+                    "Counts from 1 to 15",
+                    "Writes number 1",
+                    "Writes number 4",
+                    "Sait compter jusqu'à 20",
+                    "Sait écrire le chiffre 7",
+                    "Counts from 1 to 20",
+                    "Writes number 7"
+                ]
+            },
+            {
+                id: "sciences_decouverte",
+                title: "4. SCIENCES & DÉCOUVERE DU MONDE",
+                icon: "fa-seedling",
+                color: "#16A34A",
+                competencies: [
+                    "Explore et identifie le sens de la vue",
+                    "Explore et identifie le sens du toucher",
+                    "Explore et identifie le sens de l'ouïe",
+                    "Explore et identifie le sens du goût",
+                    "Explore et identifie le sens de l'odorat",
+                    "Identifies objects featuring the circle shape",
+                    "Colorie et classe les différents fruits",
+                    "Sorts vegetables by color and size"
+                ]
+            },
+            {
+                id: "art_expression",
+                title: "5. ART & EXPRESSION ARTISTIQUE",
+                icon: "fa-palette",
+                color: "#EC4899",
+                competencies: [
+                    "Dessine un visage avec yeux, nez, bouche et oreilles",
+                    "Draws geometric shape: circle",
+                    "Draws geometric shape: square",
+                    "Draws geometric shape: triangle",
+                    "Participe activement à la visite au marché des fruits",
+                    "Executes creative vegetable dressing activities"
+                ]
+            },
+            {
+                id: "motricite_globale",
+                title: "6. MOTRICITÉ GLOBALE",
+                icon: "fa-child-reaching",
+                color: "#DC2626",
+                competencies: [
+                    "Maîtrise la vitesse lors de la course sur 20m",
+                    "Performs action word: running",
+                    "Performs action word: jumping",
+                    "Participe aux courses de vitesse",
+                    "Performs action word: hopping",
+                    "Performs action word: skipping"
+                ]
+            },
+            {
+                id: "education_civique",
+                title: "7. ÉDUCATION CIVIQUE & VIVRE ENSEMBLE",
+                icon: "fa-heart",
+                color: "#E11D48",
+                competencies: [
+                    "Utilise le mot de politesse : Merci",
+                    "Utilise le mot de politesse : S'il te plaît",
+                    "Utilise la salutation : Bonjour",
+                    "Utilise la salutation : Au revoir",
+                    "Demonstrates good manners: please",
+                    "Demonstrates good manners: thank you",
+                    "Demonstrates good manners: sorry",
+                    "Demonstrates good manners: hello",
+                    "Range son sac d'école",
+                    "Range sa gourde et ses affaires",
+                    "Identifies and takes care of personal belongings"
+                ]
+            }
+        ],
+        "t3": [
+            {
+                id: "langage_prelecture",
+                title: "1. LANGAGE & PRÉLECTURE (Français & Anglais)",
+                icon: "fa-comments",
+                color: "#2563EB",
+                competencies: [
+                    "Maîtrise la voyelle A et son son",
+                    "Maîtrise la voyelle E et son son",
+                    "Maîtrise la voyelle I et son son",
+                    "Maîtrise la voyelle O et son son",
+                    "Maîtrise la voyelle U et son son",
+                    "Mastered vowel A and its sound",
+                    "Mastered vowel E and its sound",
+                    "Mastered vowel I and its sound",
+                    "Mastered vowel O and its sound",
+                    "Mastered vowel U and its sound",
+                    "Reconnaît et nomme la carotte",
+                    "Reconnaît et nomme la tomate",
+                    "Reconnaît et nomme le concombre",
+                    "Reconnaît et nomme la salade",
+                    "Reconnaît et nomme les haricots verts",
+                    "Names fruit: apple",
+                    "Names fruit: banana",
+                    "Names fruit: orange",
+                    "Names fruit: mango",
+                    "Names fruit: pineapple"
+                ]
+            },
+            {
+                id: "ecriture_motricite_fine",
+                title: "2. ÉCRITURE & MOTRICITÉ FINE",
+                icon: "fa-pen-nib",
+                color: "#059669",
+                competencies: [
+                    "Révise et écrit en capitale la lettre T",
+                    "Révise et écrit en capitale la lettre L",
+                    "Révise et écrit en capitale la lettre H",
+                    "Révise et écrit en capitale la lettre I",
+                    "Révise et écrit en capitale la lettre E",
+                    "Writes capital letter L",
+                    "Writes capital letter T",
+                    "Writes capital letter I",
+                    "Writes capital letter H",
+                    "Writes capital letter F"
+                ]
+            },
+            {
+                id: "mathematiques",
+                title: "3. MATHÉMATIQUES & LOGIQUE",
+                icon: "fa-shapes",
+                color: "#D97706",
+                competencies: [
+                    "Sait compter de 1 à 30",
+                    "Associe la quantité 20 au nombre",
+                    "Associe la quantité 30 au nombre",
+                    "Révise l'écriture du chiffre 1",
+                    "Révise l'écriture du chiffre 4",
+                    "Révise l'écriture du chiffre 7",
+                    "Counts from 1 to 30",
+                    "Writes number 1",
+                    "Writes number 4",
+                    "Writes number 7"
+                ]
+            },
+            {
+                id: "sciences_decouverte",
+                title: "4. SCIENCES & DÉCOUVERE DU MONDE",
+                icon: "fa-seedling",
+                color: "#16A34A",
+                competencies: [
+                    "Réalise et commente l'expérience scientifique du chou",
+                    "Conducts science experiment: Lemon meets milk observation"
+                ]
+            },
+            {
+                id: "art_expression",
+                title: "5. ART & EXPRESSION ARTISTIQUE",
+                icon: "fa-palette",
+                color: "#EC4899",
+                competencies: [
+                    "S'entraîne aux prestations du spectacle de fin d'année",
+                    "Participates actively in stage show rehearsals"
+                ]
+            },
+            {
+                id: "motricite_globale",
+                title: "6. MOTRICITÉ GLOBALE",
+                icon: "fa-child-reaching",
+                color: "#DC2626",
+                competencies: [
+                    "S'investit dans la préparation de la fête de fin d'année",
+                    "Coordinates movements during party preparation"
+                ]
+            },
+            {
+                id: "education_civique",
+                title: "7. ÉDUCATION CIVIQUE & VIVRE ENSEMBLE",
+                icon: "fa-heart",
+                color: "#E11D48",
+                competencies: [
+                    "Découvre et respecte le drapeau du Mali",
+                    "Découvre et chante l'hymne national du Mali",
+                    "Demonstrates respect for Mali flag",
+                    "Demonstrates respect for Mali national anthem"
+                ]
+            }
+        ]
+    },
+
+    // =========================================================================
+    // GRANDE SECTION (GS)
+    // =========================================================================
+    "GS": {
+        "t1": [
+            {
+                id: "langage_prelecture",
+                title: "1. LANGAGE & PRÉLECTURE (Français & Anglais)",
+                icon: "fa-comments",
+                color: "#2563EB",
+                competencies: [
+                    "Reconnaît et écrit son prénom en capitales",
+                    "Maîtrise la voyelle A et son son",
+                    "Maîtrise la voyelle I et son son",
+                    "Mastered letter A and its sound",
+                    "Mastered letter E and its sound",
+                    "Mastered letter I and its sound",
+                    "Mastered letter O and its sound",
+                    "Mastered letter U and its sound",
+                    "Reconnaît et nomme le chien",
+                    "Reconnaît et nomme le chat",
+                    "Reconnaît et nomme le lapin",
+                    "Reconnaît et nomme le mouton",
+                    "Reconnaît et nomme la vache",
+                    "Reconnaît et nomme le cheval",
+                    "Reconnaît et nomme la poule",
+                    "Reconnaît et nomme le coq",
+                    "Reconnaît et nomme le canard",
+                    "Recognizes and names the dog",
+                    "Recognizes and names the cat",
+                    "Recognizes and names the sheep",
+                    "Recognizes and names the cow",
+                    "Recognizes and names the horse",
+                    "Recognizes and names the rabbit",
+                    "Recognizes and names the hen",
+                    "Recognizes and names the rooster",
+                    "Recognizes and names the duck",
+                    "Maîtrise la voyelle I et son son",
+                    "Maîtrise la voyelle U et son son",
+                    "Maîtrise la voyelle O et son son",
+                    "Maîtrise la voyelle A et son son",
+                    "Maîtrise la voyelle E et son son",
+                    "Aborde l'étude des voyelles accentuées : É, È, Ê",
+                    "Identifies primary and secondary colors",
+                    "Maîtrise la syllabation avec le son P",
+                    "Reads letter blend S (sa, se, si, so, su)",
+                    "Reconnaît et nomme la carotte",
+                    "Reconnaît et nomme la tomate",
+                    "Reconnaît et nomme le chou-fleur",
+                    "Identifies geometric shape: circle",
+                    "Identifies geometric shape: square",
+                    "Identifies geometric shape: rectangle",
+                    "Identifies geometric shape: triangle",
+                    "Identifies school furniture: desk",
+                    "Identifies school furniture: chair",
+                    "Identifies school furniture: pencil",
+                    "Identifies school furniture: bag"
+                ]
+            },
+            {
+                id: "ecriture_motricite_fine",
+                title: "2. ÉCRITURE & MOTRICITÉ FINE",
+                icon: "fa-pen-nib",
+                color: "#059669",
+                competencies: [
+                    "Sait écrire en capitale la lettre L",
+                    "Sait écrire en capitale la lettre T",
+                    "Sait écrire en capitale la lettre I",
+                    "Sait écrire en capitale la lettre H",
+                    "Sait écrire en capitale la lettre E",
+                    "Sait écrire en capitale la lettre F",
+                    "Writes capital letter L",
+                    "Writes capital letter T",
+                    "Writes capital letter I",
+                    "Writes capital letter H",
+                    "Writes capital letter E",
+                    "Writes capital letter F",
+                    "Sait écrire en capitale la lettre X",
+                    "Sait écrire en capitale la lettre N",
+                    "Sait écrire en capitale la lettre W",
+                    "Sait écrire en capitale la lettre M",
+                    "Writes capital letter X",
+                    "Writes capital letter N",
+                    "Writes capital letter W",
+                    "Writes capital letter M"
+                ]
+            },
+            {
+                id: "mathematiques",
+                title: "3. MATHÉMATIQUES & LOGIQUE",
+                icon: "fa-shapes",
+                color: "#D97706",
+                competencies: [
+                    "Sait compter jusqu'à 20",
+                    "Associe la quantité 20 au nombre",
+                    "Sait écrire le chiffre 1",
+                    "Counts from 1 to 20",
+                    "Writes number 1",
+                    "Sait compter jusqu'à 30",
+                    "Sait écrire le chiffre 4",
+                    "Sait écrire le chiffre 7",
+                    "Counts from 1 to 30",
+                    "Writes number 4",
+                    "Writes number 7"
+                ]
+            },
+            {
+                id: "sciences_decouverte",
+                title: "4. SCIENCES & DÉCOUVERE DU MONDE",
+                icon: "fa-seedling",
+                color: "#16A34A",
+                competencies: [
+                    "Identifie les yeux",
+                    "Identifie le nez",
+                    "Identifie la bouche",
+                    "Identifie les oreilles",
+                    "Identifie les dents",
+                    "Identifie la langue",
+                    "Explore le sens de la vue",
+                    "Explore le sens de l'ouïe",
+                    "Explore le sens du toucher",
+                    "Explore le sens du goût",
+                    "Explore le sens de l'odorat",
+                    "Explores five senses: looking, tasting, smelling, hearing, feeling",
+                    "Réalise et observe l'expérience du chou",
+                    "Observes chemical reaction: Milk meets lemon"
+                ]
+            },
+            {
+                id: "art_expression",
+                title: "5. ART & EXPRESSION ARTISTIQUE",
+                icon: "fa-palette",
+                color: "#EC4899",
+                competencies: [
+                    "Dessine un corps et un visage complets et bien proportionnés",
+                    "Draws full body with accurate details: face, arms, legs, hands",
+                    "Réalise le coloriage précis des légumes",
+                    "Creates fruit salad art"
+                ]
+            },
+            {
+                id: "motricite_globale",
+                title: "6. MOTRICITÉ GLOBALE",
+                icon: "fa-child-reaching",
+                color: "#DC2626",
+                competencies: [
+                    "Maîtrise la marche et la course dans un parcours moteur",
+                    "Demonstrates action word: jump",
+                    "Demonstrates action word: dance",
+                    "Demonstrates action word: walk",
+                    "Demonstrates action word: run",
+                    "Franchit avec aisance un parcours d'obstacles",
+                    "Executes athletic action word: run",
+                    "Executes athletic action word: jump",
+                    "Executes athletic action word: slither",
+                    "Executes athletic action word: crawl"
+                ]
+            },
+            {
+                id: "education_civique",
+                title: "7. ÉDUCATION CIVIQUE & VIVRE ENSEMBLE",
+                icon: "fa-heart",
+                color: "#E11D48",
+                competencies: [
+                    "Sait se laver les mains avant et après les repas",
+                    "Jette systématiquement les déchets à la poubelle",
+                    "Mange proprement à table sans renverser",
+                    "Tire la chasse d'eau après utilisation des toilettes",
+                    "Respecte les règles de politesse et d'écoute en classe",
+                    "Washes hands before and after meals",
+                    "Throws trash into the garbage bin",
+                    "Eats cleanly at the table",
+                    "Flushes the toilet after use",
+                    "Follows classroom rules: raises hand, listens, shares"
+                ]
+            }
+        ],
+        "t2": [
+            {
+                id: "langage_prelecture",
+                title: "1. LANGAGE & PRÉLECTURE (Français & Anglais)",
+                icon: "fa-comments",
+                color: "#2563EB",
+                competencies: [
+                    "Maîtrise la syllabation avec la consonne P",
+                    "Maîtrise la syllabation avec la consonne T",
+                    "Reads letter blend M (ma, me, mi, mo, mu)",
+                    "Reconnaît et nomme la pomme",
+                    "Reconnaît et nomme le raisin",
+                    "Reconnaît et nomme l'orange",
+                    "Reconnaît et nomme la banane",
+                    "Reconnaît et nomme l'ananas",
+                    "Reconnaît et nomme la papaye",
+                    "Reconnaît et nomme la fraise",
+                    "Reconnaît et nomme le citron",
+                    "Names vegetable: carrot",
+                    "Names vegetable: tomato",
+                    "Names vegetable: potato",
+                    "Names vegetable: onion",
+                    "Names vegetable: lettuce",
+                    "Reconnaît et nomme le lion",
+                    "Reconnaît et nomme la girafe",
+                    "Reconnaît et nomme l'éléphant",
+                    "Reconnaît et nomme le tigre",
+                    "Reconnaît et nomme le crocodile",
+                    "Reconnaît et nomme le singe",
+                    "Reconnaît et nomme le serpent",
+                    "Reconnaît et nomme l'aigle",
+                    "Identifies farm animal: cow",
+                    "Identifies farm animal: horse",
+                    "Identifies farm animal: sheep",
+                    "Identifies farm animal: pig",
+                    "Identifies farm animal: chicken",
+                    "Identifies farm animal: rabbit",
+                    "Maîtrise la syllabation avec la consonne M",
+                    "Reads letter blend N (na, ne, ni, no, nu)",
+                    "Nomme le moyen de transport : la voiture",
+                    "Nomme le moyen de transport : le train",
+                    "Nomme le moyen de transport : le vélo",
+                    "Nomme le moyen de transport : la moto",
+                    "Nomme le moyen de transport : l'avion",
+                    "Nomme le moyen de transport : le bateau",
+                    "Nomme le moyen de transport : le camion",
+                    "Nomme le moyen de transport : la fusée",
+                    "Identifies occupation: doctor",
+                    "Identifies occupation: teacher",
+                    "Identifies occupation: fireman",
+                    "Identifies occupation: policeman",
+                    "Nomme l'ustensile de cuisine : la cuillère",
+                    "Nomme l'ustensile de cuisine : la fourchette",
+                    "Nomme l'ustensile de cuisine : le couteau",
+                    "Nomme l'ustensile de cuisine : l'assiette",
+                    "Names weather element: rain",
+                    "Names weather element: sun",
+                    "Names weather element: wind",
+                    "Names weather element: clouds"
+                ]
+            },
+            {
+                id: "ecriture_motricite_fine",
+                title: "2. ÉCRITURE & MOTRICITÉ FINE",
+                icon: "fa-pen-nib",
+                color: "#059669",
+                competencies: [
+                    "Sait écrire en capitale la lettre Z",
+                    "Sait écrire en capitale la lettre K",
+                    "Sait écrire en capitale la lettre V",
+                    "Sait écrire en capitale la lettre Y",
+                    "Sait écrire en capitale la lettre A",
+                    "Writes capital letter Z",
+                    "Writes capital letter K",
+                    "Writes capital letter V",
+                    "Writes capital letter Y",
+                    "Writes capital letter A",
+                    "Sait écrire en capitale la lettre J",
+                    "Sait écrire en capitale la lettre U",
+                    "Sait écrire en capitale la lettre C",
+                    "Sait écrire en capitale la lettre G",
+                    "Sait écrire en capitale la lettre D",
+                    "Sait écrire en capitale la lettre P",
+                    "Writes capital letter J",
+                    "Writes capital letter U",
+                    "Writes capital letter C",
+                    "Writes capital letter G",
+                    "Writes capital letter D",
+                    "Writes capital letter P"
+                ]
+            },
+            {
+                id: "mathematiques",
+                title: "3. MATHÉMATIQUES & LOGIQUE",
+                icon: "fa-shapes",
+                color: "#D97706",
+                competencies: [
+                    "Sait compter jusqu'à 50",
+                    "Associe la quantité 50 au nombre",
+                    "Révise l'écriture du chiffre 1",
+                    "Révise l'écriture du chiffre 4",
+                    "Révise l'écriture du chiffre 7",
+                    "Counts from 1 to 60",
+                    "Sait compter jusqu'à 70",
+                    "Sait écrire le chiffre 5",
+                    "Sait écrire le chiffre 3",
+                    "Counts from 1 to 80",
+                    "Writes number 5",
+                    "Writes number 3"
+                ]
+            },
+            {
+                id: "sciences_decouverte",
+                title: "4. SCIENCES & DÉCOUVERE DU MONDE",
+                icon: "fa-seedling",
+                color: "#16A34A",
+                competencies: [
+                    "Visionne un documentaire sur la vie sauvage et visite le Zoo",
+                    "Identifies farm animals during field trip",
+                    "Participe à la visite d'observation de la cuisine",
+                    "Engages in role play of different occupations"
+                ]
+            },
+            {
+                id: "art_expression",
+                title: "5. ART & EXPRESSION ARTISTIQUE",
+                icon: "fa-palette",
+                color: "#EC4899",
+                competencies: [
+                    "Mime les cris et attitudes des animaux sauvages",
+                    "Imitates animal movements and sounds",
+                    "Exécute des mouvements corporels d'imitation animale",
+                    "Identifies and reproduces animal sounds"
+                ]
+            },
+            {
+                id: "motricite_globale",
+                title: "6. MOTRICITÉ GLOBALE",
+                icon: "fa-child-reaching",
+                color: "#DC2626",
+                competencies: [
+                    "Participe aux courses de vitesse et maîtrise les départs",
+                    "Executes sprint and relay race",
+                    "Perfectionne ses performances en course",
+                    "Demonstrates physical movements: gallop, skip, balance"
+                ]
+            },
+            {
+                id: "education_civique",
+                title: "7. ÉDUCATION CIVIQUE & VIVRE ENSEMBLE",
+                icon: "fa-heart",
+                color: "#E11D48",
+                competencies: [
+                    "Respecte et promeut les règles de vie collective",
+                    "Practices good manners: sharing",
+                    "Practices good manners: waiting turn",
+                    "Applique de manière autonome les règles du vivre ensemble",
+                    "Cares for personal belongings",
+                    "Respects others' property"
+                ]
+            }
+        ],
+        "t3": [
+            {
+                id: "langage_prelecture",
+                title: "1. LANGAGE & PRÉLECTURE (Français & Anglais)",
+                icon: "fa-comments",
+                color: "#2563EB",
+                competencies: [
+                    "Maîtrise la syllabation avec la consonne L",
+                    "Reads letter blend R (ra, re, ri, ro, ru)",
+                    "Nomme et décrit le métier de médecin",
+                    "Nomme et décrit le métier d'enseignant",
+                    "Nomme et décrit le métier de pompier",
+                    "Nomme et décrit le métier de policier",
+                    "Nomme et décrit le métier de cuisinier",
+                    "Nomme et décrit le métier de boulanger",
+                    "Nomme et décrit le métier de pilote",
+                    "Nomme et décrit le métier d'agriculteur",
+                    "Identifies clothing item: shirt",
+                    "Identifies clothing item: pants",
+                    "Identifies clothing item: dress",
+                    "Identifies clothing item: shoes",
+                    "Identifies clothing item: hat"
+                ]
+            },
+            {
+                id: "ecriture_motricite_fine",
+                title: "2. ÉCRITURE & MOTRICITÉ FINE",
+                icon: "fa-pen-nib",
+                color: "#059669",
+                competencies: [
+                    "Sait écrire en capitale la lettre R",
+                    "Sait écrire en capitale la lettre S",
+                    "Sait écrire en capitale la lettre B",
+                    "Sait écrire en capitale la lettre Q",
+                    "Sait écrire en capitale la lettre O",
+                    "Writes capital letter R",
+                    "Writes capital letter S",
+                    "Writes capital letter B",
+                    "Writes capital letter Q",
+                    "Writes capital letter O"
+                ]
+            },
+            {
+                id: "mathematiques",
+                title: "3. MATHÉMATIQUES & LOGIQUE",
+                icon: "fa-shapes",
+                color: "#D97706",
+                competencies: [
+                    "Sait compter de 1 à 100",
+                    "Associe la quantité 100 au nombre",
+                    "Sait écrire le chiffre 0",
+                    "Sait écrire le chiffre 6",
+                    "Sait écrire le chiffre 9",
+                    "Sait écrire le chiffre 8",
+                    "Counts from 1 to 100",
+                    "Writes number 0",
+                    "Writes number 6",
+                    "Writes number 9",
+                    "Writes number 8"
+                ]
+            },
+            {
+                id: "sciences_decouverte",
+                title: "4. SCIENCES & DÉCOUVERE DU MONDE",
+                icon: "fa-seedling",
+                color: "#16A34A",
+                competencies: [
+                    "Réalise un reportage et une enquête sur un métier",
+                    "Participates in Fashion Day presentation"
+                ]
+            },
+            {
+                id: "art_expression",
+                title: "5. ART & EXPRESSION ARTISTIQUE",
+                icon: "fa-palette",
+                color: "#EC4899",
+                competencies: [
+                    "S'entraîne aux prestations scéniques de fin d'année",
+                    "Participates in ceremonial stage show"
+                ]
+            },
+            {
+                id: "motricite_globale",
+                title: "6. MOTRICITÉ GLOBALE",
+                icon: "fa-child-reaching",
+                color: "#DC2626",
+                competencies: [
+                    "Coordonne ses mouvements pour la fête de fin d'année",
+                    "Demonstrates dance choreography"
+                ]
+            },
+            {
+                id: "education_civique",
+                title: "7. ÉDUCATION CIVIQUE & VIVRE ENSEMBLE",
+                icon: "fa-heart",
+                color: "#E11D48",
+                competencies: [
+                    "Connaît et respecte les symboles du Mali (drapeau et hymne)",
+                    "Demonstrates respect for Mali symbols: flag and anthem"
+                ]
+            }
+        ]
+    }
+};
+
+const MATERNELLE_BADGES = [
+    { id: "artist", title: "Bravo l'Artiste", icon: "🎨", color: "#EC4899", desc: "Créativité et sensibilité artistique" },
+    { id: "language", title: "Champion du Langage", icon: "🗣️", color: "#2563EB", desc: "Syllabation et vocabulaire bilingue" },
+    { id: "english", title: "Star of English", icon: "🇬🇧", color: "#7C3AED", desc: "Excellente participation en immersion anglaise" },
+    { id: "math", title: "Petit Logicien", icon: "🧮", color: "#D97706", desc: "Compte de 0 à 80 et associe les nombres" },
+    { id: "motor", title: "Motricité au Top", icon: "🏃", color: "#DC2626", desc: "Courses de vitesse et agilité corporelle" },
+    { id: "friend", title: "Ami Bienveillant", icon: "🤝", color: "#10B981", desc: "Politesse et respect des règles collectives" },
+    { id: "nature", title: "Curieux de la Nature", icon: "🌱", color: "#16A34A", desc: "Découverte du monde vivant et sorties zoo" },
+    { id: "autonomy", title: "Roi de l'Autonomie", icon: "👑", color: "#E11D48", desc: "Soin du matériel et tenue du crayon" }
+];
+
+/**
+ * Safe helper — always returns the correct domain list for a section AND trimester.
+ */
+function getDomainsForSection(sectionCode, trimesterKey) {
+    const code = (sectionCode === "PS" || sectionCode === "GS") ? sectionCode : "GS";
+    const tri = (trimesterKey === "t1" || trimesterKey === "t2" || trimesterKey === "t3") ? trimesterKey : "t2";
+
+    const sectionData = MATERNELLE_DOMAINS[code];
+    if (!sectionData) {
+        console.warn("[IDEAL] No section data for", code);
+        return MATERNELLE_DOMAINS["GS"]["t2"] || [];
+    }
+
+    const domains = sectionData[tri];
+    if (!domains || domains.length === 0) {
+        console.warn("[IDEAL] No domains for", code, tri);
+        return sectionData["t2"] || [];
+    }
+
+    return domains;
+}
+
+/**
+ * Helper to detect if a competency description is in English with 100% accuracy.
+ */
+function isEnglishCompetency(text) {
+    if (!text) return false;
+    const lower = text.trim().toLowerCase();
+
+    // 1. English Verb / Noun Starting Words
+    const enStarts = [
+        'reading', 'recognizes', 'names', 'vocabulary', 'identifies', 'pre-writing', 'writing', 'writes',
+        'counting', 'counts', 'discover', 'color', 'drawing', 'draws', 'painting', 'action', 'responds', 'executes',
+        'practices', 'reviews', 'performs', 'demonstrates', 'traces', 'conducts', 'participates', 'coordinates',
+        'sorts', 'follows', 'imitates', 'reads', 'five senses', 'science experiment', 'ceremonial', 'party',
+        'classroom', 'fruits hygiene', 'good manners', 'personal belongings', 'vegetables', 'domestic animals',
+        'school furniture', 'farm animals', 'occupations', 'seasons', 'clothing', 'fashion day', 'letter blend',
+        'mali:', 'explores', 'observes', 'creates', 'engages', 'cares', 'fruit salad', 'mastered', 'washes',
+        'throws', 'eats', 'flushes'
+    ];
+
+    for (const s of enStarts) {
+        if (lower.startsWith(s)) return true;
+    }
+
+    // 2. Accents in French words -> 100% French
+    if (/[éèêàùçôîïë]/i.test(text)) return false;
+
+    // 3. French marker words
+    const frMarkers = [
+        ' de ', ' des ', ' et ', ' la ', ' le ', ' les ', ' du ', ' en ', ' au ', ' aux ', ' sur ', ' pour ', ' avec ', ' un ', ' une ', ' son ', ' ses ', ' dans ', ' par ',
+        'voyelle', 'voyelles', 'chiffre', 'chiffres', 'lettre', 'lettres', 'couleur', 'couleurs', 'forme', 'formes', 'règles', 'hygiène', 'métier', 'métiers', 'animaux', 'légumes', 'tracé', 'écriture', 'lecture', 'révision', 'maîtrise', 'reconnaît', 'sait', 'nomme', 'participe', 'découvre', 'compter', 'associe', 'trace', 'explore', 'dessine', 'exécute', 'coordonne', 'connaît', 'applique', 'franchit', 's\'entraîne', 's\'investit', 'visionne', 'perfectionne', 'comprend', 'parties', 'visage', 'mots', 'politesse', 'mouvement', 'mouvements', 'corps', 'moteur', 'vitesse', 'parcours', 'expérience', 'spectacle', 'fête', 'drapeau', 'hymne', 'symboles', 'jette', 'mange', 'proprement', 'laver', 'chasse'
+    ];
+    for (const m of frMarkers) {
+        if (lower.includes(m)) return false;
+    }
+
+    return true;
+}
+/**
+ * Données Pré-chargées Officiellement Extraites des Bulletins IDEAL 2025-2026
+ * Sections Petite Section (PS) et Grande Section (GS) uniquement
+ * Remarques générées 100% dynamiquement selon les performances réelles.
+ */
+
+const PRELOAD_MATERNELLE_STUDENTS = [
+    // ------------------- GRANDE SECTION (GS) -------------------
+    {
+        id: "mat_gs_001",
+        name: "DIALLO Aïssatou Minata",
+        section: "GS",
+        academicYear: "2025 - 2026",
+        teacher: "Mme COULIBALY Mariam",
+        headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+        age: "5 ans",
+        classSize: 18,
+        totalHours: 180,
+        attendedHours: 176,
+        missedHours: 4,
+        photo: "",
+        badges: ["language", "english", "math"],
+        evaluations: {
+            t1: {},
+            t2: {},
+            t3: {}
+        },
+        appreciations: {}
+    },
+    {
+        id: "mat_gs_002",
+        name: "DAFF Tidjani Mahamadou",
+        section: "GS",
+        academicYear: "2025 - 2026",
+        teacher: "Mme COULIBALY Mariam",
+        headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+        age: "5 ans",
+        classSize: 18,
+        totalHours: 180,
+        attendedHours: 176,
+        missedHours: 4,
+        photo: "",
+        badges: ["language", "english", "math"],
+        evaluations: {
+            t1: {},
+            t2: {},
+            t3: {}
+        },
+        appreciations: {}
+    },
+    {
+        id: "mat_gs_003",
+        name: "DIAKITÉ Yasmine",
+        section: "GS",
+        academicYear: "2025 - 2026",
+        teacher: "Mme COULIBALY Mariam",
+        headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+        age: "5 ans",
+        classSize: 18,
+        totalHours: 180,
+        attendedHours: 180,
+        missedHours: 0,
+        photo: "",
+        badges: ["artist", "friend", "nature"],
+        evaluations: {
+            t1: {},
+            t2: {},
+            t3: {}
+        },
+        appreciations: {}
+    },
+    {
+        id: "mat_gs_004",
+        name: "MANGARA Ahmed",
+        section: "GS",
+        academicYear: "2025 - 2026",
+        teacher: "Mme COULIBALY Mariam",
+        headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+        age: "5 ans",
+        classSize: 18,
+        totalHours: 180,
+        attendedHours: 172,
+        missedHours: 8,
+        photo: "",
+        badges: ["motor", "math"],
+        evaluations: {
+            t1: {},
+            t2: {},
+            t3: {}
+        },
+        appreciations: {}
+    },
+
+    // ------------------- PETITE SECTION (PS) -------------------
+    {
+        id: "mat_ps_001",
+        name: "M'BOUP Fatimata Lala",
+        section: "PS",
+        academicYear: "2025 - 2026",
+        teacher: "Mme DIARRA Fatoumata",
+        headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+        age: "3 ans",
+        classSize: 15,
+        totalHours: 180,
+        attendedHours: 178,
+        missedHours: 2,
+        photo: "",
+        badges: ["language", "artist", "autonomy"],
+        evaluations: {
+            t1: {},
+            t2: {},
+            t3: {}
+        },
+        appreciations: {}
+    },
+    {
+        id: "mat_ps_002",
+        name: "KONATÉ Alex",
+        section: "PS",
+        academicYear: "2025 - 2026",
+        teacher: "Mme DIARRA Fatoumata",
+        headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+        age: "3 ans",
+        classSize: 15,
+        totalHours: 180,
+        attendedHours: 175,
+        missedHours: 5,
+        photo: "",
+        badges: ["english", "motor"],
+        evaluations: {
+            t1: {},
+            t2: {},
+            t3: {}
+        },
+        appreciations: {}
+    }
+];
+/**
+ * Database Storage Manager (IndexedDB)
+ * Maternelle IDEAL Rapport Performance
+ */
+
+const DB_NAME = "IdealMaternelleDB";
+const DB_VERSION = 5; // Bumped to force reset and dynamic appreciations auto-update
+const STORE_NAME = "students";
+
+class DatabaseManager {
+    constructor() {
+        this.db = null;
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                // Delete old store to wipe stale data from previous schema versions
+                if (db.objectStoreNames.contains(STORE_NAME)) {
+                    db.deleteObjectStore(STORE_NAME);
+                }
+                const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+                store.createIndex("name", "name", { unique: false });
+                store.createIndex("section", "section", { unique: false });
+            };
+
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                resolve(this.db);
+            };
+
+            request.onerror = (event) => {
+                console.error("IndexedDB error:", event.target.error);
+                reject(event.target.error);
+            };
+        });
+    }
+
+    async getAllStudents() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.getAll();
+
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async getStudentById(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.get(id);
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async saveStudent(student) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.put(student);
+
+            request.onsuccess = () => resolve(student);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async deleteStudent(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.delete(id);
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async clearAll() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.clear();
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async loadPreloadedDemoData() {
+        await this.clearAll();
+        for (const student of PRELOAD_MATERNELLE_STUDENTS) {
+            await this.saveStudent(student);
+        }
+        return await this.getAllStudents();
+    }
+}
+
+window.dbManager = new DatabaseManager();
+/**
+ * Chart Manager for Maternelle IDEAL Performance Reports (PS & GS)
+ * Manages Doughnut Chart & Radar Chart using Chart.js based on IDEAL scale (TB, B, M, AR)
+ */
+
+class ChartManager {
+    constructor() {
+        this.doughnutChart = null;
+        this.radarChart = null;
+    }
+
+    computeStats(student, trimesterKey) {
+        const evals = (student.evaluations && student.evaluations[trimesterKey]) || {};
+        let countTB = 0;
+        let countB = 0;
+        let countM = 0;
+        let countAR = 0;
+        let totalCount = 0;
+
+        const sectionCode = student.section || "GS";
+        const domains = getDomainsForSection(sectionCode, trimesterKey);
+        const domainScores = {};
+
+        domains.forEach((domain) => {
+            let domainTotal = 0;
+            let domainAcquiredWeight = 0;
+
+            domain.competencies.forEach((comp, idx) => {
+                const compKey = `${domain.id}_${idx}`;
+                const val = evals[compKey] || "TB"; // default to TB
+                totalCount++;
+                domainTotal++;
+
+                if (val === "TB") {
+                    countTB++;
+                    domainAcquiredWeight += 1.0;
+                } else if (val === "B") {
+                    countB++;
+                    domainAcquiredWeight += 0.75;
+                } else if (val === "M") {
+                    countM++;
+                    domainAcquiredWeight += 0.50;
+                } else if (val === "AR") {
+                    countAR++;
+                    domainAcquiredWeight += 0.25;
+                }
+            });
+
+            domainScores[domain.id] = Math.round((domainAcquiredWeight / (domainTotal || 1)) * 100);
+        });
+
+        const totalPoints = countTB * 1.0 + countB * 0.75 + countM * 0.50 + countAR * 0.25;
+        const overallPercent = totalCount > 0 ? Math.round((totalPoints / totalCount) * 100) : 100;
+
+        return {
+            countTB,
+            countB,
+            countM,
+            countAR,
+            totalCount,
+            overallPercent,
+            domainScores,
+            domains
+        };
+    }
+
+    renderCharts(student, trimesterKey) {
+        const stats = this.computeStats(student, trimesterKey);
+
+        // Update DOM Stats Summary counters if they exist
+        const elTB = document.getElementById("stat-count-tb");
+        const elB = document.getElementById("stat-count-b");
+        const elM = document.getElementById("stat-count-m");
+        const elAR = document.getElementById("stat-count-ar");
+        const elPercent = document.getElementById("stat-overall-percent");
+
+        if (elTB) elTB.textContent = stats.countTB;
+        if (elB) elB.textContent = stats.countB;
+        if (elM) elM.textContent = stats.countM;
+        if (elAR) elAR.textContent = stats.countAR;
+        if (elPercent) elPercent.textContent = stats.overallPercent + "%";
+
+        // Doughnut Chart
+        const doughnutCtx = document.getElementById("chart-doughnut");
+        if (doughnutCtx) {
+            if (this.doughnutChart) {
+                this.doughnutChart.destroy();
+            }
+
+            this.doughnutChart = new Chart(doughnutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Très Bon (TB)', 'Bon (B)', 'Moyen (M)', 'À Renforcer (AR)'],
+                    datasets: [{
+                        data: [stats.countTB, stats.countB, stats.countM, stats.countAR],
+                        backgroundColor: ['#10B981', '#059669', '#F59E0B', '#EF4444'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { family: 'Poppins', size: 9, weight: 'bold' },
+                                padding: 6,
+                                usePointStyle: true
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+
+        // Radar Chart
+        const radarCtx = document.getElementById("chart-radar");
+        if (radarCtx) {
+            if (this.radarChart) {
+                this.radarChart.destroy();
+            }
+
+            const radarLabels = stats.domains.map(d => d.title.split('(')[0].replace(/^\d+\.\s*/, '').trim());
+            const radarData = stats.domains.map(d => stats.domainScores[d.id] || 0);
+
+            this.radarChart = new Chart(radarCtx, {
+                type: 'radar',
+                data: {
+                    labels: radarLabels,
+                    datasets: [{
+                        label: 'Taux de Réussite (%)',
+                        data: radarData,
+                        backgroundColor: 'rgba(12, 43, 92, 0.2)',
+                        borderColor: '#0C2B5C',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#F58220',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#F58220'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#E2E8F0' },
+                            grid: { color: '#E2E8F0' },
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            ticks: { display: false },
+                            pointLabels: {
+                                font: { family: 'Poppins', size: 8, weight: '600' },
+                                color: '#1E293B'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        return stats;
+    }
+}
+
+window.chartManager = new ChartManager();
+/**
+ * PDF & ZIP Export Manager
+ * Generates crisp HD PDF reports for Maternelle students using html2canvas & jsPDF
+ */
+
+class PDFGenerator {
+    constructor() {
+        this.isGenerating = false;
+    }
+
+    async generateSinglePDF(studentName, sectionCode, trimesterName) {
+        if (this.isGenerating) return;
+        this.isGenerating = true;
+
+        const reportPaper = document.getElementById("report-paper");
+        if (!reportPaper) {
+            alert("Erreur: Élement de rapport introuvable.");
+            this.isGenerating = false;
+            return;
+        }
+
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "flex";
+
+        try {
+            // Options for html2canvas to achieve high DPI
+            const canvas = await html2canvas(reportPaper, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                allowTaint: true,
+                backgroundColor: "#ffffff",
+                windowWidth: 1200
+            });
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF("p", "mm", "a4");
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft > 5) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            const sanitizedName = (studentName || "Eleve").replace(/[^a-zA-Z0-9_\-]/g, "_");
+            const filename = `Bulletin_Maternelle_${sectionCode}_${sanitizedName}_${trimesterName}.pdf`;
+
+            pdf.save(filename);
+
+        } catch (error) {
+            console.error("PDF generation failed:", error);
+            alert("Une erreur est survenue lors de la génération du PDF.");
+        } finally {
+            if (overlay) overlay.style.display = "none";
+            this.isGenerating = false;
+        }
+    }
+
+    async generateBulkZip(students, currentTrimester, trimesterName) {
+        if (this.isGenerating) return;
+        if (!students || students.length === 0) {
+            alert("Aucun élève trouvé à exporter.");
+            return;
+        }
+
+        this.isGenerating = true;
+        const overlay = document.getElementById("loading-overlay");
+        const loadingText = document.getElementById("loading-text");
+        if (overlay) overlay.style.display = "flex";
+
+        try {
+            const zip = new JSZip();
+            const { jsPDF } = window.jspdf;
+            const folder = zip.folder(`Bulletins_Maternelle_${trimesterName}`);
+
+            for (let i = 0; i < students.length; i++) {
+                const student = students[i];
+                if (loadingText) {
+                    loadingText.textContent = `Génération du bulletin (${i + 1}/${students.length}) : ${student.name}...`;
+                }
+
+                // Render student in UI
+                window.app.selectStudent(student.id, false);
+                await new Promise(r => setTimeout(r, 400)); // wait for DOM and chart render
+
+                const reportPaper = document.getElementById("report-paper");
+                const canvas = await html2canvas(reportPaper, {
+                    scale: 1.8,
+                    useCORS: true,
+                    logging: false,
+                    allowTaint: true,
+                    backgroundColor: "#ffffff",
+                    windowWidth: 1200
+                });
+
+                const imgData = canvas.toDataURL("image/jpeg", 0.9);
+                const pdf = new jsPDF("p", "mm", "a4");
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = pdfWidth;
+                const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
+
+                const sanitizedName = (student.name || `Eleve_${i+1}`).replace(/[^a-zA-Z0-9_\-]/g, "_");
+                const pdfBlob = pdf.output("blob");
+
+                folder.file(`${student.section}_${sanitizedName}_${trimesterName}.pdf`, pdfBlob);
+            }
+
+            if (loadingText) loadingText.textContent = "Compilation du fichier ZIP...";
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+
+            const zipFilename = `Bulletins_Maternelle_IDEAL_${trimesterName}.zip`;
+            const downloadLink = document.createElement("a");
+            downloadLink.href = URL.createObjectURL(zipBlob);
+            downloadLink.download = zipFilename;
+            downloadLink.click();
+
+        } catch (error) {
+            console.error("Bulk export failed:", error);
+            alert("Erreur lors de l'exportation groupée.");
+        } finally {
+            if (overlay) overlay.style.display = "none";
+            this.isGenerating = false;
+        }
+    }
+}
+
+window.pdfGenerator = new PDFGenerator();
+/**
+ * Application Controller Officiel IDEAL Maternelle (PS et GS)
+ */
+
+class MaternelleApp {
+    constructor() {
+        this.currentStudent = null;
+        this.studentsList = [];
+        this.activeTrimester = "t2"; // Default to Trimestre 2 as per official bulletin
+        this.activeSectionFilter = "ALL"; // ALL, PS, GS
+        this.searchQuery = "";
+    }
+
+    async init() {
+        await window.dbManager.init();
+        await window.idealBridge.ready;
+        const locaux = await window.dbManager.getAllStudents();
+        const parId = new Map(locaux.map(st => [String(st.id), st]));
+        this.studentsList = window.idealBridge.students.map(source => {
+            const local = parId.get(String(source.id)) || {};
+            const evaluation = tri => Object.keys(source.evaluations?.[tri] || {}).length
+                ? source.evaluations[tri]
+                : (local.evaluations?.[tri] || {});
+            const appreciation = tri => Object.keys(source.appreciations?.[tri] || {}).length
+                ? source.appreciations[tri]
+                : (local.appreciations?.[tri] || {});
+            return {
+            ...local,
+            ...source,
+            // Ces quatre blocs sont propres au bulletin et peuvent provenir
+            // de la sauvegarde serveur transmise par le parent.
+            evaluations: { t1: evaluation('t1'), t2: evaluation('t2'), t3: evaluation('t3') },
+            appreciations: { t1: appreciation('t1'), t2: appreciation('t2'), t3: appreciation('t3') },
+            badges: source.badges?.length ? source.badges : (local.badges || []),
+            totalHours: source.totalHours ?? local.totalHours ?? 180,
+            attendedHours: source.attendedHours ?? local.attendedHours ?? 180,
+            missedHours: source.missedHours ?? local.missedHours ?? 0
+        }});
+        await window.dbManager.clearAll();
+        for (const st of this.studentsList) {
+            this.ensureValidEvaluations(st);
+            await window.dbManager.saveStudent(st);
+        }
+
+        this.bindEvents();
+        this.renderStudentsList();
+
+        if (this.studentsList.length > 0) {
+            this.selectStudent(this.studentsList[0].id);
+        }
+    }
+
+    ensureValidEvaluations(student) {
+        if (!student) return;
+        if (!student.evaluations) student.evaluations = {};
+        ["t1", "t2", "t3"].forEach(tri => {
+            if (!student.evaluations[tri]) student.evaluations[tri] = {};
+            const sectionCode = student.section || "GS";
+            const domains = getDomainsForSection(sectionCode, tri);
+            domains.forEach(domain => {
+                domain.competencies.forEach((_, idx) => {
+                    const compKey = `${domain.id}_${idx}`;
+                    if (!student.evaluations[tri][compKey]) {
+                        student.evaluations[tri][compKey] = "TB";
+                    }
+                });
+            });
+        });
+    }
+
+    bindEvents() {
+        // Search Input
+        const searchInput = document.getElementById("db-search");
+        if (searchInput) {
+            searchInput.addEventListener("input", (e) => {
+                this.searchQuery = e.target.value.toLowerCase();
+                this.renderStudentsList();
+            });
+        }
+
+        // Section Filter Buttons (ALL, PS, GS)
+        const filterBtns = document.querySelectorAll(".filter-chip");
+        filterBtns.forEach(btn => {
+            btn.addEventListener("click", () => {
+                filterBtns.forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                this.activeSectionFilter = btn.dataset.section;
+                this.renderStudentsList();
+            });
+        });
+
+        // Trimester Switcher Buttons
+        const triBtns = document.querySelectorAll(".tri-tab-btn");
+        triBtns.forEach(btn => {
+            btn.addEventListener("click", () => {
+                triBtns.forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                this.activeTrimester = btn.dataset.trimester;
+                this.updateTrimesterUI();
+            });
+        });
+
+        // New Student Button
+        const btnNew = document.getElementById("btn-new-student");
+        if (btnNew) {
+            btnNew.addEventListener("click", () => this.createNewStudent());
+        }
+
+        // Delete Student Button
+        const btnDelete = document.getElementById("btn-delete-student");
+        if (btnDelete) {
+            btnDelete.addEventListener("click", () => this.deleteCurrentStudent());
+        }
+
+        // Load Preloaded Demo Data Button
+        const btnLoadDemo = document.getElementById("btn-load-preloaded");
+        if (btnLoadDemo) {
+            btnLoadDemo.addEventListener("click", async () => {
+                if (confirm("Recharger la base officielle des élèves IDEAL (Petite et Grande Section) ?")) {
+                    this.studentsList = await window.dbManager.loadPreloadedDemoData();
+                    this.renderStudentsList();
+                    if (this.studentsList.length > 0) {
+                        this.selectStudent(this.studentsList[0].id);
+                    }
+                }
+            });
+        }
+
+        // PDF Export Single Button
+        const btnPdf = document.getElementById("btn-export-pdf");
+        if (btnPdf) {
+            btnPdf.addEventListener("click", () => {
+                if (this.currentStudent) {
+                    const triName = this.getTrimesterLabel(this.activeTrimester);
+                    window.pdfGenerator.generateSinglePDF(this.currentStudent.name, this.currentStudent.section, triName);
+                }
+            });
+        }
+
+        // ZIP Export Bulk Button
+        const btnZip = document.getElementById("btn-export-zip");
+        if (btnZip) {
+            btnZip.addEventListener("click", () => {
+                const filtered = this.getFilteredStudents();
+                const triName = this.getTrimesterLabel(this.activeTrimester);
+                window.pdfGenerator.generateBulkZip(filtered, this.activeTrimester, triName);
+            });
+        }
+
+        // Photo Upload & Delete
+        const photoInput = document.getElementById("student-photo");
+        if (photoInput) {
+            photoInput.addEventListener("change", (e) => this.handlePhotoUpload(e));
+        }
+
+        const btnRemovePhoto = document.getElementById("btn-remove-photo");
+        if (btnRemovePhoto) {
+            btnRemovePhoto.addEventListener("click", () => {
+                if (this.currentStudent) {
+                    this.currentStudent.photo = "";
+                    this.saveCurrentStudent();
+                    this.renderStudentForm();
+                    this.renderReportPreview();
+                }
+            });
+        }
+
+        // Form Field Change Handlers
+        this.bindFieldInputs();
+    }
+
+    bindFieldInputs() {
+        const fields = [
+            { id: "student-name", key: "name" },
+            { id: "student-section", key: "section" },
+            { id: "student-year", key: "academicYear" },
+            { id: "student-age", key: "age" },
+            { id: "student-class-size", key: "classSize" },
+            { id: "student-teacher", key: "teacher" },
+            { id: "student-headmaster", key: "headmaster" },
+            { id: "hours-total", key: "totalHours" },
+            { id: "hours-attended", key: "attendedHours" },
+            { id: "hours-missed", key: "missedHours" }
+        ];
+
+        fields.forEach(f => {
+            const el = document.getElementById(f.id);
+            if (el) {
+                const handler = (e) => {
+                    if (this.currentStudent) {
+                        this.currentStudent[f.key] = e.target.value;
+
+                        // If section or name changes, re-render list or matrix
+                        if (f.key === "section") {
+                            this.renderCompetencyEditor();
+                        }
+                        if (f.key === "name" || f.key === "section") {
+                            this.renderStudentsList();
+                        }
+
+                        this.saveCurrentStudent();
+                        this.renderReportPreview();
+                    }
+                };
+
+                el.addEventListener("input", handler);
+                el.addEventListener("change", handler);
+                el.addEventListener("keyup", handler);
+            }
+        });
+
+        // Appreciations inputs
+        const appTeacher = document.getElementById("app-teacher");
+        const appHeadmaster = document.getElementById("app-headmaster");
+
+        if (appTeacher) {
+            appTeacher.addEventListener("input", (e) => {
+                if (!this.currentStudent) return;
+                if (!this.currentStudent.appreciations) this.currentStudent.appreciations = {};
+                if (!this.currentStudent.appreciations[this.activeTrimester]) {
+                    this.currentStudent.appreciations[this.activeTrimester] = {};
+                }
+                const appObj = this.currentStudent.appreciations[this.activeTrimester];
+                appObj.teacher = appTeacher.value;
+                if (e.isTrusted) appObj.isCustomTeacher = true;
+                this.saveCurrentStudent();
+                this.renderReportPreview();
+            });
+        }
+
+        if (appHeadmaster) {
+            appHeadmaster.addEventListener("input", (e) => {
+                if (!this.currentStudent) return;
+                if (!this.currentStudent.appreciations) this.currentStudent.appreciations = {};
+                if (!this.currentStudent.appreciations[this.activeTrimester]) {
+                    this.currentStudent.appreciations[this.activeTrimester] = {};
+                }
+                const appObj = this.currentStudent.appreciations[this.activeTrimester];
+                appObj.headmaster = appHeadmaster.value;
+                if (e.isTrusted) appObj.isCustomHeadmaster = true;
+                this.saveCurrentStudent();
+                this.renderReportPreview();
+            });
+        }
+    }
+
+    getTrimesterLabel(triKey) {
+        if (triKey === "t1") return "1er Trimestre";
+        if (triKey === "t2") return "2ème Trimestre";
+        if (triKey === "t3") return "3ème Trimestre";
+        return "Trimestre";
+    }
+
+    getFilteredStudents() {
+        return this.studentsList.filter(st => {
+            const matchesSearch = !this.searchQuery ||
+                st.name.toLowerCase().includes(this.searchQuery) ||
+                (st.section && st.section.toLowerCase().includes(this.searchQuery));
+
+            const matchesSection = this.activeSectionFilter === "ALL" || st.section === this.activeSectionFilter;
+
+            return matchesSearch && matchesSection;
+        });
+    }
+
+    renderStudentsList() {
+        const container = document.getElementById("student-list");
+        if (!container) return;
+
+        const filtered = this.getFilteredStudents();
+        container.innerHTML = "";
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="empty-list-msg">Aucun élève trouvé</div>`;
+            return;
+        }
+
+        filtered.forEach(st => {
+            const item = document.createElement("div");
+            item.className = `student-item ${this.currentStudent && this.currentStudent.id === st.id ? 'active' : ''}`;
+
+            item.innerHTML = `
+                <div class="student-item-avatar">
+                    ${st.photo ? `<img src="${st.photo}" alt="${st.name}">` : `<i class="fa-solid fa-child"></i>`}
+                </div>
+                <div class="student-item-info">
+                    <span class="student-item-name">${st.name || "Sans Nom"}</span>
+                    <span class="student-item-meta">
+                        <span class="section-tag section-${st.section || 'GS'}">${st.section || 'GS'}</span>
+                        <span class="student-year-tag">${st.academicYear || "2025 - 2026"}</span>
+                    </span>
+                </div>
+            `;
+
+            item.addEventListener("click", () => this.selectStudent(st.id));
+            container.appendChild(item);
+        });
+
+        const countTag = document.getElementById("student-count");
+        if (countTag) countTag.textContent = `${filtered.length} élève(s)`;
+    }
+
+    async selectStudent(id, updateListHighlight = true) {
+        const student = this.studentsList.find(s => s.id === id);
+        if (!student) return;
+
+        this.currentStudent = student;
+        this.ensureValidEvaluations(this.currentStudent);
+        if (updateListHighlight) {
+            this.renderStudentsList();
+        }
+
+        this.renderStudentForm();
+        this.renderReportPreview();
+    }
+
+    async createNewStudent() {
+        const newId = "mat_" + Date.now();
+        const newStudent = {
+            id: newId,
+            name: "NOUVEL ÉLÈVE",
+            section: "GS",
+            academicYear: "2025 - 2026",
+            teacher: "Mme COULIBALY Mariam",
+            headmaster: "Directrice Maternelle - Mme KÉÏTA Fanta",
+            age: "5 ans",
+            classSize: 18,
+            totalHours: 180,
+            attendedHours: 180,
+            missedHours: 0,
+            photo: "",
+            badges: ["language"],
+            evaluations: {
+                t1: {},
+                t2: {},
+                t3: {}
+            },
+            appreciations: {
+                t1: { teacher: "", headmaster: "" },
+                t2: { teacher: "", headmaster: "" },
+                t3: { teacher: "", headmaster: "" }
+            }
+        };
+
+        // Initialize competencies for GS by default
+        ["t1", "t2", "t3"].forEach(tri => {
+            const domains = getDomainsForSection("GS", tri);
+            domains.forEach(dom => {
+                dom.competencies.forEach((_, idx) => {
+                    newStudent.evaluations[tri][`${dom.id}_${idx}`] = "TB";
+                });
+            });
+        });
+
+        await window.dbManager.saveStudent(newStudent);
+        this.studentsList.unshift(newStudent);
+        this.selectStudent(newId);
+    }
+
+    async deleteCurrentStudent() {
+        if (!this.currentStudent) return;
+
+        if (confirm(`Voulez-vous vraiment supprimer l'élève ${this.currentStudent.name} ?`)) {
+            await window.dbManager.deleteStudent(this.currentStudent.id);
+            this.studentsList = this.studentsList.filter(s => s.id !== this.currentStudent.id);
+            this.currentStudent = this.studentsList.length > 0 ? this.studentsList[0] : null;
+
+            this.renderStudentsList();
+            if (this.currentStudent) {
+                this.selectStudent(this.currentStudent.id);
+            }
+        }
+    }
+
+    async saveCurrentStudent() {
+        if (!this.currentStudent) return;
+        await window.dbManager.saveStudent(this.currentStudent);
+        window.parent.postMessage({
+            type: 'ideal:bulletin:save',
+            student: this.currentStudent,
+            trimester: this.activeTrimester
+        }, window.location.origin);
+    }
+
+    updateTrimesterUI() {
+        const triLabel = this.getTrimesterLabel(this.activeTrimester);
+        const reportTriTag = document.getElementById("report-trimester-title");
+        if (reportTriTag) reportTriTag.textContent = `ÉVALUATION DU ${triLabel.toUpperCase()}`;
+
+        this.renderStudentForm();
+        this.renderReportPreview();
+    }
+
+    renderStudentForm() {
+        if (!this.currentStudent) return;
+
+        const st = this.currentStudent;
+
+        // Identity
+        document.getElementById("student-name").value = st.name || "";
+        document.getElementById("student-section").value = st.section || "GS";
+        document.getElementById("student-year").value = st.academicYear || "2025 - 2026";
+        document.getElementById("student-age").value = st.age || "5 ans";
+        document.getElementById("student-class-size").value = st.classSize || 18;
+        document.getElementById("student-teacher").value = st.teacher || "";
+        document.getElementById("student-headmaster").value = st.headmaster || "";
+
+        // Hours & Attendance
+        document.getElementById("hours-total").value = st.totalHours || 180;
+        document.getElementById("hours-attended").value = st.attendedHours || 178;
+        document.getElementById("hours-missed").value = st.missedHours || 2;
+
+        // Photo action button
+        const photoGroup = document.getElementById("photo-action-group");
+        if (photoGroup) {
+            photoGroup.style.display = st.photo ? "block" : "none";
+        }
+
+        // Appreciations
+        const app = (st.appreciations && st.appreciations[this.activeTrimester]) || { teacher: "", headmaster: "" };
+        document.getElementById("app-teacher").value = app.teacher || "";
+        document.getElementById("app-headmaster").value = app.headmaster || "";
+
+        // Badges & Matrix Editor
+        this.renderBadgesSelector();
+        this.renderCompetencyEditor();
+    }
+
+    renderBadgesSelector() {
+        const container = document.getElementById("badges-selector-grid");
+        if (!container) return;
+
+        container.innerHTML = "";
+        const activeBadges = this.currentStudent.badges || [];
+
+        MATERNELLE_BADGES.forEach(badge => {
+            const isSelected = activeBadges.includes(badge.id);
+            const badgeCard = document.createElement("div");
+            badgeCard.className = `badge-select-card ${isSelected ? 'selected' : ''}`;
+            badgeCard.style.borderColor = isSelected ? badge.color : '#E2E8F0';
+
+            badgeCard.innerHTML = `
+                <span class="badge-icon">${badge.icon}</span>
+                <span class="badge-title">${badge.title}</span>
+            `;
+
+            badgeCard.addEventListener("click", () => {
+                if (!this.currentStudent.badges) this.currentStudent.badges = [];
+                const idx = this.currentStudent.badges.indexOf(badge.id);
+                if (idx > -1) {
+                    this.currentStudent.badges.splice(idx, 1);
+                } else {
+                    this.currentStudent.badges.push(badge.id);
+                }
+
+                this.saveCurrentStudent();
+                this.renderBadgesSelector();
+                this.renderReportPreview();
+            });
+
+            container.appendChild(badgeCard);
+        });
+    }
+
+    renderCompetencyEditor() {
+        const container = document.getElementById("competency-editor-container");
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        if (!this.currentStudent.evaluations) this.currentStudent.evaluations = {};
+        if (!this.currentStudent.evaluations[this.activeTrimester]) {
+            this.currentStudent.evaluations[this.activeTrimester] = {};
+        }
+
+        const currentEvals = this.currentStudent.evaluations[this.activeTrimester];
+        const sectionCode = this.currentStudent.section || "GS";
+        const domains = getDomainsForSection(sectionCode, this.activeTrimester);
+
+        domains.forEach(domain => {
+            const domainCard = document.createElement("div");
+            domainCard.className = "domain-editor-card";
+
+            let compsHtml = "";
+            domain.competencies.forEach((compText, idx) => {
+                const compKey = `${domain.id}_${idx}`;
+                const val = currentEvals[compKey] || "TB"; // default TB
+
+                compsHtml += `
+                    <div class="comp-item-row">
+                        <span class="comp-item-title">${compText}</span>
+                        <div class="comp-pill-group" data-comp-key="${compKey}">
+                            <button type="button" class="btn-pill pill-tb ${val === 'TB' ? 'active' : ''}" data-val="TB" title="Très Bon">TB</button>
+                            <button type="button" class="btn-pill pill-b ${val === 'B' ? 'active' : ''}" data-val="B" title="Bon">B</button>
+                            <button type="button" class="btn-pill pill-m ${val === 'M' ? 'active' : ''}" data-val="M" title="Moyen">M</button>
+                            <button type="button" class="btn-pill pill-ar ${val === 'AR' ? 'active' : ''}" data-val="AR" title="À Renforcer">AR</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            domainCard.innerHTML = `
+                <div class="domain-header" style="border-left-color: ${domain.color}">
+                    <h3><i class="fa-solid ${domain.icon}" style="color: ${domain.color}"></i> ${domain.title}</h3>
+                </div>
+                <div class="domain-body">
+                    ${compsHtml}
+                </div>
+            `;
+
+            container.appendChild(domainCard);
+        });
+
+        // Bind Pill Toggles
+        const pillBtns = container.querySelectorAll(".btn-pill");
+        pillBtns.forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const parentGroup = e.target.closest(".comp-pill-group");
+                const compKey = parentGroup.dataset.compKey;
+                const selectedVal = btn.dataset.val;
+
+                parentGroup.querySelectorAll(".btn-pill").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+
+                this.currentStudent.evaluations[this.activeTrimester][compKey] = selectedVal;
+                this.saveCurrentStudent();
+                this.renderReportPreview();
+            });
+        });
+    }
+
+    renderReportPreview() {
+        if (!this.currentStudent) return;
+
+        const st = this.currentStudent;
+        const triKey = this.activeTrimester;
+        const triLabel = this.getTrimesterLabel(triKey);
+
+        // Écriture tolérante : si un élément du bulletin est absent du HTML, on
+        // l'ignore au lieu de laisser l'erreur interrompre tout le rendu
+        // (graphiques et tableau des compétences compris).
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+            else console.warn(`[bulletin] élément "${id}" introuvable dans le HTML — ignoré`);
+        };
+
+        // Header & Student Meta
+        setText("rep-student-name", st.name || "NOM DE L'ÉLÈVE");
+        setText("rep-student-section", st.section === "PS" ? "Petite Section (PS)" : "Grande Section (GS)");
+        setText("rep-academic-year", st.academicYear || "2025 - 2026");
+        setText("rep-teacher", st.teacher || "Mme COULIBALY Mariam");
+        setText("rep-headmaster", st.headmaster || "Directrice Maternelle");
+
+        setText("rep-age", (st.age !== undefined && st.age !== "") ? st.age : "5 ans");
+        setText("rep-class-size", (st.classSize !== undefined && st.classSize !== "") ? st.classSize : 18);
+        setText("rep-hours-total", (st.totalHours !== undefined && st.totalHours !== "") ? st.totalHours : 180);
+        setText("rep-hours-attended", (st.attendedHours !== undefined && st.attendedHours !== "") ? st.attendedHours : 176);
+        setText("rep-hours-missed", (st.missedHours !== undefined && st.missedHours !== "") ? st.missedHours : 0);
+
+        setText("report-trimester-title", `ÉVALUATION DU ${triLabel.toUpperCase()}`);
+
+        // Photo
+        const photoImg = document.getElementById("rep-photo-img");
+        const photoPlaceholder = document.getElementById("rep-photo-placeholder");
+
+        const defaultGirlAvatar = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23FEF08A"/><circle cx="50" cy="42" r="22" fill="%23FDBA74"/><path d="M26 35 C26 20 74 20 74 35 C74 48 26 48 26 35 Z" fill="%2378350F"/><circle cx="42" cy="40" r="3" fill="%231E293B"/><circle cx="58" cy="40" r="3" fill="%231E293B"/><path d="M43 50 Q50 56 57 50" stroke="%23EA580C" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M15 90 C15 70 85 70 85 90 Z" fill="%23EC4899"/></svg>`;
+        const defaultBoyAvatar = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23BAE6FD"/><circle cx="50" cy="42" r="22" fill="%23FDBA74"/><path d="M28 35 C32 20 68 20 72 35 C68 28 32 28 28 35 Z" fill="%23451A03"/><circle cx="42" cy="40" r="3" fill="%231E293B"/><circle cx="58" cy="40" r="3" fill="%231E293B"/><path d="M43 50 Q50 56 57 50" stroke="%23EA580C" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M15 90 C15 70 85 70 85 90 Z" fill="%232563EB"/></svg>`;
+
+        const isGirl = st.name && (st.name.includes("Fatimata") || st.name.includes("Yasmine") || st.name.includes("Aïssatou") || st.name.includes("Lala"));
+        const displayPhoto = st.photo || (isGirl ? defaultGirlAvatar : defaultBoyAvatar);
+
+        if (photoImg) {
+            photoImg.src = displayPhoto;
+            photoImg.style.display = "block";
+            if (photoPlaceholder) photoPlaceholder.style.display = "none";
+        }
+
+        // Appreciations (Recalculées dynamiquement selon les notes actuelles de l'élève)
+        if (!st.appreciations) st.appreciations = {};
+        if (!st.appreciations[triKey]) st.appreciations[triKey] = {};
+        let app = st.appreciations[triKey];
+
+        const dynamicApp = this.generateDynamicAppreciations(st, triKey);
+        if (!app.isCustomTeacher) {
+            app.teacher = dynamicApp.teacher;
+        }
+        if (!app.isCustomHeadmaster) {
+            app.headmaster = dynamicApp.headmaster;
+        }
+
+        setText("rep-app-teacher", app.teacher || "Aucune appréciation enregistrée.");
+        setText("rep-app-headmaster", app.headmaster || "Direction de l'établissement.");
+
+        // Synchroniser avec les textareas du formulaire
+        const teacherInput = document.getElementById("app-teacher");
+        const headmasterInput = document.getElementById("app-headmaster");
+        if (teacherInput) teacherInput.value = app.teacher || "";
+        if (headmasterInput) headmasterInput.value = app.headmaster || "";
+
+        // Badges in Report
+        const badgesContainer = document.getElementById("rep-badges-container");
+        if (badgesContainer) {
+            badgesContainer.innerHTML = "";
+            const activeBadges = st.badges || [];
+            if (activeBadges.length === 0) {
+                badgesContainer.innerHTML = `<span class="no-badge-msg">Aucun badge de distinction sélectionné.</span>`;
+            } else {
+                MATERNELLE_BADGES.filter(b => activeBadges.includes(b.id)).forEach(badge => {
+                    const bTag = document.createElement("div");
+                    bTag.className = "report-badge-chip";
+                    bTag.style.borderColor = badge.color;
+                    bTag.innerHTML = `
+                        <span class="r-badge-icon">${badge.icon}</span>
+                        <span class="r-badge-title">${badge.title}</span>
+                    `;
+                    badgesContainer.appendChild(bTag);
+                });
+            }
+        }
+
+        // Competencies Table Render
+        const compTableBody = document.getElementById("rep-competencies-tbody");
+        if (compTableBody) {
+            compTableBody.innerHTML = "";
+            const currentEvals = (st.evaluations && st.evaluations[triKey]) || {};
+            const sectionCode = st.section || "GS";
+            const domains = getDomainsForSection(sectionCode, triKey);
+
+            domains.forEach(domain => {
+                // Domain Header Row
+                const dHeaderRow = document.createElement("tr");
+                dHeaderRow.className = "domain-section-header-row";
+                dHeaderRow.innerHTML = `
+                    <td colspan="5" style="background-color: ${domain.color}15; color: ${domain.color}">
+                        <i class="fa-solid ${domain.icon}"></i> ${domain.title}
+                    </td>
+                `;
+                compTableBody.appendChild(dHeaderRow);
+
+                domain.competencies.forEach((compText, idx) => {
+                    const compKey = `${domain.id}_${idx}`;
+                    const val = currentEvals[compKey] || "TB";
+                    const isEn = isEnglishCompetency(compText);
+
+                    const compRow = document.createElement("tr");
+                    compRow.className = `competency-item-row ${isEn ? 'row-lang-en' : 'row-lang-fr'}`;
+                    compRow.innerHTML = `
+                        <td class="col-comp-desc">${compText}</td>
+                        <td class="col-eval-cell ${val === 'TB' ? 'cell-active-tb' : ''}">
+                            ${val === 'TB' ? `<span class="eval-badge badge-tb"><i class="fa-solid fa-circle-check"></i> TB</span>` : ''}
+                        </td>
+                        <td class="col-eval-cell ${val === 'B' ? 'cell-active-b' : ''}">
+                            ${val === 'B' ? `<span class="eval-badge badge-b"><i class="fa-solid fa-check"></i> B</span>` : ''}
+                        </td>
+                        <td class="col-eval-cell ${val === 'M' ? 'cell-active-m' : ''}">
+                            ${val === 'M' ? `<span class="eval-badge badge-m"><i class="fa-solid fa-hourglass-half"></i> M</span>` : ''}
+                        </td>
+                        <td class="col-eval-cell ${val === 'AR' ? 'cell-active-ar' : ''}">
+                            ${val === 'AR' ? `<span class="eval-badge badge-ar"><i class="fa-solid fa-circle-exclamation"></i> AR</span>` : ''}
+                        </td>
+                    `;
+                    compTableBody.appendChild(compRow);
+                });
+            });
+        }
+
+        // Render Charts & Update Stats
+        window.chartManager.renderCharts(st, triKey);
+    }
+
+    generateDynamicAppreciations(student, trimesterKey) {
+        if (!window.chartManager) return { teacher: "", headmaster: "" };
+
+        const stats = window.chartManager.computeStats(student, trimesterKey);
+        const percent = parseFloat(stats.overallPercent) || 100;
+        const rawName = (student.name || "Élève").trim();
+        const nameParts = rawName.split(" ");
+        const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : rawName;
+
+        let teacher = "";
+        let headmaster = "";
+
+        if (percent >= 90) {
+            teacher = `Bilan exceptionnel ! ${firstName} fait preuve d'une excellente maîtrise de l'ensemble des compétences de la période, aussi bien en Français qu'en Anglais. Élève très autonome, curieux(se) et appliqué(e).`;
+            headmaster = `Félicitations chaleureuses de la Direction pour ces résultats remarquables ! Continuez ainsi.`;
+        } else if (percent >= 78) {
+            teacher = `Très bon trimestre ! ${firstName} progresse régulièrement et montre une très bonne assimilation des apprentissages. Participation active et enthousiaste en classe.`;
+            headmaster = `Très satisfaisant. La Direction félicite ${firstName} pour ses efforts et ses très bons résultats.`;
+        } else if (percent >= 60) {
+            teacher = `Bilan encourageant. ${firstName} acquiert progressivement les notions du programme. Quelques efforts ciblés permettront de consolider les acquis restants.`;
+            headmaster = `Encouragements de la Direction. Poursuivre un travail régulier pour renforcer les apprentissages.`;
+        } else {
+            teacher = `Trimestre qui nécessite de l'attention. ${firstName} fait des efforts mais a besoin d'un accompagnement plus soutenu pour assimiler l'ensemble des notions.`;
+            headmaster = `Avis de la Direction : Un suivi attentif en classe et à la maison permettra de faire de beaux progrès.`;
+        }
+
+        return { teacher, headmaster };
+    }
+
+    handlePhotoUpload(event) {
+        const file = event.target.files[0];
+        if (!file || !this.currentStudent) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.currentStudent.photo = e.target.result;
+            this.saveCurrentStudent();
+            this.renderStudentForm();
+            this.renderReportPreview();
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    window.app = new MaternelleApp();
+    await window.app.init();
+});
+    </script>
+</body>
+</html>

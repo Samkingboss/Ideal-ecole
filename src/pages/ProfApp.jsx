@@ -11,6 +11,7 @@ import SignalementIncident from './SignalementIncident'
 import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
+import BulletinMaternelleStudio from './BulletinMaternelleStudio'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import { signatureLigne } from '../lib/identiteProfessionnelle'
 import AccordionCard from '../components/ui/AccordionCard'
@@ -101,6 +102,7 @@ function ListeFichier({ rang, nom, apercu, fichier, onMonter, onDescendre, onRet
 }
 
 export default function ProfApp({ user, onLogout }) {
+  const compteMaternelle = /^(maitresse|assistante)-/.test(String(user?.fonction || '').toLowerCase())
   const [activeProfSession, setActiveProfSession] = useState('emploi')
   const [tab, setTab] = useState('edt')
   const [loading, setLoading] = useState(true)
@@ -902,6 +904,7 @@ export default function ProfApp({ user, onLogout }) {
             </button>
             <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions du programme</button>
             <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>✅ Check-points de fin de leçon</button>
+            {compteMaternelle && <button onClick={() => setTab('bulletins-maternelle')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'bulletins-maternelle' ? '#00a8e0' : 'var(--bg)', color: tab === 'bulletins-maternelle' ? '#fff' : 'var(--muted)' }}>🧸 Évaluations &amp; bulletins</button>}
           </>
         )}
 
@@ -1098,6 +1101,10 @@ export default function ProfApp({ user, onLogout }) {
 
         {tab === 'fincours' && (
           <FinDeCours user={user} selectedClasse={selectedClasse} classEleves={classEleves} preparations={preparations} supabase={supabase} />
+        )}
+
+        {tab === 'bulletins-maternelle' && compteMaternelle && (
+          <BulletinMaternelleStudio user={user} eleves={eleves} />
         )}
 
         {/* ════════ SESSION 3 : MA CLASSE & ÉLÈVES ════════ */}
