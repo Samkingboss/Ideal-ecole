@@ -16,8 +16,34 @@ export const trouverClasseCanonique = (libelle, classes = []) => {
 
 export const synchroniserEleves = (etat, inscriptions = [], classes = []) => {
   const courant = normalizeEtatComptable(etat)
-  const sources = new Set(courant.students.map(student => student.sourceInscription).filter(Boolean).map(String))
-  const matricules = new Set(courant.students.map(student => student.matricule).filter(Boolean))
+  const validees = inscriptions.filter(inscription => inscription.statut === 'validee' && inscription.matricule)
+  let modifies = 0
+  const existants = courant.students.map(student => {
+    const inscription = validees.find(i => String(i.id) === String(student.sourceInscription))
+      || validees.find(i => i.matricule === student.matricule)
+    if (!inscription) return student
+    const classe = trouverClasseCanonique(inscription.classe_demandee, classes)
+    if (!classe) return student
+    const identiteCanonique = {
+      matricule: inscription.matricule,
+      nom: inscription.nom,
+      prenom: inscription.prenom,
+      classe: classe.nom,
+      classe_id: classe.id,
+      cantine: Boolean(inscription.cantine),
+      annee_scolaire: inscription.annee_scolaire || null,
+      sourceInscription: inscription.id,
+    }
+    const change = Object.entries(identiteCanonique).some(([cle, valeur]) => student[cle] !== valeur)
+    if (!change) return student
+    modifies++
+    // L'inscription est la source de vérité administrative. Tout ce qui est
+    // financier (history, réductions, plan, famille, départ…) reste porté par
+    // la fiche comptable existante et n'est jamais reconstruit ici.
+    return { ...student, ...identiteCanonique }
+  })
+  const sources = new Set(existants.map(student => student.sourceInscription).filter(Boolean).map(String))
+  const matricules = new Set(existants.map(student => student.matricule).filter(Boolean))
   const nouveaux = inscriptions.filter(inscription => {
     if (inscription.statut !== 'validee' || !inscription.matricule || matricules.has(inscription.matricule) || sources.has(String(inscription.id))) return false
     return Boolean(trouverClasseCanonique(inscription.classe_demandee, classes))
@@ -30,7 +56,10 @@ export const synchroniserEleves = (etat, inscriptions = [], classes = []) => {
       plan:'trimestre', paye:0, history:[], reductions:[], dateDepart:null, motifDepart:'', sourceInscription:inscription.id,
     }
   })
-  return { suivant: nouveaux.length ? { ...courant, students:[...courant.students, ...nouveaux] } : courant, nombre:nouveaux.length }
+  const suivant = nouveaux.length || modifies
+    ? { ...courant, students:[...existants, ...nouveaux] }
+    : courant
+  return { suivant, nombre:nouveaux.length, modifies }
 }
 
 export const salairesDepuisPostes = postes => (Array.isArray(postes) ? postes : []).map(poste => ({

@@ -732,15 +732,21 @@
                     </div>
 
                     <!-- Cropper -->
-                    <div id="cropper-container" class="hidden" style="width:100%; max-width:400px; height:400px;">
+                    <!-- Portrait 4:5 : assez haut pour conserver le sommet de la
+                         tête et les épaules, tout en restant compatible avec les
+                         cadres des dossiers, cartes scolaires et bulletins. -->
+                    <div id="cropper-container" class="hidden" style="width:100%; max-width:720px; height:min(75vh, 640px); margin:0 auto;">
                         <img id="image-to-crop" src="" style="max-width:100%;">
                     </div>
+                    <p id="cropper-help" class="hidden" style="margin:-0.75rem 0 0; max-width:620px; color:var(--muted); font-size:0.85rem; text-align:center;">
+                        Cadrez la tête entière et les épaules dans le rectangle. Vous pouvez déplacer et réduire la photo.
+                    </p>
                     
                     <button id="btn-crop" class="btn hidden" onclick="cropImage()">Valider la photo</button>
 
                     <!-- Result -->
                     <div id="photo-result" class="hidden" style="text-align: center;">
-                        <img id="final-photo" src="" style="width:150px; height:150px; object-fit:cover; border-radius:50%; border:4px solid var(--accent); box-shadow: var(--shadow);">
+                        <img id="final-photo" src="" style="width:120px; height:150px; object-fit:cover; border-radius:12px; border:4px solid var(--accent); box-shadow: var(--shadow);">
                         <div style="margin-top: 1rem;">
                             <button class="btn btn-outline" onclick="resetPhoto()">Recommencer</button>
                         </div>
@@ -2324,16 +2330,35 @@ Merci de votre confiance.
         const img = document.getElementById('image-to-crop');
         img.src = imageSrc;
         document.getElementById('cropper-container').classList.remove('hidden');
+        document.getElementById('cropper-help').classList.remove('hidden');
         document.getElementById('btn-crop').classList.remove('hidden');
         if (cropper) cropper.destroy();
-        cropper = new Cropper(img, { aspectRatio: 1, viewMode: 1, autoCropArea: 0.8 });
+        // 4:5 est le format portrait commun aux usages de la photo officielle.
+        // Le cadre initial utilise toute la surface disponible, puis le parent
+        // peut dézoomer afin de garder de l'air au-dessus de la tête.
+        cropper = new Cropper(img, {
+            aspectRatio: 4 / 5,
+            viewMode: 1,
+            autoCropArea: 1,
+            responsive: true,
+            restore: false,
+            guides: true,
+            center: true,
+            background: true,
+        });
     }
 
     function cropImage() {
         if (!cropper) return;
-        finalPhotoDataUrl = cropper.getCroppedCanvas({ width: 300, height: 300 }).toDataURL('image/jpeg', 0.8);
+        finalPhotoDataUrl = cropper.getCroppedCanvas({
+            width: 480,
+            height: 600,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high',
+        }).toDataURL('image/jpeg', 0.86);
         cropper.destroy(); cropper = null;
         document.getElementById('cropper-container').classList.add('hidden');
+        document.getElementById('cropper-help').classList.add('hidden');
         document.getElementById('btn-crop').classList.add('hidden');
         document.getElementById('final-photo').src = finalPhotoDataUrl;
         document.getElementById('photo-result').classList.remove('hidden');
@@ -2343,6 +2368,7 @@ Merci de votre confiance.
         stopCamera();
         if (cropper) { cropper.destroy(); cropper = null; }
         document.getElementById('cropper-container').classList.add('hidden');
+        document.getElementById('cropper-help').classList.add('hidden');
         document.getElementById('btn-crop').classList.add('hidden');
         document.getElementById('photo-result').classList.add('hidden');
     }

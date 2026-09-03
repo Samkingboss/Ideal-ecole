@@ -904,7 +904,6 @@ export default function ProfApp({ user, onLogout }) {
             </button>
             <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions du programme</button>
             <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>✅ Check-points de fin de leçon</button>
-            {compteMaternelle && <button onClick={() => setTab('bulletins-maternelle')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'bulletins-maternelle' ? '#00a8e0' : 'var(--bg)', color: tab === 'bulletins-maternelle' ? '#fff' : 'var(--muted)' }}>🧸 Évaluations &amp; bulletins</button>}
           </>
         )}
 
@@ -912,6 +911,7 @@ export default function ProfApp({ user, onLogout }) {
           <>
             <button onClick={() => setTab('classe')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'classe' ? '#00a8e0' : 'var(--bg)', color: tab === 'classe' ? '#fff' : 'var(--muted)' }}>📋 Présence &amp; Liste Classe</button>
             <button onClick={() => setTab('devoirs')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'devoirs' ? '#00a8e0' : 'var(--bg)', color: tab === 'devoirs' ? '#fff' : 'var(--muted)' }}>📖 Devoirs de maison</button>
+            {compteMaternelle && <button onClick={() => setTab('bulletins-maternelle')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'bulletins-maternelle' ? '#00a8e0' : 'var(--bg)', color: tab === 'bulletins-maternelle' ? '#fff' : 'var(--muted)' }}>🧸 Évaluations &amp; bulletins</button>}
             {/* BASCULE — « 📖 Devoirs de maison » ci-dessus est désormais le
                 seul chemin. Le lien vers /pedago-archive/ a été retiré une
                 fois la parité prouvée : lecture des quatorze devoirs

@@ -147,8 +147,8 @@ export default function ComptabiliteRA({ supabase, user, classes = [], postes = 
       setErreur(`Comptabilité chargée, synchronisation des inscriptions impossible : ${inscriptions.error.message}`)
     } else {
       const base = normalizeEtatComptable(comptabilite.data.state_json)
-      const { suivant, nombre } = synchroniserEleves(base, inscriptions.data, classes)
-      if (!nombre) { setEtat(base); setVersion(comptabilite.data.updated_at) }
+      const { suivant, nombre, modifies } = synchroniserEleves(base, inscriptions.data, classes)
+      if (!nombre && !modifies) { setEtat(base); setVersion(comptabilite.data.updated_at) }
       else {
         const updatedAt = new Date().toISOString()
         let requete = supabase.from('financement_params').update({ state_json:suivant, updated_at:updatedAt }).eq('id','main')
@@ -159,7 +159,7 @@ export default function ComptabiliteRA({ supabase, user, classes = [], postes = 
           setErreur(sauvegarde.error?.message || 'La comptabilité a changé pendant la synchronisation. Actualisez pour réessayer.')
         } else {
           setEtat(suivant); setVersion(sauvegarde.data[0].updated_at)
-          setMessage(`${nombre} inscription(s) synchronisée(s) automatiquement.`)
+          setMessage(`${nombre} nouvelle(s) inscription(s) et ${modifies} fiche(s) mise(s) à jour automatiquement.`)
         }
       }
     }

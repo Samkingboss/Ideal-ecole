@@ -116,14 +116,20 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
   if (etat === 'chargement') return <div className="empty-state">Chargement des bulletins maternelle…</div>
   if (!maternelle.length) return <div className="empty-state">Aucun élève de Petite ou Grande Section dans vos classes affectées.</div>
 
-  return <div style={{ margin: '-1.5rem -1.2rem', minHeight: 'calc(100vh - 190px)' }}>
-    {message && <div style={{ padding: '8px 14px', background: message.includes('impossible') || message.includes('installée') ? '#fff7ed' : '#ecfdf5', color: '#0d2a3b', fontSize: 12, fontWeight: 800 }}>{message}</div>}
+  return <div style={{ minHeight: 'calc(100vh - 230px)', minWidth: 0 }}>
+    <div style={{ marginBottom: 12 }}>
+      <h2 style={{ margin: 0, color: '#0d2a3b', fontSize: 20 }}>Évaluations et bulletins maternelle</h2>
+      <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 13 }}>
+        Évaluez les objectifs de Petite et Grande Section puis générez le bulletin, sans quitter IDEAL.
+      </p>
+    </div>
+    {message && <div role="status" style={{ marginBottom: 10, padding: '10px 14px', borderRadius: 10, background: message.includes('impossible') || message.includes('installée') ? '#fff7ed' : '#ecfdf5', color: '#0d2a3b', fontSize: 12, fontWeight: 800 }}>{message}</div>}
     <iframe
       ref={iframeRef}
       src="/bulletin-maternelle/index.html"
       title="Évaluation et bulletins maternelle"
       onLoad={envoyer}
-      style={{ width: '100%', height: 'calc(100vh - 205px)', minHeight: 720, border: 0, display: 'block' }}
+      style={{ width: '100%', height: 'calc(100vh - 270px)', minHeight: 760, border: '1px solid var(--border)', borderRadius: 14, display: 'block', background: '#0f172a' }}
     />
   </div>
 }

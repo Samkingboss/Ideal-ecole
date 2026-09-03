@@ -76,6 +76,21 @@ export default function EmploiDuTempsMaternelle({ user }) {
   const [preparation, setPreparation] = useState(null)
   const jours = langue === 'en' ? JOURS_EN : JOURS_FR
   const typeSemaine = semaineA(lundi) ? 'A' : 'B'
+  const estAssistante = fonction(user).includes('assistante')
+
+  const ouvrir = (date, classe, programmeIndex, creneau) => {
+    if (estAssistante) return
+    const domaine = DOMAINES[PROGRAMME[classe][programmeIndex][date.getDay() - 1]]
+    const objectifs = objectifsMaternelle(classe,trimestreDe(date))
+      .filter(o=>o.domaine.toUpperCase().includes(domaine.objectif))
+      .filter(o=>langue==='en'?estObjectifAnglais(o.description):!estObjectifAnglais(o.description))
+    setPreparation({
+      dateCours: isoLocal(date), objectifs,
+      creneau:{ groupe:classe, matiere:domaine.fr, sequence:programmeIndex+1,
+        heure_debut:creneau.debut.replace('h',':'),
+        duree_minutes:(Number(creneau.fin.slice(0,2))*60+Number(creneau.fin.slice(3)))-(Number(creneau.debut.slice(0,2))*60+Number(creneau.debut.slice(3))) },
+    })
+  }
 
   return <>
     <div className="section-head">
@@ -98,7 +113,8 @@ export default function EmploiDuTempsMaternelle({ user }) {
       <button className="btn-sm" onClick={()=>setLundi(lundiDe(new Date()))}>{langue === 'en' ? 'Today' : "Aujourd’hui"}</button>
     </div>
 
-    <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+    <style>{`@media(max-width:700px){.edt-mat-table{display:none!important}.edt-mat-mobile{display:grid!important}}`}</style>
+    <div className="edt-mat-table" style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
       <table style={{borderCollapse:'separate',borderSpacing:5,width:'100%',minWidth:850,fontSize:12}}>
         <thead><tr>
           <th style={{background:'#294f7f',color:'#fff',borderRadius:10,padding:10}}>HORAIRES</th>
@@ -117,7 +133,6 @@ export default function EmploiDuTempsMaternelle({ user }) {
               const date=ajouterJours(lundi,index), classe=classeDuJour(date,langue,index)
               const domaineId=PROGRAMME[classe][programmeIndex][index]
               const domaine=DOMAINES[domaineId]
-              const estAssistante=fonction(user).includes('assistante')
               const dateCours=isoLocal(date)
               const objectifs=objectifsMaternelle(classe,trimestreDe(date))
                 .filter(o=>o.domaine.toUpperCase().includes(domaine.objectif))
@@ -143,6 +158,32 @@ export default function EmploiDuTempsMaternelle({ user }) {
           </tr>
         })}</tbody>
       </table>
+    </div>
+
+    <div className="edt-mat-mobile" style={{display:'none',gap:12}}>
+      {jours.map((jour,index)=>{
+        const date=ajouterJours(lundi,index), classe=classeDuJour(date,langue,index)
+        return <section key={jour} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,overflow:'hidden'}}>
+          <div style={{padding:'11px 13px',background:classe==='PS'?'#ff914d':'#36afe7',color:'#fff',display:'flex',justifyContent:'space-between',gap:8,fontWeight:900}}>
+            <span>{jour} · {date.toLocaleDateString(langue==='en'?'en-GB':'fr-FR',{day:'numeric',month:'short'})}</span>
+            <span>{classe} · {langue==='en'?'EN':'FR'}</span>
+          </div>
+          <div style={{padding:10,display:'grid',gap:8}}>
+            {CRENEAUX.map((creneau,ligne)=>{
+              const programmeIndex=[null,null,0,1,2,null,3,null,4][ligne]
+              if (creneau.commun || creneau.pause) return <div key={creneau.debut} style={{padding:10,borderRadius:10,background:creneau.pause?'#fff7cc':'var(--bg)',fontSize:12}}>
+                <b>{creneau.debut}–{creneau.fin}</b> · {langue==='en'?creneau.en:creneau.fr}
+              </div>
+              const domaine=DOMAINES[PROGRAMME[classe][programmeIndex][index]]
+              return <button key={creneau.debut} type="button" onClick={()=>ouvrir(date,classe,programmeIndex,creneau)}
+                style={{width:'100%',padding:11,borderRadius:10,border:'1px solid var(--border)',background:'#fff',color:'inherit',textAlign:'left',display:'flex',justifyContent:'space-between',gap:10,minHeight:48,cursor:estAssistante?'default':'pointer'}}>
+                <span><b>{creneau.debut}–{creneau.fin}</b><br/><span style={{fontSize:12}}>{domaine[langue]}</span></span>
+                {!estAssistante&&<span aria-hidden="true">✎</span>}
+              </button>
+            })}
+          </div>
+        </section>
+      })}
     </div>
 
     <div style={{marginTop:12,padding:'10px 13px',borderRadius:12,background:'#f0f9ff',border:'1px solid #bae6fd',fontSize:12,color:'#334155'}}>

@@ -939,6 +939,41 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 #loading-text { font-size: 13px; font-weight: 600; color: var(--dark-text); }
+
+/* Sur téléphone, l'atelier reste une partie de l'application IDEAL : les
+   commandes occupent toute la largeur et aucune colonne ne sort de l'écran.
+   Le bulletin conserve son format A4 pour le PDF et l'impression. */
+@media (max-width: 800px) {
+    body { overflow: auto; }
+    .app-container { display: block; width: 100%; height: auto; min-height: 100vh; overflow: visible; }
+    .control-panel { width: 100%; height: auto; min-height: 100vh; border-right: 0; }
+    .panel-header { position: sticky; top: 0; z-index: 20; padding: 12px; }
+    .panel-content { overflow: visible; padding: 12px; gap: 12px; }
+    .section-card { padding: 13px; border-radius: 11px; }
+    .filter-chips-container,
+    .trimester-tabs-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .filter-chip,
+    .tri-tab-btn { min-width: 118px; flex: 0 0 auto; min-height: 44px; }
+    .student-list { max-height: 270px; }
+    .student-item { min-height: 58px; padding: 10px; }
+    .form-row-2,
+    .form-row-3,
+    .badges-selector-grid { grid-template-columns: 1fr; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea { min-height: 44px; font-size: 16px; }
+    .comp-item-row { align-items: flex-start; flex-direction: column; padding: 10px 0; }
+    .comp-item-title { font-size: 13px; }
+    .comp-pill-group { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .btn-pill { min-height: 42px; font-size: 11px; }
+    .preview-panel { width: 100%; height: auto; min-height: 0; overflow: visible; }
+    .preview-toolbar { padding: 12px; gap: 10px; align-items: flex-start; flex-direction: column; }
+    .toolbar-info { min-width: 0; flex-wrap: wrap; }
+    .toolbar-actions { width: 100%; display: grid; grid-template-columns: 1fr; }
+    .toolbar-actions .btn { min-height: 44px; }
+    .preview-viewport { overflow-x: auto; padding: 12px; justify-content: flex-start; }
+    .report-paper { flex: 0 0 820px; }
+}
     </style>
 </head>
 <body>

@@ -38,6 +38,26 @@ test('SYNC3 · une inscription non validée reste exclue', () => {
 test('SYNC4 mutation · une correspondance partielle ne passe plus', () => {
   assert.equal(trouverClasseCanonique('CP', classes), null)
 })
+test('SYNC5 · une correction administrative actualise l’identité comptable', () => {
+  const historique = [{ amount:25000, receiptId:'REC-1' }]
+  const reductions = [{ id:'r1', montant:5000 }]
+  const etat = { students:[{
+    id:'inscription-cp1', sourceInscription:'cp1', matricule:'CP-1', nom:'C', prenom:'Sarah',
+    classe:'CP1', classe_id:'classe-cp1', cantine:false, annee_scolaire:'2026-2027',
+    famille:'FAMILLE CONSERVÉE', plan:'mensuel', history:historique, reductions,
+  }] }
+  const corrigees = inscriptions.map(i => i.id === 'cp1' ? { ...i, prenom:'Saran', cantine:true } : i)
+  const { suivant, nombre, modifies } = synchroniserEleves(etat, corrigees, classes)
+  assert.equal(nombre, 3)
+  assert.equal(modifies, 1)
+  const fiche = suivant.students.find(s => s.sourceInscription === 'cp1')
+  assert.equal(fiche.prenom, 'Saran')
+  assert.equal(fiche.cantine, true)
+  assert.equal(fiche.famille, 'FAMILLE CONSERVÉE')
+  assert.equal(fiche.plan, 'mensuel')
+  assert.deepEqual(fiche.history, historique)
+  assert.deepEqual(fiche.reductions, reductions)
+})
 
 const courant = { salaires:[{id:'s',mensuel:100}], paies:{'2026-08':[{statut:'En attente'}]}, charges:[{id:'salaires',montant:1200},{id:'loyer',montant:500}] }
 const attaque = { salaires:[{id:'s',mensuel:1}], paies:{'2026-08':[{statut:'Payé'}]}, charges:[{id:'salaires',montant:12},{id:'loyer',montant:600}] }
