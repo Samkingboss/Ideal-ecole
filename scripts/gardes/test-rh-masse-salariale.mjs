@@ -14,7 +14,22 @@ const test = (nom, fn) => {
 
 const verifierPortee = code => {
   const positionDeclaration = code.indexOf(declaration)
-  const positionRa = code.indexOf("if (user.role === 'responsable_administratif')")
+  // RECALIBREE le 03/09/2026 : l'ancre avait glisse.
+  //
+  // La garde cherchait la premiere occurrence de
+  // `if (user.role === 'responsable_administratif')`. Le 02/09, une ligne
+  // de NAVIGATION portant exactement ce texte est apparue bien plus haut
+  // dans le fichier :
+  //
+  //   if (user.role === 'responsable_administratif') setModuleAdministration('inscriptions')
+  //
+  // L'ancre a saute de la ligne 954 — la vraie branche de rendu — a la
+  // ligne 389, et la garde a conclu que la declaration venait apres. Elle
+  // mesurait la position d'une instruction de navigation.
+  //
+  // On ancre desormais sur la BRANCHE, reconnaissable a son accolade
+  // ouvrante : une garde qui suit un `if` d'une ligne ne prouve rien.
+  const positionRa = code.indexOf("if (user.role === 'responsable_administratif') {")
   const positionDirection = code.indexOf('INTERFACE DIRECTEUR')
   return positionDeclaration >= 0
     && positionDeclaration < positionRa

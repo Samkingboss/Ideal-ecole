@@ -52,7 +52,25 @@ const C={id:'C',heure_depot:'2026-08-26T09:00:00Z',historique_statuts:[{action:A
 test('T1 · la nouvelle soumission est en tête',()=>assert.deepEqual(trierPreparationsParActivite([A,B,C].map(x=>x.id==='A'?{...x,historique_statuts:[x.historique_statuts[0]]}:x)).map(x=>x.id),['C','B','A']))
 test('T2 · la resoumission remonte en tête',()=>assert.deepEqual(trierPreparationsParActivite([B,C,A]).map(x=>x.id),['A','C','B']))
 test('T3 mutation · date du cours ignorée',()=>assert.equal(momentDerniereSoumission({...A,date_cours:'2030-01-01'}),Date.parse('2026-08-27T10:00:00Z')))
-test('T4 · les deux onglets utilisent le tri canonique',()=>assert.match(direction,/const recentes = trierPreparationsParActivite\(preparations\)/))
+// RECALIBREE le 03/09/2026.
+//
+// La garde epinglait le NOM DE LA VARIABLE passee au tri :
+//   /const recentes = trierPreparationsParActivite\(preparations\)/
+// Le 02/09, l'ecran est passe de `preparations` a `preparationsEnseignant`
+// — il trie desormais la liste filtree d'un enseignant plutot que
+// l'ensemble. Le TRI CANONIQUE n'a pas bouge ; seule la variable a change,
+// et la garde a rougi sur un renommage sain.
+//
+// Une garde qui rougit sur un renommage apprend a ignorer le rouge. On
+// mesure donc ce qui compte : les DEUX onglets appellent la fonction
+// canonique, et aucun ne trie a la main.
+test('T4 · les deux onglets utilisent le tri canonique',()=>{
+  assert.match(direction,/const recentes = trierPreparationsParActivite\(\s*\w+\s*\)/)
+  // L'autre onglet trie les fiches validees par la fonction dediee.
+  assert.match(direction,/trierPreparationsValidees\(\s*\w+\s*\)/)
+  // Et personne ne refait le tri a la main a cote.
+  assert.doesNotMatch(direction,/preparations[A-Za-z]*\.sort\(/)
+})
 test('T4b · le tri canonique est bien exporté par le module métier',()=>assert.match(preparations,/export const trierPreparationsParActivite/))
 test('R1 · refresh Realtime ciblé',()=>assert.match(direction,/postgres_changes[\s\S]{0,100}table:'preparations'/))
 test('R2 · compteurs et retard restent inchangés',()=>{
@@ -64,7 +82,8 @@ test('H1 · une validation ouvre immédiatement l’historique',()=>{
 })
 test('H2 · seules les fiches validées sont archivées',()=>{
   assert.match(preparations,/filter\(prep => prep\?\.status === STATUTS\.validee\.code\)/)
-  assert.match(direction,/trierPreparationsValidees\(preparations\)/)
+  // Meme recalibrage : la variable passee importe peu, la fonction si.
+  assert.match(direction,/trierPreparationsValidees\(\s*\w+\s*\)/)
 })
 test('H3 · les validations récentes précèdent les anciennes',()=>{
   assert.match(preparations,/entree\?\.action === ACTIONS\.validation/)

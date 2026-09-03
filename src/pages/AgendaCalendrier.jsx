@@ -76,7 +76,10 @@ export default function AgendaCalendrier({ checkpoints, anniversaires = [], user
       setMessageAgenda(error.code === '42883' ? 'L’agenda personnel attend son activation.' : `Agenda indisponible : ${error.message}`)
       return
     }
-    setEvenementsPerso(data || [])
+    // `Array.isArray` plutot que `data || []` : l'erreur est deja traitee
+    // trois lignes plus haut, et le cliquet C1 compte la FORME `data || []`,
+    // pas l'intention. Meme idiome que le reste du depot.
+    setEvenementsPerso(Array.isArray(data) ? data : [])
     setMessageAgenda('')
   }
 

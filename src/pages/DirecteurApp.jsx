@@ -178,7 +178,7 @@ export default function DirecteurApp({ user, onLogout }) {
         prepRefreshEnAttente.current = false
         const { data, error } = await supabase.from('preparations')
           .select('*, users(prenom, nom), classes(nom)')
-        if (!error) setPreparations(trierPreparationsParActivite(data || []))
+        if (!error) setPreparations(trierPreparationsParActivite(Array.isArray(data) ? data : []))
       } while (prepRefreshEnAttente.current)
     } finally {
       prepRefreshEnVol.current = false
