@@ -1021,7 +1021,7 @@ body {
                         <button class="tri-tab-btn" data-trimester="t3">3ème Trimestre</button>
                     </div>
                 </section>
-                <section class="section-card">
+                <section class="section-card" hidden aria-hidden="true">
                     <h2><i class="fa-solid fa-id-card"></i> Fiche d'Identité de l'Élève</h2>
                     <div class="form-group">
                         <label for="student-name">Nom et Prénom de l'élève</label>
@@ -1070,7 +1070,7 @@ body {
                         </div>
                     </div>
                 </section>
-                <section class="section-card">
+                <section class="section-card" hidden aria-hidden="true">
                     <h2><i class="fa-solid fa-clock"></i> Heures de Cours & Assiduité</h2>
                     <div class="form-row-3">
                         <div class="form-group">
@@ -1088,14 +1088,14 @@ body {
                     </div>
                 </section>
                 <section class="section-card">
-                    <h2><i class="fa-solid fa-award"></i> Badges de Distinctions</h2>
-                    <p class="section-subtext">Distinctions de l'équipe pédagogique :</p>
-                    <div class="badges-selector-grid" id="badges-selector-grid"></div>
-                </section>
-                <section class="section-card">
                     <h2><i class="fa-solid fa-list-check"></i> Matrice d'Évaluation des Objectifs</h2>
                     <p class="section-subtext">Sélectionnez le niveau pour chaque objectif (<b>TB</b>: Très Bon, <b>B</b>: Bon, <b>M</b>: Moyen, <b>AR</b>: À Renforcer) :</p>
                     <div id="competency-editor-container"></div>
+                </section>
+                <section class="section-card">
+                    <h2><i class="fa-solid fa-award"></i> Badges de Distinctions</h2>
+                    <p class="section-subtext">À renseigner après l’évaluation des objectifs :</p>
+                    <div class="badges-selector-grid" id="badges-selector-grid"></div>
                 </section>
                 <section class="section-card">
                     <h2><i class="fa-solid fa-pen-fancy"></i> Remarques et Visas</h2>
@@ -1122,6 +1122,9 @@ body {
                     <span class="preview-badge">Petite & Grande Section</span>
                 </div>
                 <div class="toolbar-actions">
+                    <button class="btn btn-success" id="btn-submit-direction">
+                        <i class="fa-solid fa-paper-plane"></i> Soumettre à la Direction
+                    </button>
                     <button class="btn btn-primary" id="btn-export-pdf">
                         <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
                     </button>
@@ -1232,11 +1235,12 @@ body {
 window.idealBridge = (() => {
     let resolveReady;
     const ready = new Promise(resolve => { resolveReady = resolve; });
-    const bridge = { students: [], ready };
+    const bridge = { students: [], editorLanguage: 'fr', ready };
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin) return;
         if (event.data?.type !== 'ideal:bulletin:init') return;
         bridge.students = Array.isArray(event.data.students) ? event.data.students : [];
+        bridge.editorLanguage = event.data.editorLanguage === 'en' ? 'en' : 'fr';
         resolveReady();
     });
     window.parent.postMessage({ type: 'ideal:bulletin:ready' }, window.location.origin);
@@ -2858,7 +2862,7 @@ class MaternelleApp {
         const btnPdf = document.getElementById("btn-export-pdf");
         if (btnPdf) {
             btnPdf.addEventListener("click", () => {
-                if (this.currentStudent) {
+                if (this.currentStudent?.canPrint) {
                     const triName = this.getTrimesterLabel(this.activeTrimester);
                     window.pdfGenerator.generateSinglePDF(this.currentStudent.name, this.currentStudent.section, triName);
                 }
@@ -2869,9 +2873,22 @@ class MaternelleApp {
         const btnZip = document.getElementById("btn-export-zip");
         if (btnZip) {
             btnZip.addEventListener("click", () => {
-                const filtered = this.getFilteredStudents();
+                const filtered = this.getFilteredStudents().filter(student => student.canPrint);
+                if (!filtered.length) return alert("L’impression est réservée à la maîtresse titulaire de la classe.");
                 const triName = this.getTrimesterLabel(this.activeTrimester);
                 window.pdfGenerator.generateBulkZip(filtered, this.activeTrimester, triName);
+            });
+        }
+
+        const btnSubmit = document.getElementById("btn-submit-direction");
+        if (btnSubmit) {
+            btnSubmit.addEventListener("click", () => {
+                if (!this.currentStudent?.canPrint) return alert("La soumission est réservée à la maîtresse titulaire de la classe.");
+                window.parent.postMessage({
+                    type: 'ideal:bulletin:submit',
+                    student: this.currentStudent,
+                    trimester: this.activeTrimester
+                }, window.location.origin);
             });
         }
 
@@ -2906,9 +2923,6 @@ class MaternelleApp {
             { id: "student-class-size", key: "classSize" },
             { id: "student-teacher", key: "teacher" },
             { id: "student-headmaster", key: "headmaster" },
-            { id: "hours-total", key: "totalHours" },
-            { id: "hours-attended", key: "attendedHours" },
-            { id: "hours-missed", key: "missedHours" }
         ];
 
         fields.forEach(f => {
@@ -3103,10 +3117,20 @@ class MaternelleApp {
     async saveCurrentStudent() {
         if (!this.currentStudent) return;
         await window.dbManager.saveStudent(this.currentStudent);
+        const evaluations = this.currentStudent.evaluations?.[this.activeTrimester] || {};
+        const langue = window.idealBridge.editorLanguage;
+        const autorisees = Object.fromEntries(Object.entries(evaluations).filter(([cle]) => {
+            const [domainId, indexTexte] = cle.split(/_(?=\d+$)/);
+            const domaine = getDomainsForSection(this.currentStudent.section || 'GS', this.activeTrimester).find(d => d.id === domainId);
+            const texte = domaine?.competencies?.[Number(indexTexte)] || '';
+            return isEnglishCompetency(texte) === (langue === 'en');
+        }));
         window.parent.postMessage({
             type: 'ideal:bulletin:save',
             student: this.currentStudent,
-            trimester: this.activeTrimester
+            trimester: this.activeTrimester,
+            evaluations: autorisees,
+            appreciation: this.currentStudent.appreciations?.[this.activeTrimester]?.teacher || ''
         }, window.location.origin);
     }
 
@@ -3134,9 +3158,13 @@ class MaternelleApp {
         document.getElementById("student-headmaster").value = st.headmaster || "";
 
         // Hours & Attendance
-        document.getElementById("hours-total").value = st.totalHours || 180;
-        document.getElementById("hours-attended").value = st.attendedHours || 178;
-        document.getElementById("hours-missed").value = st.missedHours || 2;
+        const heures = st.hoursByTrimester?.[this.activeTrimester] || {};
+        st.totalHours = heures.total ?? 0;
+        st.attendedHours = heures.attended ?? 0;
+        st.missedHours = heures.missed ?? 0;
+        document.getElementById("hours-total").value = st.totalHours;
+        document.getElementById("hours-attended").value = st.attendedHours;
+        document.getElementById("hours-missed").value = st.missedHours;
 
         // Photo action button
         const photoGroup = document.getElementById("photo-action-group");
@@ -3211,6 +3239,7 @@ class MaternelleApp {
 
             let compsHtml = "";
             domain.competencies.forEach((compText, idx) => {
+                if (isEnglishCompetency(compText) !== (window.idealBridge.editorLanguage === 'en')) return;
                 const compKey = `${domain.id}_${idx}`;
                 const val = currentEvals[compKey] || "TB"; // default TB
 
@@ -3238,6 +3267,11 @@ class MaternelleApp {
 
             container.appendChild(domainCard);
         });
+
+        const peutImprimer = Boolean(this.currentStudent?.canPrint);
+        document.getElementById('btn-export-pdf').disabled = !peutImprimer;
+        document.getElementById('btn-export-zip').disabled = !this.getFilteredStudents().some(student => student.canPrint);
+        document.getElementById('btn-submit-direction').disabled = !peutImprimer;
 
         // Bind Pill Toggles
         const pillBtns = container.querySelectorAll(".btn-pill");

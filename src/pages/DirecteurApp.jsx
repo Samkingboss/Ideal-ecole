@@ -25,6 +25,7 @@ import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
 import BlocCommentable from '../components/BlocCommentable'
 import ComptabiliteRA from './ComptabiliteRA'
+import PilotageHeuresPedagogiques from './PilotageHeuresPedagogiques'
 import { remarquesParSection, remarquesGenerales, nbCorrectionsOuvertes, entreeRemarque, cleEtape, SECTION_PROGRAMME } from '../lib/remarques'
 import { RUBRIQUES as RUBRIQUES_PREPA } from './FichePreparation'
 import { fonctionProfessionnelle } from '../lib/identiteProfessionnelle'
@@ -2084,6 +2085,8 @@ export default function DirecteurApp({ user, onLogout }) {
               <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>📚 Session : Suivi Pédagogique</h1>
               <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Suivi individuel des enseignants, de leurs préparations et de leur historique pédagogique.</p>
             </div>
+
+            <PilotageHeuresPedagogiques classes={classes} />
 
             {!enseignantPedagogieSelectionne && <div className="card" style={{ padding: '1.2rem', marginBottom: 20, borderLeft: '4px solid var(--accent)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>

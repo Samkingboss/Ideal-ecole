@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { pushNotification } from '../lib/notifications'
 
 const estMaternelle = nom => /^(ps|gs|petite section|grande section)$/i.test(String(nom || '').trim())
 
@@ -24,6 +25,8 @@ const anneeScolaire = () => {
 export default function BulletinMaternelleStudio({ user, eleves = [] }) {
   const iframeRef = useRef(null)
   const [bulletins, setBulletins] = useState([])
+  const [horaires, setHoraires] = useState([])
+  const [presences, setPresences] = useState([])
   const [etat, setEtat] = useState('chargement')
   const [message, setMessage] = useState('')
 
@@ -33,19 +36,27 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
     let annule = false
     ;(async () => {
       if (!maternelle.length) { setBulletins([]); setEtat('pret'); return }
-      const { data, error } = await supabase.rpc('lire_bulletins_maternelle', {
-        p_eleve_ids: maternelle.map(e => e.id),
-      })
+      const [bulletinsRes, horairesRes, presencesRes] = await Promise.all([
+        supabase.rpc('lire_bulletins_maternelle', { p_eleve_ids: maternelle.map(e => e.id) }),
+        supabase.rpc('lire_pilotage_heures_pedagogiques'),
+        supabase.from('presences_eleves').select('eleve_id,date_jour,statut').in('eleve_id', maternelle.map(e => e.id)),
+      ])
+      const { data, error } = bulletinsRes
       if (annule) return
       if (error) {
         console.error('lire_bulletins_maternelle', error)
         setMessage('La sauvegarde serveur des bulletins doit être installée avec le script SQL dédié.')
         setBulletins([])
       } else setBulletins(Array.isArray(data) ? data : [])
+      setHoraires(Array.isArray(horairesRes.data) ? horairesRes.data : [])
+      setPresences(Array.isArray(presencesRes.data) ? presencesRes.data : [])
       setEtat('pret')
     })()
     return () => { annule = true }
   }, [maternelle])
+
+  const langueCompte = user?.langue === 'en' || String(user?.fonction || '').includes('-en-') ? 'en' : 'fr'
+  const sectionTitulaire = langueCompte === 'fr' ? 'GS' : 'PS'
 
   const donneesEleves = useMemo(() => {
     const effectifs = new Map()
@@ -53,10 +64,27 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
     return maternelle.map(e => {
       const sauvegardes = bulletins.filter(b => String(b.eleve_id) === String(e.id))
       const donnees = Object.fromEntries(sauvegardes.map(b => [b.trimestre, b.donnees || {}]))
+      const fusion = trimestre => {
+        const d = donnees[trimestre] || {}, contributions = d.contributions || {}
+        const langueTitulaire = section === 'GS' ? 'fr' : 'en'
+        return { ...d, evaluations:{ ...(contributions.fr?.evaluations || d.evaluations || {}), ...(contributions.en?.evaluations || {}) }, appreciations:{ teacher_fr:contributions.fr?.appreciation || '', teacher_en:contributions.en?.appreciation || '', teacher:[contributions.fr?.appreciation,contributions.en?.appreciation].filter(Boolean).join(' / '), ...(d.appreciations || {}) }, badges:contributions[langueTitulaire]?.badges || d.badges || [] }
+      }
+      const section = sectionDe(e.classes?.nom)
+      const lignesHeures = horaires.filter(h => String(h.classe_id) === String(e.classe_id))
+      const semaines = tri => lignesHeures.reduce((max,h) => Math.max(max, Number(h[`semaines_${tri}`]) || 0), 0)
+      const hebdo = lignesHeures.reduce((s,h) => s + Number(h.heures_hebdo || 0), 0)
+      const totalParTri = { t1:hebdo*semaines('t1'), t2:hebdo*semaines('t2'), t3:hebdo*semaines('t3') }
+      const absencesParTri = presences.filter(p => String(p.eleve_id) === String(e.id) && p.statut !== 'present').reduce((acc,p) => {
+        const mois = Number(String(p.date_jour).slice(5,7))
+        const tri = mois >= 9 && mois <= 12 ? 't1' : mois >= 1 && mois <= 3 ? 't2' : 't3'
+        acc[tri] += 1; return acc
+      }, {t1:0,t2:0,t3:0})
+      const manquees = tri => Math.min(totalParTri[tri] || 0, absencesParTri[tri] * (hebdo / 5))
       return {
         id: e.id,
         name: `${e.prenom || ''} ${e.nom || ''}`.trim(),
-        section: sectionDe(e.classes?.nom),
+        section,
+        canPrint: section === sectionTitulaire,
         academicYear: anneeScolaire(),
         age: ageDe(e.date_naissance),
         classSize: effectifs.get(e.classe_id) || 0,
@@ -64,41 +92,59 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
         headmaster: 'Direction IDEAL',
         photo: e.photo_url || '',
         evaluations: {
-          t1: donnees.t1?.evaluations || {},
-          t2: donnees.t2?.evaluations || {},
-          t3: donnees.t3?.evaluations || {},
+          t1: fusion('t1').evaluations,
+          t2: fusion('t2').evaluations,
+          t3: fusion('t3').evaluations,
         },
         appreciations: {
-          t1: donnees.t1?.appreciations || {},
-          t2: donnees.t2?.appreciations || {},
-          t3: donnees.t3?.appreciations || {},
+          t1: fusion('t1').appreciations,
+          t2: fusion('t2').appreciations,
+          t3: fusion('t3').appreciations,
         },
-        badges: donnees.t1?.badges || donnees.t2?.badges || donnees.t3?.badges || [],
-        totalHours: donnees.t1?.totalHours ?? donnees.t2?.totalHours ?? donnees.t3?.totalHours ?? 180,
-        attendedHours: donnees.t1?.attendedHours ?? donnees.t2?.attendedHours ?? donnees.t3?.attendedHours ?? 180,
-        missedHours: donnees.t1?.missedHours ?? donnees.t2?.missedHours ?? donnees.t3?.missedHours ?? 0,
+        badges: fusion('t1').badges || fusion('t2').badges || fusion('t3').badges || [],
+        hoursByTrimester: {
+          t1:{ total:totalParTri.t1, missed:manquees('t1'), attended:Math.max(0,totalParTri.t1-manquees('t1')) },
+          t2:{ total:totalParTri.t2, missed:manquees('t2'), attended:Math.max(0,totalParTri.t2-manquees('t2')) },
+          t3:{ total:totalParTri.t3, missed:manquees('t3'), attended:Math.max(0,totalParTri.t3-manquees('t3')) },
+        },
       }
     })
-  }, [maternelle, bulletins, user])
+  }, [maternelle, bulletins, horaires, presences, user, sectionTitulaire])
 
   const envoyer = useCallback(() => iframeRef.current?.contentWindow?.postMessage({
-    type: 'ideal:bulletin:init', students: donneesEleves,
-  }, window.location.origin), [donneesEleves])
+    type: 'ideal:bulletin:init', students: donneesEleves, editorLanguage:langueCompte,
+  }, window.location.origin), [donneesEleves, langueCompte])
 
   useEffect(() => {
     const recevoir = async event => {
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return
       if (event.data?.type === 'ideal:bulletin:ready') return envoyer()
+      if (event.data?.type === 'ideal:bulletin:submit') {
+        const { student, trimester } = event.data
+        if (!maternelle.some(e => String(e.id) === String(student?.id))) return
+        const { error } = await supabase.rpc('soumettre_bulletin_maternelle', {
+          p_eleve_id:student.id, p_trimestre:trimester, p_annee_scolaire:student.academicYear,
+        })
+        if (error) {
+          setMessage(`Soumission impossible : ${error.message}`)
+          console.error('soumettre_bulletin_maternelle', error)
+          return
+        }
+        const notifie = await pushNotification('directeur', {
+          titre:'📘 Bulletin maternelle à signer',
+          message:`${student.name} · ${student.section} · ${trimester.toUpperCase()}`,
+          type:'bulletin_maternelle', tabTarget:'maternelle', ref:student.id,
+        })
+        setMessage(notifie ? 'Bulletin soumis à la Direction pour signature.' : 'Bulletin soumis, mais la notification Direction doit être vérifiée.')
+        return
+      }
       if (event.data?.type !== 'ideal:bulletin:save') return
       const { student, trimester } = event.data
       if (!maternelle.some(e => String(e.id) === String(student?.id))) return
       const donnees = {
-        evaluations: student.evaluations?.[trimester] || {},
-        appreciations: student.appreciations?.[trimester] || {},
+        evaluations: event.data.evaluations || {},
+        appreciation: event.data.appreciation || '',
         badges: student.badges || [],
-        totalHours: Number(student.totalHours) || 0,
-        attendedHours: Number(student.attendedHours) || 0,
-        missedHours: Number(student.missedHours) || 0,
       }
       const { error } = await supabase.rpc('sauver_bulletin_maternelle', {
         p_eleve_id: student.id,
