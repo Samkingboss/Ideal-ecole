@@ -1062,10 +1062,29 @@ export default function DirecteurApp({ user, onLogout }) {
 
               {/* Raccourcis et modules pour la Gestion Élèves */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+                {/* Deux cartes, deux gestes distincts.
+
+                    Le 02/09 a 21h34, cette carte a cesse de mener a
+                    `/inscription.html` pour ouvrir le module de VALIDATION.
+                    Or ce module ne sait que traiter des dossiers existants :
+                    plus rien, dans toute l'application, ne permettait d'en
+                    CREER un. Le formulaire fonctionnait toujours — il etait
+                    seulement devenu introuvable.
+
+                    Le suivi ouvert au responsable administratif est conserve,
+                    il est utile. On rend seulement au parcours de creation la
+                    porte qu'il avait perdue. */}
+                <a href="/inscription.html" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: 'linear-gradient(135deg,#7bc142,#4d8f22)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(123,193,66,0.28)', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 26, marginBottom: 6 }}>➕</div>
+                    <div style={{ fontWeight: 900, fontSize: 15 }}>Nouvelle inscription</div>
+                    <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>Créer un dossier élève</div>
+                  </div>
+                </a>
                 <a href="/administration/inscriptions" onClick={event => ouvrirModuleAdministration(event, '/administration/inscriptions')} style={{ textDecoration: 'none' }}>
                   <div style={{ background: 'linear-gradient(135deg,#00a8e0,#0078b4)', color: '#fff', padding: '18px 16px', borderRadius: 14, boxShadow: '0 4px 14px rgba(0,168,224,0.25)', cursor: 'pointer' }}>
                     <div style={{ fontSize: 26, marginBottom: 6 }}>📝</div>
-                    <div style={{ fontWeight: 900, fontSize: 15 }}>Inscriptions &amp; Dossiers</div>
+                    <div style={{ fontWeight: 900, fontSize: 15 }}>Dossiers &amp; validation</div>
                     <div style={{ fontSize: 11, opacity: .9, marginTop: 2 }}>{nbInscrits} nouvelles demandes</div>
                   </div>
                 </a>
