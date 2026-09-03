@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { etatDossier, libelleEtat, etatPiece, LIBELLE_CONTEXTE } from '../lib/dossierPieces'
 import { supabase } from '../lib/supabase'
-import { lienWhatsAppEcole, NOM_ECOLE } from '../lib/ecole'
+import { lienWhatsApp, NOM_ECOLE } from '../lib/ecole'
 
 const CHAINE_WHATSAPP_ECOLE = 'https://whatsapp.com/channel/0029VbAvPN6DzgT5CqYNXY2u'
 
@@ -164,7 +164,7 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
   const ouvrirWhatsApp = (inscription, parent) => {
     const numero = telephoneWA(parent?.whatsapp || parent?.tel1)
     const texte = `Bonjour ${parent?.prenom || 'cher parent'},\n\nL'inscription de ${inscription.prenom} ${String(inscription.nom || '').toUpperCase()} à ${NOM_ECOLE} est désormais validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\n\n📢 Afin de suivre les actualités de l'école et les informations liées à la scolarité de votre enfant, veuillez vous abonner à notre chaîne WhatsApp officielle :\n${CHAINE_WHATSAPP_ECOLE}\n\n${NOM_ECOLE} — Bamako`
-    window.open(lienWhatsAppEcole(numero, texte), '_blank')
+    window.open(lienWhatsApp(numero, texte), '_blank', 'noopener')
   }
 
   const valider = async () => {
@@ -185,7 +185,6 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
       })
       if (error) throw error
       if (!data?.ok) throw new Error('La validation n’a pas été confirmée par la base.')
-      ouvrirWhatsApp(selection, responsable)
       setSelection(null)
       await onValidated?.()
     } catch (error) {
@@ -293,6 +292,6 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
               <div style={{gridColumn:'1 / -1'}}><b>Courriel</b><br/>{responsable.email || '—'}</div>
             </>}
           </div>
-        </details>{signatureParentUrl && <div style={{marginTop:12}}><div className="form-label">Signature du responsable légal</div><img src={signatureParentUrl} alt="Signature du responsable légal" style={{display:'block',width:'100%',maxWidth:360,height:95,objectFit:'contain',objectPosition:'left center',background:'#fff',border:'1px solid #dbe3e9',borderRadius:8}}/></div>}{!estResponsableAdministratif && selection.statut !== 'validee' && <><label className="form-label" style={{marginTop:15}}>Nom du directeur signataire</label><input className="form-input" value={nomDirecteur} onChange={e => setNomDirecteur(e.target.value)}/><label className="form-label" style={{marginTop:12}}>Signature manuscrite du directeur</label><canvas ref={canvasRef} onPointerDown={e=>{debut(e);e.currentTarget.dataset.signed='1'}} onPointerMove={tracer} onPointerUp={fin} onPointerCancel={fin} style={{display:'block',width:'100%',height:150,border:'2px solid #174e72',borderRadius:10,background:'#fff',touchAction:'none'}}/><button onClick={effacer} className="btn-sm" style={{marginTop:7}}>Effacer la signature</button>{message && <div style={{marginTop:10,color:'#b91c1c',fontWeight:700,fontSize:12}}>{message}</div>}<button className="btn btn-primary" disabled={enCours || !selection.signature_chemin} onClick={valider} style={{marginTop:15,width:'100%'}}>{enCours ? 'Validation…' : 'Signer, valider et informer le parent'}</button></>}<button className="btn-cancel" onClick={()=>setSelection(null)}>Fermer</button></div></div>}
+        </details>{signatureParentUrl && <div style={{marginTop:12}}><div className="form-label">Signature du responsable légal</div><img src={signatureParentUrl} alt="Signature du responsable légal" style={{display:'block',width:'100%',maxWidth:360,height:95,objectFit:'contain',objectPosition:'left center',background:'#fff',border:'1px solid #dbe3e9',borderRadius:8}}/></div>}{estResponsableAdministratif && selection.statut === 'validee' && <div style={{marginTop:15,padding:14,border:'1px solid #86efac',borderRadius:10,background:'#f0fdf4'}}><div style={{fontWeight:900,color:'#166534'}}>✓ Inscription définitivement acceptée</div><div style={{marginTop:5,fontSize:12,color:'#475569'}}>Le message WhatsApp est prérempli avec l’identité de l’enfant, son matricule, sa classe et le lien de la chaîne officielle de l’école. Vérifiez-le puis confirmez son envoi.</div><button type="button" className="btn btn-primary" disabled={!responsable} onClick={() => ouvrirWhatsApp(selection, responsable)} style={{marginTop:12,width:'100%',background:'#16825d'}}>📲 Informer le parent de la validation</button>{responsable && !telephoneWA(responsable.whatsapp || responsable.tel1) && <div style={{marginTop:7,fontSize:11,color:'#9a3412'}}>Aucun numéro WhatsApp exploitable n’est enregistré pour ce responsable. WhatsApp permettra de choisir le destinataire.</div>}</div>}{!estResponsableAdministratif && selection.statut !== 'validee' && <><label className="form-label" style={{marginTop:15}}>Nom du directeur signataire</label><input className="form-input" value={nomDirecteur} onChange={e => setNomDirecteur(e.target.value)}/><label className="form-label" style={{marginTop:12}}>Signature manuscrite du directeur</label><canvas ref={canvasRef} onPointerDown={e=>{debut(e);e.currentTarget.dataset.signed='1'}} onPointerMove={tracer} onPointerUp={fin} onPointerCancel={fin} style={{display:'block',width:'100%',height:150,border:'2px solid #174e72',borderRadius:10,background:'#fff',touchAction:'none'}}/><button onClick={effacer} className="btn-sm" style={{marginTop:7}}>Effacer la signature</button>{message && <div style={{marginTop:10,color:'#b91c1c',fontWeight:700,fontSize:12}}>{message}</div>}<button className="btn btn-primary" disabled={enCours || !selection.signature_chemin} onClick={valider} style={{marginTop:15,width:'100%'}}>{enCours ? 'Validation…' : 'Signer et valider l’inscription'}</button></>}<button className="btn-cancel" onClick={()=>setSelection(null)}>Fermer</button></div></div>}
   </section>
 }

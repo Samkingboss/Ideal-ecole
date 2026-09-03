@@ -51,6 +51,15 @@ verifier('aucune notification avant validation signée',
 verifier('confirmation parent contient la chaîne WhatsApp officielle',
   page.includes("const CHAINE_WHATSAPP_ECOLE = 'https://whatsapp.com/channel/0029VbAvPN6DzgT5CqYNXY2u'")
   && page.includes('veuillez vous abonner à notre chaîne WhatsApp officielle'))
+verifier('message WhatsApp adressé au numéro du responsable',
+  page.includes("import { lienWhatsApp, NOM_ECOLE } from '../lib/ecole'")
+  && page.includes("lienWhatsApp(numero, texte)"))
+verifier('envoi parent proposé au RA uniquement après validation',
+  page.includes("estResponsableAdministratif && selection.statut === 'validee'")
+  && page.includes('Informer le parent de la validation'))
+verifier('validation Direction ne déclenche aucun message parent',
+  !page.match(/const valider = async \(\) => \{([\s\S]*?)\n  \}\n\n  return/)?.[1]?.includes('ouvrirWhatsApp')
+  && page.includes("Signer et valider l’inscription"))
 verifier('rollback disponible',
   rollback.includes('drop trigger if exists inscription_validee_notifier_ra')
   && rollback.includes('drop function if exists public.modifier_inscription_administration'))
