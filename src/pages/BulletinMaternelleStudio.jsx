@@ -47,25 +47,45 @@ function BoutonsNiveau({ valeur, onChange, legende }) {
   </div>
 }
 
+function PictogrammeIntelligence({ type, color, x, y }) {
+  const commun = { stroke: color, strokeWidth: 5, strokeLinecap: 'round', strokeLinejoin: 'round' }
+  if (type === 'intrapersonnel') return <g transform={`translate(${x} ${y})`} fill={color}><rect x="6" y="5" width="15" height="10" rx="2" /><rect x="21" y="-6" width="15" height="21" rx="2" /><rect x="36" y="-19" width="15" height="34" rx="2" /><circle cx="-22" cy="-20" r="7" /><path d="M-23-12L-10-2L2-15L8-10L-8 8L-19 0L-26 13L-34 9L-28-5Z" /></g>
+  if (type === 'interpersonnel') return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><circle cx="-25" cy="-14" r="8" fill={color} /><circle cx="0" cy="-23" r="9" fill={color} /><circle cx="25" cy="-14" r="8" fill={color} /><path d="M-35 17V1Q-25-7-15 1V17M-10 18V-4L-21-14M10 18V-4L21-14M0-14V18M15 17V1Q25-7 35 1V17" /></g>
+  if (type === 'mathematiques') return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><rect x="10" y="-8" width="34" height="40" rx="4" /><path d="M17 1H37M18 10H22M31 10H35M18 20H22M31 20H35" /><path d="M-42-16H-20M-31-27V-5M-40 11L-21 30M-21 11L-40 30" /></g>
+  if (type === 'langage_prelecture') return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><circle cx="0" cy="-22" r="9" fill={color} /><path d="M-22 2Q-11-5 0 3Q11-5 22 2V27Q11 20 0 28Q-11 20-22 27ZM0 3V28" /><path d="M-9-8L-3 1M9-8L3 1" /></g>
+  if (type === 'art_expression') return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><path d="M-24 18V-17L10-24V10" /><circle cx="-33" cy="20" r="10" fill={color} stroke="none" /><circle cx="1" cy="12" r="10" fill={color} stroke="none" /><path d="M21-9V17M21-9L39-14V10" /><circle cx="13" cy="20" r="8" fill={color} stroke="none" /><circle cx="32" cy="13" r="8" fill={color} stroke="none" /></g>
+  if (type === 'motricite') return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><circle cx="-30" cy="14" r="15" /><circle cx="28" cy="14" r="15" /><path d="M-30 14L-12-10L4 14H-30L-17 14M4 14L18-11L28 14M-12-10H5" /><circle cx="9" cy="-23" r="7" fill={color} stroke="none" /><path d="M8-15L-2-3L18-10" /></g>
+  if (type === 'sciences_decouverte') return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><path d="M0 29V-7M-31 23Q-27 6-12 5Q-17-12 0-16Q15-15 14-1Q32 1 30 19Q18 28 0 18Q-14 31-31 23Z" fill={color} /><path d="M-13 28L0 11L15 28" /></g>
+  return <g transform={`translate(${x} ${y})`} fill="none" {...commun}><circle cx="0" cy="-18" r="8" fill={color} stroke="none" /><path d="M0-9V11M0 2L-17 13M0 2L17 13M0 11L-19 27M0 11L19 27M-28 27Q0 11 28 27" /><ellipse cx="0" cy="2" rx="37" ry="14" transform="rotate(30)" /><ellipse cx="0" cy="2" rx="37" ry="14" transform="rotate(-30)" /></g>
+}
+
 function CerveauDeveloppement({ domaines, personnel }) {
   const score = id => domaines.find(d => d.id === id)?.score || 0
-  const social = pourcentage(Object.values(personnel || {}))
+  const moyenne = valeurs => { const notes = valeurs.filter(Boolean); return notes.length ? Math.round(notes.reduce((a, b) => a + b, 0) / notes.length) : 0 }
+  const scorePersonnel = ids => pourcentage(ids.map(id => personnel?.[id]))
+  const intrapersonnel = scorePersonnel(['controle_soi', 'autonomie', 'perseverance'])
+  const interpersonnel = moyenne([score('education_civique'), scorePersonnel(['cooperation', 'responsabilite'])])
+  const corporel = moyenne([score('motricite_globale'), score('ecriture_motricite_fine')])
   const zones = [
-    { id: 'langage_prelecture', label: 'Langage', x: 69, y: 76, path: 'M96 21 C55 21 28 49 28 88 C28 108 37 124 53 135 L105 118 L113 31 C108 25 102 22 96 21Z' },
-    { id: 'mathematiques', label: 'Logique', x: 55, y: 150, path: 'M25 94 C12 111 11 143 26 161 C39 177 58 183 77 177 L104 122 L52 139 C35 128 26 114 25 94Z' },
-    { id: 'sciences_decouverte', label: 'Découverte', x: 64, y: 205, path: 'M27 164 C21 190 37 217 62 226 C81 233 98 226 110 211 L104 127 L78 181 C58 188 41 181 27 164Z' },
-    { id: 'art_expression', label: 'Créativité', x: 163, y: 76, path: 'M120 31 L120 122 L171 139 C190 126 198 108 196 86 C193 50 164 23 130 21 C126 22 122 25 120 31Z' },
-    { id: 'education_civique', label: 'Vivre ensemble', x: 168, y: 147, path: 'M122 121 L171 138 C184 131 193 121 198 108 L201 157 C188 172 169 181 145 178 L123 128Z' },
-    { id: 'motricite_globale', label: 'Motricité', x: 165, y: 205, path: 'M123 127 L116 211 C129 228 149 233 168 225 C192 215 204 190 197 163 C185 180 164 187 145 180Z' },
-    { id: 'ecriture_motricite_fine', label: 'Motricité fine', x: 114, y: 188, path: 'M109 124 L82 181 C85 204 96 222 117 232 C138 220 144 201 142 181 L122 126Z' },
-    { id: 'personnel', label: 'Dév. personnel', x: 114, y: 91, path: 'M108 39 L105 119 L119 126 L120 39Z', score: social },
+    { id: 'intrapersonnel', label: 'Intrapersonnel', color: '#F8B342', dark: '#C96008', score: intrapersonnel, path: 'M253 8C171 10 109 31 82 92L126 158L253 137Z', x: 183, y: 112 },
+    { id: 'interpersonnel', label: 'Interpersonnel', color: '#8C70DD', dark: '#4D2DB8', score: interpersonnel, path: 'M267 8C349 10 411 31 438 92L394 158L267 137Z', x: 337, y: 112 },
+    { id: 'mathematiques', label: 'Logique', color: '#49C2EC', dark: '#087CAD', score: score('mathematiques'), path: 'M78 99C29 132 7 207 20 322L118 339L164 267L129 163Z', x: 77, y: 263 },
+    { id: 'langage_prelecture', label: 'Linguistique', color: '#F1D40A', dark: '#B86A00', score: score('langage_prelecture'), path: 'M137 170L253 148L253 424L143 441C123 375 116 312 165 264L122 234Z', x: 195, y: 307 },
+    { id: 'art_expression', label: 'Musical', color: '#8BD150', dark: '#3E8A0B', score: score('art_expression'), path: 'M267 148L383 170L398 234L355 264C404 312 397 375 377 441L267 424Z', x: 325, y: 307 },
+    { id: 'motricite', label: 'Corporel-kinesthésique', color: '#F25C9D', dark: '#B40B58', score: corporel, path: 'M442 99C491 132 513 207 500 322L402 339L356 267L391 163Z', x: 443, y: 263 },
+    { id: 'sciences_decouverte', label: 'Naturaliste', color: '#FF6F70', dark: '#B71E25', score: score('sciences_decouverte'), path: 'M20 337C28 431 109 497 253 512L253 438L142 451L115 350Z', x: 151, y: 446 },
+    { id: 'existentiel', label: 'Existentiel', color: '#42A8C2', dark: '#05657D', score: moyenne([intrapersonnel, interpersonnel]), path: 'M500 337C492 431 411 497 267 512L267 438L378 451L405 350Z', x: 369, y: 446 },
   ]
   return <div className="bm-brain-card">
-    <svg className="bm-brain" viewBox="0 0 224 250" role="img" aria-label="Cerveau des acquisitions de l’enfant">
-      <path className="bm-brain-outline" d="M109 19C83 3 48 15 29 39C10 63 8 93 20 113C4 141 14 178 35 195C47 226 78 241 108 233C113 242 119 242 124 233C154 242 185 226 197 195C219 177 227 141 210 113C222 87 213 56 194 37C175 17 145 5 120 19C116 15 112 15 109 19Z" />
-      {zones.map(z => <g key={z.id}><path d={z.path} fill={couleurScore(z.score ?? score(z.id))} opacity={(z.score ?? score(z.id)) ? 0.92 : 0.45} /><text x={z.x} y={z.y} textAnchor="middle" className="bm-brain-percent">{(z.score ?? score(z.id)) ? `${z.score ?? score(z.id)}%` : '—'}</text></g>)}
+    <svg className="bm-brain" viewBox="0 0 520 520" role="img" aria-label="Cerveau des huit dimensions du développement de l’enfant">
+      {zones.map(z => <g key={z.id} className="bm-intelligence-zone">
+        <path d={z.path} fill={z.color} />
+        <PictogrammeIntelligence type={z.id} color={z.dark} x={z.x} y={z.y - 55} />
+        <rect x={z.x - (z.label.length > 16 ? 77 : 62)} y={z.y} width={z.label.length > 16 ? 154 : 124} height="30" rx="15" fill={z.dark} opacity=".78" />
+        <text x={z.x} y={z.y + 20} textAnchor="middle" className="bm-brain-label">{z.label}</text>
+        <text x={z.x} y={z.y + 47} textAnchor="middle" className="bm-brain-score">{z.score ? `${z.score}%` : 'Non évalué'}</text>
+      </g>)}
     </svg>
-    <div className="bm-brain-legend">{zones.map(z => <div key={z.id}><i style={{ background: couleurScore(z.score ?? score(z.id)) }} /><span>{z.label}</span><b>{(z.score ?? score(z.id)) ? `${z.score ?? score(z.id)}%` : '—'}</b></div>)}</div>
     <p>Cette carte présente les acquisitions observées. Elle accompagne le dialogue avec la famille et ne constitue pas un diagnostic.</p>
   </div>
 }
