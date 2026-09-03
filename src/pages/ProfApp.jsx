@@ -953,7 +953,7 @@ export default function ProfApp({ user, onLogout }) {
         {tab === 'edt' && <MonEmploiDuTemps user={user} />}
 
         {tab === 'agenda' && (
-          <AgendaCalendrier checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} anniversaires={eleves} />
+          <AgendaCalendrier user={user} checkpoints={checkpoints} selectedClasse={selectedClasse} periodes={periodes} anniversaires={eleves} />
         )}
 
         {/* ════════ SESSION 2 : PÉDAGOGIE & COURS ════════ */}

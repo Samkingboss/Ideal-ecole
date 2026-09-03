@@ -1,0 +1,11 @@
+begin;
+revoke all on function public.traiter_mes_rappels_agenda() from authenticated;
+revoke all on function public.supprimer_mon_evenement_agenda(uuid) from authenticated;
+revoke all on function public.sauver_mon_evenement_agenda(uuid,text,text,timestamptz,integer) from authenticated;
+revoke all on function public.lire_mon_agenda(timestamptz,timestamptz) from authenticated;
+drop function if exists public.traiter_mes_rappels_agenda();
+drop function if exists public.supprimer_mon_evenement_agenda(uuid);
+drop function if exists public.sauver_mon_evenement_agenda(uuid,text,text,timestamptz,integer);
+drop function if exists public.lire_mon_agenda(timestamptz,timestamptz);
+drop table if exists public.agenda_personnel;
+commit;

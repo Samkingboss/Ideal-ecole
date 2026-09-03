@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PERIODES_AGENDA } from '../lib/periodeScolaire'
+import { supabase } from '../lib/supabase'
 // ─── Calendrier scolaire IDEAL 2026-2027 ───
 const JOURS_FERIES = [
   { date: '2027-01-20', label: 'Fete de l Armee' },
@@ -36,7 +37,7 @@ const isFerie = d => JOURS_FERIES.find(f => f.date === d)
 const isVacance = d => VACANCES.find(v => d >= v.debut && d <= v.fin)
 const getPeriode = d => PERIODES.find(p => d >= p.debut && d <= p.fin)
 
-export default function AgendaCalendrier({ checkpoints, anniversaires = [] }) {
+export default function AgendaCalendrier({ checkpoints, anniversaires = [], user, isAdmin = false }) {
   // Anniversaires récurrents (clé MM-JJ)
   const annivMap = {}
   ;(anniversaires || []).forEach(a => {
@@ -52,6 +53,10 @@ export default function AgendaCalendrier({ checkpoints, anniversaires = [] }) {
   const [moisIdx, setMoisIdx] = useState(preRentree ? 7 : today.getMonth())
   const [annee, setAnnee] = useState(preRentree ? 2026 : today.getFullYear())
   const [selected, setSelected] = useState(null)
+  const [evenementsPerso, setEvenementsPerso] = useState([])
+  const [edition, setEdition] = useState(null)
+  const [messageAgenda, setMessageAgenda] = useState('')
+  const agendaPersonnelActif = !isAdmin && user?.role === 'professeur'
   const premierJour = new Date(annee, moisIdx, 1).getDay()
   const offset = premierJour === 0 ? 6 : premierJour - 1
   const nbJours = new Date(annee, moisIdx + 1, 0).getDate()
@@ -61,6 +66,51 @@ export default function AgendaCalendrier({ checkpoints, anniversaires = [] }) {
   const moisPrecedent = () => { if(moisIdx===0){setMoisIdx(11);setAnnee(a=>a-1);}else setMoisIdx(m=>m-1); setSelected(null); }
   const moisSuivant = () => { if(moisIdx===11){setMoisIdx(0);setAnnee(a=>a+1);}else setMoisIdx(m=>m+1); setSelected(null); }
   const periodeActuelle = getPeriode(todayStr)
+
+  const chargerAgendaPersonnel = async () => {
+    if (!agendaPersonnelActif) return
+    const debut = new Date(annee, moisIdx, 1).toISOString()
+    const fin = new Date(annee, moisIdx + 1, 1).toISOString()
+    const { data, error } = await supabase.rpc('lire_mon_agenda', { p_debut: debut, p_fin: fin })
+    if (error) {
+      setMessageAgenda(error.code === '42883' ? 'L’agenda personnel attend son activation.' : `Agenda indisponible : ${error.message}`)
+      return
+    }
+    setEvenementsPerso(data || [])
+    setMessageAgenda('')
+  }
+
+  useEffect(() => { chargerAgendaPersonnel() }, [agendaPersonnelActif, annee, moisIdx])
+  useEffect(() => {
+    if (!agendaPersonnelActif) return undefined
+    const verifier = () => supabase.rpc('traiter_mes_rappels_agenda').then(({ error }) => {
+      if (error && error.code !== '42883') console.error('Rappel agenda non traité :', error.message)
+    })
+    verifier()
+    const intervalle = window.setInterval(verifier, 60000)
+    return () => window.clearInterval(intervalle)
+  }, [agendaPersonnelActif])
+
+  const commencerAjout = ds => setEdition({ id: null, titre: '', description: '', commence_at: `${ds}T08:00`, rappel_minutes: 30 })
+  const modifierEvenement = evenement => setEdition({
+    ...evenement,
+    commence_at: new Date(evenement.commence_at).toLocaleString('sv-SE', { timeZone: 'Africa/Bamako' }).slice(0, 16),
+  })
+  const sauverEvenement = async e => {
+    e.preventDefault()
+    const { error } = await supabase.rpc('sauver_mon_evenement_agenda', {
+      p_id: edition.id, p_titre: edition.titre, p_description: edition.description,
+      p_commence_at: new Date(edition.commence_at).toISOString(), p_rappel_minutes: Number(edition.rappel_minutes),
+    })
+    if (error) return setMessageAgenda(`Enregistrement impossible : ${error.message}`)
+    setEdition(null); setMessageAgenda('Événement enregistré.'); await chargerAgendaPersonnel()
+  }
+  const supprimerEvenement = async id => {
+    if (!window.confirm('Supprimer cet événement personnel ?')) return
+    const { error } = await supabase.rpc('supprimer_mon_evenement_agenda', { p_id: id })
+    if (error) return setMessageAgenda(`Suppression impossible : ${error.message}`)
+    setEdition(null); setMessageAgenda('Événement supprimé.'); await chargerAgendaPersonnel()
+  }
   return (
     <div style={{padding:'1rem 1.2rem 3rem'}}>
       <div className="section-head"><div className="section-title">Agenda 2026-2027</div></div>
@@ -110,14 +160,16 @@ export default function AgendaCalendrier({ checkpoints, anniversaires = [] }) {
             const hasCp = cpDates.includes(ds)
             const ev = isEvent(ds)
             const annivs = getAnnivs(ds)
+            const perso = evenementsPerso.filter(e => e.commence_at?.slice(0,10) === ds)
             const bg = ev ? 'rgba(126,87,194,.12)' : vac ? 'rgba(237,28,36,.08)' : per ? per.color+'18' : 'var(--card)'
             const col = ferie ? '#EC008C' : vac ? '#ED1C24' : 'var(--text)'
             return (
-              <div key={d} onClick={()=>setSelected({ds,ferie,vac,per,hasCp,ev,annivs})}
+              <div key={d} onClick={()=>setSelected({ds,ferie,vac,per,hasCp,ev,annivs,perso})}
                 style={{background:bg,padding:'6px 4px',textAlign:'center',cursor:'pointer',border:isToday?'2px solid var(--accent)':ev?'2px solid #7E57C2':'2px solid transparent',borderRadius:4}}>
                 <div style={{fontSize:12,fontWeight:isToday||ev?900:400,color:col}}>{d}</div>
                 {ev && <div style={{fontSize:9,lineHeight:1,marginTop:1}}>{ev.icon}</div>}
                 {annivs.length>0 && <div style={{fontSize:9,lineHeight:1,marginTop:1}}>🎂</div>}
+                {perso.length>0 && <div style={{fontSize:9,lineHeight:1,marginTop:1}}>🔔</div>}
                 {hasCp && <div style={{width:5,height:5,borderRadius:'50%',background:'#F7941D',margin:'2px auto 0'}}></div>}
                 {ferie && !ev && <div style={{width:5,height:5,borderRadius:'50%',background:'#EC008C',margin:'2px auto 0'}}></div>}
               </div>
@@ -136,11 +188,22 @@ export default function AgendaCalendrier({ checkpoints, anniversaires = [] }) {
           {selected.vac && <div style={{fontSize:12,color:'#ED1C24',fontWeight:600,marginBottom:4}}>{selected.vac.label}</div>}
           {selected.per && <div style={{fontSize:12,color:selected.per.color,fontWeight:600,marginBottom:4}}>{selected.per.label}</div>}
           {selected.hasCp && <div style={{fontSize:12,color:'#F7941D',fontWeight:600}}>Check-point enregistre ce jour</div>}
-          {!selected.ev && !(selected.annivs&&selected.annivs.length) && !selected.ferie && !selected.vac && !selected.per && !selected.hasCp && (
+          {selected.perso?.map(evenement => <button type="button" key={evenement.id} onClick={() => modifierEvenement(evenement)} style={{ width:'100%', marginTop:8, padding:'10px 12px', textAlign:'left', cursor:'pointer', borderRadius:10, border:'1px solid #7E57C2', background:'rgba(126,87,194,.08)', color:'var(--text)' }}><b>🔔 {new Date(evenement.commence_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · {evenement.titre}</b>{evenement.description && <div style={{fontSize:11,marginTop:3,color:'var(--muted)'}}>{evenement.description}</div>}</button>)}
+          {agendaPersonnelActif && <button type="button" className="btn-sm" onClick={() => commencerAjout(selected.ds)} style={{marginTop:12}}>＋ Planifier un rappel</button>}
+          {!selected.ev && !(selected.annivs&&selected.annivs.length) && !selected.ferie && !selected.vac && !selected.per && !selected.hasCp && !(selected.perso?.length) && (
             <div style={{fontSize:12,color:'var(--muted)'}}>Hors annee scolaire</div>
           )}
         </div>
       )}
+      {agendaPersonnelActif && messageAgenda && <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>{messageAgenda}</div>}
+      {agendaPersonnelActif && edition && <form onSubmit={sauverEvenement} style={{background:'var(--card)',borderRadius:14,border:'2px solid rgba(126,87,194,.35)',padding:'1rem',marginBottom:'1rem'}}>
+        <div style={{fontWeight:900,marginBottom:10}}>{edition.id ? 'Modifier le rappel' : 'Nouveau rappel personnel'}</div>
+        <label className="form-label">Titre</label><input className="form-input" required maxLength={160} value={edition.titre} onChange={e=>setEdition({...edition,titre:e.target.value})} placeholder="Réunion, documents à préparer…" />
+        <label className="form-label" style={{marginTop:10}}>Date et heure</label><input className="form-input" type="datetime-local" required value={edition.commence_at} onChange={e=>setEdition({...edition,commence_at:e.target.value})} />
+        <label className="form-label" style={{marginTop:10}}>Me rappeler</label><select className="form-select" value={edition.rappel_minutes} onChange={e=>setEdition({...edition,rappel_minutes:Number(e.target.value)})}><option value={0}>À l’heure prévue</option><option value={15}>15 minutes avant</option><option value={30}>30 minutes avant</option><option value={60}>1 heure avant</option><option value={1440}>1 jour avant</option><option value={10080}>1 semaine avant</option></select>
+        <label className="form-label" style={{marginTop:10}}>Note facultative</label><textarea className="form-input" rows={3} value={edition.description || ''} onChange={e=>setEdition({...edition,description:e.target.value})} />
+        <div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}><button className="btn-primary" type="submit">Enregistrer</button><button className="btn-sm" type="button" onClick={()=>setEdition(null)}>Annuler</button>{edition.id && <button className="btn-sm" type="button" onClick={()=>supprimerEvenement(edition.id)} style={{color:'var(--red)'}}>Supprimer</button>}</div>
+      </form>}
     </div>
   )
 }
