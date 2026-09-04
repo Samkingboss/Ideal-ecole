@@ -89,14 +89,14 @@ class ErrorBoundary extends Component {
 //
 // Liste blanche explicite plutôt que retrait des champs sensibles : une
 // liste de champs interdits laisse passer tout ce qu'on n'a pas prévu, et
-// c'est précisément ce qui s'est produit. Ces sept champs sont les seuls
+// c'est précisément ce qui s'est produit. Ces huit champs sont les seuls
 // que le code lise réellement sur l'objet de session.
 //
 // La session reste falsifiable — c'est la phase 3 qui y remédiera. Ce qui
 // change ici, c'est qu'elle ne transporte plus de secret.
 const CHAMPS_SESSION = [
   'id', 'prenom', 'nom', 'role', 'actif',
-  'fonction', 'langue',
+  'fonction', 'langue', 'sexe',
 ]
 
 const CHAMPS_SENSIBLES = ['code_acces', 'plafond_salaire']

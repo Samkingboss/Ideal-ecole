@@ -17,24 +17,18 @@
 //   users.fonction   la précision quand elle existe (« maitresse-fr-mat »)
 //   la matière       fournie par le document lui-même — un devoir sait la sienne
 //
-// ── Ce qui manque, et qu'il faut savoir ───────────────────────────────────
+//   users.sexe      le sexe déclaré dans la fiche du personnel (`F` ou `M`)
 //
-// `users` ne porte NI `sexe` NI `civilite` : vérifié en production, les quatre
-// noms de colonne plausibles renvoient 400. On ne peut donc pas écrire
-// « Enseignante » de façon fiable pour tout le monde.
-//
-// Deux sources de genre existent malgré tout :
-//   - `fonction` l'encode pour la maternelle — « maitresse- », « assistante- » ;
-//   - rien d'autre.
-//
-// À défaut, la forme épicène traditionnelle est employée — « Professeur de
-// Français » reste correct pour une femme dans l'usage administratif. Le jour
-// où `users` portera une civilité, `genreDe()` la lira et la table FEMININ
-// s'appliquera partout, sans toucher aux appelants.
+// La fonction grammaticale est donc calculée ici, une seule fois pour toute
+// l'application. Aucun écran ne devine le sexe à partir du prénom et aucun
+// document ne ressaisit « Enseignante », « Conseillère » ou « Directrice ».
+// Les anciens profils encore non renseignés conservent temporairement la forme
+// administrative par défaut jusqu'à leur mise à jour par la Direction.
 
 // ── Noms de fonction, par rôle ───────────────────────────────────────────────
 //
-// Nomenclature du V2.1 §3. La forme masculine sert d'épicène par défaut.
+// Nomenclature du V2.1 §3. La forme masculine reste le repli temporaire quand
+// un ancien profil ne porte pas encore de sexe déclaré.
 
 const MASCULIN = {
   directeur:                'Directeur',

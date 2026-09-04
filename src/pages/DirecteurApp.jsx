@@ -58,18 +58,6 @@ const Kpi = ({ v, echec }) => (echec || v === null || v === undefined)
   ? <span title="Donnée indisponible — le chargement a échoué" style={{ opacity: .55 }}>—</span>
   : <>{v}</>
 
-const fmtRole = r => {
-  const map = {
-    'directeur': 'Directeur',
-    'professeur': 'Enseignant',
-    'surveillant': 'Surveillant',
-    'conseiller_vie_scolaire': 'Conseiller Vie Scolaire',
-    'responsable_administratif': 'Responsable Administratif',
-    'cuisiniere': 'Chef Cuisinière / Cantine'
-  }
-  return map[r] || r
-}
-
 const FONCTIONS_MATERNELLE = {
   maitresse_fr_maternelle: { role: 'professeur', fonction: 'maitresse-fr-mat', langue: 'fr', label: 'Maîtresse de français — Maternelle' },
   maitresse_en_maternelle: { role: 'professeur', fonction: 'maitresse-en-mat', langue: 'en', label: 'English Teacher — Kindergarten' },
@@ -79,7 +67,7 @@ const FONCTIONS_MATERNELLE = {
 
 const libelleFonction = user => {
   const entree = Object.values(FONCTIONS_MATERNELLE).find(x => x.fonction === user?.fonction)
-  return entree?.label || fmtRole(user?.role)
+  return entree?.label || fonctionProfessionnelle(user)
 }
 
 // Référentiel par défaut des postes (seed si app_state rh/postes est vide).
@@ -134,7 +122,8 @@ export default function DirecteurApp({ user, onLogout }) {
   const [calendrierUrl, setCalendrierUrl] = useState('')
   const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
-  const [newProf, setNewProf] = useState({ prenom:'', nom:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
+  const [newProf, setNewProf] = useState({ prenom:'', nom:'', sexe:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
+  const [sexeEnCoursId, setSexeEnCoursId] = useState(null)
   // Statut d'acces par membre, lu par RPC gardee « directeur ». Ne contient
   // aucune empreinte de jeton : seulement un libelle et une echeance.
   const [etatsAcces, setEtatsAcces] = useState({})
@@ -762,6 +751,10 @@ export default function DirecteurApp({ user, onLogout }) {
   // n'est renseigne nulle part. `saveProf` a toujours ete une creation, et
   // le reste.
   const saveProf = async () => {
+    if (!['F', 'M'].includes(newProf.sexe)) {
+      alert('Choisissez le sexe du membre afin que sa fonction soit correctement accordée.')
+      return
+    }
     setLoading(true)
     try {
       const fonctionMaternelle = FONCTIONS_MATERNELLE[newProf.role]
@@ -790,6 +783,7 @@ export default function DirecteurApp({ user, onLogout }) {
           langue: langueCompte,
           fonction: fonctionCompte,
           telephone: newProf.telephone,
+          sexe: newProf.sexe,
         }),
       })
       const resultat = await reponse.json().catch(() => ({}))
@@ -801,6 +795,7 @@ export default function DirecteurApp({ user, onLogout }) {
           session_invalide: 'Session expiree. Reconnectez-vous.',
           identite_incomplete: 'Le prenom et le nom sont obligatoires.',
           role_manquant: 'Choisissez un role.',
+          sexe_invalide: 'Choisissez le sexe du membre.',
           identifiant_deja_pris: 'Un compte porte deja cet identifiant.',
           configuration_serveur_incomplete: 'Le serveur n\'est pas configure pour creer des comptes. Prevenez l\'administrateur.',
         }
@@ -830,12 +825,31 @@ export default function DirecteurApp({ user, onLogout }) {
       await loadData()
       await chargerEtatsAcces()
       setShowModal(null)
-      setNewProf({ prenom:'', nom:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
+      setNewProf({ prenom:'', nom:'', sexe:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
     } catch (e) {
       console.error(e)
       setMsg('Erreur imprevue')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const modifierSexePersonnel = async (personne, sexe) => {
+    if (!personne?.id || !['F', 'M'].includes(sexe)) return
+    setSexeEnCoursId(personne.id)
+    try {
+      const { data, error } = await supabase.rpc('modifier_sexe_personnel', {
+        p_user_id: personne.id,
+        p_sexe: sexe,
+      })
+      if (error || !data) {
+        alert(`Sexe non enregistré : ${error?.message || 'réponse serveur absente'}`)
+        return
+      }
+      setProfs(liste => liste.map(p => p.id === personne.id ? { ...p, sexe } : p))
+      setMsg(`Fiche de ${personne.prenom} ${personne.nom} mise à jour.`)
+    } finally {
+      setSexeEnCoursId(null)
     }
   }
 
@@ -1550,7 +1564,7 @@ export default function DirecteurApp({ user, onLogout }) {
                       )}
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 11 }}>
-                        <span style={{ color: 'var(--muted)' }}>{p.role ? fmtRole(p.role) : ''}</span>
+                        <span style={{ color: 'var(--muted)' }}>{p.role ? libelleFonction(p) : ''}</span>
                         <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{(demandesRH || []).filter(d => String(d.user_id) === String(p.id)).length} demande(s) →</span>
                       </div>
                     </button>
@@ -2037,7 +2051,22 @@ export default function DirecteurApp({ user, onLogout }) {
                   {profs.map(p => (
                     <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Rôle: <b style={{ color: 'var(--accent)' }}>{fmtRole(p.role)}</b></div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Fonction : <b style={{ color: 'var(--accent)' }}>{libelleFonction(p)}</b></div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: 'var(--muted)', marginBottom: 8 }}>
+                        Sexe grammatical
+                        <select
+                          className="form-select"
+                          aria-label={`Sexe de ${p.prenom} ${p.nom}`}
+                          value={p.sexe || ''}
+                          disabled={sexeEnCoursId === p.id}
+                          onChange={e => modifierSexePersonnel(p, e.target.value)}
+                          style={{ marginTop: 4, minHeight: 38, fontSize: 12 }}
+                        >
+                          <option value="" disabled>À renseigner</option>
+                          <option value="F">Femme</option>
+                          <option value="M">Homme</option>
+                        </select>
+                      </label>
                       {/* Plus de pastille « Code » : il n'y a plus de code. Le
                           statut d'acces la remplace — un libelle, jamais un secret. */}
                       {(() => {
@@ -2550,6 +2579,14 @@ export default function DirecteurApp({ user, onLogout }) {
             <div className="modal-title">Nouveau membre de l'équipe</div>
             <div className="form-group"><label className="form-label">Prénom</label><input className="form-input" value={newProf.prenom} onChange={e=>setNewProf({...newProf,prenom:e.target.value})} /></div>
             <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newProf.nom} onChange={e=>setNewProf({...newProf,nom:e.target.value})} /></div>
+            <div className="form-group"><label className="form-label">Sexe</label>
+              <select className="form-select" value={newProf.sexe} onChange={e=>setNewProf({...newProf,sexe:e.target.value})} required>
+                <option value="">Choisir…</option>
+                <option value="F">Femme</option>
+                <option value="M">Homme</option>
+              </select>
+              <div style={{ marginTop: 5, fontSize: 11, color: 'var(--muted)' }}>Utilisé uniquement pour accorder correctement la fonction : enseignante, conseillère, directrice…</div>
+            </div>
             <div className="form-group"><label className="form-label">Rôle / fonction</label>
               <select className="form-select" value={newProf.role} onChange={e=>{
                 const config = FONCTIONS_MATERNELLE[e.target.value]

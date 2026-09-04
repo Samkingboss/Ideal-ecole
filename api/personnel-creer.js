@@ -59,9 +59,11 @@ export default async function handler(req, res) {
   const prenom = String(corps.prenom || '').trim()
   const nom = String(corps.nom || '').trim()
   const role = String(corps.role || '').trim()
+  const sexe = String(corps.sexe || '').trim().toUpperCase()
 
   if (!prenom || !nom) return repondre(res, 400, { ok: false, raison: 'identite_incomplete' })
   if (!role) return repondre(res, 400, { ok: false, raison: 'role_manquant' })
+  if (!['F', 'M'].includes(sexe)) return repondre(res, 400, { ok: false, raison: 'sexe_invalide' })
   if (role === 'directeur') return repondre(res, 400, { ok: false, raison: 'role_directeur_interdit' })
 
   // ── 3 · L'identifiant ────────────────────────────────────────────────
@@ -93,7 +95,7 @@ export default async function handler(req, res) {
     // Sans cette confirmation, le compte naîtrait inutilisable et
     // attendrait un message que personne n'enverra jamais.
     email_confirm: true,
-    user_metadata: { identifiant, prenom, nom, role },
+    user_metadata: { identifiant, prenom, nom, role, sexe },
   })
 
   if (errAuth || !creation?.user?.id) {
@@ -115,6 +117,7 @@ export default async function handler(req, res) {
       p_langue: corps.langue ? String(corps.langue).trim() : null,
       p_fonction: corps.fonction ? String(corps.fonction).trim() : null,
       p_telephone: corps.telephone ? String(corps.telephone).trim() : null,
+      p_sexe: sexe,
     })
 
   // ── 6 · La compensation, obligatoire ─────────────────────────────────

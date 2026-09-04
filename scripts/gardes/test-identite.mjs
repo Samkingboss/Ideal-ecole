@@ -72,22 +72,39 @@ console.log('\n\x1b[0;90m── IDENTITÉ · un nom ne signe jamais seul   [V2.1
     `— « ${a} » / « ${b} »`)
 }
 
-// P6 · le nom respecte la convention des documents officiels
+// P6 · les fonctions qui s'accordent couvrent les rôles administratifs et
+// pédagogiques ; le changement reste centralisé dans une seule bibliothèque.
+{
+  const cas = [
+    ['directeur', 'Directrice'],
+    ['responsable_administratif', 'Responsable administrative'],
+    ['conseiller_vie_scolaire', 'Conseillère de vie scolaire'],
+    ['surveillant', 'Surveillante'],
+    ['professeur', 'Enseignante'],
+  ]
+  const incorrects = cas.filter(([role, attendu]) =>
+    fonctionProfessionnelle({ role, sexe: 'F' }) !== attendu)
+  verifier('P6 · les fonctions féminines viennent du sexe déclaré',
+    incorrects.length === 0,
+    incorrects.length ? `— ${incorrects.map(([role]) => role).join(', ')}` : `— ${cas.length} rôles`)
+}
+
+// P7 · le nom respecte la convention des documents officiels
 {
   const n = nomProfessionnel(enseignant)
-  verifier('P6 · prénom en casse normale, nom en capitales',
+  verifier('P7 · prénom en casse normale, nom en capitales',
     n === 'Ornella MOGADZI', `— « ${n} »`)
 }
 
-// P7 · les deux formes de signature portent toujours les deux informations
+// P8 · les deux formes de signature portent toujours les deux informations
 {
   const s = signature(enseignant, { matiere: 'Français' })
   const l = signatureLigne(enseignant, { matiere: 'Français' })
-  verifier('P7 · signature = nom + fonction, dans les deux formes',
+  verifier('P8 · signature = nom + fonction, dans les deux formes',
     !!s.nom && !!s.fonction && l.includes(s.nom) && l.includes(s.fonction), `— « ${l} »`)
 }
 
-// P8 · aucun DOCUMENT ne réécrit une fonction à la main
+// P9 · aucun DOCUMENT ne réécrit une fonction à la main
 //
 // C'est la propriété qui empêche le retour du problème : une fonction saisie
 // en dur dans un document dérive dès que la personne change de poste.
@@ -121,11 +138,11 @@ console.log('\n\x1b[0;90m── IDENTITÉ · un nom ne signe jamais seul   [V2.1
       .filter(([, l]) => INTITULE.test(l) && !estConfiguration(l))
     if (lignes.length) coupables.push(`${f}:${lignes.map(([n]) => n).join(',')}`)
   }
-  verifier('P8 · aucun document ne code une fonction en dur', coupables.length === 0,
+  verifier('P9 · aucun document ne code une fonction en dur', coupables.length === 0,
     coupables.length ? `— ${coupables.join(' · ')}` : '')
 }
 
 console.log(echecs === 0
-  ? `\n  ${V}8 garde(s) au vert, aucune en échec.${F}\n`
+  ? `\n  ${V}9 garde(s) au vert, aucune en échec.${F}\n`
   : `\n  ${R}${echecs} garde(s) en échec.${F}\n`)
 process.exit(echecs === 0 ? 0 : 1)

@@ -51,6 +51,11 @@ verifier('aucune notification avant validation signée',
 verifier('confirmation parent contient la chaîne WhatsApp officielle',
   page.includes("const CHAINE_WHATSAPP_ECOLE = 'https://whatsapp.com/channel/0029VbAvPN6DzgT5CqYNXY2u'")
   && page.includes('veuillez vous abonner à notre chaîne WhatsApp officielle'))
+verifier('confirmation parent respectueuse et centrée sur l’enfant',
+  page.includes('`Chers parents,\\n\\nNous avons le plaisir de vous confirmer')
+  && page.includes("const nomEleve = `${inscription.prenom || ''} ${String(inscription.nom || '').toUpperCase()}`.trim()")
+  && page.includes('votre enfant ${nomEleve}')
+  && !page.includes("Bonjour ${parent?.prenom"))
 verifier('message WhatsApp adressé au numéro du responsable',
   page.includes("import { lienWhatsApp, NOM_ECOLE } from '../lib/ecole'")
   && page.includes("lienWhatsApp(numero, texte)"))

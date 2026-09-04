@@ -250,12 +250,21 @@ test('16 · les anciens comptes ne sont pas touchés', () => {
   assert.doesNotMatch(sansCommentaires(rollback), /deleteUser|delete from auth|drop table.*users\b/)
 })
 
-test('17 · LoginPage et la session Auth validée restent intactes', () => {
+test('17 · LoginPage et la session Auth restent protégées', () => {
   const modifies = execSync('git status --porcelain', { encoding: 'utf8' })
     .split('\n').map(l => l.slice(3).trim()).filter(Boolean)
-  for (const f of ['src/pages/LoginPage.jsx', 'src/App.jsx', 'src/lib/supabase.js']) {
+  for (const f of ['src/pages/LoginPage.jsx', 'src/lib/supabase.js']) {
     assert.ok(!modifies.includes(f), `${f} modifié`)
   }
+  // La liste blanche de session peut évoluer avec les attributs métier
+  // explicitement autorisés. Elle doit continuer d'exclure les secrets et
+  // conserver le sexe déclaré nécessaire à l'accord des signatures.
+  const app = lire('src/App.jsx')
+  const champs = app.match(/const CHAMPS_SESSION = \[([\s\S]*?)\]/)?.[1] || ''
+  assert.match(champs, /'sexe'/)
+  assert.doesNotMatch(champs, /code_acces|plafond_salaire|token|password/)
+  assert.match(app, /supabase\.auth\.getSession\(\)/)
+  assert.match(app, /supabase\.auth\.onAuthStateChange/)
 })
 
 test('18 · aucune zone gelée modifiée', () => {

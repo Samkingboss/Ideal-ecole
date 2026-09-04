@@ -163,7 +163,8 @@ export default function InscriptionsValidation({ inscriptions = [], directeur, o
 
   const ouvrirWhatsApp = (inscription, parent) => {
     const numero = telephoneWA(parent?.whatsapp || parent?.tel1)
-    const texte = `Bonjour ${parent?.prenom || 'cher parent'},\n\nL'inscription de ${inscription.prenom} ${String(inscription.nom || '').toUpperCase()} à ${NOM_ECOLE} est désormais validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\n\n📢 Afin de suivre les actualités de l'école et les informations liées à la scolarité de votre enfant, veuillez vous abonner à notre chaîne WhatsApp officielle :\n${CHAINE_WHATSAPP_ECOLE}\n\n${NOM_ECOLE} — Bamako`
+    const nomEleve = `${inscription.prenom || ''} ${String(inscription.nom || '').toUpperCase()}`.trim()
+    const texte = `Chers parents,\n\nNous avons le plaisir de vous confirmer que l'inscription de votre enfant ${nomEleve} à ${NOM_ECOLE} est définitivement validée par la Direction.\n\n📋 Matricule : ${inscription.matricule}\n🏫 Classe : ${String(inscription.classe_demandee || '').replace(/\s+Bilingue/gi, '')}\n📅 Année scolaire : ${inscription.annee_scolaire || '2026-2027'}\n\nBienvenue à IDEAL.\n\n📢 Afin de suivre les actualités de l'école et les informations liées à la scolarité de votre enfant, veuillez vous abonner à notre chaîne WhatsApp officielle :\n${CHAINE_WHATSAPP_ECOLE}\n\n${NOM_ECOLE} — Bamako`
     window.open(lienWhatsApp(numero, texte), '_blank', 'noopener')
   }
 
