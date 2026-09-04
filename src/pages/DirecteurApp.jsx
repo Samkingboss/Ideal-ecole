@@ -138,6 +138,8 @@ export default function DirecteurApp({ user, onLogout }) {
   // Statut d'acces par membre, lu par RPC gardee « directeur ». Ne contient
   // aucune empreinte de jeton : seulement un libelle et une echeance.
   const [etatsAcces, setEtatsAcces] = useState({})
+  const [envoiAccesId, setEnvoiAccesId] = useState(null)
+  const envoiAccesEnCours = useRef(false)
   const [newEleve, setNewEleve] = useState({ prenom:'', nom:'', classe_id:'' })
   const [newEvenement, setNewEvenement] = useState({ titre:'', date_event:'', description:'' })
   const [loading, setLoading] = useState(false)
@@ -870,32 +872,56 @@ export default function DirecteurApp({ user, onLogout }) {
   // session du directeur. Le jeton brut ne sort qu'une fois, pour composer
   // le lien, et n'est ecrit nulle part.
   const envoyerAcces = async (membre) => {
-    const { data, error } = await supabase.rpc('emettre_acces_personnel', { p_user_id: membre.id })
-    if (error || !data?.ok) {
-      alert('❌ Lien non emis : ' + (error?.message || 'Erreur inattendue'))
-      return
+    if (envoiAccesEnCours.current) return
+    envoiAccesEnCours.current = true
+    setEnvoiAccesId(membre.id)
+
+    // Ouverte pendant le geste utilisateur : Safari mobile peut bloquer une
+    // nouvelle fenetre si elle n'est creee qu'apres l'appel reseau.
+    const fenetreWhatsApp = window.open('', '_blank')
+    if (fenetreWhatsApp) fenetreWhatsApp.opener = null
+
+    try {
+      const { data, error } = await supabase.rpc('emettre_acces_personnel', { p_user_id: membre.id })
+      if (error || !data?.ok) {
+        if (fenetreWhatsApp && !fenetreWhatsApp.closed) fenetreWhatsApp.close()
+        const doublon = /acces_personnel_vivant_unique/i.test(error?.message || '')
+        alert(doublon
+          ? "L'envoi est deja en cours. Patientez un instant puis reessayez."
+          : '❌ Lien non emis : ' + (error?.message || 'Erreur inattendue'))
+        return
+      }
+
+      const lien = `${window.location.origin}/activer-acces.html#token=${data.token}`
+      const message = [
+        `Bonjour ${data.prenom},`,
+        '',
+        'Votre acces a la plateforme IDEAL est pret.',
+        '',
+        `Identifiant : ${data.identifiant}`,
+        'Choisissez votre mot de passe ici :',
+        lien,
+        '',
+        'Ce lien est valable 48 heures et ne fonctionne qu\'une seule fois.',
+        'Ne le transmettez a personne.',
+        '',
+        'IDEAL Ecole Internationale Bilingue',
+      ].join('\n')
+
+      // Numero absent : `lienWhatsApp` ouvre WhatsApp sans destinataire, et le
+      // directeur choisit le contact. Un lien mort serait pire.
+      const destination = lienWhatsApp(data.telephone, message)
+      if (fenetreWhatsApp && !fenetreWhatsApp.closed) fenetreWhatsApp.location.href = destination
+      else window.location.href = destination
+      await chargerEtatsAcces()
+    } catch (erreur) {
+      if (fenetreWhatsApp && !fenetreWhatsApp.closed) fenetreWhatsApp.close()
+      console.error('Emission du lien personnel impossible :', erreur)
+      alert("Lien non emis : verifiez la connexion puis reessayez.")
+    } finally {
+      envoiAccesEnCours.current = false
+      setEnvoiAccesId(null)
     }
-
-    const lien = `${window.location.origin}/activer-acces.html#token=${data.token}`
-    const message = [
-      `Bonjour ${data.prenom},`,
-      '',
-      'Votre acces a la plateforme IDEAL est pret.',
-      '',
-      `Identifiant : ${data.identifiant}`,
-      'Choisissez votre mot de passe ici :',
-      lien,
-      '',
-      'Ce lien est valable 48 heures et ne fonctionne qu\'une seule fois.',
-      'Ne le transmettez a personne.',
-      '',
-      'IDEAL Ecole Internationale Bilingue',
-    ].join('\n')
-
-    // Numero absent : `lienWhatsApp` ouvre WhatsApp sans destinataire, et le
-    // directeur choisit le contact. Un lien mort serait pire.
-    window.open(lienWhatsApp(data.telephone, message), '_blank')
-    await chargerEtatsAcces()
   }
 
   const saveJoursOuvres = async () => {
@@ -2027,8 +2053,8 @@ export default function DirecteurApp({ user, onLogout }) {
                               )}
                             </div>
                             {etat?.statut !== 'sans_identite' && (
-                              <button className="btn-sm" style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', border: '1px solid var(--accent)', width: '100%', marginBottom: 6 }} onClick={() => envoyerAcces(p)}>
-                                {dejaEnvoye ? "Renvoyer l'acces" : "Envoyer l'acces"}
+                              <button className="btn-sm" disabled={Boolean(envoiAccesId)} style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', border: '1px solid var(--accent)', width: '100%', marginBottom: 6, opacity: envoiAccesId ? .55 : 1, cursor: envoiAccesId ? 'wait' : 'pointer' }} onClick={() => envoyerAcces(p)}>
+                                {envoiAccesId === p.id ? 'Preparation du lien…' : dejaEnvoye ? "Renvoyer l'acces" : "Envoyer l'acces"}
                               </button>
                             )}
                           </>

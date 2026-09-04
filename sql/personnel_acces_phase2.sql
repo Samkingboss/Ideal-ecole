@@ -301,7 +301,12 @@ begin
   select u.identifiant, u.prenom, u.auth_user_id
     into v_ident, v_prenom, v_auth
     from public.users u
-   where u.id = p_user_id and u.actif = true;
+   where u.id = p_user_id and u.actif = true
+     for update of u;
+
+  -- Le verrou sur la fiche personnel serialise deux emissions rapprochees.
+  -- Sans lui, deux doubles clics peuvent revoquer le meme ancien lien, puis
+  -- tenter chacun un INSERT : le second heurte l'index vivant unique.
 
   if not found then
     raise exception 'compte_introuvable';

@@ -154,8 +154,11 @@ test('7 · usage unique, garanti par un UPDATE conditionnel atomique', () => {
 
 test('8 · un renvoi révoque le lien précédent, et la base l’impose', () => {
   const emission = corpsSql('emettre_acces_personnel')
+  const iVerrou = emission.indexOf('for update of u')
   const iRevoke = emission.indexOf('set revoked_at = now()')
   const iInsert = emission.indexOf('insert into public.acces_personnel')
+  assert.ok(iVerrou > 0 && iRevoke > iVerrou,
+    'la fiche personnel doit etre verrouillee avant la revocation')
   assert.ok(iRevoke > 0 && iInsert > iRevoke, 'la révocation doit précéder l’insertion')
   assert.match(sql, /create unique index if not exists acces_personnel_vivant_unique[\s\S]*?where used_at is null and revoked_at is null/)
 })
@@ -299,6 +302,18 @@ test('21 · le message WhatsApp ne porte que le lien et l’identifiant', () => 
   // Le point d'entrée WhatsApp partagé, pas une neuvième URL en dur.
   assert.match(envoi, /lienWhatsApp\(data\.telephone, message\)/)
   assert.doesNotMatch(envoi, /wa\.me/)
+})
+
+test('21 bis · un double appui ne lance pas deux emissions', () => {
+  const i = directeur.indexOf('const envoyerAcces')
+  const envoi = directeur.slice(i, directeur.indexOf('\n  }\n', i))
+  assert.match(envoi, /if \(envoiAccesEnCours\.current\) return/)
+  assert.match(envoi, /envoiAccesEnCours\.current = true/)
+  assert.match(envoi, /envoiAccesEnCours\.current = false/)
+  assert.match(envoi, /setEnvoiAccesId\(membre\.id\)/)
+  assert.match(directeur, /disabled=\{Boolean\(envoiAccesId\)\}/)
+  assert.match(envoi, /window\.open\('', '_blank'\)/,
+    'la fenetre WhatsApp doit etre ouverte pendant le geste utilisateur')
 })
 
 // ── 22 à 27 · l'écran d'après-activation ───────────────────────────────
