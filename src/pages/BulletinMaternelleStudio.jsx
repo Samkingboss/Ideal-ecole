@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { pushNotification } from '../lib/notifications'
-import { MATERNELLE_DOMAINS } from '../lib/programmes/maternelle'
+import { MATERNELLE_DOMAINS, estObjectifAnglaisMaternelle, langueMaternelle } from '../lib/programmes/maternelle'
 import './BulletinMaternelleStudio.css'
 
 const NIVEAUX = [
@@ -38,8 +38,6 @@ const SUIVI_VIDE = {
 }
 const estMaternelle = nom => /^(ps|gs|petite section|grande section)$/i.test(String(nom || '').trim())
 const sectionDe = nom => /^(ps|petite section)$/i.test(String(nom || '').trim()) ? 'PS' : 'GS'
-const langueDe = user => user?.langue === 'en' || String(user?.fonction || '').includes('-en-') ? 'en' : 'fr'
-const estObjectifAnglais = texte => /^(Mastered|Names?|Identifies|Writes?|Counts?|Recognizes|Performs?|Responds?|Draws?|Demonstrates|Washes|Throws|Eats|Flushes|Traces|Executes|Sorts|Conducts|Participates|Coordinates|Explores|Uses|Takes|Revises|Associates|Knows|Sings|Respects)\b/i.test(texte)
 const anneeScolaire = () => { const d = new Date(); const a = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1; return `${a} - ${a + 1}` }
 const ageDe = date => {
   if (!date) return '—'
@@ -117,12 +115,12 @@ export default function BulletinMaternelleStudio({ user, eleves = [] }) {
   const fileSuivi = useRef(Promise.resolve())
 
   const maternelle = useMemo(() => eleves.filter(e => estMaternelle(e.classes?.nom)), [eleves])
-  const langue = langueDe(user)
+  const langue = langueMaternelle(user)
   const sectionTitulaire = langue === 'fr' ? 'GS' : 'PS'
   const eleve = maternelle.find(e => String(e.id) === String(selection)) || maternelle[0]
   const section = sectionDe(eleve?.classes?.nom)
   const peutImprimer = Boolean(eleve && section === sectionTitulaire)
-  const domaines = useMemo(() => (MATERNELLE_DOMAINS[section]?.[trimestre] || []).map(domaine => ({ ...domaine, titre: domaine.title.replace(/^\d+\.\s*/, ''), objectifs: domaine.competencies.map((description, index) => ({ key: `${domaine.id}_${index}`, description })).filter(o => langue === 'en' ? estObjectifAnglais(o.description) : !estObjectifAnglais(o.description)) })).filter(d => d.objectifs.length), [section, trimestre, langue])
+  const domaines = useMemo(() => (MATERNELLE_DOMAINS[section]?.[trimestre] || []).map(domaine => ({ ...domaine, titre: domaine.title.replace(/^\d+\.\s*/, ''), objectifs: domaine.competencies.map((description, index) => ({ key: `${domaine.id}_${index}`, description })).filter(o => langue === 'en' ? estObjectifAnglaisMaternelle(o.description) : !estObjectifAnglaisMaternelle(o.description)) })).filter(d => d.objectifs.length), [section, trimestre, langue])
   const ligneBulletin = useMemo(() => bulletins.find(b => String(b.eleve_id) === String(eleve?.id) && b.trimestre === trimestre), [bulletins, eleve, trimestre])
   const contributions = ligneBulletin?.donnees?.contributions || {}
   const contribution = contributions[langue] || {}

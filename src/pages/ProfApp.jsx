@@ -1072,7 +1072,7 @@ export default function ProfApp({ user, onLogout }) {
           </div>
         )}
 
-        {tab === 'programme' && <ProgrammePedagogique user={user} />}
+        {tab === 'programme' && <ProgrammePedagogique user={user} maternelle={compteMaternelle} classes={classes} preparations={preparations} />}
 
         {tab === 'progression' && (
           <div>

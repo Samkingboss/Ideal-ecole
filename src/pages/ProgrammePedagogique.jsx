@@ -5,6 +5,7 @@ import {
   pagesDe, situationDe, libelleUnite,
 } from '../lib/programmes'
 import SommaireManuelDocument from './SommaireManuelDocument'
+import ProgrammeMaternelleAnnuel from './ProgrammeMaternelleAnnuel'
 
 // Le programme de l'enseignant, organisé comme l'école le pense.
 //
@@ -80,7 +81,12 @@ const puce = (actif) => ({
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .trim().toLowerCase()
 
-export default function ProgrammePedagogique({ user }) {
+export default function ProgrammePedagogique({ user, maternelle = false, classes = [], preparations = [] }) {
+  if (maternelle) return <ProgrammeMaternelleAnnuel user={user} classes={classes} preparations={preparations} />
+  return <ProgrammePrimaire user={user} />
+}
+
+function ProgrammePrimaire({ user }) {
   const [matieres, setMatieres]         = useState([])   // [{ groupe, matiere, manuels[] }]
   const [choix, setChoix]               = useState(null) // la matière courante
   const [volet, setVolet]               = useState('programme')

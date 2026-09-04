@@ -837,6 +837,12 @@ export const MATERNELLE_DOMAINS = {
     }
 }
 
+export const langueMaternelle = user =>
+  user?.langue === 'en' || String(user?.fonction || '').toLowerCase().includes('-en-') ? 'en' : 'fr'
+
+export const estObjectifAnglaisMaternelle = texte =>
+  /^(Mastered|Names?|Identifies|Writes?|Counts?|Recognizes|Performs?|Responds?|Draws?|Demonstrates|Washes|Throws|Eats|Flushes|Traces|Executes|Sorts|Conducts|Participates|Coordinates|Explores|Uses|Takes|Revises|Associates|Knows|Sings|Respects)\b/i.test(String(texte || ''))
+
 export const objectifsMaternelle = (section, trimestre) =>
   (MATERNELLE_DOMAINS[section]?.[trimestre] || []).flatMap(domaine =>
     domaine.competencies.map((description, index) => ({
@@ -845,3 +851,31 @@ export const objectifsMaternelle = (section, trimestre) =>
       description,
     }))
   )
+
+export const programmeAnnuelMaternelle = (section, langue = 'fr') => {
+  const matieres = new Map()
+  ;['t1', 't2', 't3'].forEach(trimestre => {
+    ;(MATERNELLE_DOMAINS[section]?.[trimestre] || []).forEach(domaine => {
+      if (!matieres.has(domaine.id)) {
+        matieres.set(domaine.id, {
+          id: domaine.id,
+          titre: domaine.title.replace(/^\d+\.\s*/, ''),
+          couleur: domaine.color,
+          icone: domaine.icon,
+          trimestres: { t1: [], t2: [], t3: [] },
+        })
+      }
+      const objectifs = domaine.competencies
+        .map((description, index) => ({
+          id: `${section}-${trimestre}-${domaine.id}-${index + 1}`,
+          description,
+        }))
+        .filter(objectif => langue === 'en'
+          ? estObjectifAnglaisMaternelle(objectif.description)
+          : !estObjectifAnglaisMaternelle(objectif.description))
+      matieres.get(domaine.id).trimestres[trimestre].push(...objectifs)
+    })
+  })
+  return [...matieres.values()].filter(matiere =>
+    Object.values(matiere.trimestres).some(objectifs => objectifs.length))
+}
