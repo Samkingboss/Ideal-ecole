@@ -12,6 +12,7 @@ import DemandeMateriel from './DemandeMateriel'
 import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
 import BulletinMaternelleStudio from './BulletinMaternelleStudio'
+import BulletinPrimaire from './BulletinPrimaire'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import { signatureLigne } from '../lib/identiteProfessionnelle'
 import AccordionCard from '../components/ui/AccordionCard'
@@ -204,7 +205,7 @@ export default function ProfApp({ user, onLogout }) {
         const { data, error } = await supabase.from('preparations')
           .select('id, classe_id, date_cours, heure_cours, sequence, matiere, groupe, status, contenu, historique_statuts, heure_depot')
           .eq('user_id', user.id).order('heure_depot', { ascending: false })
-        if (!error) setPreparations(data || [])
+        if (!error) setPreparations(Array.isArray(data) ? data : [])
       } while (prepRefreshEnAttente.current)
     } finally {
       prepRefreshEnVol.current = false
@@ -912,6 +913,7 @@ export default function ProfApp({ user, onLogout }) {
             <button onClick={() => setTab('classe')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'classe' ? '#00a8e0' : 'var(--bg)', color: tab === 'classe' ? '#fff' : 'var(--muted)' }}>📋 Présence &amp; Liste Classe</button>
             <button onClick={() => setTab('devoirs')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'devoirs' ? '#00a8e0' : 'var(--bg)', color: tab === 'devoirs' ? '#fff' : 'var(--muted)' }}>📖 Devoirs de maison</button>
             {compteMaternelle && <button onClick={() => setTab('bulletins-maternelle')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'bulletins-maternelle' ? '#00a8e0' : 'var(--bg)', color: tab === 'bulletins-maternelle' ? '#fff' : 'var(--muted)' }}>🧸 Évaluations &amp; bulletins</button>}
+            {!compteMaternelle && <button onClick={() => setTab('bulletins-primaire')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'bulletins-primaire' ? '#00a8e0' : 'var(--bg)', color: tab === 'bulletins-primaire' ? '#fff' : 'var(--muted)' }}>📊 Évaluations &amp; bulletins</button>}
             {/* BASCULE — « 📖 Devoirs de maison » ci-dessus est désormais le
                 seul chemin. Le lien vers /pedago-archive/ a été retiré une
                 fois la parité prouvée : lecture des quatorze devoirs
@@ -1105,6 +1107,10 @@ export default function ProfApp({ user, onLogout }) {
 
         {tab === 'bulletins-maternelle' && compteMaternelle && (
           <BulletinMaternelleStudio user={user} eleves={eleves} />
+        )}
+
+        {tab === 'bulletins-primaire' && !compteMaternelle && (
+          <BulletinPrimaire user={user} eleves={eleves} />
         )}
 
         {/* ════════ SESSION 3 : MA CLASSE & ÉLÈVES ════════ */}

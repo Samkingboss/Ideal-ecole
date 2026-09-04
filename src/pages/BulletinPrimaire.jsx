@@ -1,252 +1,274 @@
-import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { NOM_ECOLE } from '../lib/ecole'
+import { moyenneEnsemble, moyenneMatiere, moyenneModalite, notesInvalides } from '../lib/bulletinPrimaire'
+import './BulletinPrimaire.css'
 
-// Mock data pour la démonstration (Trimestre 2)
-const studentData = {
-  nom: "SANGARE",
-  prenom: "Khalil",
-  classe: "CP2 Bilingue",
-  matricule: "24-25 A088",
-  effectif: { garcons: 12, filles: 15, total: 27 },
-  annee: "2026-2027",
-  trimestreActuel: 2,
-};
+const TRIMESTRES_PRIMAIRE = [
+  { id: 't1', label: '1er trimestre' },
+  { id: 't2', label: '2e trimestre' },
+  { id: 't3', label: '3e trimestre' },
+]
 
-// Données globales pour le graphique de progression
-const evolutionGlobale = [
-  { trimestre: 'T1', eleve: 82, classe: 80 },
-  { trimestre: 'T2', eleve: 86, classe: 81 },
-];
+const estMaternelle = nom => /^(ps|gs|petite section|grande section)$/i.test(String(nom || '').trim())
+const normaliser = texte => String(texte || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+const groupeCouvreClasse = (groupe, classe) => normaliser(groupe)
+  .split(/\s*\/\s*/)
+  .some(partie => partie === normaliser(classe))
+const anneeScolaire = () => {
+  const date = new Date()
+  const debut = date.getMonth() >= 7 ? date.getFullYear() : date.getFullYear() - 1
+  return `${debut} - ${debut + 1}`
+}
+const noteVide = () => ({ libelle: '', note: '', bareme: '20' })
+const matiereVide = programme => ({ programme, notes: { ecrit: [], oral: [] }, appreciation: '' })
 
-// Programme Malien
-const dataMalien = [
-  { matiere: "Mathématiques", moyT1: 72, ecritT2: 86, oralT2: 90, moyT2: 88 },
-  { matiere: "Lecture & Compréhension", moyT1: 90, ecritT2: 100, oralT2: 98, moyT2: 99 },
-  { matiere: "Orthographe", moyT1: 85, ecritT2: 81, oralT2: 85, moyT2: 83 },
-  { matiere: "Dictée & Rédaction", moyT1: 75, ecritT2: 60, oralT2: 64, moyT2: 62 },
-  { matiere: "Éveil & Dessin", moyT1: 80, ecritT2: 85, oralT2: null, moyT2: 85 }
-];
+const formatNote = note => Number.isFinite(note) ? `${note.toFixed(2).replace('.', ',')} / 20` : '—'
+const formatPourcent = note => Number.isFinite(note) ? `${Math.round(note * 5)} %` : '—'
+const teinte = note => !Number.isFinite(note) ? '#94a3b8' : note >= 16 ? '#10b981' : note >= 12 ? '#2563eb' : note >= 10 ? '#f59e0b' : '#ef4444'
+const appreciationAuto = note => !Number.isFinite(note)
+  ? 'Pas encore évalué'
+  : note >= 16 ? 'Maîtrise très solide' : note >= 12 ? 'Acquis satisfaisants' : note >= 10 ? 'En cours de consolidation' : 'Accompagnement à renforcer'
 
-// Programme International
-const dataInternational = [
-  { matiere: "English Reading", moyT1: 80, ecritT2: 85, oralT2: 90, moyT2: 87 },
-  { matiere: "Spelling & Grammar", moyT1: 95, ecritT2: 100, oralT2: null, moyT2: 100 },
-  { matiere: "Science & Discovery", moyT1: 78, ecritT2: 80, oralT2: 82, moyT2: 81 },
-];
+function EnteteBulletin({ trimestre }) {
+  return <header className="bp-report-header">
+    <div className="bp-brand"><img src="/logo-ideal.png" alt="IDEAL École Internationale Bilingue" /><span>EXCELLENCE · BILINGUISME · INNOVATION</span></div>
+    <div className="bp-heading"><small>BULLETIN OFFICIEL · PRIMAIRE</small><b>BILAN TRIMESTRIEL</b><strong>DES APPRENTISSAGES</strong></div>
+    <div className="bp-period"><b>{TRIMESTRES_PRIMAIRE.find(t => t.id === trimestre)?.label}</b><span>{anneeScolaire()}</span></div>
+  </header>
+}
 
-const renderEvolution = (t1, t2) => {
-  if (t1 == null || t2 == null) return <span style={{ color: '#64748b' }}>-</span>;
-  const diff = t2 - t1;
-  if (diff > 0) return <span style={{ color: '#047857', fontWeight: 900 }}>▲ +{diff}%</span>;
-  if (diff < 0) return <span style={{ color: '#dc2626', fontWeight: 900 }}>▼ {diff}%</span>;
-  return <span style={{ color: '#d97706', fontWeight: 900 }}>▶ =</span>;
-};
+function LigneNote({ note, onChange, onRemove }) {
+  return <div className="bp-note-line">
+    <input aria-label="Intitulé de l'évaluation" value={note.libelle || ''} onChange={e => onChange({ ...note, libelle: e.target.value })} placeholder="Ex. Contrôle 1" />
+    <label><span>Note</span><input type="number" min="0" step="0.25" value={note.note ?? ''} onChange={e => onChange({ ...note, note: e.target.value })} /></label>
+    <label><span>Sur</span><input type="number" min="1" step="1" value={note.bareme ?? '20'} onChange={e => onChange({ ...note, bareme: e.target.value })} /></label>
+    <button type="button" onClick={onRemove} aria-label="Retirer cette note">×</button>
+  </div>
+}
 
-export default function BulletinPrimaire() {
-  const formatBarData = (data) => {
-    return data.map(item => ({
-      name: item.matiere,
-      T1: item.moyT1,
-      T2: item.moyT2
-    }));
-  };
+function EditeurModalite({ titre, couleur, notes, onChange }) {
+  const liste = Array.isArray(notes) ? notes : []
+  const moyenne = moyenneModalite(liste)
+  return <section className="bp-modality" style={{ '--bp-modality': couleur }}>
+    <header><div><span /> <b>{titre}</b></div><strong>{formatNote(moyenne)}</strong></header>
+    {liste.length === 0 && <p className="bp-modality-empty">Aucune note : cette modalité ne comptera pas dans la moyenne.</p>}
+    {liste.map((note, index) => <LigneNote key={index} note={note}
+      onChange={suivante => onChange(liste.map((ancienne, i) => i === index ? suivante : ancienne))}
+      onRemove={() => onChange(liste.filter((_, i) => i !== index))} />)}
+    <button type="button" className="bp-add-note" onClick={() => onChange([...liste, noteVide()])}>+ Ajouter une note</button>
+  </section>
+}
 
-  const moyBlocMalienT1 = Math.round(dataMalien.reduce((acc, curr) => acc + curr.moyT1, 0) / dataMalien.length);
-  const moyBlocMalienT2 = Math.round(dataMalien.reduce((acc, curr) => acc + curr.moyT2, 0) / dataMalien.length);
-
-  return (
-    <div style={{ padding: 20, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      
-      {/* Bouton d'impression en haut */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 22, color: '#0d2a3b', fontWeight: 900 }}>📊 Bulletin Trimestriel Officiel</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Relevé de notes et bilan académique de l'élève aux standards d’{NOM_ECOLE}.</p>
+function ProgrammeTable({ titre, sousTitre, programme, matieres, couleur }) {
+  const lignes = Object.entries(matieres || {}).filter(([, valeur]) => valeur.programme === programme)
+  return <section className="bp-report-section bp-programme-report" style={{ '--bp-programme': couleur }}>
+    <div className="bp-section-title"><span>{programme === 'national' ? 'FR' : 'EN'}</span><div><h2>{titre}</h2><p>{sousTitre}</p></div></div>
+    {lignes.length === 0 ? <div className="bp-report-empty">Aucune matière renseignée pour ce programme.</div> : <div className="bp-results-table">
+      <div className="bp-result-row is-head"><b>Matière</b><b>Écrit</b><b>Oral</b><b>Moyenne</b><b>Commentaire de l’enseignant</b></div>
+      {lignes.map(([nom, valeur]) => {
+        const ecrit = moyenneModalite(valeur.notes?.ecrit)
+        const oral = moyenneModalite(valeur.notes?.oral)
+        const moyenne = moyenneMatiere(valeur)
+        return <div className="bp-result-row" key={nom}>
+          <span><b>{nom}</b><small>{appreciationAuto(moyenne)}</small></span>
+          <span>{formatNote(ecrit)}</span><span>{formatNote(oral)}</span>
+          <strong style={{ color: teinte(moyenne) }}>{formatNote(moyenne)}</strong>
+          <p>{valeur.appreciation || 'Commentaire à compléter.'}</p>
         </div>
-        <button
-          onClick={() => window.print()}
-          style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: 'pointer', boxShadow: '0 6px 18px rgba(217,119,6,0.3)' }}
-        >
-          🖨️ Imprimer le Bulletin (A4)
-        </button>
-      </div>
+      })}
+    </div>}
+  </section>
+}
 
-      {/* SUPPORT A4 DU BULLETIN BULLETIN PRINTABLE */}
-      <div
-        id="bulletin-print-area"
-        style={{
-          width: 820,
-          maxWidth: '100%',
-          margin: '0 auto',
-          background: 'linear-gradient(180deg, #fffdfa 0%, #faf8f5 100%)',
-          padding: '3rem 2.8rem',
-          boxSizing: 'border-box',
-          borderRadius: 32,
-          boxShadow: '0 25px 60px rgba(0,0,0,0.12)',
-          border: '3px double #d97706',
-          position: 'relative',
-          color: '#0f172a'
-        }}
-      >
-        {/* Filigrane officiel couronne impériale */}
-        <div style={{ position: 'absolute', top: -40, right: -40, fontSize: 280, opacity: 0.03, pointerEvents: 'none' }}>👑</div>
+export default function BulletinPrimaire({ user, eleves = [] }) {
+  const primaire = useMemo(() => eleves.filter(e => !estMaternelle(e.classes?.nom)), [eleves])
+  const [selection, setSelection] = useState(primaire[0]?.id || '')
+  const [trimestre, setTrimestre] = useState('t1')
+  const [bulletins, setBulletins] = useState([])
+  const [affectations, setAffectations] = useState([])
+  const [photos, setPhotos] = useState({})
+  const [brouillons, setBrouillons] = useState({})
+  const [matiereActive, setMatiereActive] = useState('')
+  const [etat, setEtat] = useState('chargement')
+  const [message, setMessage] = useState('')
+  const eleve = primaire.find(e => String(e.id) === String(selection)) || primaire[0]
 
-        {/* EN-TÊTE ÉLÉGANT LUXE : LOGO À GAUCHE SANS CERCLE & NOM ÉCOLE GRAND & TITRE DE DOCUMENT */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 24, borderBottom: '2px solid rgba(217,119,6,0.3)', paddingBottom: 24, marginBottom: 24 }}>
-          <img src="/logo-ideal.png" alt="IDEAL" style={{ height: 95, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.08))' }} />
+  useEffect(() => {
+    if (!eleve?.id) return undefined
+    let annule = false
+    ;(async () => {
+      setEtat('chargement'); setMessage('')
+      const groupe = eleve.classes?.nom || ''
+      const [bulletinsRes, affRes, pilotageRes, photoRes] = await Promise.all([
+        supabase.rpc('lire_bulletins_primaire', { p_eleve_ids: [eleve.id] }),
+        supabase.from('affectations_matieres').select('groupe,matiere,prof_id').order('matiere'),
+        supabase.rpc('lire_pilotage_heures_pedagogiques'),
+        supabase.rpc('lire_photos_bulletins_primaire', { p_eleve_ids: [eleve.id] }),
+      ])
+      if (annule) return
+      if (bulletinsRes.error) {
+        setEtat('migration')
+        setMessage('La sauvegarde serveur du bulletin primaire doit être installée avec sql/bulletins_primaire.sql.')
+        return
+      }
+      if (affRes.error) { setEtat('erreur'); setMessage(`Matières indisponibles : ${affRes.error.message}`); return }
 
-          <div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              {NOM_ECOLE.toUpperCase()}
-            </div>
-            <div style={{ fontSize: 34, fontWeight: 900, color: '#0f172a', letterSpacing: '1.5px', marginTop: 2 }}>
-              BULLETIN TRIMESTRIEL D'ÉVALUATION
-            </div>
-          </div>
-        </div>
+      const affectationsClasse = (Array.isArray(affRes.data) ? affRes.data : [])
+        .filter(a => groupeCouvreClasse(a.groupe, groupe))
+      const profIds = [...new Set(affectationsClasse.map(a => a.prof_id).filter(Boolean))]
+      const profRes = profIds.length
+        ? await supabase.from('users').select('id,prenom,nom,langue,fonction').in('id', profIds)
+        : { data: [], error: null }
+      if (annule) return
+      if (profRes.error) { setEtat('erreur'); setMessage(`Enseignants indisponibles : ${profRes.error.message}`); return }
+      if (pilotageRes.error) { setEtat('erreur'); setMessage(`Pilotage pédagogique indisponible : ${pilotageRes.error.message}`); return }
+      const profs = new Map((Array.isArray(profRes.data) ? profRes.data : []).map(p => [String(p.id), p]))
+      const heures = (Array.isArray(pilotageRes.data) ? pilotageRes.data : [])
+        .filter(h => String(h.classe_id) === String(eleve.classe_id))
+      const liste = affectationsClasse.map(a => {
+        const reglage = heures.find(h => normaliser(h.matiere) === normaliser(a.matiere))
+        const prof = profs.get(String(a.prof_id))
+        return { ...a, prof, programme: (reglage?.langue || prof?.langue) === 'en' ? 'international' : 'national' }
+      })
+      setAffectations(liste)
+      setBulletins(Array.isArray(bulletinsRes.data) ? bulletinsRes.data : [])
+      setMatiereActive(active => liste.some(a => a.matiere === active && String(a.prof_id) === String(user.id))
+        ? active : liste.find(a => String(a.prof_id) === String(user.id))?.matiere || liste[0]?.matiere || '')
 
-        {/* BARRE BLEU FONCÉ : TRIMESTRE 2 ET ANNÉE SCOLAIRE */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ display: 'inline-block', background: '#0f172a', color: '#ffffff', padding: '14px 44px', borderRadius: 36, border: '2.5px solid #d97706', boxShadow: '0 6px 20px rgba(15,23,42,0.25)' }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '2px', textTransform: 'uppercase' }}>
-              📊 RELEVÉ OFFICIEL • 2ÈME TRIMESTRE (2026 - 2027)
-            </div>
-          </div>
-        </div>
+      const lignePhoto = photoRes.data?.[0]
+      if (lignePhoto?.photo_base64) setPhotos(p => ({ ...p, [eleve.id]: lignePhoto.photo_base64 }))
+      else if (lignePhoto?.photo_chemin) {
+        const signee = await supabase.storage.from('inscriptions').createSignedUrl(lignePhoto.photo_chemin, 3600)
+        if (!annule && signee.data?.signedUrl) setPhotos(p => ({ ...p, [eleve.id]: signee.data.signedUrl }))
+      }
+      setEtat('ok')
+    })()
+    return () => { annule = true }
+  }, [eleve?.id, eleve?.classe_id, eleve?.classes?.nom, user.id])
 
-        {/* FICHE ÉLÈVE EN FOND PASTEL DORE SANS BORDURES */}
-        <div style={{ background: '#fffbeb', borderRadius: 24, padding: '20px 24px', marginBottom: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-            <div>
-              <span style={{ fontSize: 11, fontWeight: 900, color: '#b45309', textTransform: 'uppercase', display: 'block' }}>ÉLÈVE</span>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#0f172a' }}>{studentData.nom} {studentData.prenom}</span>
-            </div>
-            <div>
-              <span style={{ fontSize: 11, fontWeight: 900, color: '#b45309', textTransform: 'uppercase', display: 'block' }}>MATRICULE</span>
-              <span style={{ fontSize: 16, fontWeight: 900, color: '#d97706' }}>{studentData.matricule}</span>
-            </div>
-            <div>
-              <span style={{ fontSize: 11, fontWeight: 900, color: '#b45309', textTransform: 'uppercase', display: 'block' }}>CLASSE</span>
-              <span style={{ fontSize: 16, fontWeight: 900, color: '#047857' }}>{studentData.classe}</span>
-            </div>
-            <div>
-              <span style={{ fontSize: 11, fontWeight: 900, color: '#b45309', textTransform: 'uppercase', display: 'block' }}>EFFECTIF DE CLASSE</span>
-              <span style={{ fontSize: 16, fontWeight: 900, color: '#0284c7' }}>{studentData.effectif.total} Élèves</span>
-            </div>
-          </div>
-        </div>
+  const bulletin = bulletins.find(b => b.trimestre === trimestre && b.annee_scolaire === anneeScolaire())
+  const matieres = useMemo(() => {
+    const sauvegardees = bulletin?.donnees?.matieres || {}
+    const fusion = { ...sauvegardees }
+    affectations.forEach(a => {
+      if (!fusion[a.matiere]) fusion[a.matiere] = matiereVide(a.programme)
+      else fusion[a.matiere] = { ...fusion[a.matiere], programme: fusion[a.matiere].programme || a.programme }
+    })
+    return fusion
+  }, [bulletin, affectations])
 
-        {/* PROGRAMME MALIEN (FOND VERT MENTHE SOFT SANS BORDURES) */}
-        <div style={{ background: '#dcfce7', borderRadius: 24, padding: '22px', marginBottom: 24 }}>
-          <div style={{ background: '#047857', color: '#ffffff', padding: '10px 18px', borderRadius: 14, fontWeight: 900, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 16 }}>
-            🇲🇱 PROGRAMME NATIONAL MALIEN
-          </div>
+  const cleBrouillon = `${eleve?.id || ''}:${trimestre}:${matiereActive}`
+  const configurationActive = affectations.find(a => a.matiere === matiereActive)
+  const peutModifier = String(configurationActive?.prof_id) === String(user.id)
+  const saisie = brouillons[cleBrouillon] || matieres[matiereActive] || matiereVide(configurationActive?.programme || 'national')
+  const modifierSaisie = prochaine => setBrouillons(tous => ({ ...tous, [cleBrouillon]: prochaine }))
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#ffffff', borderRadius: 14, overflow: 'hidden' }}>
-            <thead>
-              <tr style={{ background: '#0f172a', color: '#ffffff', textAlign: 'left', fontSize: 12, textTransform: 'uppercase' }}>
-                <th style={{ padding: '10px 14px' }}>Matières</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Moy. T1</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Écrit T2</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Oral T2</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Moyenne T2</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Évolution</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dataMalien.map((item, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                  <td style={{ padding: '10px 14px', fontWeight: 800, color: '#0f172a' }}>{item.matiere}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', color: '#64748b' }}>{item.moyT1}%</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>{item.ecritT2 ? `${item.ecritT2}%` : '-'}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>{item.oralT2 ? `${item.oralT2}%` : '-'}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#047857', fontSize: 14 }}>{item.moyT2}%</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>{renderEvolution(item.moyT1, item.moyT2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+  const enregistrer = async () => {
+    setMessage('')
+    const invalides = notesInvalides(saisie)
+    if (invalides.length) { setMessage('Chaque note doit être comprise entre 0 et son barème.'); return }
+    setEtat('sauvegarde')
+    const { error } = await supabase.rpc('sauver_evaluation_primaire', {
+      p_eleve_id: eleve.id, p_trimestre: trimestre, p_annee_scolaire: anneeScolaire(),
+      p_matiere: matiereActive, p_notes: saisie.notes, p_appreciation: saisie.appreciation || '',
+    })
+    if (error) { setEtat('ok'); setMessage(`Enregistrement impossible : ${error.message}`); return }
+    const relu = await supabase.rpc('lire_bulletins_primaire', { p_eleve_ids: [eleve.id] })
+    if (relu.error) { setEtat('ok'); setMessage(`Évaluation enregistrée, mais relecture impossible : ${relu.error.message}`); return }
+    setBulletins(Array.isArray(relu.data) ? relu.data : [])
+    setBrouillons(tous => { const copie = { ...tous }; delete copie[cleBrouillon]; return copie })
+    setEtat('ok'); setMessage('Évaluation enregistrée et intégrée au bulletin commun.')
+  }
 
-        {/* PROGRAMME INTERNATIONAL (FOND BLEU SOFT SANS BORDURES) */}
-        <div style={{ background: '#e0f2fe', borderRadius: 24, padding: '22px', marginBottom: 24 }}>
-          <div style={{ background: '#0284c7', color: '#ffffff', padding: '10px 18px', borderRadius: 14, fontWeight: 900, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 16 }}>
-            🇬🇧 PROGRAMME INTERNATIONAL BILINGUE
-          </div>
+  const donneesParTrimestre = Object.fromEntries(TRIMESTRES_PRIMAIRE.map(t => {
+    const ligne = bulletins.find(b => b.trimestre === t.id && b.annee_scolaire === anneeScolaire())
+    return [t.id, moyenneEnsemble(ligne?.donnees?.matieres)]
+  }))
+  const nationales = Object.fromEntries(Object.entries(matieres).filter(([, m]) => m.programme === 'national'))
+  const internationales = Object.fromEntries(Object.entries(matieres).filter(([, m]) => m.programme === 'international'))
+  const moyenneNationale = moyenneEnsemble(nationales)
+  const moyenneInternationale = moyenneEnsemble(internationales)
+  const moyenneGlobale = moyenneEnsemble(matieres)
+  const moyennesEcrit = Object.values(matieres).map(m => moyenneModalite(m.notes?.ecrit)).filter(Number.isFinite)
+  const moyennesOral = Object.values(matieres).map(m => moyenneModalite(m.notes?.oral)).filter(Number.isFinite)
+  const moyenneEcrit = moyennesEcrit.length ? moyennesEcrit.reduce((a, b) => a + b, 0) / moyennesEcrit.length : null
+  const moyenneOral = moyennesOral.length ? moyennesOral.reduce((a, b) => a + b, 0) / moyennesOral.length : null
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#ffffff', borderRadius: 14, overflow: 'hidden' }}>
-            <thead>
-              <tr style={{ background: '#0f172a', color: '#ffffff', textAlign: 'left', fontSize: 12, textTransform: 'uppercase' }}>
-                <th style={{ padding: '10px 14px' }}>International Subjects</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Moy. T1</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Written T2</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Oral T2</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Moyenne T2</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center' }}>Progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dataInternational.map((item, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                  <td style={{ padding: '10px 14px', fontWeight: 800, color: '#0f172a' }}>{item.matiere}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', color: '#64748b' }}>{item.moyT1}%</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>{item.ecritT2 ? `${item.ecritT2}%` : '-'}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>{item.oralT2 ? `${item.oralT2}%` : '-'}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 900, color: '#0284c7', fontSize: 14 }}>{item.moyT2}%</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>{renderEvolution(item.moyT1, item.moyT2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+  if (!primaire.length) return <div className="empty-state"><p>Aucun élève du primaire dans vos classes.</p></div>
 
-        {/* BLOC SIGNATURES & EVALUATION DU DIRECTEUR */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 20 }}>
-          <div style={{ background: '#ffffff', border: '2px solid #0f172a', borderRadius: 16, padding: '14px', textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', marginBottom: 8 }}>L'ENSEIGNANT TITULAIRE</div>
-            <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>(Visa &amp; Signature)</div>
-          </div>
-          <div style={{ background: '#ffffff', border: '2px solid #0f172a', borderRadius: 16, padding: '14px', textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', marginBottom: 8 }}>LE DIRECTEUR GÉNÉRAL</div>
-            <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>(Signature &amp; Cachet)</div>
-          </div>
-          <div style={{ background: '#ffffff', border: '2px solid #0f172a', borderRadius: 16, padding: '14px', textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', marginBottom: 8 }}>LES PARENTS D'ÉLÈVE</div>
-            <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>(Signature &amp; Date)</div>
-          </div>
-        </div>
-
-        {/* FOOTER GARANTIE */}
-        <div style={{ borderTop: '2px solid rgba(217,119,6,0.3)', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, color: '#b45309' }}>
-            🏅 EXCELLENCE ACADÉMIQUE BILINGUE ACCRÉDITÉE
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-            {NOM_ECOLE.toUpperCase()} — Bamako, Mali
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        @media print {
-          .no-print, header, nav, .topbar, .bottom-nav, button {
-            display: none !important;
-          }
-          body {
-            background: #fff !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          #bulletin-print-area {
-            box-shadow: none !important;
-            border: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 10mm !important;
-          }
-        }
-      `}</style>
+  return <section className="bp-studio">
+    <header className="bp-studio-title"><div><span>PRIMAIRE</span><h2>Évaluations &amp; bulletin trimestriel</h2><p>Écrit et oral sont calculés séparément, puis réunis sans pénaliser une modalité non évaluée.</p></div><b>{etat === 'sauvegarde' ? 'Enregistrement…' : 'Données partagées'}</b></header>
+    {message && <div className={`bp-message ${etat === 'migration' || /impossible|doit être|comprise/i.test(message) ? 'is-error' : ''}`}>{message}</div>}
+    <div className="bp-toolbar">
+      <label>Élève<select value={eleve?.id || ''} onChange={e => setSelection(e.target.value)}>{primaire.map(e => <option key={e.id} value={e.id}>{e.prenom} {e.nom} · {e.classes?.nom}</option>)}</select></label>
+      <div>{TRIMESTRES_PRIMAIRE.map(t => <button key={t.id} className={trimestre === t.id ? 'is-active' : ''} onClick={() => setTrimestre(t.id)}>{t.label}</button>)}</div>
     </div>
-  );
+
+    {(etat === 'chargement' || etat === 'migration' || etat === 'erreur') ? <div className="bp-state">{etat === 'chargement' ? 'Chargement du bulletin…' : message}</div> : <>
+      <div className="bp-workspace">
+        <nav className="bp-subject-nav" aria-label="Matières du bulletin">
+          {affectations.map(a => <button key={a.matiere} className={matiereActive === a.matiere ? 'is-active' : ''} onClick={() => setMatiereActive(a.matiere)}>
+            <span>{a.programme === 'international' ? 'EN' : 'FR'}</span><b>{a.matiere}</b><small>{String(a.prof_id) === String(user.id) ? 'À renseigner par vous' : `${a.prof?.prenom || ''} ${a.prof?.nom || ''}`.trim() || 'Autre enseignant'}</small>
+          </button>)}
+        </nav>
+        {matiereActive && <article className="bp-editor">
+          <header><div><small>{configurationActive?.programme === 'international' ? 'PROGRAMME INTERNATIONAL · ENGLISH' : 'PROGRAMME NATIONAL · FRANÇAIS'}</small><h3>{matiereActive}</h3></div><strong style={{ color: teinte(moyenneMatiere(saisie)) }}>{formatNote(moyenneMatiere(saisie))}</strong></header>
+          {!peutModifier ? <div className="bp-locked">Cette matière est visible dans le bulletin commun, mais seul l’enseignant qui en a l’affectation peut la renseigner.</div> : <>
+            <div className="bp-modalities">
+              <EditeurModalite titre="Évaluations écrites" couleur="#f97316" notes={saisie.notes?.ecrit} onChange={notes => modifierSaisie({ ...saisie, notes: { ...saisie.notes, ecrit: notes } })} />
+              <EditeurModalite titre="Évaluations orales" couleur="#2563eb" notes={saisie.notes?.oral} onChange={notes => modifierSaisie({ ...saisie, notes: { ...saisie.notes, oral: notes } })} />
+            </div>
+            <label className="bp-comment">Commentaire de l’enseignant<textarea value={saisie.appreciation || ''} onChange={e => modifierSaisie({ ...saisie, appreciation: e.target.value })} placeholder="Une observation concrète : acquis, progrès et prochain point à travailler…" /></label>
+            <button className="bp-save" onClick={enregistrer} disabled={etat === 'sauvegarde'}>Enregistrer cette matière</button>
+          </>}
+        </article>}
+      </div>
+
+      <div className="bp-formula"><b>Règle de calcul affichée aux familles</b><span>Note ramenée sur 20 → moyenne des écrits et moyenne des oraux → moyenne des modalités disponibles → moyenne générale des matières évaluées.</span></div>
+      <div className="bp-report-actions"><button onClick={() => window.print()}>🖨️ Imprimer le bulletin</button></div>
+
+      <article className="bp-report" id="bulletin-primaire-print">
+        <section className="bp-page">
+          <EnteteBulletin trimestre={trimestre} />
+          <div className="bp-identity">
+            <div className="bp-photo">{photos[eleve.id] ? <img src={photos[eleve.id]} alt={`Photo de ${eleve.prenom} ${eleve.nom}`} /> : <span>PHOTO<br />OFFICIELLE</span>}</div>
+            <div><small>ÉLÈVE</small><h1>{eleve.prenom} {eleve.nom}</h1><p>{eleve.classes?.nom} · Matricule {eleve.matricule || '—'}</p></div>
+            <b>{TRIMESTRES_PRIMAIRE.find(t => t.id === trimestre)?.label}<small>{anneeScolaire()}</small></b>
+          </div>
+          <div className="bp-kpis">
+            <article className="is-orange"><span>ÉCRIT</span><b>{formatNote(moyenneEcrit)}</b><i style={{ '--value': `${Number.isFinite(moyenneEcrit) ? moyenneEcrit * 5 : 0}%` }} /></article>
+            <article className="is-blue"><span>ORAL</span><b>{formatNote(moyenneOral)}</b><i style={{ '--value': `${Number.isFinite(moyenneOral) ? moyenneOral * 5 : 0}%` }} /></article>
+            <article className="is-green"><span>MOYENNE DU TRIMESTRE</span><b>{formatNote(moyenneGlobale)}</b><small>{appreciationAuto(moyenneGlobale)}</small></article>
+            <article className="is-pink"><span>MATIÈRES ÉVALUÉES</span><b>{Object.values(matieres).filter(m => Number.isFinite(moyenneMatiere(m))).length} / {Object.keys(matieres).length}</b><small>toutes langues réunies</small></article>
+          </div>
+          <section className="bp-report-section">
+            <div className="bp-section-title"><span>01</span><div><h2>Évolution de l’année</h2><p>Une lecture immédiate des moyennes trimestrielles déjà disponibles.</p></div></div>
+            <div className="bp-evolution">{TRIMESTRES_PRIMAIRE.map(t => { const note = donneesParTrimestre[t.id]; return <div key={t.id}><b>{t.label}</b><i><span style={{ height: `${Number.isFinite(note) ? Math.max(8, note * 5) : 0}%`, background: teinte(note) }} /></i><strong>{formatPourcent(note)}</strong></div> })}</div>
+          </section>
+          <section className="bp-dual-summary"><article><span>PROGRAMME NATIONAL</span><b>{formatNote(moyenneNationale)}</b><small>{Object.keys(nationales).length} matière(s)</small></article><article><span>PROGRAMME INTERNATIONAL</span><b>{formatNote(moyenneInternationale)}</b><small>{Object.keys(internationales).length} subject(s)</small></article></section>
+          <section className="bp-report-section">
+            <div className="bp-section-title"><span>02</span><div><h2>Profil pédagogique</h2><p>Chaque jauge correspond à une moyenne de matière, sur 20.</p></div></div>
+            <div className="bp-subject-gauges">{Object.entries(matieres).map(([nom, valeur]) => { const note = moyenneMatiere(valeur); return <div key={nom}><span>{nom}</span><i><b style={{ width: `${Number.isFinite(note) ? note * 5 : 0}%`, background: teinte(note) }} /></i><strong>{formatPourcent(note)}</strong></div> })}</div>
+          </section>
+          <div className="bp-page-number">Page 1 / 3</div>
+        </section>
+
+        <section className="bp-page">
+          <EnteteBulletin trimestre={trimestre} />
+          <ProgrammeTable titre="Programme national malien" sousTitre="Matières enseignées et commentées en français." programme="national" matieres={matieres} couleur="#10b981" />
+          <div className="bp-page-number">Page 2 / 3</div>
+        </section>
+
+        <section className="bp-page">
+          <EnteteBulletin trimestre={trimestre} />
+          <ProgrammeTable titre="International programme" sousTitre="Subjects taught and assessed in English." programme="international" matieres={matieres} couleur="#2563eb" />
+          <section className="bp-report-section bp-reading-key"><div className="bp-section-title"><span>03</span><div><h2>Clé de lecture</h2><p>Les résultats restent compréhensibles, même lorsqu’une matière n’utilise qu’une modalité.</p></div></div><div><p><b>Écrit</b> moyenne des contrôles écrits, chaque note étant ramenée sur 20.</p><p><b>Oral</b> moyenne des évaluations orales, chaque note étant ramenée sur 20.</p><p><b>Moyenne matière</b> moyenne de l’écrit et de l’oral lorsqu’ils existent ; sinon, seule la modalité évaluée compte.</p><p><b>Moyenne trimestrielle</b> moyenne des matières effectivement évaluées.</p></div></section>
+          <footer className="bp-signatures"><div><b>ENSEIGNANT(E) · FRANÇAIS</b><span>Visa et observations</span></div><div><b>TEACHER · ENGLISH</b><span>Visa and comments</span></div><div><b>DIRECTION</b><span>Signature et cachet</span></div></footer>
+          <p className="bp-footer-note">{NOM_ECOLE} · Ce bulletin rend compte des apprentissages observés pendant la période. Une case vide signifie « non évalué », jamais zéro.</p>
+          <div className="bp-page-number">Page 3 / 3</div>
+        </section>
+      </article>
+    </>}
+  </section>
 }
