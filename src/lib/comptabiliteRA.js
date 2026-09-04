@@ -125,10 +125,16 @@ export const normalizeEtatComptable = raw => {
 
 export const paiementsActifs = student => (student.history || []).filter(p => !p.cancelled)
 export const totalPaye = student => paiementsActifs(student).reduce((sum, p) => sum + Number(p.amount || 0), 0)
-const TARIFS = {
+export const TARIFS = {
   maternelle: { inscription: 55000, fournitures: 50000, cotisation: 45000, scolarite: 625000, cantine: 243000 },
   primaire: { inscription: 60000, fournitures: 70000, cotisation: 45000, scolarite: 750000, cantine: 305000 },
 }
+
+export const categorieTarifaire = classe => ['ps', 'gs'].includes(cleClassePrevisionnelle(classe))
+  ? 'maternelle'
+  : 'primaire'
+
+export const tarifPourClasse = classe => TARIFS[categorieTarifaire(classe)]
 
 export const EFFECTIFS_PREVISIONNELS = { ps:13, gs:20, cp1:22, cp2:18, ce1:7, ce2:4, cm1:3, cm2:3 }
 const moisPrevision = ['Oct.','Nov.','Déc.','Jan.','Fév.','Mars','Avr.','Mai','Juin']
@@ -141,7 +147,7 @@ export const previsionFinanciere = etat => {
   const tauxCantine = Number(etat.tauxCantine ?? 90) / 100
   let recettesScolarite = 0; let recettesCantine = 0
   Object.entries(effectifs).forEach(([classe,effectif]) => {
-    const tarif = TARIFS[['ps','gs'].includes(classe) ? 'maternelle' : 'primaire']
+    const tarif = tarifPourClasse(classe)
     recettesScolarite += (tarif.inscription + tarif.fournitures + tarif.cotisation + tarif.scolarite) * Number(effectif || 0) * tauxRecouvrement
     recettesCantine += tarif.cantine * Number(effectif || 0) * tauxCantine
   })
@@ -179,7 +185,7 @@ export const situationCaisse = etat => {
 export const totalDu = student => {
   const explicite = Number(student.totalAnnuel || student.total || student.montantTotal || 0)
   if (explicite > 0) return explicite
-  const tarif = TARIFS[['ps', 'gs'].includes(student.classe) ? 'maternelle' : 'primaire']
+  const tarif = tarifPourClasse(student.classe)
   let total = tarif.inscription + tarif.fournitures + tarif.cotisation + tarif.scolarite
   if (student.cantine) total += tarif.cantine
   ;(student.reductions || []).filter(r => r.actif !== false).forEach(reduction => {

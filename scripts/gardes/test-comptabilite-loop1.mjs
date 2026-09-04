@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  protegerMutationSalariale, salairesDepuisPostes, synchroniserEleves, trouverClasseCanonique,
+  categorieTarifaire, protegerMutationSalariale, resteDu, salairesDepuisPostes, synchroniserEleves,
+  tarifPourClasse, totalDu, trouverClasseCanonique,
 } from '../../src/lib/comptabiliteRA.js'
 
 const composant = readFileSync('src/pages/ComptabiliteRA.jsx', 'utf8')
@@ -59,6 +60,33 @@ test('SYNC5 · une correction administrative actualise l’identité comptable',
   assert.deepEqual(fiche.reductions, reductions)
 })
 
+test('TARIF1 · PS et GS utilisent le tarif maternelle avec leurs libellés canoniques', () => {
+  assert.equal(categorieTarifaire('Petite Section'), 'maternelle')
+  assert.equal(categorieTarifaire('Grande Section bilingue'), 'maternelle')
+  assert.equal(totalDu({ classe:'Petite Section', cantine:true }), 1018000)
+  assert.equal(totalDu({ classe:'Grande Section', cantine:true }), 1018000)
+})
+test('TARIF2 · sans cantine, le socle PS-GS reste exactement à 775 000 FCFA', () => {
+  assert.equal(totalDu({ classe:'PS', cantine:false }), 775000)
+  assert.equal(totalDu({ classe:'gs', cantine:false }), 775000)
+})
+test('TARIF3 · le primaire conserve son total de 1 230 000 FCFA avec cantine', () => {
+  for (const classe of ['CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2']) {
+    assert.equal(categorieTarifaire(classe), 'primaire')
+    assert.equal(totalDu({ classe, cantine:true }), 1230000)
+  }
+  assert.equal(tarifPourClasse('CE1').scolarite, 750000)
+})
+test('TARIF4 · paiements et réductions restent déduits après correction du barème', () => {
+  const eleve = {
+    classe:'Petite Section', cantine:true,
+    history:[{ amount:100000 }, { amount:50000, cancelled:true }],
+    reductions:[{ montant:18000 }],
+  }
+  assert.equal(totalDu(eleve), 1000000)
+  assert.equal(resteDu(eleve), 900000)
+})
+
 const courant = { salaires:[{id:'s',mensuel:100}], paies:{'2026-08':[{statut:'En attente'}]}, charges:[{id:'salaires',montant:1200},{id:'loyer',montant:500}] }
 const attaque = { salaires:[{id:'s',mensuel:1}], paies:{'2026-08':[{statut:'Payé'}]}, charges:[{id:'salaires',montant:12},{id:'loyer',montant:600}] }
 test('SAL1 · la protection métier restaure salaires, paie et charge salariale du RA', () => {
@@ -95,5 +123,5 @@ test('IMP2 mutation · le gestionnaire refuse explicitement le RA', () => {
   assert.match(composant, /const importer = event => \{\s*if \(user\?\.role !== 'directeur'\)/)
 })
 
-console.log(echecs ? `\n${echecs} garde(s) loop 1 en échec.` : '\n12 gardes loop 1 au vert.')
+console.log(echecs ? `\n${echecs} garde(s) loop 1 en échec.` : '\n16 gardes loop 1 au vert.')
 process.exit(echecs ? 1 : 0)
