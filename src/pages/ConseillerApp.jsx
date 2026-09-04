@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { messageLisible } from '../lib/chargement'
 import AgendaCalendrier from './AgendaCalendrier'
 import NotificationCenter from './NotificationCenter'
+import RelationsFamilles from './RelationsFamilles'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import { NOM_ECOLE } from '../lib/ecole'
 
@@ -286,40 +287,40 @@ export default function ConseillerApp({ user, onLogout }) {
         <div className="topbar-brand">
           <div>
             <div className="topbar-logo">IDEAL</div>
-            <div className="topbar-sub">Conseiller Vie Scolaire</div>
+            <div className="topbar-sub">Relations familles & Vie scolaire</div>
           </div>
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <NotificationCenter user={user} role="conseiller" onNavigateTab={setTab} />
-          <span className="role-badge" style={{background:'var(--accent)', color:'#fff'}}>CVS</span>
+          <span className="role-badge" style={{background:'var(--accent)', color:'#fff'}}>RF</span>
           <button className="btn-logout" onClick={onLogout} style={{marginLeft:10}}>Déconnexion</button>
         </div>
       </div>
 
       <div className="bottom-nav">
-        <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} aria-label="Tableau de bord">
-          <div className="nav-icon" aria-hidden="true">📊</div>
-          <span>Stats</span>
+        <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} aria-label="Priorités du jour">
+          <div className="nav-icon" aria-hidden="true">🏠</div>
+          <span>Accueil</span>
         </button>
-        <button className={`nav-item ${tab==='inscriptions'?'active':''}`} onClick={()=>setTab('inscriptions')} aria-label="Liste des élèves">
-          <div className="nav-icon" aria-hidden="true">🎒</div>
-          <span>Élèves</span>
+        <button className={`nav-item ${tab==='prospects'?'active':''}`} onClick={()=>setTab('prospects')} aria-label="Prospects inscription">
+          <div className="nav-icon" aria-hidden="true">👪</div>
+          <span>Prospects</span>
         </button>
-        <button className={`nav-item ${tab==='pointage'?'active':''}`} onClick={()=>setTab('pointage')} aria-label="Pointage des présences">
-          <div className="nav-icon" aria-hidden="true">⏰</div>
-          <span>Pointage</span>
+        <button className={`nav-item ${tab==='suivi'?'active':''}`} onClick={()=>setTab('suivi')} aria-label="Suivi des familles">
+          <div className="nav-icon" aria-hidden="true">☎️</div>
+          <span>Suivi</span>
         </button>
-        <button className={`nav-item ${tab==='agenda'?'active':''}`} onClick={()=>setTab('agenda')} aria-label="Agenda et anniversaires">
+        <button className={`nav-item ${tab==='anniversaires'?'active':''}`} onClick={()=>setTab('anniversaires')} aria-label="Anniversaires des élèves">
+          <div className="nav-icon" aria-hidden="true">🎂</div>
+          <span>Anniv.</span>
+        </button>
+        <button className={`nav-item ${tab==='visiteurs'?'active':''}`} onClick={()=>setTab('visiteurs')} aria-label="Registre des visiteurs">
+          <div className="nav-icon" aria-hidden="true">🪪</div>
+          <span>Visites</span>
+        </button>
+        <button className={`nav-item ${tab==='agenda'?'active':''}`} onClick={()=>setTab('agenda')} aria-label="Agenda scolaire">
           <div className="nav-icon" aria-hidden="true">📅</div>
           <span>Agenda</span>
-        </button>
-        <button className={`nav-item ${tab==='rapports'?'active':''}`} onClick={()=>setTab('rapports')} aria-label="Rapports hebdomadaires">
-          <div className="nav-icon" aria-hidden="true">📄</div>
-          <span>Rapports</span>
-        </button>
-        <button className={`nav-item ${tab==='retards'?'active':''}`} onClick={()=>setTab('retards')} aria-label="Bilan des retards trimestriels">
-          <div className="nav-icon" aria-hidden="true">📊</div>
-          <span>Retards</span>
         </button>
       </div>
 
@@ -348,43 +349,19 @@ export default function ConseillerApp({ user, onLogout }) {
         )}
         {tab === 'dashboard' && (
           <>
-            <div className="section-head"><div className="section-title">Tableau de Bord</div></div>
-            {(() => {
-              const proch = eleves
-                .map(e => ({ e, j: joursAvantAnniv(e.date_naissance) }))
-                .filter(x => x.j !== null && x.j <= 5)
-                .sort((a, b) => a.j - b.j)
-              if (!proch.length) return null
-              return (
-                <div style={{background:'linear-gradient(135deg,#EC008C,#b8005f)', color:'#fff', borderRadius:14, padding:'14px 16px', marginBottom:16}}>
-                  <div style={{fontWeight:800, fontSize:14, marginBottom:6}}>🎂 Anniversaires à venir (5 jours)</div>
-                  {proch.map(({e, j}) => (
-                    <div key={e.id} style={{fontSize:12, opacity:.95, marginTop:3}}>
-                      {e.prenom} {e.nom} — {j === 0 ? "aujourd'hui 🎉" : j === 1 ? 'demain' : `dans ${j} jours`}
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
-              <div className="kpi-card kpi-accent">
-                <div className="kpi-value">{eleves.length}</div>
-                <div className="kpi-label">Élèves inscrits</div>
-              </div>
-              <div className="kpi-card kpi-green">
-                <div className="kpi-value">{Object.values(presences).filter(p=>p.statut==='present').length}</div>
-                <div className="kpi-label">Présents ce matin</div>
-              </div>
-              <div className="kpi-card kpi-amber">
-                <div className="kpi-value">{Object.values(presences).filter(p=>p.statut==='retard').length}</div>
-                <div className="kpi-label">En retard</div>
-              </div>
-              <div className="kpi-card kpi-pink">
-                <div className="kpi-value">{Object.values(presences).filter(p=>p.statut==='absent').length}</div>
-                <div className="kpi-label">Absents</div>
-              </div>
+            <RelationsFamilles section="dashboard" setSection={setTab} eleves={eleves} classes={classes} presences={presences} disciplines={disciplines} />
+            <div className="section-head" style={{marginTop:18}}><div className="section-title">Outils de vie scolaire</div></div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(2,minmax(0,1fr))', gap:10, marginBottom:20}}>
+              <button className="kpi-card kpi-accent" onClick={()=>setTab('inscriptions')} style={{textAlign:'left',cursor:'pointer'}}><div className="kpi-value">{eleves.length}</div><div className="kpi-label">Annuaire des élèves</div></button>
+              <button className="kpi-card kpi-green" onClick={()=>setTab('pointage')} style={{textAlign:'left',cursor:'pointer'}}><div className="kpi-value">⏰</div><div className="kpi-label">Mon pointage</div></button>
+              <button className="kpi-card kpi-amber" onClick={()=>setTab('rapports')} style={{textAlign:'left',cursor:'pointer'}}><div className="kpi-value">📄</div><div className="kpi-label">Rapports familles</div></button>
+              <button className="kpi-card kpi-pink" onClick={()=>setTab('retards')} style={{textAlign:'left',cursor:'pointer'}}><div className="kpi-value">📊</div><div className="kpi-label">Bilan des retards</div></button>
             </div>
           </>
+        )}
+
+        {['prospects','suivi','anniversaires','visiteurs'].includes(tab) && (
+          <RelationsFamilles section={tab} setSection={setTab} eleves={eleves} classes={classes} presences={presences} disciplines={disciplines} />
         )}
 
         {tab === 'inscriptions' && (
