@@ -170,6 +170,9 @@ function ReglageDirection({ config, onDone, busy }) {
     <div className="card" style={{ padding: 15, marginBottom: 15, borderLeft: '4px solid #7c3aed' }}>
       <h3 style={{ margin: 0, fontSize: 16 }}>⚙️ Barème du circuit</h3>
       <p style={{ fontSize: 12, color: 'var(--muted)' }}>Seule la Direction peut modifier ces valeurs.</p>
+      <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+        Barème en vigueur : {valeurs.points_preparation ?? 20} points à partir de {valeurs.heures_points_pleins ?? 24} h d’avance, puis retrait d’un point par heure jusqu’au seuil de {valeurs.heures_minimum ?? 5} h. Sous ce seuil, la préparation vaut 0 et les rubriques de l’assistante sont neutralisées. Le dernier maillon non accompli porte la responsabilité.
+      </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 8 }}>
         {champs.map(([cle, label]) => <label className="form-group" key={cle}><span>{label}</span><input className="form-input" type="number" min="0" step="1" value={valeurs[cle] ?? ''} onChange={e => setValeurs({ ...valeurs, [cle]: Number(e.target.value) })} /></label>)}
       </div>

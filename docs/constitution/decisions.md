@@ -85,6 +85,11 @@ l'escalade par le surveillant ; **10 points** pour la fourniture finale par le
 responsable administratif. Une préparation reçue à moins de cinq heures du cours
 ne pénalise pas l'assistante. Le dernier maillon qui n'a pas accompli son action à
 temps porte la responsabilité. Le barème reste modifiable par la Direction seule.
+Entre 24 heures et 5 heures, le retrait est calculé au prorata exact selon la
+formule `max(0 ; 20 - (24 - heures d'avance))`. Le maximum théorique est de 60
+points lorsque les cinq rubriques sont applicables ; une rubrique non applicable
+est neutralisée. Cette règle est désormais inscrite au § 28 quater D et à
+l'Annexe J.3 du Référentiel pédagogique officiel.
 
 **Fondement V2.1 §§11, 15, 16 et 18** — l'assistante contribue au cours et au
 matériel, le stock suit demandes et livraisons, l'attribution des points repose sur
@@ -92,6 +97,17 @@ des critères validés, et chaque passage de relais conserve son auteur et son h
 
 **Invariants** : pas de seconde table de préparations, pas de second stock,
 identité de l'acteur lue depuis `auth.uid()`, journal append-only de chaque action.
+
+---
+
+### D6 — Pourcentages du bulletin maternelle · 04/09/2026 · ✅
+
+Le bulletin maternelle conserve ses indicateurs visuels en pourcentage : **TB =
+100 %**, **B = 75 %**, **M = 50 %**, **AR = 25 %**. Les compétences non évaluées
+sont exclues ; le score d'un domaine est la moyenne de ses compétences évaluées et
+la progression globale est la moyenne des domaines évalués. Ces pourcentages ne
+sont pas des notes académiques, ne classent pas les enfants et ne déterminent pas
+leur passage. La règle est inscrite au § M8.1 du Référentiel pédagogique officiel.
 
 ---
 

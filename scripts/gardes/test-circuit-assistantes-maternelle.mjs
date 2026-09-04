@@ -7,6 +7,7 @@ const composant = fs.readFileSync('src/pages/CircuitAssistantesMaternelle.jsx', 
 const prof = fs.readFileSync('src/pages/ProfApp.jsx', 'utf8')
 const surveillant = fs.readFileSync('src/pages/SurveillantApp.jsx', 'utf8')
 const direction = fs.readFileSync('src/pages/DirecteurApp.jsx', 'utf8')
+const bulletinMaternelle = fs.readFileSync('src/pages/BulletinMaternelleStudio.jsx', 'utf8')
 const decisions = fs.readFileSync('docs/constitution/decisions.md', 'utf8')
 const test = (nom, condition) => { assert.ok(condition, nom); console.log(`PASS — ${nom}`) }
 
@@ -27,5 +28,7 @@ test('le responsable administratif et la Direction voient chacun leur étape', /
 test('le matériel de la fiche préremplit la demande de l’assistante', /preparation\.contenu\?\.materiel/.test(composant) && /extraireMateriels/.test(composant))
 test('la demande de matériel exige une lecture déjà enregistrée', /contribution_assistante_requise/.test(sql) && /p\.contribution && !\(p\.materiels/.test(composant))
 test('les écrans exposent les cinq postes du barème', /Préparation/.test(composant) && /Lecture & apport/.test(composant) && /Matériel assistante/.test(composant) && /Surveillance/.test(composant) && /Administration/.test(composant))
+test('le bulletin maternelle explique son indicateur sans en faire une note', /TB 100 % · B 75 % · M 50 % · AR 25 %/.test(bulletinMaternelle) && /Sans classement ni effet automatique sur le passage/.test(bulletinMaternelle))
+test('le réglage Direction rappelle le barème en vigueur et la responsabilité du dernier maillon', /Barème en vigueur/.test(composant) && /heures_points_pleins/.test(composant) && /heures_minimum/.test(composant) && /dernier maillon non accompli/.test(composant))
 
-console.log('PASS — 17 gardes circuit assistantes maternelle')
+console.log('PASS — 19 gardes circuit assistantes maternelle')
