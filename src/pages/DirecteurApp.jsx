@@ -364,6 +364,19 @@ export default function DirecteurApp({ user, onLogout }) {
     return () => window.removeEventListener('popstate', suivreNavigation)
   }, [])
 
+  // Le Directeur demeure l'unique éditeur. Le Responsable administratif
+  // reçoit la grille mise à jour sans devoir fermer sa session comptable.
+  useEffect(() => {
+    if (!user?.id || !['directeur', 'responsable_administratif'].includes(user.role)) return undefined
+    const canal = supabase.channel(`rh-salaires-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'app=eq.rh' }, evenement => {
+        if (evenement.new?.key === 'postes' && Array.isArray(evenement.new.value)) setPostes(evenement.new.value)
+        if (evenement.new?.key === 'personnel' && evenement.new.value && typeof evenement.new.value === 'object') setPersonnelRH(evenement.new.value)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [user?.id, user?.role])
+
   const ouvrirModuleAdministration = (event, chemin) => {
     event.preventDefault()
     window.history.pushState({}, '', chemin)
@@ -594,12 +607,21 @@ export default function DirecteurApp({ user, onLogout }) {
         ...p,
         commentaire: (p.commentaire || '').replace(/Fati\s*DJIRÉ/gi, '').replace(/\(–\s*trilingue\)/gi, '').replace(/\(Fati\s*DJIRÉ\s*–\s*trilingue\)/gi, '').trim()
       }))
-      const rPostes = await modifierListePartagee({
-        app: 'rh', cle: 'postes', client: supabase,
-        transformer: liste => (liste.length > 0 ? nettoyerPostes(liste) : liste),
-      })
-      if (rPostes.ok) { if (rPostes.valeur.length > 0) setPostes(rPostes.valeur) }
-      else console.warn('Nettoyage des postes non persisté :', rPostes.message || rPostes.raison)
+      if (user.role === 'directeur') {
+        const rPostes = await modifierListePartagee({
+          app: 'rh', cle: 'postes', client: supabase,
+          transformer: liste => (liste.length > 0 ? nettoyerPostes(liste) : liste),
+        })
+        if (rPostes.ok) { if (rPostes.valeur.length > 0) setPostes(rPostes.valeur) }
+        else console.warn('Nettoyage des postes non persisté :', rPostes.message || rPostes.raison)
+      } else {
+        // Lecture stricte pour le Responsable administratif : ouvrir la page
+        // RH ou Comptabilité ne doit jamais réécrire la grille salariale.
+        const { data: grille, error: erreurGrille } = await supabase.from('app_state')
+          .select('value').eq('app', 'rh').eq('key', 'postes').maybeSingle()
+        if (erreurGrille) console.warn('Grille salariale non chargée :', erreurGrille.message)
+        else if (Array.isArray(grille?.value) && grille.value.length > 0) setPostes(grille.value)
+      }
 
       // Demandes RH soumises par les enseignants
       const { data: globalDem } = await supabase.from('app_state')
@@ -1539,7 +1561,8 @@ export default function DirecteurApp({ user, onLogout }) {
               {/* Grille Salariale complète */}
               <div className="card" style={{ marginBottom: 20, padding: '1.2rem' }}>
                 <div style={{ marginBottom: 14 }}>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel des Postes &amp; Salaires</h3>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💼 Référentiel des Postes &amp; Salaires · Lecture seule</h3>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Les montants sont définis par le Directeur et se synchronisent automatiquement dans ce compte.</div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -1828,7 +1851,7 @@ export default function DirecteurApp({ user, onLogout }) {
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{(postes || []).length} postes · {fcfa(masseSalariale)} par mois</div>
               </div>
               <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => { setPosteDraft(postes.map(p => ({ ...p }))); setShowModal('postes') }}>
-                ✏️ Éditer les Postes
+                ✏️ Modifier les postes et salaires
               </button>
             </div>
 
@@ -2681,9 +2704,9 @@ export default function DirecteurApp({ user, onLogout }) {
         <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
           <div className="modal" style={{maxHeight:'85vh', overflowY:'auto'}}>
             <div className="modal-handle"></div>
-            <div className="modal-title">💼 Postes & salaires</div>
+            <div className="modal-title">💼 Postes &amp; salaires — réservé au Directeur</div>
             <div style={{fontSize:11, color:'var(--muted)', marginBottom:12}}>
-              Référentiel unique des postes de l'école. Les montants alimentent la masse salariale de la comptabilité et le formulaire d'ajout de membre.
+              Référentiel unique des postes de l'école. Chaque montant enregistré est immédiatement repris dans le compte du Responsable administratif, dans la masse salariale comptable et dans le formulaire d'ajout de membre.
             </div>
             {posteDraft.map((p, i) => (
               <div key={i} style={{display:'flex', gap:6, alignItems:'center', marginBottom:8}}>

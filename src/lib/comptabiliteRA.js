@@ -9,6 +9,34 @@ const normaliserNomClasse = valeur => String(valeur || '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   .replace(/\s+bilingue\s*$/i, '').replace(/[^a-z0-9]/g, '')
 
+export const cleClassePrevisionnelle = valeur => {
+  const normalisee = normaliserNomClasse(valeur)
+  const aliases = {
+    ps: 'ps', petitesection: 'ps',
+    gs: 'gs', grandesection: 'gs',
+    cp1: 'cp1', cp2: 'cp2', ce1: 'ce1', ce2: 'ce2', cm1: 'cm1', cm2: 'cm2',
+  }
+  return aliases[normalisee] || null
+}
+
+export const comparerEffectifs = (etat, effectifsPrevus = {}) => {
+  const reels = (etat?.students || []).filter(student => !student.dateDepart).reduce((acc, student) => {
+    const cle = cleClassePrevisionnelle(student.classe)
+    if (cle) acc[cle] = (acc[cle] || 0) + 1
+    return acc
+  }, {})
+  const lignes = Object.entries(effectifsPrevus).map(([classe, prevu]) => {
+    const reel = Number(reels[classe] || 0)
+    const objectif = Number(prevu || 0)
+    return { classe, prevu: objectif, reel, ecart: reel - objectif }
+  })
+  return {
+    lignes,
+    prevu: lignes.reduce((s, ligne) => s + ligne.prevu, 0),
+    reel: lignes.reduce((s, ligne) => s + ligne.reel, 0),
+  }
+}
+
 export const trouverClasseCanonique = (libelle, classes = []) => {
   const cible = normaliserNomClasse(libelle)
   return (classes || []).find(classe => normaliserNomClasse(classe?.nom) === cible) || null

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  classeLabel, creerEcriturePaiement, downloadCsv, downloadJson, fcfa, filtrerEleves,
+  classeLabel, comparerEffectifs, creerEcriturePaiement, downloadCsv, downloadJson, fcfa, filtrerEleves,
   normalizeEtatComptable, previsionFinanciere, prochainRecu, protegerMutationSalariale, resteDu,
   salairesDepuisPostes, situationCaisse, syntheseComptable, synchroniserEleves, totalPaye,
 } from '../lib/comptabiliteRA'
@@ -31,6 +31,25 @@ const CourbeCaisse = ({ students }) => {
   })()).reduce((s,p) => s + Number(p.amount || 0), 0))
   const maximum = Math.max(1, ...valeurs); const points = valeurs.map((valeur,index) => `${8 + index * 18.4},${92 - valeur / maximum * 78}`).join(' ')
   return <div className="compta-ra__line-chart"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Évolution des encaissements des six derniers mois"><polyline points={points}/>{valeurs.map((valeur,index) => <circle key={index} cx={8 + index * 18.4} cy={92 - valeur / maximum * 78} r="1.8"><title>{fcfa(valeur)}</title></circle>)}</svg><div className="compta-ra__chart-labels">{mois.map(date => <small key={date.toISOString()}>{date.toLocaleDateString('fr-FR',{month:'short'})}</small>)}</div></div>
+}
+
+const ComparatifPrevisionReel = ({ etat, prevision, encaisse }) => {
+  const effectifs = comparerEffectifs(etat, prevision.effectifs)
+  const tauxEffectif = effectifs.prevu > 0 ? effectifs.reel / effectifs.prevu * 100 : 0
+  const tauxRecettes = prevision.recettes > 0 ? Number(encaisse || 0) / prevision.recettes * 100 : 0
+  const ecartEffectif = effectifs.reel - effectifs.prevu
+  return <div className="compta-ra__comparison">
+    <div className="compta-ra__comparison-summary">
+      <div><span>Effectif prévu</span><b>{effectifs.prevu}</b></div>
+      <div><span>Effectif réel</span><b>{effectifs.reel}</b></div>
+      <div><span>Écart</span><b className={ecartEffectif >= 0 ? 'compta-ra__positive' : 'compta-ra__negative'}>{ecartEffectif > 0 ? '+' : ''}{ecartEffectif}</b></div>
+    </div>
+    <div className="compta-ra__progress-line"><div><span>Réalisation de l’objectif d’effectif</span><b>{tauxEffectif.toFixed(0)}%</b></div><progress max="100" value={Math.min(100, tauxEffectif)}/></div>
+    <div className="compta-ra__progress-line"><div><span>Encaissements réels / recettes annuelles prévues</span><b>{tauxRecettes.toFixed(0)}%</b></div><progress max="100" value={Math.min(100, tauxRecettes)}/><small>{fcfa(encaisse)} encaissés sur {fcfa(prevision.recettes)} prévus</small></div>
+    <div className="compta-ra__table-wrap"><table className="compta-ra__table compta-ra__comparison-table"><thead><tr><th>Classe</th><th className="compta-ra__right">Prévu</th><th className="compta-ra__right">Réel</th><th className="compta-ra__right">Écart</th></tr></thead><tbody>
+      {effectifs.lignes.map(ligne => <tr key={ligne.classe}><td data-label="Classe">{classeLabel(ligne.classe)}</td><td data-label="Prévu" className="compta-ra__right">{ligne.prevu}</td><td data-label="Réel" className="compta-ra__right"><b>{ligne.reel}</b></td><td data-label="Écart" className={`compta-ra__right ${ligne.ecart >= 0 ? 'compta-ra__positive' : 'compta-ra__negative'}`}>{ligne.ecart > 0 ? '+' : ''}{ligne.ecart}</td></tr>)}
+    </tbody></table></div>
+  </div>
 }
 
 const Journal = ({ etat, enregistrer }) => {
@@ -344,6 +363,7 @@ export default function ComptabiliteRA({ supabase, user, classes = [], postes = 
           .map(([label, value]) => <div className="compta-ra__kpi" key={label}><div className="compta-ra__kpi-label">{label}</div><div className="compta-ra__kpi-value">{value}</div></div>)}
       </div>
       <div className="compta-ra__alert" data-level={caisse.couverture >= 2 ? 'ok' : caisse.couverture >= 1 ? 'watch' : 'urgent'}><b>{caisse.couverture >= 2 ? '✓ Trésorerie confortable' : caisse.couverture >= 1 ? '⚠ Trésorerie à surveiller' : '⛔ Recouvrement prioritaire'}</b><span>Couverture actuelle : {caisse.couverture.toFixed(1)} mois de charges. {caisse.urgenceRecouvrement > 0 ? `${fcfa(caisse.urgenceRecouvrement)} à recouvrer rapidement pour couvrir un mois.` : 'Les liquidités couvrent au moins un mois de charges.'}</span></div>
+      <div className="compta-ra__panel"><div className="compta-ra__section-head"><div><h2>Prévisionnel comparé au réel</h2><p className="compta-ra__subtitle">Les inscriptions validées alimentent automatiquement l’effectif réel. Les départs enregistrés en sont exclus.</p></div></div><ComparatifPrevisionReel etat={etat} prevision={prevision} encaisse={synthese.encaisse}/></div>
       <div className="compta-ra__grid"><div className="compta-ra__panel"><h2>Évolution des encaissements réels</h2><p className="compta-ra__subtitle">Six derniers mois, paiements confirmés uniquement.</p><CourbeCaisse students={etat.students}/></div>
       <div className="compta-ra__panel"><h2>Prévision entrées / sorties</h2><p className="compta-ra__subtitle">Scénario annuel de {prevision.totalEleves} élèves.</p><BarresFinancieres lignes={prevision.mensuel}/><div className="compta-ra__legend"><span>● Entrées</span><span>● Sorties</span></div></div></div>
       <div className="compta-ra__grid"><div className="compta-ra__panel"><h2>Situation et capacité</h2>
@@ -383,12 +403,13 @@ export default function ComptabiliteRA({ supabase, user, classes = [], postes = 
     </div></div>}
 
     {!chargement && onglet === 'previsions' && <div className="compta-ra__panel"><div className="compta-ra__section-head"><div><h2>Prévision financière — scénario {prevision.totalEleves} élèves</h2><p className="compta-ra__subtitle">Projection distincte des encaissements réels · recouvrement {(prevision.tauxRecouvrement*100).toFixed(0)}% · cantine {(prevision.tauxCantine*100).toFixed(0)}%.</p></div></div>
+      <ComparatifPrevisionReel etat={etat} prevision={prevision} encaisse={synthese.encaisse}/>
       <div className="compta-ra__kpis">{[['Élèves prévus',prevision.totalEleves],['Recettes scolarité',fcfa(prevision.recettesScolarite)],['Recettes cantine',fcfa(prevision.recettesCantine)],['Recettes totales',fcfa(prevision.recettes)],['Charges prévues',fcfa(prevision.charges)],['Résultat prévu',fcfa(prevision.resultat)]].map(([label,value]) => <div className="compta-ra__kpi" key={label}><div className="compta-ra__kpi-label">{label}</div><div className="compta-ra__kpi-value">{value}</div></div>)}</div>
       <div className="compta-ra__grid"><div><h3>Flux mensuels prévisionnels</h3><BarresFinancieres lignes={prevision.mensuel}/><div className="compta-ra__legend"><span>● Entrées</span><span>● Sorties</span></div></div><div><h3>Effectifs de référence</h3>{Object.entries(prevision.effectifs).map(([id,nombre]) => <div className="compta-ra__receipt-line" key={id}><span>{classeLabel(id)}</span><b>{nombre} élèves</b></div>)}</div></div>
       <div className="compta-ra__table-wrap"><table className="compta-ra__table"><thead><tr><th>Mois</th><th className="compta-ra__right">Entrées</th><th className="compta-ra__right">Sorties</th><th className="compta-ra__right">Solde</th><th className="compta-ra__right">Cumul</th></tr></thead><tbody>{prevision.mensuel.map(ligne => <tr key={ligne.mois}><td data-label="Mois">{ligne.mois}</td><td data-label="Entrées" className="compta-ra__right">{fcfa(ligne.entrees)}</td><td data-label="Sorties" className="compta-ra__right">{fcfa(ligne.sorties)}</td><td data-label="Solde" className="compta-ra__right">{fcfa(ligne.solde)}</td><td data-label="Cumul" className="compta-ra__right"><b>{fcfa(ligne.cumule)}</b></td></tr>)}</tbody></table></div>
     </div>}
 
-    {!chargement && onglet === 'salaires' && <div className="compta-ra__panel compta-ra__salary-sheet"><div className="compta-ra__section-head"><div><h2>Détail des salaires</h2><p className="compta-ra__subtitle">La masse salariale annuelle alimente automatiquement le poste « Salaires du personnel » dans les charges.</p></div><button className="compta-ra__button" onClick={() => window.print()}>🖨️ Imprimer l’état de paie</button></div>
+    {!chargement && onglet === 'salaires' && <div className="compta-ra__panel compta-ra__salary-sheet"><div className="compta-ra__section-head"><div><h2>Détail des salaires <span className="compta-ra__readonly">Lecture seule</span></h2><p className="compta-ra__subtitle">Les montants sont définis exclusivement par le Directeur et synchronisés ici. La masse salariale annuelle alimente automatiquement le poste « Salaires du personnel » dans les charges.</p></div><button className="compta-ra__button" onClick={() => window.print()}>🖨️ Imprimer l’état de paie</button></div>
       <div className="compta-ra__kpis"><div className="compta-ra__kpi"><div className="compta-ra__kpi-label">Postes</div><div className="compta-ra__kpi-value">{salaires.length}</div></div><div className="compta-ra__kpi"><div className="compta-ra__kpi-label">Masse mensuelle</div><div className="compta-ra__kpi-value">{fcfa(masseMensuelle)}</div></div><div className="compta-ra__kpi"><div className="compta-ra__kpi-label">Masse annuelle</div><div className="compta-ra__kpi-value">{fcfa(masseMensuelle*12)}</div></div></div>
       <div className="compta-ra__table-wrap"><table className="compta-ra__table"><thead><tr><th>Poste / fonction</th><th className="compta-ra__right">Salaire mensuel</th><th className="compta-ra__right">Salaire annuel</th></tr></thead><tbody>{salaires.map((poste,index) => <tr key={poste.id || `${poste.poste}-${index}`}><td data-label="Poste"><b>{poste.poste}</b></td><td data-label="Mensuel" className="compta-ra__right">{fcfa(poste.mensuel)}</td><td data-label="Annuel" className="compta-ra__right"><b>{fcfa(Number(poste.mensuel || 0)*12)}</b></td></tr>)}</tbody></table></div>
       <div className="compta-ra__section-head compta-ra__payroll-head"><div><h2>État mensuel de paie</h2><p className="compta-ra__subtitle">Primes, retenues et règlement réellement préparé pour le mois.</p></div><label>Mois<input className="compta-ra__input" type="month" value={moisPaie} onChange={e => setMoisPaie(e.target.value)}/></label><div><small>Masse nette</small><div className="compta-ra__kpi-value">{fcfa(masseNette)}</div></div></div>

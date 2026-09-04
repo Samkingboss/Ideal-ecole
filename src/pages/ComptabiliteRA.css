@@ -64,6 +64,19 @@
 .compta-ra__chart-labels { display:flex; justify-content:space-around; color:var(--muted); }
 .compta-ra__payroll-head { margin-top:26px; padding-top:18px; border-top:2px solid var(--border); align-items:end; }
 .compta-ra__payroll-head label { display:grid; gap:4px; color:var(--muted); font-size:11px; font-weight:800; }
+.compta-ra__comparison { display:grid; gap:14px; margin-bottom:16px; }
+.compta-ra__comparison-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.compta-ra__comparison-summary > div { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:13px 14px; border-radius:12px; background:#eef6fa; color:var(--compta-blue); }
+.compta-ra__comparison-summary span { font-size:11px; font-weight:800; }
+.compta-ra__comparison-summary b { font-size:21px; }
+.compta-ra__progress-line { display:grid; gap:6px; }
+.compta-ra__progress-line > div { display:flex; justify-content:space-between; gap:10px; color:var(--dark); font-size:12px; }
+.compta-ra__progress-line progress { width:100%; height:13px; accent-color:var(--compta-cyan); }
+.compta-ra__progress-line small { color:var(--muted); font-size:10px; }
+.compta-ra__comparison-table { margin-top:2px; }
+.compta-ra__positive { color:#047857; }
+.compta-ra__negative { color:#b45309; }
+.compta-ra__readonly { display:inline-block; margin-left:6px; padding:3px 8px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:9px; line-height:1; vertical-align:middle; text-transform:uppercase; letter-spacing:.04em; }
 @media (max-width:1000px) { .compta-ra__kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:600px) {
   .compta-ra__head,.compta-ra__actions { width:100%; }
@@ -80,6 +93,7 @@
   .compta-ra__charge { grid-template-columns:1fr; }
   .compta-ra__alert { align-items:flex-start; flex-direction:column; }
   .compta-ra__chart { height:180px; gap:3px; }
+  .compta-ra__comparison-summary { grid-template-columns:1fr; }
 }
 @media print {
   body * { visibility:hidden; }
