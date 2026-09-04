@@ -13,6 +13,7 @@ import NotificationCenter from './NotificationCenter'
 import DevoirsDocument from './DevoirsDocument'
 import BulletinMaternelleStudio from './BulletinMaternelleStudio'
 import BulletinPrimaire from './BulletinPrimaire'
+import CircuitAssistantesMaternelle from './CircuitAssistantesMaternelle'
 import { lienWhatsAppEcole, WHATSAPP_ECOLE_LISIBLE } from '../lib/ecole'
 import { signatureLigne } from '../lib/identiteProfessionnelle'
 import AccordionCard from '../components/ui/AccordionCard'
@@ -104,6 +105,7 @@ function ListeFichier({ rang, nom, apercu, fichier, onMonter, onDescendre, onRet
 
 export default function ProfApp({ user, onLogout }) {
   const compteMaternelle = /^(maitresse|assistante)-/.test(String(user?.fonction || '').toLowerCase())
+  const compteAssistante = /^assistante-/.test(String(user?.fonction || '').toLowerCase())
   const [activeProfSession, setActiveProfSession] = useState('emploi')
   const [tab, setTab] = useState('edt')
   const [loading, setLoading] = useState(true)
@@ -857,7 +859,7 @@ export default function ProfApp({ user, onLogout }) {
                 onClick={() => {
                   setActiveProfSession(s.id)
                   if (s.id === 'emploi') setTab('edt')
-                  else if (s.id === 'pedagogie') setTab('programme')
+                  else if (s.id === 'pedagogie') setTab(compteAssistante ? 'circuit-assistante' : 'programme')
                   else if (s.id === 'classe') setTab('classe')
                   else if (s.id === 'discipline') setTab('discipline')
                   else if (s.id === 'perfs') setTab('prime')
@@ -900,11 +902,12 @@ export default function ProfApp({ user, onLogout }) {
         {activeProfSession === 'pedagogie' && (
           <>
             <button onClick={() => setTab('programme')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'programme' ? '#00a8e0' : 'var(--bg)', color: tab === 'programme' ? '#fff' : 'var(--muted)' }}>📘 Programme &amp; Matières</button>
-            <button onClick={() => setTab('mespreps')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'mespreps' ? '#00a8e0' : 'var(--bg)', color: tab === 'mespreps' ? '#fff' : 'var(--muted)' }}>
+            {compteAssistante && <button onClick={() => setTab('circuit-assistante')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'circuit-assistante' ? '#00a8e0' : 'var(--bg)', color: tab === 'circuit-assistante' ? '#fff' : 'var(--muted)' }}>🤝 Préparations à accompagner</button>}
+            {!compteAssistante && <button onClick={() => setTab('mespreps')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'mespreps' ? '#00a8e0' : 'var(--bg)', color: tab === 'mespreps' ? '#fff' : 'var(--muted)' }}>
               📝 Mes préparations{prepsACorriger > 0 ? ` · ${prepsACorriger}` : ''}
-            </button>
-            <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions du programme</button>
-            <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>✅ Check-points de fin de leçon</button>
+            </button>}
+            {!compteAssistante && <button onClick={() => setTab('progression')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'progression' ? '#00a8e0' : 'var(--bg)', color: tab === 'progression' ? '#fff' : 'var(--muted)' }}>📈 Progressions du programme</button>}
+            {!compteAssistante && <button onClick={() => setTab('fincours')} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', background: tab === 'fincours' ? '#00a8e0' : 'var(--bg)', color: tab === 'fincours' ? '#fff' : 'var(--muted)' }}>✅ Check-points de fin de leçon</button>}
           </>
         )}
 
@@ -1075,6 +1078,10 @@ export default function ProfApp({ user, onLogout }) {
         )}
 
         {tab === 'programme' && <ProgrammePedagogique user={user} maternelle={compteMaternelle} classes={classes} preparations={preparations} />}
+
+        {tab === 'circuit-assistante' && compteAssistante && (
+          <CircuitAssistantesMaternelle user={user} mode="assistante" />
+        )}
 
         {tab === 'progression' && (
           <div>

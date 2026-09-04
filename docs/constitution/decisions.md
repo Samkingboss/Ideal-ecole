@@ -72,6 +72,29 @@ l'inscription annuelle ; D3 nomme l'UUID comme cette identité.
 
 ---
 
+### D5 — Circuit des préparations maternelles et barème · 04/09/2026 · ✅
+
+> Voila super, memorise on continue la logique des points
+
+Cette validation porte explicitement sur le barème présenté immédiatement avant
+la décision : **20 points** pour une préparation déposée au moins 24 heures avant
+le cours, puis retrait d'un point par heure jusqu'au seuil de 5 heures ; **10
+points** pour la lecture et l'apport de l'assistante ; **10 points** pour la
+préparation du matériel par l'assistante ; **10 points** pour le traitement ou
+l'escalade par le surveillant ; **10 points** pour la fourniture finale par le
+responsable administratif. Une préparation reçue à moins de cinq heures du cours
+ne pénalise pas l'assistante. Le dernier maillon qui n'a pas accompli son action à
+temps porte la responsabilité. Le barème reste modifiable par la Direction seule.
+
+**Fondement V2.1 §§11, 15, 16 et 18** — l'assistante contribue au cours et au
+matériel, le stock suit demandes et livraisons, l'attribution des points repose sur
+des critères validés, et chaque passage de relais conserve son auteur et son heure.
+
+**Invariants** : pas de seconde table de préparations, pas de second stock,
+identité de l'acteur lue depuis `auth.uid()`, journal append-only de chaque action.
+
+---
+
 ### Règle QA · 23/08/2026 · ✅
 
 > Do not delete the current test data yet. Treat the current dataset as QA/test

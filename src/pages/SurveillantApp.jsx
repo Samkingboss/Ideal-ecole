@@ -5,6 +5,7 @@ import { journaliser } from '../lib/audit'
 import NotificationCenter from './NotificationCenter'
 import { pushNotification } from '../lib/notifications'
 import { MaternelleSurveillance } from './MaternelleApp'
+import CircuitAssistantesMaternelle from './CircuitAssistantesMaternelle'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 
 const RECREES = [
@@ -278,7 +279,10 @@ export default function SurveillantApp({ user, onLogout }) {
       </div>
 
       {tab === 'maternelle' && (
-        <div className="page-content ux-page" style={{ paddingBottom: 100 }}><MaternelleSurveillance user={user} /></div>
+        <div className="page-content ux-page" style={{ paddingBottom: 100 }}>
+          <CircuitAssistantesMaternelle user={user} mode="surveillant" />
+          <div style={{ marginTop: 24 }}><MaternelleSurveillance user={user} /></div>
+        </div>
       )}
 
       {tab === 'stock' && (

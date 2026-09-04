@@ -21,6 +21,7 @@ import { agreger, messageLisible } from '../lib/chargement'
 import DocumentPrintStudio from './DocumentPrintStudio'
 import { statutDe, libelleStatut, ponctualiteAuDepot, CRITERES, APPRECIATIONS, noteDeduite, ajouterHistorique, ACTIONS, peutPasser, A_CONTROLER, dateDeCours, heureDeCours, momentDeDepot, trierPreparationsParActivite, trierPreparationsValidees } from '../lib/preparations'
 import { MaternelleDirection } from './MaternelleApp'
+import CircuitAssistantesMaternelle from './CircuitAssistantesMaternelle'
 import { CHAMPS_ELEVE_AVEC_CLASSE } from '../lib/eleves'
 import FrisePreparation from '../components/FrisePreparation'
 import BlocCommentable from '../components/BlocCommentable'
@@ -103,6 +104,7 @@ const ROUTES_ADMINISTRATION = {
   '/administration/effectifs': 'liste',
   '/administration/cantine': 'cantine',
   '/administration/budget-cuisine': 'budget-cuisine',
+  '/administration/materiel-maternelle': 'materiel-maternelle',
 }
 const moduleAdministrationDepuisUrl = () => ROUTES_ADMINISTRATION[window.location.pathname] || null
 
@@ -1181,6 +1183,9 @@ export default function DirecteurApp({ user, onLogout }) {
                 <a href="/administration/budget-cuisine" onClick={event => ouvrirModuleAdministration(event, '/administration/budget-cuisine')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#7bc142,#4d8f22)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(123,193,66,0.28)', cursor:'pointer' }}>
                   <div style={{ fontSize:26, marginBottom:6 }}>🧾</div><div style={{ fontWeight:900, fontSize:15 }}>Budget cuisine</div><div style={{ fontSize:11, opacity:.9, marginTop:2 }}>Marché &amp; justificatifs</div>
                 </a>
+                <a href="/administration/materiel-maternelle" onClick={event => ouvrirModuleAdministration(event, '/administration/materiel-maternelle')} style={{ textDecoration:'none', background:'linear-gradient(135deg,#7c3aed,#5b21b6)', color:'#fff', padding:'18px 16px', borderRadius:14, boxShadow:'0 4px 14px rgba(124,58,237,0.25)', cursor:'pointer' }}>
+                  <div style={{ fontSize:26, marginBottom:6 }}>🤝</div><div style={{ fontWeight:900, fontSize:15 }}>Matériel maternelle</div><div style={{ fontSize:11, opacity:.9, marginTop:2 }}>Demandes transmises par le surveillant</div>
+                </a>
               </div>
 
               </>}
@@ -1193,6 +1198,7 @@ export default function DirecteurApp({ user, onLogout }) {
               {moduleAdministration === 'inscriptions' && <InscriptionsValidation inscriptions={inscriptions} directeur={user} onValidated={loadData} inscriptionCiblee={inscriptionCiblee} />}
               {moduleAdministration === 'cartes' && <CartesScolaires eleves={eleves} classes={classes} />}
               {moduleAdministration === 'certificat' && <CertificatScolarite eleves={eleves} classes={classes} user={user} />}
+              {moduleAdministration === 'materiel-maternelle' && <CircuitAssistantesMaternelle user={user} mode="administration" />}
 
               {['cantine','budget-cuisine'].includes(moduleAdministration) && (
                 <div>
@@ -2396,7 +2402,10 @@ export default function DirecteurApp({ user, onLogout }) {
 
         {activeDirectorTab === 'maternelle' && (
           <div className="page-content ux-page" style={{ paddingBottom: 100 }}>
+            <CircuitAssistantesMaternelle user={user} mode="direction" />
+            <div style={{ marginTop: 24 }}>
             <MaternelleDirection />
+            </div>
           </div>
         )}
 
