@@ -28,7 +28,7 @@ begin
   select u.* into v_prof from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_prof.id is null then raise exception 'session_non_authentifiee' using errcode = '28000'; end if;
-  if v_prof.role <> 'professeur' then raise exception 'brouillon_reserve_professeur' using errcode = '42501'; end if;
+  if v_prof.role not in ('professeur','directeur','responsable_administratif') then raise exception 'brouillon_reserve_professeur' using errcode = '42501'; end if;
 
   select b.* into v_brouillon from public.preparation_brouillons b
    where b.user_id = v_prof.id and b.date_cours = p_date_cours
@@ -50,7 +50,7 @@ begin
   select u.* into v_prof from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_prof.id is null then raise exception 'session_non_authentifiee' using errcode = '28000'; end if;
-  if v_prof.role <> 'professeur' then raise exception 'brouillon_reserve_professeur' using errcode = '42501'; end if;
+  if v_prof.role not in ('professeur','directeur','responsable_administratif') then raise exception 'brouillon_reserve_professeur' using errcode = '42501'; end if;
   if p_date_cours is null or p_creneau_cle is null or length(p_creneau_cle) not between 5 and 300 then
     raise exception 'cle_brouillon_invalide' using errcode = '22023';
   end if;
@@ -94,7 +94,7 @@ begin
   select u.* into v_prof from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_prof.id is null then raise exception 'session_non_authentifiee' using errcode = '28000'; end if;
-  if v_prof.role <> 'professeur' then raise exception 'brouillon_reserve_professeur' using errcode = '42501'; end if;
+  if v_prof.role not in ('professeur','directeur','responsable_administratif') then raise exception 'brouillon_reserve_professeur' using errcode = '42501'; end if;
   delete from public.preparation_brouillons b
    where b.user_id = v_prof.id and b.date_cours = p_date_cours
      and b.creneau_cle = p_creneau_cle;

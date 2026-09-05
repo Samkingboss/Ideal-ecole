@@ -13,7 +13,7 @@ console.log('✓ S1/S8/S9 · aucun DELETE client, RPC seulement si nécessaire, 
 
 for (const garde of [
   /u\.auth_user_id = auth\.uid\(\)/,
-  /v_prof\.role <> 'professeur'/,
+  /v_prof\.role not in \('professeur','directeur','responsable_administratif'\)/,
   /p\.user_id = v_prof\.id/,
   /p\.date_cours = v_ancre\.date_cours/,
   /p\.matiere is not distinct from v_ancre\.matiere/,

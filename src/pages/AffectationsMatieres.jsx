@@ -24,6 +24,11 @@ const heuresLisibles = min => {
   return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`
 }
 
+const precisionRole = role => ({
+  directeur: 'Direction',
+  responsable_administratif: 'Administration',
+}[role] || '')
+
 export default function AffectationsMatieres({ user }) {
   const [affectations, setAffectations] = useState([])
   const [volumes, setVolumes] = useState({})     // "groupe|matiere" -> minutes/semaine
@@ -240,7 +245,11 @@ export default function AffectationsMatieres({ user }) {
                       background: 'var(--bg)',
                     }}>
                     <option value="">— à affecter —</option>
-                    {profs.map(p => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+                    {profs.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.prenom} {p.nom}{precisionRole(p.role) ? ` · ${precisionRole(p.role)}` : ''}
+                      </option>
+                    ))}
                   </select>
                 )}
               </div>

@@ -36,7 +36,7 @@ begin
   if v_prof.id is null then
     raise exception 'session_non_authentifiee' using errcode = '28000';
   end if;
-  if v_prof.role <> 'professeur' then
+  if v_prof.role not in ('professeur','directeur','responsable_administratif') then
     raise exception 'nettoyage_reserve_professeur' using errcode = '42501';
   end if;
   if p_nb_sequences < 1 or p_nb_sequences > 6 then

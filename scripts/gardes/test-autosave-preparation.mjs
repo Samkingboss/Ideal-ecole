@@ -42,11 +42,11 @@ for (const rpc of ['lire', 'sauver', 'supprimer']) {
   assert.match(sql, new RegExp(`function public\\.${rpc}_brouillon_preparation`))
 }
 assert.match(sql, /u\.auth_user_id = auth\.uid\(\)/)
-assert.match(sql, /v_prof\.role <> 'professeur'/)
+assert.equal((sql.match(/v_prof\.role not in \('professeur','directeur','responsable_administratif'\)/g) || []).length, 3)
 assert.match(sql, /b\.user_id = v_prof\.id/g)
 assert.match(sql, /revoke all on public\.preparation_brouillons from public, anon, authenticated/)
 assert.doesNotMatch(sql, /create policy|alter policy|disable row level security/i)
-console.log('✓ A10/A11 · isolation enseignants côté serveur, aucune policy existante élargie')
+console.log('✓ A10/A11 · isolation par propriétaire pour les trois rôles enseignants, aucune policy existante élargie')
 
 const positionSuppression = client.indexOf("rpc(\n      'supprimer_brouillon_preparation'")
 assert.ok(positionSuppression > client.indexOf('if (survivantes.length)'))

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import AgendaCalendrier from './AgendaCalendrier'
+import MonEmploiDuTemps from './MonEmploiDuTemps'
 import NotificationCenter from './NotificationCenter'
 import {
   CONFIG_DEFAUT, calculerPoints, montantEte, valeurAction,
@@ -122,6 +123,10 @@ export default function DirecteurApp({ user, onLogout }) {
   const [periodes, setPeriodes] = useState([])
   const [evenements, setEvenements] = useState([])
   const [calendrierUrl, setCalendrierUrl] = useState('')
+  // Le directeur et le responsable administratif peuvent aussi enseigner.
+  // Leur rubrique Agenda distingue donc leur activité pédagogique personnelle
+  // du calendrier général de l'établissement.
+  const [agendaVue, setAgendaVue] = useState('mes-cours')
   const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
   const [newProf, setNewProf] = useState({ prenom:'', nom:'', sexe:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
@@ -1021,15 +1026,17 @@ export default function DirecteurApp({ user, onLogout }) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF (3 SESSIONS DISTINCTES)
+  // INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF (4 SESSIONS DISTINCTES)
   // ═══════════════════════════════════════════════════════════════════
   const masseSalariale = (postes || []).reduce((s, p) => s + (p.mensuel || 0), 0)
   if (user.role === 'responsable_administratif') {
     const nbInscrits = eleves.filter(e => e.is_inscription).length
     const nbEleves = eleves.filter(e => !e.is_inscription).length
 
-    // Active session among the 3 distinct sessions: 'eleves', 'rh', 'compta'
-    const activeSession = ['eleves', 'rh', 'compta'].includes(tab) ? tab : 'eleves'
+    // Ces quatre sessions conservent l'administration séparée de la seconde
+    // casquette d'enseignant : les cours affectés ne se mélangent ni aux
+    // dossiers élèves, ni à la comptabilité.
+    const activeSession = ['eleves', 'rh', 'compta', 'agenda'].includes(tab) ? tab : 'eleves'
 
     return (
       <div className="app-shell">
@@ -1059,7 +1066,7 @@ export default function DirecteurApp({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Navigation des 3 SESSIONS DISTINCTES.
+        {/* Navigation des 4 SESSIONS DISTINCTES.
             Cette barre était un simple `flex` sans défilement : sur un
             téléphone de 375 px, la troisième session sortait de l'écran et
             restait inatteignable. Elle défile désormais horizontalement,
@@ -1085,6 +1092,13 @@ export default function DirecteurApp({ user, onLogout }) {
             style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
             💰 3. Comptabilité
+          </button>
+          <button
+            className={`top-nav-item ${activeSession === 'agenda' ? 'active' : ''}`}
+            onClick={() => ouvrirSessionAdministration('agenda')}
+            style={{ flex: 1, padding: '10px 14px', fontSize: 13, fontWeight: 800, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            🗓️ 4. Mes cours &amp; Agenda
           </button>
         </div>
 
@@ -1639,6 +1653,24 @@ export default function DirecteurApp({ user, onLogout }) {
             <ComptabiliteRA supabase={supabase} user={user} classes={classes} postes={postes} />
           )}
 
+          {/* ════════════════ SESSION 4 : ACTIVITÉ D'ENSEIGNEMENT ════════════════ */}
+          {activeSession === 'agenda' && (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🗓️ Mes cours &amp; mon agenda</h1>
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+                  Les matières que la Direction vous affecte apparaissent ici. Cliquez sur un créneau pour préparer et soumettre le cours.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 14 }}>
+                <button type="button" className="btn-sm" onClick={() => setAgendaVue('mes-cours')} style={{ whiteSpace: 'nowrap', background: agendaVue === 'mes-cours' ? 'var(--accent)' : 'var(--bg)', color: agendaVue === 'mes-cours' ? '#fff' : 'var(--text)' }}>📚 Cours à préparer</button>
+                <button type="button" className="btn-sm" onClick={() => setAgendaVue('mon-agenda')} style={{ whiteSpace: 'nowrap', background: agendaVue === 'mon-agenda' ? 'var(--accent)' : 'var(--bg)', color: agendaVue === 'mon-agenda' ? '#fff' : 'var(--text)' }}>🔔 Agenda personnel</button>
+              </div>
+              {agendaVue === 'mes-cours' && <MonEmploiDuTemps user={user} />}
+              {agendaVue === 'mon-agenda' && <AgendaCalendrier user={user} checkpoints={checkpoints} periodes={periodes} anniversaires={eleves} />}
+            </div>
+          )}
+
         </div>
       </div>
     )
@@ -1811,16 +1843,25 @@ export default function DirecteurApp({ user, onLogout }) {
           <div>
             <div style={{ marginBottom: 20 }}>
               <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--dark)', margin: '0 0 4px 0' }}>🗓️ Session : Emploi du Temps &amp; Agenda</h1>
-              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Gestion de l'agenda de l'établissement, événements, calendrier scolaire et plannings des cours.</p>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Vos propres cours et préparations, ainsi que le calendrier général de l'établissement.</p>
             </div>
 
-            {/* Agenda & Événements */}
-            <div style={{ marginBottom: 20 }}>
-              <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} anniversaires={eleves} />
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 14 }}>
+              <button type="button" className="btn-sm" onClick={() => setAgendaVue('mes-cours')} style={{ whiteSpace: 'nowrap', background: agendaVue === 'mes-cours' ? 'var(--accent)' : 'var(--bg)', color: agendaVue === 'mes-cours' ? '#fff' : 'var(--text)' }}>📚 Mes cours à préparer</button>
+              <button type="button" className="btn-sm" onClick={() => setAgendaVue('mon-agenda')} style={{ whiteSpace: 'nowrap', background: agendaVue === 'mon-agenda' ? 'var(--accent)' : 'var(--bg)', color: agendaVue === 'mon-agenda' ? '#fff' : 'var(--text)' }}>🔔 Mon agenda personnel</button>
+              <button type="button" className="btn-sm" onClick={() => setAgendaVue('ecole')} style={{ whiteSpace: 'nowrap', background: agendaVue === 'ecole' ? 'var(--accent)' : 'var(--bg)', color: agendaVue === 'ecole' ? '#fff' : 'var(--text)' }}>🏫 Agenda de l'école</button>
             </div>
 
-            {/* Emplois du temps par classe */}
-            <div className="card" style={{ padding: '1.2rem' }}>
+            {agendaVue === 'mes-cours' && <MonEmploiDuTemps user={user} />}
+            {agendaVue === 'mon-agenda' && <AgendaCalendrier user={user} checkpoints={checkpoints} periodes={periodes} anniversaires={eleves} />}
+
+            {agendaVue === 'ecole' && <>
+              <div style={{ marginBottom: 20 }}>
+                <AgendaCalendrier checkpoints={checkpoints} classes={classes} periodes={periodes} isAdmin={true} anniversaires={eleves} />
+              </div>
+
+              {/* Emplois du temps par classe */}
+              <div className="card" style={{ padding: '1.2rem' }}>
               <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 800 }}>🗓️ Emplois du Temps par Classe</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
                 {classes.map(c => (
@@ -1833,7 +1874,8 @@ export default function DirecteurApp({ user, onLogout }) {
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
+            </>}
           </div>
         )}
 

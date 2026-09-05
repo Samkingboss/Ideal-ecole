@@ -56,7 +56,12 @@ export default function AgendaCalendrier({ checkpoints, anniversaires = [], user
   const [evenementsPerso, setEvenementsPerso] = useState([])
   const [edition, setEdition] = useState(null)
   const [messageAgenda, setMessageAgenda] = useState('')
-  const agendaPersonnelActif = !isAdmin && user?.role === 'professeur'
+  // L'agenda appartient à toute personne qui dispense des cours. Le Directeur
+  // et le Responsable administratif peuvent désormais recevoir des matières
+  // depuis le même écran d'affectation que les enseignants ; leurs rappels
+  // restent privés et filtrés par leur identité serveur exactement comme ceux
+  // d'un professeur.
+  const agendaPersonnelActif = !isAdmin && ['professeur', 'directeur', 'responsable_administratif'].includes(user?.role)
   const premierJour = new Date(annee, moisIdx, 1).getDay()
   const offset = premierJour === 0 ? 6 : premierJour - 1
   const nbJours = new Date(annee, moisIdx + 1, 0).getDate()

@@ -28,7 +28,7 @@ begin
   select u.* into v_user from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_user.id is null then raise exception 'session_non_authentifiee' using errcode='28000'; end if;
-  if v_user.role <> 'professeur' then raise exception 'agenda_reserve_enseignant' using errcode='42501'; end if;
+  if v_user.role not in ('professeur','directeur','responsable_administratif') then raise exception 'agenda_reserve_enseignant' using errcode='42501'; end if;
   return query select a.* from public.agenda_personnel a
    where a.user_id = v_user.id and a.commence_at >= p_debut and a.commence_at < p_fin
    order by a.commence_at;
@@ -45,7 +45,7 @@ begin
   select u.* into v_user from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_user.id is null then raise exception 'session_non_authentifiee' using errcode='28000'; end if;
-  if v_user.role <> 'professeur' then raise exception 'agenda_reserve_enseignant' using errcode='42501'; end if;
+  if v_user.role not in ('professeur','directeur','responsable_administratif') then raise exception 'agenda_reserve_enseignant' using errcode='42501'; end if;
   if p_commence_at is null or length(trim(coalesce(p_titre,''))) not between 1 and 160
      or p_rappel_minutes not between 0 and 10080 then
     raise exception 'evenement_agenda_invalide' using errcode='22023';
@@ -73,7 +73,7 @@ begin
   select u.* into v_user from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_user.id is null then raise exception 'session_non_authentifiee' using errcode='28000'; end if;
-  if v_user.role <> 'professeur' then raise exception 'agenda_reserve_enseignant' using errcode='42501'; end if;
+  if v_user.role not in ('professeur','directeur','responsable_administratif') then raise exception 'agenda_reserve_enseignant' using errcode='42501'; end if;
   delete from public.agenda_personnel where id=p_id and user_id=v_user.id;
   get diagnostics v_nombre = row_count;
   return v_nombre > 0;
@@ -90,7 +90,7 @@ begin
   select u.* into v_user from public.users u
    where u.auth_user_id = auth.uid() and u.actif = true limit 1;
   if v_user.id is null then raise exception 'session_non_authentifiee' using errcode='28000'; end if;
-  if v_user.role <> 'professeur' then return 0; end if;
+  if v_user.role not in ('professeur','directeur','responsable_administratif') then return 0; end if;
   for r in select * from public.agenda_personnel a where a.user_id=v_user.id
     and a.rappel_envoye_at is null
     and now() >= a.commence_at - make_interval(mins => a.rappel_minutes)

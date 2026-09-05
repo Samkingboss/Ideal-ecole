@@ -1,8 +1,9 @@
 // Garde sur une règle métier : LE PÉDAGOGIQUE NE PASSE PAS PAR LE COMPTE
 // ADMINISTRATIF.
 //
-// L'interface du responsable administratif n'a que trois sessions — élèves,
-// RH, comptabilité. Elle n'a aucun onglet pédagogique. Il recevait pourtant
+// L'interface du responsable administratif n'a aucun onglet de contrôle
+// pédagogique. Sa session « Mes cours » est strictement personnelle. Il
+// recevait pourtant
 // les notifications de dépôt de préparation, qui portent
 // `tabTarget: 'pedagogie'` : le message ouvrait chez lui un onglet inexistant,
 // et son téléphone sonnait pour chacun.
@@ -81,13 +82,13 @@ console.log(`\n${G}── PÉDAGOGIQUE · hors du compte administratif     [INV-
     /\['notifs_directeur', 'notifs_responsable_administratif'\]/.test(defaut) === true)
 }
 
-// ── PA4 · l'écran administratif reste sans pédagogie ─────────────────────
+// ── PA4 · l'écran administratif reste sans contrôle pédagogique ──────────
 {
   const src = lire('src/pages/DirecteurApp.jsx')
   const sessions = (src.match(/const activeSession = \[([^\]]*)\]/) || [])[1] || ''
   const liste = sessions.split(',').map(x => x.trim().replace(/'/g, '')).filter(Boolean)
-  verifier('PA4 la branche administrative n’a que trois sessions',
-    liste.length === 3 && !liste.some(x => /pedago|prepa|devoir|progress/i.test(x)),
+  verifier('PA4 l’agenda personnel n’ouvre pas le contrôle pédagogique',
+    liste.length === 4 && liste.includes('agenda') && !liste.some(x => /pedagogie|devoir|progress/i.test(x)),
     liste.join(' '))
 }
 
