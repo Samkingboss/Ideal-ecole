@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs'
 
 const source = readFileSync('src/pages/DirecteurApp.jsx', 'utf8')
-const blocRa = source.match(/if \(user\.role === 'responsable_administratif'\)[\s\S]*?INTERFACE DIRECTEUR/)?.[0] || ''
+// Partir du commentaire de l'interface dédiée : le fichier contient aussi
+// des fonctions Direction avant ce rendu. Les inclure ferait croire que le
+// Responsable administratif voit leurs boutons, alors qu'elles ne sont
+// jamais rendues dans sa branche.
+const blocRa = source.match(/INTERFACE DÉDIÉE : RESPONSABLE ADMINISTRATIF[\s\S]*?INTERFACE DIRECTEUR/)?.[0] || ''
 const blocDirection = source.match(/INTERFACE DIRECTEUR[\s\S]*$/)?.[0] || ''
 let echecs = 0
 

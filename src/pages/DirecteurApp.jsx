@@ -67,6 +67,20 @@ const FONCTIONS_MATERNELLE = {
   assistante_en_maternelle: { role: 'professeur', fonction: 'assistante-en-mat', langue: 'en', label: 'English Teaching Assistant — Kindergarten' },
 }
 
+const formulairePersonnelVide = () => ({
+  id: null,
+  prenom: '',
+  nom: '',
+  sexe: '',
+  role: 'professeur',
+  langue: 'fr',
+  telephone: '',
+  telephone_charge: true,
+  classe_ids: [],
+  fonction_initiale: null,
+  role_initial_formulaire: 'professeur',
+})
+
 const libelleFonction = user => {
   const entree = Object.values(FONCTIONS_MATERNELLE).find(x => x.fonction === user?.fonction)
   return entree?.label || fonctionProfessionnelle(user)
@@ -85,6 +99,9 @@ const requetePersonnelActif = () => supabase.from('users')
 
 const enrichirPersonnel = (personnel, affectations) => personnel.map(p => ({
   ...p,
+  // Le rôle brut reste disponible pour l'éditeur. La Cuisinière peut être
+  // stockée sous le rôle historique `surveillant`, avec sa fonction propre.
+  role_compte: p.role,
   role: p.fonction === 'cuisiniere' ? 'cuisiniere' : p.role,
   classe_ids: affectations.filter(link => link.user_id === p.id).map(link => link.classe_id),
 }))
@@ -146,7 +163,7 @@ export default function DirecteurApp({ user, onLogout }) {
   const [agendaVue, setAgendaVue] = useState('mes-cours')
   const [joursOuvresGlobal, setJoursOuvresGlobal] = useState(20)
   const [showModal, setShowModal] = useState(null)
-  const [newProf, setNewProf] = useState({ prenom:'', nom:'', sexe:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
+  const [newProf, setNewProf] = useState(formulairePersonnelVide)
   const [sexeEnCoursId, setSexeEnCoursId] = useState(null)
   // Statut d'acces par membre, lu par RPC gardee « directeur ». Ne contient
   // aucune empreinte de jeton : seulement un libelle et une echeance.
@@ -824,7 +841,7 @@ export default function DirecteurApp({ user, onLogout }) {
   // navigateur : l'identite naît cote serveur, le mot de passe est choisi
   // par le membre lui-meme.
 
-  // ── Creation d'un membre : passe par la route serveur ─────────────────
+  // ── Création ou modification d'un membre ──────────────────────────────
   //
   // Creer une identite Supabase Auth exige une cle serveur, qui ne peut pas
   // vivre dans un navigateur. `/api/personnel-creer` verifie le role reel
@@ -832,10 +849,14 @@ export default function DirecteurApp({ user, onLogout }) {
   // puis cree l'identite et rattache le profil, en compensant si le second
   // temps echoue.
   //
-  // Il n'existe aucun chemin de MODIFICATION dans cet ecran : `newProf.id`
-  // n'est renseigne nulle part. `saveProf` a toujours ete une creation, et
-  // le reste.
+  // Une modification conserve l'identifiant et l'identité Auth : elle passe
+  // par une RPC transactionnelle réservée à la Direction. Le membre garde
+  // donc son accès, ses préparations, ses demandes et son historique.
   const saveProf = async () => {
+    if (!newProf.prenom.trim() || !newProf.nom.trim()) {
+      alert('Le prénom et le nom sont obligatoires.')
+      return
+    }
     if (!['F', 'M'].includes(newProf.sexe)) {
       alert('Choisissez le sexe du membre afin que sa fonction soit correctement accordée.')
       return
@@ -843,9 +864,44 @@ export default function DirecteurApp({ user, onLogout }) {
     setLoading(true)
     try {
       const fonctionMaternelle = FONCTIONS_MATERNELLE[newProf.role]
-      const roleCompte = fonctionMaternelle?.role || newProf.role
-      const fonctionCompte = fonctionMaternelle?.fonction || null
+      // Le schéma historique représente la Cuisinière comme un compte de
+      // surveillance portant `fonction=cuisiniere`. On conserve cette forme
+      // afin que les anciens et les nouveaux comptes suivent la même route.
+      const roleCompte = fonctionMaternelle?.role || (newProf.role === 'cuisiniere' ? 'surveillant' : newProf.role)
+      const fonctionCompte = fonctionMaternelle?.fonction
+        || (newProf.role === 'cuisiniere' ? 'cuisiniere'
+          : newProf.role === newProf.role_initial_formulaire ? newProf.fonction_initiale : null)
       const langueCompte = fonctionMaternelle?.langue || newProf.langue
+
+      if (newProf.id) {
+        const { data, error } = await supabase.rpc('modifier_membre_personnel', {
+          p_user_id: newProf.id,
+          p_prenom: newProf.prenom.trim(),
+          p_nom: newProf.nom.trim(),
+          p_role: roleCompte,
+          p_langue: langueCompte || null,
+          p_fonction: fonctionCompte || null,
+          p_sexe: newProf.sexe,
+          p_telephone: newProf.telephone.trim() || null,
+          p_modifier_telephone: Boolean(newProf.telephone_charge),
+          p_classe_ids: roleCompte === 'professeur' ? (newProf.classe_ids || []) : [],
+        })
+
+        if (error || !data?.ok) {
+          const migrationAbsente = error?.code === 'PGRST202' || /modifier_membre_personnel/i.test(error?.message || '')
+          alert(migrationAbsente
+            ? 'La modification sécurisée du personnel doit être installée dans Supabase avant utilisation.'
+            : `Fiche non modifiée : ${error?.message || 'réponse serveur absente'}`)
+          return
+        }
+
+        setMsg(`Fiche de ${newProf.prenom.trim()} ${newProf.nom.trim()} mise à jour. L'identifiant de connexion reste inchangé.`)
+        await rechargerPersonnel()
+        await chargerEtatsAcces()
+        setShowModal(null)
+        setNewProf(formulairePersonnelVide())
+        return
+      }
 
       // Le jeton part dans l'en-tete Authorization, jamais dans le corps.
       const { data: { session } = {} } = await supabase.auth.getSession()
@@ -910,7 +966,7 @@ export default function DirecteurApp({ user, onLogout }) {
       await loadData()
       await chargerEtatsAcces()
       setShowModal(null)
-      setNewProf({ prenom:'', nom:'', sexe:'', role:'professeur', langue:'fr', telephone:'', classe_ids: [] })
+      setNewProf(formulairePersonnelVide())
     } catch (e) {
       console.error(e)
       setMsg('Erreur imprevue')
@@ -947,10 +1003,50 @@ export default function DirecteurApp({ user, onLogout }) {
     // Une lecture REFUSEE et une liste vide ne sont pas la meme chose : la
     // premiere doit laisser l'affichage precedent en place plutot que de
     // repeindre toutes les cartes en « Acces non envoye ».
-    if (error || !Array.isArray(data)) return
+    if (error || !Array.isArray(data)) return null
     const parId = {}
     for (const ligne of data) parId[ligne.user_id] = ligne
     setEtatsAcces(parId)
+    return parId
+  }
+
+  const fermerFormulairePersonnel = () => {
+    setShowModal(null)
+    setNewProf(formulairePersonnelVide())
+  }
+
+  const ouvrirCreationPersonnel = () => {
+    setNewProf(formulairePersonnelVide())
+    setShowModal('prof')
+  }
+
+  const ouvrirModificationPersonnel = async personne => {
+    let etats = etatsAcces
+    if (!Object.prototype.hasOwnProperty.call(etats, personne.id)) {
+      etats = await chargerEtatsAcces() || etats
+    }
+    const etat = etats[personne.id]
+    const fonctionMaternelle = Object.entries(FONCTIONS_MATERNELLE)
+      .find(([, config]) => config.fonction === personne.fonction)?.[0]
+    const roleFormulaire = fonctionMaternelle
+      || (personne.fonction === 'cuisiniere' ? 'cuisiniere' : personne.role_compte || personne.role)
+
+    setNewProf({
+      id: personne.id,
+      prenom: personne.prenom || '',
+      nom: personne.nom || '',
+      sexe: personne.sexe || '',
+      role: roleFormulaire,
+      langue: personne.langue || FONCTIONS_MATERNELLE[roleFormulaire]?.langue || 'fr',
+      telephone: etat?.telephone || '',
+      // Si la lecture protégée du contact a échoué, la sauvegarde laissera
+      // le téléphone intact plutôt que de l'effacer avec une chaîne vide.
+      telephone_charge: Boolean(etat),
+      classe_ids: [...(personne.classe_ids || [])],
+      fonction_initiale: personne.fonction || null,
+      role_initial_formulaire: roleFormulaire,
+    })
+    setShowModal('prof')
   }
 
   const LIBELLES_ACCES = {
@@ -2169,7 +2265,7 @@ export default function DirecteurApp({ user, onLogout }) {
               <div className="card" style={{ padding: '1.2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>👥 Équipe Enseignante &amp; Personnel ({profs.length})</h3>
-                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => setShowModal('prof')}>
+                  <button className="btn-sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={ouvrirCreationPersonnel}>
                     + Ajouter un membre
                   </button>
                 </div>
@@ -2178,6 +2274,9 @@ export default function DirecteurApp({ user, onLogout }) {
                     <div key={p.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px' }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--dark)' }}>{p.prenom} {p.nom}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 8px' }}>Fonction : <b style={{ color: 'var(--accent)' }}>{libelleFonction(p)}</b></div>
+                      <button className="btn-sm" style={{ background: 'rgba(0,168,224,0.1)', color: 'var(--accent)', border: '1px solid var(--accent)', width: '100%', marginBottom: 8 }} onClick={() => ouvrirModificationPersonnel(p)}>
+                        ✏️ Modifier la fiche
+                      </button>
                       <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: 'var(--muted)', marginBottom: 8 }}>
                         Sexe grammatical
                         <select
@@ -2702,10 +2801,15 @@ export default function DirecteurApp({ user, onLogout }) {
       </div>
 
       {showModal === 'prof' && (
-        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&setShowModal(null)}>
+        <div className="modal-overlay" onClick={e=>e.target.className==='modal-overlay'&&fermerFormulairePersonnel()}>
           <div className="modal">
             <div className="modal-handle"></div>
-            <div className="modal-title">Nouveau membre de l'équipe</div>
+            <div className="modal-title">{newProf.id ? "Modifier la fiche du personnel" : "Nouveau membre de l'équipe"}</div>
+            {newProf.id && (
+              <div style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 10, background: 'rgba(0,168,224,.08)', color: 'var(--muted)', fontSize: 11, lineHeight: 1.45 }}>
+                Le compte, l'identifiant de connexion et tout l'historique seront conservés.
+              </div>
+            )}
             <div className="form-group"><label className="form-label">Prénom</label><input className="form-input" value={newProf.prenom} onChange={e=>setNewProf({...newProf,prenom:e.target.value})} /></div>
             <div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={newProf.nom} onChange={e=>setNewProf({...newProf,nom:e.target.value})} /></div>
             <div className="form-group"><label className="form-label">Sexe</label>
@@ -2774,10 +2878,11 @@ export default function DirecteurApp({ user, onLogout }) {
                 choisit son mot de passe lui-meme, par un lien a usage unique. */}
             <div className="form-group">
               <label className="form-label">Telephone WhatsApp (pour envoyer l&apos;acces)</label>
-              <input className="form-input" type="tel" value={newProf.telephone} onChange={e=>setNewProf({...newProf,telephone:e.target.value})} placeholder="+223 90 00 00 00" maxLength={20} />
+              <input className="form-input" type="tel" value={newProf.telephone} disabled={newProf.id && !newProf.telephone_charge} onChange={e=>setNewProf({...newProf,telephone:e.target.value})} placeholder="+223 90 00 00 00" maxLength={20} />
+              {newProf.id && !newProf.telephone_charge && <div style={{ marginTop: 5, fontSize: 11, color: 'var(--orange)' }}>Le téléphone n'a pas pu être relu ; il restera inchangé.</div>}
             </div>
-            <button className="btn btn-primary" onClick={saveProf} disabled={loading}>{loading?'...':'Creer le compte'}</button>
-            <button className="btn-cancel" onClick={()=>setShowModal(null)}>Annuler</button>
+            <button className="btn btn-primary" onClick={saveProf} disabled={loading}>{loading ? '...' : newProf.id ? 'Enregistrer les modifications' : 'Creer le compte'}</button>
+            <button className="btn-cancel" onClick={fermerFormulairePersonnel}>Annuler</button>
           </div>
         </div>
       )}

@@ -193,6 +193,48 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Une correction faite par la Direction doit aussi atteindre le compte du
+  // membre déjà connecté. Sans cette synchronisation, son nom ou sa fonction
+  // resterait ancien dans le bandeau jusqu'à sa prochaine déconnexion.
+  useEffect(() => {
+    if (!user?.id) return undefined
+
+    let lectureEnCours = false
+    const actualiserProfil = async () => {
+      if (lectureEnCours) return
+      lectureEnCours = true
+      try {
+        const { data, error } = await supabase.from('users')
+          .select(CHAMPS_SESSION.join(','))
+          .eq('id', user.id)
+          .maybeSingle()
+        if (error || !data) return
+        const propre = assainirSession(data)
+        if (!propre) return
+        const serialise = JSON.stringify(propre)
+        localStorage.setItem('ideal_user', serialise)
+        setUser(actuel => JSON.stringify(actuel) === serialise ? actuel : propre)
+      } finally {
+        lectureEnCours = false
+      }
+    }
+
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') actualiserProfil()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+    const canal = supabase.channel(`profil-session-${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}`,
+      }, actualiserProfil)
+      .subscribe()
+
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour)
+      supabase.removeChannel(canal)
+    }
+  }, [user?.id])
+
   useEffect(() => {
     if (!user) {
       document.title = "Connexion - IDEAL EcoleApp"
