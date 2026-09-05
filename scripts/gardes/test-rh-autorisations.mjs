@@ -21,14 +21,14 @@ verifier('RH4 · les demandes RH restent accessibles au responsable administrati
 verifier('RH5 · le référentiel salarial du responsable administratif reste en lecture seule',
   /Référentiel des Postes &amp; Salaires/.test(blocRa) && /Salaire Mensuel/.test(blocRa))
 verifier('RH6 · le personnel est présenté en blocs sélectionnables',
-  /Personnel enseignant/.test(blocRa) && /setPersonnelRHSelectionne\(p\.id\)/.test(blocRa))
+  /Tout le personnel actif/.test(blocRa) && /setPersonnelRHSelectionne\(p\.id\)/.test(blocRa))
 verifier('RH7 · toutes les demandes sont rattachées à leur enseignant par identifiant',
   /String\(d\.user_id\) === String\(personne\.id\)/.test(blocRa)
   && /Demandes RH \(\{demandes\.length\}\)/.test(blocRa))
 verifier('RH8 · la décision sur une demande reste disponible dans la fiche',
   /repondreDemande\(d, 'Approuvée'/.test(blocRa) && /repondreDemande\(d, 'Refusée'/.test(blocRa))
 verifier('RH9 · les indicateurs financiers sont séparés du personnel',
-  /Vue financière globale/.test(blocRa) && /Personnel enseignant/.test(blocRa))
+  /Vue financière globale/.test(blocRa) && /Tout le personnel actif/.test(blocRa))
 
 console.log(echecs ? `\n${echecs} garde(s) RH en échec.` : '\n9 gardes RH au vert.')
 process.exit(echecs ? 1 : 0)

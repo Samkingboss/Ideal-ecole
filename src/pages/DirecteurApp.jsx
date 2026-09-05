@@ -72,6 +72,23 @@ const libelleFonction = user => {
   return entree?.label || fonctionProfessionnelle(user)
 }
 
+// Le Directeur et le Responsable administratif lisent le même registre.
+// Seul le compte de Direction lui-même est écarté de la gestion courante :
+// tous les membres créés depuis l'écran Personnel restent donc visibles,
+// quelle que soit leur fonction.
+const requetePersonnelActif = () => supabase.from('users')
+  .select('*')
+  .neq('role', 'directeur')
+  .eq('actif', true)
+  .order('nom')
+  .order('prenom')
+
+const enrichirPersonnel = (personnel, affectations) => personnel.map(p => ({
+  ...p,
+  role: p.fonction === 'cuisiniere' ? 'cuisiniere' : p.role,
+  classe_ids: affectations.filter(link => link.user_id === p.id).map(link => link.classe_id),
+}))
+
 // Référentiel par défaut des postes (seed si app_state rh/postes est vide).
 // Doit rester aligné avec SALAIRES_DETAIL de public/comptabilite.html.
 const DEFAULT_POSTES = [
@@ -166,6 +183,8 @@ export default function DirecteurApp({ user, onLogout }) {
   const [rechercheSyntheseEleves, setRechercheSyntheseEleves] = useState('')
   const prepRefreshEnVol = useRef(false)
   const prepRefreshEnAttente = useRef(false)
+  const personnelRefreshEnVol = useRef(false)
+  const personnelRefreshEnAttente = useRef(false)
 
   const rechargerPreparations = async () => {
     if (prepRefreshEnVol.current) {
@@ -182,6 +201,44 @@ export default function DirecteurApp({ user, onLogout }) {
       } while (prepRefreshEnAttente.current)
     } finally {
       prepRefreshEnVol.current = false
+    }
+  }
+
+  // Recharge seulement le registre du personnel. Cette voie courte sert aux
+  // changements en direct : elle évite de rappeler toutes les requêtes du
+  // tableau de bord quand un compte vient d'être créé sur un autre appareil.
+  const rechargerPersonnel = async () => {
+    if (personnelRefreshEnVol.current) {
+      personnelRefreshEnAttente.current = true
+      return
+    }
+    personnelRefreshEnVol.current = true
+    try {
+      do {
+        personnelRefreshEnAttente.current = false
+        const [personnelRes, affectationsRes] = await Promise.all([
+          requetePersonnelActif(),
+          supabase.from('prof_classes').select('*'),
+        ])
+
+        const enEchec = [
+          personnelRes.error ? 'personnel' : null,
+          affectationsRes.error ? 'affectations' : null,
+        ].filter(Boolean)
+        setBlocsEnEchec(actuels => [
+          ...actuels.filter(nom => nom !== 'personnel' && nom !== 'affectations'),
+          ...enEchec,
+        ])
+
+        if (!personnelRes.error) {
+          const personnel = Array.isArray(personnelRes.data) ? personnelRes.data : []
+          const affectations = Array.isArray(affectationsRes.data) ? affectationsRes.data : []
+          setProfs(enrichirPersonnel(personnel, affectations))
+          setStats(actuelles => ({ ...actuelles, profs: personnel.length }))
+        }
+      } while (personnelRefreshEnAttente.current)
+    } finally {
+      personnelRefreshEnVol.current = false
     }
   }
 
@@ -462,7 +519,7 @@ export default function DirecteurApp({ user, onLogout }) {
     try {
       const currentMoisStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       const results = await Promise.all([
-        supabase.from('users').select('*').neq('role','directeur').eq('actif',true),
+        requetePersonnelActif(),
         supabase.from('eleves').select(CHAMPS_ELEVE_AVEC_CLASSE).eq('actif',true),
         supabase.from('classes').select('*').order('ordre'),
         supabase.from('periodes').select('*').order('ordre'),
@@ -583,12 +640,7 @@ export default function DirecteurApp({ user, onLogout }) {
       })
       setCheckpoints(cp)
       
-      const enrichedProfs = u.map(p => ({
-        ...p,
-        role: p.fonction === 'cuisiniere' ? 'cuisiniere' : p.role,
-        classe_ids: pc.filter(link => link.user_id === p.id).map(link => link.classe_id)
-      }))
-      setProfs(enrichedProfs)
+      setProfs(enrichirPersonnel(u, pc))
       
       if (cl.length > 0) setNewEleve(p => ({ ...p, classe_id: cl[0].id }))
 
@@ -668,6 +720,32 @@ export default function DirecteurApp({ user, onLogout }) {
       setChargement(false)
     }
   }
+
+  // Un compte créé par la Direction doit apparaître dans une session du
+  // Responsable administratif déjà ouverte. Realtime assure la mise à jour
+  // immédiate ; le retour dans l'application et un contrôle périodique court
+  // couvrent aussi les téléphones qui suspendent la connexion en arrière-plan.
+  useEffect(() => {
+    if (user.role !== 'responsable_administratif') return undefined
+
+    const synchroniser = () => rechargerPersonnel()
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') synchroniser()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+
+    const canal = supabase.channel(`personnel-administration-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, synchroniser)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'prof_classes' }, synchroniser)
+      .subscribe()
+
+    const controleSecours = window.setInterval(synchroniser, 30000)
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour)
+      window.clearInterval(controleSecours)
+      supabase.removeChannel(canal)
+    }
+  }, [user.id, user.role])
 
   const savePostes = async () => {
     if (user.role !== 'directeur') { setMsg('Modification des postes et salaires réservée au Directeur.'); return }
@@ -1549,8 +1627,8 @@ export default function DirecteurApp({ user, onLogout }) {
               <div className="card" style={{ marginBottom: 20, padding: '1.2rem', borderLeft: '4px solid #8e44ad' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>👥 Personnel enseignant</h3>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Sélectionnez un enseignant pour consulter sa fiche et toutes ses demandes RH.</div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: 'var(--dark)' }}>👥 Tout le personnel actif</h3>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>La liste se synchronise automatiquement avec les comptes créés par la Direction. Sélectionnez un membre pour consulter sa fiche et ses demandes RH.</div>
                   </div>
                 </div>
 
@@ -1605,7 +1683,7 @@ export default function DirecteurApp({ user, onLogout }) {
                       <button className="btn-sm" onClick={() => setPersonnelRHSelectionne(null)}>Fermer</button>
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 8 }}>Demandes RH ({demandes.length})</div>
-                    {demandes.length === 0 ? <div style={{ fontSize: 12, color: 'var(--muted)', padding: '12px 0' }}>Aucune demande enregistrée pour cet enseignant.</div> : demandes.map(d => (
+                    {demandes.length === 0 ? <div style={{ fontSize: 12, color: 'var(--muted)', padding: '12px 0' }}>Aucune demande enregistrée pour ce membre du personnel.</div> : demandes.map(d => (
                       <div key={d.id} id={`demande-${d.id}`} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><b style={{ fontSize: 13 }}>{d.type}</b><span style={{ fontSize: 10, fontWeight: 800, color: d.statut === 'Approuvée' ? 'var(--green)' : d.statut === 'Refusée' ? 'var(--red)' : 'var(--amber)' }}>{d.statut}</span></div>
                         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{d.date_soumission ? new Date(d.date_soumission).toLocaleString('fr-FR') : ''}{d.details?.montant ? ` · ${Number(d.details.montant).toLocaleString('fr-FR')} F` : ''}</div>
