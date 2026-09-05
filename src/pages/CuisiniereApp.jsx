@@ -26,6 +26,12 @@ const DAY_LABELS_EN = {
   Vendredi: 'Friday'
 }
 
+const JOURS_MENU = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi']
+const JOUR_VIDE = () => ({
+  entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '',
+  dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '',
+})
+
 // Exemple officiel de menu hebdomadaire haute gastronomie
 const SAMPLE_MENU_SEMAINE = {
   date_debut: "12/01/2026",
@@ -83,19 +89,55 @@ const SAMPLE_MENU_SEMAINE = {
   }
 }
 
-// Menus de la semaine vides par défaut
-const EMPTY_MENU_SEMAINE = {
-  date_debut: "12/01/2026",
-  date_fin: "16/01/2026",
-  dates_semaine: "12/01/2026 au 16/01/2026",
-  Lundi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
-  Mardi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
-  Mercredi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
-  Jeudi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' },
-  Vendredi: { entreeTitre: '', entreeDesc: '', platTitre: '', platDesc: '', dessertTitre: '', dessertDesc: '', gouterTitre: '', gouterDesc: '' }
+const getTodayString = () => new Date().toISOString().split('T')[0]
+
+const dateISO = date => {
+  const annee = date.getFullYear()
+  const mois = String(date.getMonth() + 1).padStart(2, '0')
+  const jour = String(date.getDate()).padStart(2, '0')
+  return `${annee}-${mois}-${jour}`
 }
 
-const getTodayString = () => new Date().toISOString().split('T')[0]
+const ajouterJours = (date, nombre) => {
+  const copie = new Date(date)
+  copie.setDate(copie.getDate() + nombre)
+  return copie
+}
+
+const lundiDe = valeur => {
+  const date = valeur instanceof Date ? new Date(valeur) : new Date(`${valeur}T12:00:00`)
+  const decalage = date.getDay() === 0 ? -6 : 1 - date.getDay()
+  return ajouterJours(date, decalage)
+}
+
+const datesMenuPourSemaine = lundiISO => {
+  const lundi = new Date(`${lundiISO}T12:00:00`)
+  const vendredi = ajouterJours(lundi, 4)
+  return {
+    date_debut: dateISO(lundi),
+    date_fin: dateISO(vendredi),
+    dates_semaine: `${lundi.toLocaleDateString('fr-FR', { day:'numeric', month:'long' })} au ${vendredi.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })}`,
+  }
+}
+
+const menuVidePourSemaine = lundiISO => ({
+  ...datesMenuPourSemaine(lundiISO),
+  ...Object.fromEntries(JOURS_MENU.map(jour => [jour, JOUR_VIDE()])),
+})
+
+const menuSansAgenda = menu => {
+  const menuActif = { ...(menu || {}) }
+  delete menuActif.agenda_semaines
+  return menuActif
+}
+
+const jourEstPrepare = menu => ['entree', 'plat', 'dessert', 'gouter']
+  .some(partie => String(menu?.[`${partie}Titre`] || '').trim())
+
+const dateDuJourMenu = (lundiISO, jour) => {
+  const index = Math.max(0, JOURS_MENU.indexOf(jour))
+  return ajouterJours(new Date(`${lundiISO}T12:00:00`), index)
+}
 
 const lireDateMenu = valeur => {
   const texte = String(valeur || '').trim()
@@ -216,6 +258,7 @@ export function FicheAlimentaire({ el, referentiel, compact = false }) {
 }
 
 export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' }) {
+  const semaineCourante = dateISO(lundiDe(new Date()))
   const [tab, setTab] = useState(initialTab)
   const [rhTab, setRhTab] = useState('dossier')
   // Plus de données de démonstration en état initial. Elles restaient à
@@ -225,10 +268,13 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
   const [erreurChargement, setErreurChargement] = useState('')
   const [allergenes, setAllergenes] = useState([])
   const [effectifJour, setEffectifJour] = useState(null)
-  const [analyseMenu, setAnalyseMenu] = useState(null)
-  const [menuSemaine, setMenuSemaine] = useState(EMPTY_MENU_SEMAINE)
+  const [, setAnalyseMenu] = useState(null)
+  const [lundiAgenda, setLundiAgenda] = useState(semaineCourante)
+  const [menusAgenda, setMenusAgenda] = useState({})
+  const [menuSemaine, setMenuSemaine] = useState(() => menuVidePourSemaine(semaineCourante))
   const [ficheMarche, setFicheMarche] = useState(EMPTY_FICHE_MARCHE)
   const [jourSelectionne, setJourSelectionne] = useState('Lundi')
+  const [editionMenuOuverte, setEditionMenuOuverte] = useState(false)
   const [searchEleve, setSearchEleve] = useState('')
   const [filterClasse, setFilterClasse] = useState('ALL')
   const [msg, setMsg] = useState('')
@@ -302,15 +348,17 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
       // Charger le menu de la semaine depuis Supabase
       const { data: stateMenu } = await supabase.from('app_state').select('value').eq('key', 'cantine_menu_semaine').single()
       if (stateMenu && stateMenu.value) {
-        const mergedMenu = {
-          date_debut: stateMenu.value.date_debut || '12/01/2026',
-          date_fin: stateMenu.value.date_fin || '16/01/2026',
-          dates_semaine: stateMenu.value.dates_semaine || '12/01/2026 au 16/01/2026',
-          ...stateMenu.value
-        }
-        if (!mergedMenu.date_debut) mergedMenu.date_debut = '12/01/2026'
-        if (!mergedMenu.date_fin) mergedMenu.date_fin = '16/01/2026'
-        setMenuSemaine(mergedMenu)
+        const valeur = stateMenu.value
+        const dateHistorique = lireDateMenu(valeur.date_debut)
+        const cleHistorique = dateHistorique ? dateISO(lundiDe(dateHistorique)) : semaineCourante
+        // Compatibilité ascendante : le menu unique historique devient la
+        // première semaine de l'agenda, sans perdre une seule saisie.
+        const agenda = { ...(valeur.agenda_semaines || {}) }
+        if (!agenda[cleHistorique]) agenda[cleHistorique] = menuSansAgenda(valeur)
+        const semaineActive = agenda[semaineCourante] || menuVidePourSemaine(semaineCourante)
+        setMenusAgenda(agenda)
+        setLundiAgenda(semaineCourante)
+        setMenuSemaine(semaineActive)
       }
 
       // Charger la fiche du marché depuis Supabase
@@ -458,6 +506,36 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
     setTimeout(() => setMsg(''), 3000)
   }
 
+  const menuPourSemaine = (menu, lundiISO = lundiAgenda) => ({
+    ...menuVidePourSemaine(lundiISO),
+    ...menuSansAgenda(menu),
+    ...datesMenuPourSemaine(lundiISO),
+  })
+
+  const changerSemaineAgenda = nouvelleSemaine => {
+    const nouveauLundi = dateISO(lundiDe(nouvelleSemaine))
+    const agendaAvecSaisie = {
+      ...menusAgenda,
+      [lundiAgenda]: menuPourSemaine(menuSemaine, lundiAgenda),
+    }
+    setMenusAgenda(agendaAvecSaisie)
+    setLundiAgenda(nouveauLundi)
+    setMenuSemaine(agendaAvecSaisie[nouveauLundi] || menuVidePourSemaine(nouveauLundi))
+    setJourSelectionne('Lundi')
+    setEditionMenuOuverte(false)
+    setAnalyseMenu(null)
+  }
+
+  const decalerSemaineAgenda = nombre => {
+    const lundi = ajouterJours(new Date(`${lundiAgenda}T12:00:00`), nombre * 7)
+    changerSemaineAgenda(lundi)
+  }
+
+  const ouvrirPreparationMenu = jour => {
+    setJourSelectionne(jour)
+    setEditionMenuOuverte(true)
+  }
+
   // Sauvegarder le menu de la semaine
   // ═══════════════════════════════════════════════════════════════════
   // COMPARAISON MENU / RESTRICTIONS — V2.1 §14
@@ -524,41 +602,42 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
     }
   }
 
-  const saveMenuSemaine = async (updatedMenu = menuSemaine, options = {}) => {
-    setMenuSemaine(updatedMenu)
+  const saveMenuSemaine = async (updatedMenu = menuSemaine) => {
+    const menuActif = menuPourSemaine(updatedMenu)
+    const nouvelAgenda = { ...menusAgenda, [lundiAgenda]: menuActif }
+    const valeurServeur = { ...menuActif, agenda_semaines: nouvelAgenda }
+    setMenuSemaine(menuActif)
+    setMenusAgenda(nouvelAgenda)
 
     // L'analyse précède l'enregistrement — c'est la lettre du §14 : l'alerte
-    // vient AVANT la validation, pas après. `sansAnalyse` sert aux champs de
-    // date, qui écrivent à la frappe et ne changent aucun plat.
-    if (!options.sansAnalyse) {
-      const a = await analyserMenu(updatedMenu)
-      setAnalyseMenu(a)
+    // vient AVANT la validation, pas après.
+    const a = await analyserMenu(menuActif)
+    setAnalyseMenu(a)
 
-      if (a.erreur) {
-        alert("⚠️ La vérification des allergies n'a pas pu être effectuée :\n\n" + a.erreur +
-              "\n\nLe menu n'a pas été enregistré. Sans cette vérification, rien ne garantit " +
-              "qu'il convient à tous les enfants.")
-        return false
+    if (a.erreur) {
+      alert("⚠️ La vérification des allergies n'a pas pu être effectuée :\n\n" + a.erreur +
+            "\n\nLe menu n'a pas été enregistré. Sans cette vérification, rien ne garantit " +
+            "qu'il convient à tous les enfants.")
+      return false
+    }
+
+    if (a.conflits.length > 0) {
+      const parEleve = {}
+      for (const c of a.conflits) {
+        const k = `${c.prenom} ${c.nom} (${c.classe})`
+        parEleve[k] = parEleve[k] || []
+        parEleve[k].push(`${c.jour} · ${c.plat} → ${c.allergene}`)
       }
+      const detail = Object.entries(parEleve)
+        .map(([e, l]) => `• ${e}\n    ${l.join('\n    ')}`).join('\n')
 
-      if (a.conflits.length > 0) {
-        const parEleve = {}
-        for (const c of a.conflits) {
-          const k = `${c.prenom} ${c.nom} (${c.classe})`
-          parEleve[k] = parEleve[k] || []
-          parEleve[k].push(`${c.jour} · ${c.plat} → ${c.allergene}`)
-        }
-        const detail = Object.entries(parEleve)
-          .map(([e, l]) => `• ${e}\n    ${l.join('\n    ')}`).join('\n')
-
-        const ok = window.confirm(
-          `⛔ MENU INCOMPATIBLE — ${a.conflits.length} alerte(s) sur ${Object.keys(parEleve).length} enfant(s)\n\n` +
-          detail +
-          `\n\nPrévoyez une alternative pour ces enfants, ou modifiez le plat.\n\n` +
-          `Enregistrer quand même ? L'alerte restera affichée.`
-        )
-        if (!ok) return false
-      }
+      const ok = window.confirm(
+        `⛔ MENU INCOMPATIBLE — ${a.conflits.length} alerte(s) sur ${Object.keys(parEleve).length} enfant(s)\n\n` +
+        detail +
+        `\n\nPrévoyez une alternative pour ces enfants, ou modifiez le plat.\n\n` +
+        `Enregistrer quand même ? L'alerte restera affichée.`
+      )
+      if (!ok) return false
     }
 
     try {
@@ -567,13 +646,13 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
       // Le client Supabase ne lève pas d'exception : il rend `{ error }`. Le
       // `catch` ci-dessous ne se déclenchait donc jamais sur un refus du
       // serveur, et « ✅ Menu enregistré » s'affichait quand même.
-      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: updatedMenu, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: valeurServeur, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
       if (error) {
         alert("Le menu n'a pas été enregistré : " + error.message
           + "\n\nIl reste affiché sur cet appareil. Signalez-le à la direction.")
         return false
       }
-      setMsg('✅ Menu de la semaine enregistré.')
+      setMsg(`✅ Menu de la semaine du ${new Date(`${lundiAgenda}T12:00:00`).toLocaleDateString('fr-FR', { day:'numeric', month:'long' })} enregistré.`)
       setTimeout(() => setMsg(''), 4000)
       return true
     } catch (e) {
@@ -591,16 +670,20 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
 
   // Effacer tout le menu de la semaine
   const clearMenuSemaine = async () => {
-    if (!confirm('Voulez-vous effacer toutes les données du menu de la semaine ?')) return
-    setMenuSemaine(EMPTY_MENU_SEMAINE)
+    if (!confirm('Voulez-vous effacer le menu de cette semaine ? Les autres semaines resteront intactes.')) return
+    const menuVide = menuVidePourSemaine(lundiAgenda)
+    const nouvelAgenda = { ...menusAgenda, [lundiAgenda]: menuVide }
+    const valeurServeur = { ...menuVide, agenda_semaines: nouvelAgenda }
+    setMenuSemaine(menuVide)
+    setMenusAgenda(nouvelAgenda)
     try {
       // Le client Supabase ne lève pas : il rend `{ error }`. Ce `try/catch`
       // n'attrapait donc rien, et l'écran annonçait « entièrement effacés »
       // alors que le serveur gardait le menu — que le rechargement suivant
       // faisait réapparaître.
-      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: EMPTY_MENU_SEMAINE, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
+      const { error } = await supabase.from('app_state').upsert({ app: 'cantine', key: 'cantine_menu_semaine', value: valeurServeur, updated_at: new Date().toISOString() }, { onConflict: 'app,key' })
       if (error) throw error
-      setMsg('🗑️ Les menus de la semaine ont été entièrement effacés.')
+      setMsg('🗑️ Le menu de cette semaine a été effacé.')
       setTimeout(() => setMsg(''), 3000)
     } catch (e) {
       console.error(e)
@@ -953,7 +1036,7 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
             onClick={() => setTab('preparation')}
             style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '9px 16px', borderRadius: 12, fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <span>🍳 3. Préparation du Menu</span>
+            <span>🗓️ 3. Agenda &amp; Préparation des Menus</span>
           </button>
           <button
             className={`top-nav-item ${tab === 'menu_jour' ? 'active' : ''}`}
@@ -1324,92 +1407,80 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
           <div>
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🍳 Session 3 : Saisie &amp; Élaboration du Menu de la Semaine</h1>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Saisissez les titres poétiques et les descriptions appétissantes pour chaque jour de la semaine.</p>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0d2a3b', margin: '0 0 4px 0' }}>🗓️ Agenda &amp; préparation des menus</h1>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Choisissez une semaine, puis cliquez sur un jour pour préparer son menu.</p>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap:'wrap', maxWidth:'100%' }}>
                 <button
                   className="btn-sm"
                   onClick={loadSampleMenu}
                   style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706', border: '1px solid #f59e0b', padding: '10px 16px', borderRadius: 10, fontWeight: 800 }}
                 >
-                  ✨ Charger l'Exemple Officiel (12 au 16 Janvier)
+                  ✨ Charger un exemple
                 </button>
                 <button
                   className="btn-sm"
                   onClick={clearMenuSemaine}
                   style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', padding: '10px 16px', borderRadius: 10, fontWeight: 800 }}
                 >
-                  🗑️ Effacer Tout
+                  🗑️ Effacer cette semaine
                 </button>
                 <button
                   className="btn btn-primary"
                   onClick={() => saveMenuSemaine()}
                   style={{ background: 'linear-gradient(135deg, #7bc142, #5a9a2e)', color: '#0d2a3b', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 900, boxShadow: '0 4px 14px rgba(123,193,66,0.3)' }}
                 >
-                  💾 Enregistrer &amp; Publier
+                  💾 Enregistrer la semaine
                 </button>
               </div>
             </div>
 
-            {/* Saisie des dates de début et fin de la semaine */}
-            <div className="card" style={{ padding: '20px', marginBottom: 20, background: '#fff', borderRadius: 16 }}>
-              <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 900, color: '#d97706' }}>📅 Période du Menu de Restauration</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                <div>
-                  <label className="form-label" style={{ fontWeight: 800 }}>Date de Début (Lundi)</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine.date_debut || '12/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value }, { sansAnalyse: true })}
-                    placeholder="Ex: 12/01/2026"
-                    style={{ fontWeight: 800 }}
-                  />
+            {!editionMenuOuverte && (
+              <div className="card" style={{ padding: 'clamp(14px, 3vw, 22px)', marginBottom: 20, background: '#fff', borderRadius: 18 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap', marginBottom:18 }}>
+                  <button type="button" className="btn-sm" onClick={() => decalerSemaineAgenda(-1)} style={{ minHeight:42 }}>← Semaine précédente</button>
+                  <div style={{ textAlign:'center', flex:'1 1 220px' }}>
+                    <div style={{ fontSize:11, fontWeight:900, color:'#d97706', textTransform:'uppercase', letterSpacing:'.08em' }}>Planning hebdomadaire</div>
+                    <div style={{ fontSize:18, fontWeight:900, color:'#0d2a3b', marginTop:3 }}>{menuSemaine.dates_semaine}</div>
+                    <label style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:8, fontSize:11, color:'#64748b', fontWeight:800 }}>
+                      Aller à la semaine du
+                      <input type="date" value={lundiAgenda} onChange={e => e.target.value && changerSemaineAgenda(e.target.value)} style={{ border:'1px solid #cbd5e1', borderRadius:9, padding:'7px 9px', fontWeight:800 }} />
+                    </label>
+                  </div>
+                  <button type="button" className="btn-sm" onClick={() => decalerSemaineAgenda(1)} style={{ minHeight:42 }}>Semaine suivante →</button>
                 </div>
-                <div>
-                  <label className="form-label" style={{ fontWeight: 800 }}>Date de Fin (Vendredi)</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine.date_fin || '16/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value }, { sansAnalyse: true })}
-                    placeholder="Ex: 16/01/2026"
-                    style={{ fontWeight: 800 }}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontWeight: 800 }}>Intitulé complet de la période</label>
-                  <input
-                    className="form-input"
-                    value={menuSemaine.dates_semaine || '12 au 16 janvier 2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, dates_semaine: e.target.value }, { sansAnalyse: true })}
-                    placeholder="Ex: 12 au 16 janvier 2026"
-                    style={{ fontWeight: 800 }}
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Selecteur de Jour */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto' }}>
-              {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(j => (
-                <button
-                  key={j}
-                  className={`btn-sm ${jourSelectionne === j ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => setJourSelectionne(j)}
-                  style={{ flex: 1, padding: '12px', fontSize: 14, fontWeight: 800, borderRadius: 12, textAlign: 'center' }}
-                >
-                  📅 {j}
-                </button>
-              ))}
-            </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap:10 }}>
+                  {JOURS_MENU.map(jour => {
+                    const date = dateDuJourMenu(lundiAgenda, jour)
+                    const item = menuSemaine[jour] || {}
+                    const prepare = jourEstPrepare(item)
+                    const scheme = DAY_COLOR_SCHEMES[jour]
+                    return (
+                      <button type="button" key={jour} onClick={() => ouvrirPreparationMenu(jour)}
+                        style={{ border:`2px solid ${prepare ? scheme.headerBg : '#e2e8f0'}`, background:prepare ? scheme.cardBg : '#f8fafc', borderRadius:16, padding:14, textAlign:'left', cursor:'pointer', minHeight:150, display:'flex', flexDirection:'column', gap:7 }}>
+                        <span style={{ fontSize:11, fontWeight:900, color:scheme.headerBg, textTransform:'uppercase', letterSpacing:'.08em' }}>{jour}</span>
+                        <b style={{ fontSize:24, color:'#0d2a3b' }}>{date.getDate()}</b>
+                        <span style={{ fontSize:11, color:'#64748b', textTransform:'capitalize' }}>{date.toLocaleDateString('fr-FR', { month:'long', year:'numeric' })}</span>
+                        <span style={{ marginTop:'auto', fontSize:11, fontWeight:900, color:prepare ? '#166534' : '#b45309' }}>{prepare ? '✓ Menu préparé' : '+ Préparer le menu'}</span>
+                        {item.platTitre && <span style={{ fontSize:11, color:'#475569', lineHeight:1.25 }}>{item.platTitre}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div style={{ marginTop:14, fontSize:12, color:'#64748b', textAlign:'center' }}>Les menus déjà enregistrés restent consultables en revenant sur leur semaine.</div>
+              </div>
+            )}
 
             {/* Formulaire du Jour Sélectionné */}
-            <div className="card" style={{ padding: '24px', borderRadius: 16 }}>
+            {editionMenuOuverte && <div>
+              <button type="button" className="btn-sm" onClick={() => setEditionMenuOuverte(false)} style={{ marginBottom:12 }}>← Retour à l’agenda des menus</button>
+              <div className="card" style={{ padding: 'clamp(16px, 4vw, 24px)', borderRadius: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '2px solid var(--border)', paddingBottom: 14, marginBottom: 20 }}>
                 <div style={{ fontSize: 28 }}>🍽️</div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0d2a3b' }}>Composition des Plats du {jourSelectionne}</h3>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Renseignez le titre gourmand et la description détaillée.</div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0d2a3b' }}>Préparation du menu du {jourSelectionne}</h3>
+                  <div style={{ fontSize: 12, color: '#64748b', textTransform:'capitalize' }}>{dateDuJourMenu(lundiAgenda, jourSelectionne).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} · Renseignez chaque service comme une fiche de préparation.</div>
                 </div>
               </div>
 
@@ -1534,7 +1605,15 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:10, flexWrap:'wrap', marginTop:14 }}>
+                <button type="button" className="btn-sm" onClick={() => setEditionMenuOuverte(false)}>Annuler</button>
+                <button type="button" className="btn btn-primary" onClick={async () => { if (await saveMenuSemaine()) setEditionMenuOuverte(false) }}
+                  style={{ background:'linear-gradient(135deg, #7bc142, #5a9a2e)', color:'#0d2a3b', border:'none', padding:'11px 18px', borderRadius:10, fontWeight:900 }}>
+                  💾 Enregistrer le menu du {jourSelectionne}
+                </button>
+              </div>
+            </div>}
           </div>
         )}
 
@@ -1564,33 +1643,17 @@ export default function CuisiniereApp({ user, onLogout, initialTab = 'eleves' })
               </div>
             </div>
 
-            {/* BARRE DIRECTE DE Saisie/Modification des dates de l'affiche */}
+            {/* La période vient désormais de l'agenda : une deuxième saisie
+                ici pourrait publier l'affiche d'une autre semaine. */}
             <div className="card" style={{ padding: '14px 16px', marginBottom: 20, background: '#ffffff', borderRadius: 16, borderLeft: '5px solid #0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', width: '100%', maxWidth: '100%' }}>
-                <span style={{ fontSize: 13, fontWeight: 900, color: '#0d2a3b' }}>📅 Dates de la Semaine sur l'Affiche :</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#64748b' }}>Du</span>
-                  <input
-                    className="form-input"
-                    value={menuSemaine.date_debut || '12/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_debut: e.target.value }, { sansAnalyse: true })}
-                    placeholder="12/01/2026"
-                    style={{ width: 110, fontWeight: 800, color: '#0d2a3b', textAlign: 'center', padding: '6px 8px' }}
-                  />
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#64748b' }}>Au</span>
-                  <input
-                    className="form-input"
-                    value={menuSemaine.date_fin || '16/01/2026'}
-                    onChange={e => saveMenuSemaine({ ...menuSemaine, date_fin: e.target.value }, { sansAnalyse: true })}
-                    placeholder="16/01/2026"
-                    style={{ width: 110, fontWeight: 800, color: '#0d2a3b', textAlign: 'center', padding: '6px 8px' }}
-                  />
-                </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#0d2a3b' }}>📅 Semaine choisie dans l’agenda</div>
+                <div style={{ fontSize: 12, color:'#64748b', marginTop:3 }}>{menuSemaine.dates_semaine}</div>
               </div>
-
               <div style={{ fontSize: 12, fontWeight: 800, color: '#047857', background: '#f0fdf4', padding: '6px 12px', borderRadius: 8, border: '1px solid #bbf7d0', maxWidth: '100%', wordBreak: 'break-word' }}>
                 ✨ {getPosterMenuDateTitle(menuSemaine)}
               </div>
+              <button type="button" className="btn-sm" onClick={() => { setTab('preparation'); setEditionMenuOuverte(false) }}>Choisir une autre semaine</button>
             </div>
 
             {/* AFFICHE INTÉGRALE HEBDOMADAIRE (100% FLUIDE ET COMPATIBLE MOBILE) */}
