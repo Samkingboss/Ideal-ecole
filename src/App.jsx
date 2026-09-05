@@ -54,12 +54,15 @@ class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const english = Boolean(this.props.english)
       return (
         <div style={{ padding: 24, textAlign: 'center', fontFamily: 'sans-serif', background: '#f8fafc', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🏫</div>
-          <h2 style={{ color: '#0d2a3b', margin: '0 0 8px 0' }}>IDEAL École — Diagnostic de Secours</h2>
+          <h2 style={{ color: '#0d2a3b', margin: '0 0 8px 0' }}>{english ? 'IDEAL School — Recovery' : 'IDEAL École — Diagnostic de Secours'}</h2>
           <p style={{ color: '#64748b', fontSize: 13, maxWidth: 420, margin: '0 0 20px 0' }}>
-            Une légère indisponibilité d'affichage est survenue. Cliquez ci-dessous pour vous reconnecter immédiatement.
+            {english
+              ? 'A display problem occurred. Select the button below to sign in again immediately.'
+              : "Une légère indisponibilité d'affichage est survenue. Cliquez ci-dessous pour vous reconnecter immédiatement."}
           </p>
           <div style={{ background: '#f1f5f9', padding: '12px 16px', borderRadius: 8, fontSize: 11, color: '#ef4444', marginBottom: 20, textAlign: 'left', maxWidth: 500, overflowX: 'auto', fontFamily: 'monospace' }}>
             {this.state.error?.toString()}
@@ -71,7 +74,7 @@ class ErrorBoundary extends Component {
             }}
             style={{ background: 'linear-gradient(135deg, #00a8e0, #0078b4)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 800, cursor: 'pointer', fontSize: 14 }}
           >
-            🔄 Réinitialiser &amp; Reconnecter
+            {english ? '🔄 Reset & Sign in again' : '🔄 Réinitialiser & Reconnecter'}
           </button>
         </div>
       )
@@ -203,8 +206,10 @@ export default function App() {
         'responsable_administratif': 'Administration',
         'cuisiniere': 'Cuisine & Cantine'
       }
-      const titreMaternelle = poste.startsWith('assistante-') ? 'Assistante Maternelle'
-        : poste.startsWith('maitresse-') ? 'Maîtresse Maternelle' : null
+      const english = posteEnAnglais(user)
+      const titreMaternelle = poste.startsWith('assistante-') ? (english ? 'Kindergarten Teaching Assistant' : 'Assistante Maternelle')
+        : poste.startsWith('maitresse-') ? (english ? 'Kindergarten Teacher' : 'Maîtresse Maternelle') : null
+      if (english && user.role === 'professeur') roleMap.professeur = 'Teacher Portal'
       document.title = `${titreMaternelle || roleMap[user.role] || 'Portail'} - IDEAL EcoleApp`
     }
   }, [user])
@@ -260,7 +265,7 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary key={interfaceAnglaise ? 'interface-en' : 'interface-fr'}>
+    <ErrorBoundary key={interfaceAnglaise ? 'interface-en' : 'interface-fr'} english={interfaceAnglaise}>
       {renderApp()}
       {user && user.role !== 'professeur' && !/^(maitresse|assistante)-/.test(String(user.fonction || '').toLowerCase()) && <SignalementIncident user={user} flottant />}
     </ErrorBoundary>

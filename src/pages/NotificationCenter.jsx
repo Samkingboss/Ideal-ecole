@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { APP_NOTIFS } from '../lib/notifications'
 import { abonnementPushActif, activerNotificationsPush } from '../lib/push'
+import { posteEnAnglais, traduireInterface } from '../lib/interfaceLanguage'
 
 // Les notifications lues sont mémorisées par utilisateur, sur son appareil.
 // Sans cela, la relecture toutes les 6 secondes recharge la version stockée
@@ -36,6 +37,8 @@ const CADENCE_MIN = 6000
 const CADENCE_MAX = 60000
 
 export default function NotificationCenter({ user, role, onNavigateTab }) {
+  const anglais = posteEnAnglais(user)
+  const ui = value => anglais ? traduireInterface(value) : value
   const enVol = useRef(false)
   const cadence = useRef(CADENCE_MIN)
   const [open, setOpen] = useState(false)
@@ -137,8 +140,8 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     try {
       const { registration } = await activerNotificationsPush(user, role || user?.role)
       setPushStatus('granted')
-      await registration.showNotification('IDEAL École', {
-        body: 'Les notifications sont activées, même lorsque l’application est fermée.',
+      await registration.showNotification(anglais ? 'IDEAL School' : 'IDEAL École', {
+        body: ui('Les notifications sont activées, même lorsque l’application est fermée.'),
         icon: '/icons/icon-192.png',
         data: { url: '/' }
       })
@@ -308,11 +311,11 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
     if (!isoStr) return ''
     const d = new Date(isoStr)
     const diffMin = Math.floor((Date.now() - d.getTime()) / 60000)
-    if (diffMin < 1) return 'À l\'instant'
-    if (diffMin < 60) return `Il y a ${diffMin} min`
+    if (diffMin < 1) return anglais ? 'Just now' : 'À l\'instant'
+    if (diffMin < 60) return anglais ? `${diffMin} min ago` : `Il y a ${diffMin} min`
     const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return `Il y a ${diffH}h`
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+    if (diffH < 24) return anglais ? `${diffH}h ago` : `Il y a ${diffH}h`
+    return d.toLocaleDateString(anglais ? 'en-GB' : 'fr-FR', { day: '2-digit', month: '2-digit' })
   }
 
   return (
@@ -474,12 +477,12 @@ export default function NotificationCenter({ user, role, onNavigateTab }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                       <div style={{ fontWeight: n.lu ? 700 : 900, fontSize: 13, color: '#0d2a3b' }}>
                         {!n.lu && <span style={{ display: 'inline-block', width: 8, height: 8, background: '#00a8e0', borderRadius: '50%', marginRight: 6 }}></span>}
-                        {n.titre}
+                        {ui(n.titre)}
                       </div>
                       <span style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', fontWeight: 600 }}>{formatTime(n.date)}</span>
                     </div>
                     <div style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 1.4 }}>
-                      {n.message}
+                      {ui(n.message)}
                     </div>
                   </div>
                 ))

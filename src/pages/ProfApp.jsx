@@ -29,6 +29,7 @@ import { classerDevoirs, devoirsSelectionnes, selectionRaccourci, aujourdHuiISO 
 import { coursDisponibles, coursDeReference, SANS_COURS, LIBELLE_SANS_COURS } from '../lib/coursAssocie'
 import { periodePourDate, periodesUtilisables, libellePeriode, MESSAGE_HORS_CALENDRIER } from '../lib/periodeScolaire'
 import { pdfEnImages, estFichierPdf } from '../lib/pdfEnImages'
+import { posteEnAnglais } from '../lib/interfaceLanguage'
 
 const RECREE_CHECKS = [
   { id:'outils', label:'Outils pédagogiques rangés' },
@@ -106,6 +107,8 @@ function ListeFichier({ rang, nom, apercu, fichier, onMonter, onDescendre, onRet
 export default function ProfApp({ user, onLogout }) {
   const compteMaternelle = /^(maitresse|assistante)-/.test(String(user?.fonction || '').toLowerCase())
   const compteAssistante = /^assistante-/.test(String(user?.fonction || '').toLowerCase())
+  const interfaceAnglaise = posteEnAnglais(user)
+  const localeInterface = interfaceAnglaise ? 'en-GB' : 'fr-FR'
   const [activeProfSession, setActiveProfSession] = useState('emploi')
   const [tab, setTab] = useState('edt')
   const [loading, setLoading] = useState(true)
@@ -729,7 +732,7 @@ export default function ProfApp({ user, onLogout }) {
     const signature = `\n\n— ${user?.prenom || ''} ${user?.nom || ''}\nIdeal École Internationale Bilingue`
     let corps = ''
     if (msgType === 'comportement') {
-      const date = msgDetails.date ? new Date(`${msgDetails.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long' }) : "aujourd’hui"
+      const date = msgDetails.date ? new Date(`${msgDetails.date}T12:00:00`).toLocaleDateString(localeInterface, { weekday:'long', day:'2-digit', month:'long' }) : "aujourd’hui"
       const gravites = { mineur:'🟡 Mineur', modere:'🟠 Modéré', grave:'🔴 Grave' }
       const positif = msgDetails.nature?.includes('exemplaire')
       corps = `Chers parents de *${eleve.prenom} ${eleve.nom}* (${classe}),\n\n`
@@ -833,7 +836,7 @@ export default function ProfApp({ user, onLogout }) {
         </div>
         <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <NotificationCenter user={user} role="prof" onNavigateTab={naviguerDepuisNotification} />
-          <span className="role-badge role-professeur">{user.langue === 'en' ? 'English' : 'Français'}</span>
+          <span className="role-badge role-professeur">{interfaceAnglaise ? 'English' : 'Français'}</span>
           <button className="btn-logout" onClick={onLogout}>Déconnexion</button>
         </div>
       </div>
@@ -1053,7 +1056,7 @@ export default function ProfApp({ user, onLogout }) {
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
                           {p.groupe || ''}{p.groupe && p.date_cours ? ' · ' : ''}
-                          {p.date_cours ? `cours du ${new Date(p.date_cours + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` : ''}
+                          {p.date_cours ? `cours du ${new Date(p.date_cours + 'T00:00:00').toLocaleDateString(localeInterface, { weekday: 'long', day: 'numeric', month: 'long' })}` : ''}
                         </div>
 
                         {/* La remarque, lisible sans ouvrir quoi que ce soit. */}
@@ -1065,7 +1068,7 @@ export default function ProfApp({ user, onLogout }) {
 
                         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
                           Pour corriger : ouvrez la séance du {p.date_cours
-                            ? new Date(p.date_cours + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+                            ? new Date(p.date_cours + 'T00:00:00').toLocaleDateString(localeInterface, { day: 'numeric', month: 'long' })
                             : 'cours'} dans <b>Mon Emploi du Temps</b>.
                         </div>
                       </div>
@@ -1341,7 +1344,7 @@ export default function ProfApp({ user, onLogout }) {
                             background: actif ? 'var(--accent)' : 'var(--bg)',
                             color: actif ? '#04121b' : 'var(--muted)',
                           }}>
-                          {i === 0 ? 'Demain' : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
+                          {i === 0 ? 'Demain' : d.toLocaleDateString(localeInterface, { weekday: 'short', day: 'numeric' })}
                         </button>
                       )
                     })}
@@ -1354,7 +1357,7 @@ export default function ProfApp({ user, onLogout }) {
 
                   {newDevoir.aRendrePour && (
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                      Remise le <b>{new Date(newDevoir.aRendrePour + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</b>
+                      Remise le <b>{new Date(newDevoir.aRendrePour + 'T00:00:00').toLocaleDateString(localeInterface, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</b>
                     </div>
                   )}
                 </div>
@@ -1569,7 +1572,7 @@ export default function ProfApp({ user, onLogout }) {
                     </label>
                     {d.date_rendu && (
                       <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b' }}>
-                        ⏰ Pour le {new Date(d.date_rendu + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        ⏰ Pour le {new Date(d.date_rendu + 'T00:00:00').toLocaleDateString(localeInterface, { weekday: 'long', day: 'numeric', month: 'long' })}
                       </span>
                     )}
                   </div>
